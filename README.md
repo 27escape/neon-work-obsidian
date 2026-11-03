@@ -8,7 +8,7 @@ Everything runs **100% locally**: no network calls, no telemetry, no remote font
 
 | Plugin | What it does |
 |---|---|
-| **Neon Deck** | Dashboard, themes, live patterns, focus timer, quick capture, card explorer, concept graph, weekly review |
+| **Neon Deck** | Dashboard, themes, live patterns, quick capture, card explorer, concept graph, weekly review |
 | **Neon Tasks** | Tasks widget, Global tasks, the New note card, Fix properties |
 | **Neon Tickets** | Ticket view and pop-up, New ticket form, tracker, reminders, self-writing log, monthly counter |
 | **Neon Time** | Active time per category, manual entries, overtime, daily Time Log notes for an AI agent |
@@ -18,11 +18,12 @@ Neon Deck is the core. The other three plug their cards, capture targets and fac
 ## Features
 
 ### Dashboard (Neon Deck)
-- Focus timer, Vault pulse, Quick capture, Recently touched, Activity board, Tasks, Global tasks, Tickets and Time today on one page.
+- Totals, Vault pulse, Quick capture, Recently touched, Activity board, Tasks, Global tasks, Tickets and Time today on one page.
+- **One main pane.** A nav list at the top of the left sidebar (Dashboard, Cards, Tickets, Time, Graph) switches what the main pane shows. Notes open in that same pane, and Back / Forward move between them. No pile of pinned tabs.
 - The grid fills the window on any screen size; lists scroll inside their card, and narrow panes stack the cards.
 - Themes (Marathon, Cyberpunk, Brutal, Calm, Paper, Night shift, Phosphor, Blueprint), each in light and dark.
-- A live background pattern (Damascus, Meteorite, Topo, Circuit, Hex mesh, Datastream, Radar) that pauses when Obsidian isn't focused, during a focus session or with *Reduce motion* on.
-- A ticker with live facts, and a totals strip: time worked, days worked, tasks and tickets done, notes created, focus sessions.
+- A live background pattern (Damascus, Meteorite, Topo, Circuit, Hex mesh, Datastream, Radar) that pauses when Obsidian isn't focused or with *Reduce motion* on.
+- A ticker with live facts, and a Totals card: time worked, days worked, tasks and tickets done, notes created.
 - Quick capture from anywhere with `Ctrl+Shift+Space`: send to Task, Global task, Ticket or Time entry.
 - Card explorer with category chips and a *Revisit* reminder for notes you haven't opened in a while, plus a local concept graph.
 
@@ -37,7 +38,7 @@ Neon Deck is the core. The other three plug their cards, capture targets and fac
 
 ### Time (Neon Time)
 
-<img src="docs/screenshots/time-widget.png" alt="Time today widget" width="370" align="right">
+<img src="docs/screenshots/time-widget.png" alt="Time today widget" width="293" align="right">
 
 - Counts active time only while a note is the focused tab and you type, scroll or click. It stops after a configurable idle time.
 - Category comes from checkbox properties (`projects`, `school`, `admin`, `operations`) or tags. `untracked: true` notes are never logged.
@@ -62,13 +63,14 @@ Requires Obsidian 1.5.0 or later.
 ## For developers
 
 - **No build step.** Each plugin's `main.js` is the source; edit it and reload Obsidian (`Ctrl+R`).
-- **Shared helpers.** Lines 1–402 of every `main.js` are the same shared helper block (DOM helpers, modals, categories, daily notes, cross-plugin glue). Keep the four copies identical; `ND_VERSION` lives there too.
+- **Shared helpers.** Lines 1–423 of every `main.js` are the same shared helper block (DOM helpers, modals, categories, daily notes, cross-plugin glue). Keep the four copies identical; `ND_VERSION` lives there too.
 - **Plugins talk through Neon Deck's API** (`registerWidget`, `registerCapture`, `registerFacts`, …) and workspace events such as `neon:time-entry` and `neon:task-done`.
 - **Saved data** (`data.json` in each plugin folder) is personal and isn't in this repo.
 - To release a new version, bump `ND_VERSION`, the header comment and `manifest.json` in all four plugins.
 
 ## Release notes
 
+- [1.5.0](docs/release-notes/1.5.0.md): one main pane with sidebar nav, focus timer removed (Totals took its place), widget animations, graph restyle, duplicate-tab fix.
 - [1.4.1](docs/release-notes/1.4.1.md): dashboard fits the window; Neon Time fixes (nothing worked past 8h, untracked notes still tracked, midnight split and more).
 - [1.4.0](docs/release-notes/1.4.0.md): totals strip, Cyberpunk theme, sidebar navigator, Ops → Operations, and fixes.
 

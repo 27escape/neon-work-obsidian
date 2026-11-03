@@ -1,7 +1,7 @@
 'use strict';
 /*
- * Neon Deck — dashboard, themes, live patterns, focus timer, card explorer and concept graph.
- * Version 1.4.1 · made by yobzz + Claude.
+ * Neon Deck — dashboard, themes, live patterns, card explorer and concept graph.
+ * Version 1.5.0 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. Files are only written when you do something that writes.
@@ -14,9 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.4.1';
-/** Every view type owned by a Neon plugin (never reused for opening notes). */
-const NEON_VIEWS = new Set(['neon-deck-dashboard', 'neon-deck-cards', 'neon-deck-graph', 'neon-deck-tickets', 'neon-ticket', 'neon-time']);
+const ND_VERSION = '1.5.0';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };
@@ -42,6 +40,19 @@ function fmtMin(m) {
   const sign = m < 0 ? '−' : '';
   if (!h) return `${sign}${r}m`;
   return `${sign}${h}h${r ? ` ${pad(r)}m` : ''}`;
+}
+/** Count a number shown in el from `from` to `to` (ease-out). Shows `to` at once when they match or motion is reduced. */
+function countUp(el, from, to, fmt, ms = 700) {
+  if (from === to || prefersReducedMotion()) return el.setText(fmt(to));
+  const t0 = performance.now();
+  const step = (now) => {
+    if (!el.isConnected) return;
+    const k = Math.min(1, (now - t0) / ms);
+    el.setText(fmt(from + (to - from) * (1 - Math.pow(1 - k, 3))));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  el.setText(fmt(from));
+  requestAnimationFrame(step);
 }
 function icon(parent, name, cls = 'nd-ico') {
   const s = parent.createSpan({ cls });
@@ -299,12 +310,18 @@ async function createUnique(app, folder, name, content = '') {
   await ensureFolder(app, folder);
   return app.vault.create(uniquePath(app, folder, name), content);
 }
-/** Most recently used normal tab (never a Neon view or a pinned tab). */
+/**
+ * The main pane: the most recently used tab in the main area, Neon views included, so the
+ * dashboard, the other Neon views and notes all take turns in one pane (Back / Forward work).
+ * Never a pinned tab.
+ */
 function reusableLeaf(app) {
   const ws = app.workspace;
+  const recent = ws.getMostRecentLeaf(ws.rootSplit);
+  if (recent && !recent.pinned) return recent;
   const cands = [];
   ws.iterateRootLeaves((l) => {
-    if (!NEON_VIEWS.has(l.view.getViewType()) && !l.pinned) cands.push(l);
+    if (!l.pinned) cands.push(l);
   });
   cands.sort((a, b) => (b.activeTime || 0) - (a.activeTime || 0));
   return cands[0] || ws.getLeaf('tab');
@@ -317,15 +334,19 @@ function openFile(app, file, evt, line) {
   else leaf = reusableLeaf(app);
   return leaf.openFile(file, line != null ? { active: true, eState: { line } } : { active: true });
 }
+/** Show a view: 'tab' puts it in the main pane (no extra tabs); 'left' / 'right' in a sidebar. */
 async function activateView(app, type, where = 'tab') {
   const ws = app.workspace;
-  const inRoot = (l) => l.getRoot() === ws.rootSplit;
-  let leaf = ws.getLeavesOfType(type).find((l) => (where === 'tab' ? inRoot(l) : !inRoot(l)));
-  if (!leaf) {
-    if (where === 'left') leaf = ws.getLeftLeaf(false);
-    else if (where === 'right') leaf = ws.getRightLeaf(false);
-    else leaf = ws.getLeavesOfType('empty').find(inRoot) || ws.getLeaf('tab');
-    await leaf.setViewState({ type, active: true });
+  let leaf;
+  if (where === 'tab') {
+    leaf = reusableLeaf(app);
+    if (leaf.view.getViewType() !== type) await leaf.setViewState({ type, active: true });
+  } else {
+    leaf = ws.getLeavesOfType(type).find((l) => l.getRoot() !== ws.rootSplit);
+    if (!leaf) {
+      leaf = where === 'left' ? ws.getLeftLeaf(false) : ws.getRightLeaf(false);
+      await leaf.setViewState({ type, active: true });
+    }
   }
   await ws.revealLeaf(leaf);
   return leaf;
@@ -407,12 +428,11 @@ function numSetting(setting, obj, key, min, max, save) {
 const VIEW_DASH = 'neon-deck-dashboard';
 const VIEW_CARDS = 'neon-deck-cards';
 const VIEW_GRAPH = 'neon-deck-graph';
+/** Neon views that live in the main pane (folded into one pane once, see foldNeonTabs). */
+const MAIN_VIEWS = [VIEW_DASH, VIEW_CARDS, VIEW_GRAPH, 'neon-deck-tickets', 'neon-time'];
 
 const PALETTE = ['#c6e651', '#e5506a', '#7fb3c9', '#d9c56a', '#e4e6ea', '#b9a0d6', '#5fcf96', '#e08a5a', '#8f86b8', '#8f95a0'];
 const IMG_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif']);
-const RING_R = 88;
-const RING_C = 2 * Math.PI * RING_R;
-const MODE_LABEL = { focus: 'Focus', short: 'Short break', long: 'Long break' };
 
 const THEMES = ['marathon', 'cyberpunk', 'brutal', 'calm', 'paper', 'night', 'phosphor', 'blueprint'];
 const THEME_LABEL = {
@@ -450,16 +470,6 @@ const DEFAULT_SETTINGS = {
   coreFolder: 'Core',
   coreTidied: false,
   reviewFolder: 'Core/Reviews',
-  focusMinutes: 25,
-  shortBreak: 5,
-  longBreak: 15,
-  longEvery: 4,
-  autoStartBreaks: true,
-  autoStartFocus: false,
-  sound: true,
-  volume: 0.35,
-  dailyGoal: 8,
-  logToDaily: true,
   inboxPath: 'Core/Inbox.md',
   bridgeFolder: 'Core/Bridges',
   excludeFolders: 'Core/Templates',
@@ -472,8 +482,6 @@ const DEFAULT_SETTINGS = {
   graphMaxNodes: 120,
   graphWindow: 4,
   extraStopwords: '',
-  focusLog: [],
-  timerState: null,
 };
 /** 1.2 keys that moved to Neon Tickets / were removed; dropped after migration. */
 const OLD_KEYS = ['glass', 'intensity', 'styleVersion', 'stampDone'];
@@ -490,7 +498,8 @@ function sparkline(parent, values) {
   const max = Math.max(1, ...values);
   const pts = values.map((v, i) => `${((i / (values.length - 1)) * w).toFixed(1)},${(h - 2 - (v / max) * (h - 4)).toFixed(1)}`).join(' ');
   const svg = parent.createSvg('svg', { cls: 'nd-spark', attr: { viewBox: `0 0 ${w} ${h}`, width: w, height: h } });
-  svg.createSvg('polyline', { attr: { points: pts, fill: 'none', 'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } });
+  // pathLength 1: the line can be drawn in with CSS (stroke-dashoffset 1 -> 0)
+  svg.createSvg('polyline', { attr: { points: pts, pathLength: '1', fill: 'none', 'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } });
   return svg;
 }
 
@@ -989,142 +998,6 @@ class ForceSim {
 }
 
 /* ------------------------------------------------------------------ */
-/* Focus timer                                                         */
-/* ------------------------------------------------------------------ */
-
-class FocusTimer {
-  constructor(plugin) {
-    this.p = plugin;
-    this.listeners = new Set();
-    const s = plugin.settings.timerState || {};
-    this.mode = s.mode || 'focus';
-    this.total = s.total || this.duration(this.mode);
-    this.running = !!s.running;
-    this.endsAt = s.endsAt || 0;
-    this.remaining = s.remaining != null ? s.remaining : this.total;
-    this.cycle = s.cycle || 0;
-    this.label = s.label || '';
-    this.startedAt = s.startedAt || 0;
-  }
-  on(fn) {
-    this.listeners.add(fn);
-    return () => this.listeners.delete(fn);
-  }
-  emit() {
-    for (const fn of this.listeners) {
-      try {
-        fn();
-      } catch (e) {
-        console.error('Neon Deck timer listener', e);
-      }
-    }
-  }
-  duration(mode) {
-    const s = this.p.settings;
-    return (mode === 'focus' ? s.focusMinutes : mode === 'short' ? s.shortBreak : s.longBreak) * 60000;
-  }
-  timeLeft() {
-    return this.running ? Math.max(0, this.endsAt - Date.now()) : this.remaining;
-  }
-  persist() {
-    const { mode, total, running, endsAt, remaining, cycle, label, startedAt } = this;
-    this.p.settings.timerState = { mode, total, running, endsAt, remaining, cycle, label, startedAt };
-    this.p.saveSettings();
-  }
-  start() {
-    if (this.running) return;
-    if (this.remaining <= 0) this.remaining = this.total;
-    this.endsAt = Date.now() + this.remaining;
-    if (!this.startedAt) this.startedAt = Date.now();
-    this.running = true;
-    this.persist();
-    this.emit();
-  }
-  pause() {
-    if (!this.running) return;
-    this.remaining = this.timeLeft();
-    this.running = false;
-    this.persist();
-    this.emit();
-  }
-  toggle() {
-    if (this.running) this.pause();
-    else this.start();
-  }
-  reset() {
-    this.running = false;
-    this.total = this.duration(this.mode);
-    this.remaining = this.total;
-    this.startedAt = 0;
-    this.persist();
-    this.emit();
-  }
-  setMode(m) {
-    this.mode = m;
-    this.reset();
-  }
-  setLabel(l) {
-    this.label = l;
-    this.persist();
-  }
-  adjust(min) {
-    const d = min * 60000;
-    if (this.running) {
-      const left = this.endsAt - Date.now();
-      const nl = clamp(left + d, 60000, 180 * 60000);
-      this.endsAt += nl - left;
-      this.total = Math.max(60000, this.total + (nl - left));
-    } else {
-      const fresh = this.remaining === this.total;
-      this.remaining = clamp(this.remaining + d, 60000, 180 * 60000);
-      this.total = fresh ? this.remaining : Math.max(this.total, this.remaining);
-    }
-    this.persist();
-    this.emit();
-  }
-  skip() {
-    this.complete(false);
-  }
-  tick() {
-    if (this.running && this.timeLeft() <= 0) this.complete(true);
-    else if (this.running) this.emit();
-  }
-  async complete(natural) {
-    if (this.completing) return;
-    this.completing = true;
-    try {
-      await this.finishPhase(natural);
-    } finally {
-      this.completing = false;
-    }
-  }
-  async finishPhase(natural) {
-    const s = this.p.settings;
-    const wasFocus = this.mode === 'focus';
-    if (wasFocus) {
-      const mins = Math.round((natural ? this.total : this.total - this.timeLeft()) / 60000);
-      if (mins >= 1) await this.p.logFocus(mins, this.label, this.startedAt || Date.now() - mins * 60000);
-      if (natural || mins >= 1) this.cycle++;
-    }
-    if (natural) {
-      this.p.chime(wasFocus);
-      new Notice(wasFocus ? '🍬 Focus session complete — take a break!' : '⚡ Break is over — back into it!');
-    }
-    const next = wasFocus ? (this.cycle > 0 && this.cycle % s.longEvery === 0 ? 'long' : 'short') : 'focus';
-    this.mode = next;
-    this.running = false;
-    this.total = this.duration(next);
-    this.remaining = this.total;
-    this.startedAt = 0;
-    if (natural && ((wasFocus && s.autoStartBreaks) || (!wasFocus && s.autoStartFocus))) this.start();
-    else {
-      this.persist();
-      this.emit();
-    }
-  }
-}
-
-/* ------------------------------------------------------------------ */
 /* Live pattern background (WebGL)                                     */
 /* One canvas behind a view. Cards are solid in the middle, so the     */
 /* pattern only shows at card edges and, very faintly, in the gaps.    */
@@ -1366,7 +1239,6 @@ class PatternLayer {
       !prefersReducedMotion() &&
       document.visibilityState === 'visible' &&
       document.hasFocus() &&
-      !document.body.hasClass('nd-focus-running') &&
       this.host.isConnected &&
       this.host.offsetParent !== null
     );
@@ -1588,8 +1460,8 @@ class QuickCaptureModal extends Modal {
 
 /** Default 4×4 layout; satellite slots fall back to their neighbours. */
 const DASH_LAYOUT = [
-  ['timer', 'pulse', 'pulse', 'tickets'],
-  ['timer', 'tasks', 'global', 'tickets'],
+  ['totals', 'pulse', 'pulse', 'tickets'],
+  ['totals', 'tasks', 'global', 'tickets'],
   ['capture', 'tasks', 'global', 'time'],
   ['recent', 'activity', 'activity', 'time'],
 ];
@@ -1618,9 +1490,12 @@ function dashAreas(present) {
 class DashboardView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
+    this.navigation = true; // part of the main pane's Back / Forward history
     this.plugin = plugin;
     this.dataToken = 0;
     this.slotCards = new Map();
+    // last numbers shown, so tiles count from there when a value changes
+    this.prevNums = new Map();
   }
   getViewType() {
     return VIEW_DASH;
@@ -1642,12 +1517,11 @@ class DashboardView extends ItemView {
     this.tickerEl = inner.createDiv('nd-ticker');
     this.grid = inner.createDiv('nd-dash-grid is-entering');
     window.setTimeout(() => this.grid && this.grid.removeClass('is-entering'), 900);
-    this.buildTimer(this.grid);
+    this.totals = this.place(widget(this.grid, 'nd-w-totals', 'Totals', 'sigma', 'everything tracked so far'), 'totals');
     this.stats = this.place(widget(this.grid, 'nd-w-stats', 'Vault pulse', 'activity'), 'pulse');
     this.buildCapture(this.grid);
     this.recent = this.place(widget(this.grid, 'nd-w-recent', 'Recently touched', 'history'), 'recent');
     this.heat = this.place(widget(this.grid, 'nd-w-heat', 'Activity', 'flame'), 'activity');
-    this.totals = widget(inner, 'nd-w-totals', 'Totals', 'sigma', 'everything tracked so far');
     this.footEl = inner.createDiv('nd-dash-foot');
     this.mountSlots();
 
@@ -1688,7 +1562,6 @@ class DashboardView extends ItemView {
     // the ticker stands still and swaps to the next few facts every 10 s
     this.registerInterval(window.setInterval(() => this.nextTicker(), 10000));
     this.register(this.plugin.onLook(() => this.syncLook()));
-    this.register(this.plugin.onFocusLogged(() => this.renderData()));
     this.renderData();
     this.syncLook();
   }
@@ -1697,6 +1570,12 @@ class DashboardView extends ItemView {
     this.slotCards.clear();
   }
 
+  /** Show a number in el, counting from what this tile showed last (0 the first time). */
+  countTo(el, key, n, fmt) {
+    const from = this.prevNums.has(key) ? this.prevNums.get(key) : 0;
+    this.prevNums.set(key, n);
+    countUp(el, from, n, fmt || ((x) => Math.round(x).toLocaleString()), from ? 500 : 900);
+  }
   place(card, area) {
     card.w.addClass(`nd-area-${area}`);
     card.w.dataset.area = area;
@@ -1752,7 +1631,7 @@ class DashboardView extends ItemView {
       }
       this.slotCards.set(def.id, { def, card, handle });
     }
-    const present = new Set(['timer', 'pulse', 'capture', 'recent', 'activity', ...[...defs.values()].map((d) => d.slot)]);
+    const present = new Set(['totals', 'pulse', 'capture', 'recent', 'activity', ...[...defs.values()].map((d) => d.slot)]);
     const { areas, cols } = dashAreas(present);
     this.grid.style.gridTemplateAreas = areas;
     this.grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
@@ -1831,105 +1710,6 @@ class DashboardView extends ItemView {
     this.clockEl.setText(m.format('HH:mm:ss') + ` · week ${m.isoWeek()}`);
   }
 
-  /* timer -------------------------------------------------------------- */
-  buildTimer(grid) {
-    const { w, body, badge } = this.place(widget(grid, 'nd-w-timer', 'Focus timer', 'timer'), 'timer');
-    this.timerCard = w;
-    this.timerBadge = badge;
-    const modes = body.createDiv('nd-seg');
-    this.modeBtns = {};
-    for (const m of ['focus', 'short', 'long']) {
-      const b = modes.createEl('button', { cls: 'nd-seg-btn', text: MODE_LABEL[m] });
-      b.addEventListener('click', () => this.plugin.timer.setMode(m));
-      this.modeBtns[m] = b;
-    }
-    const ringWrap = body.createDiv('nd-ring-wrap');
-    tip(ringWrap, 'Click: start / pause · Scroll: ±1 min (Shift: ±5)');
-    const svg = ringWrap.createSvg('svg', { cls: 'nd-ring', attr: { viewBox: '0 0 200 200' } });
-    const ticks = svg.createSvg('g', { cls: 'nd-ring-ticks' });
-    for (let i = 0; i < 60; i++) {
-      const a = (i / 60) * Math.PI * 2;
-      const r1 = i % 5 ? 97 : 95;
-      ticks.createSvg('line', {
-        attr: { x1: (100 + Math.cos(a) * r1).toFixed(2), y1: (100 + Math.sin(a) * r1).toFixed(2), x2: (100 + Math.cos(a) * 99.5).toFixed(2), y2: (100 + Math.sin(a) * 99.5).toFixed(2) },
-      });
-    }
-    svg.createSvg('circle', { cls: 'nd-ring-track', attr: { cx: 100, cy: 100, r: RING_R } });
-    this.ringProg = svg.createSvg('circle', {
-      cls: 'nd-ring-prog',
-      attr: { cx: 100, cy: 100, r: RING_R, 'stroke-dasharray': RING_C.toFixed(2), 'stroke-dashoffset': RING_C.toFixed(2) },
-    });
-    const center = ringWrap.createDiv('nd-ring-center');
-    this.timeEl = center.createDiv('nd-ring-time');
-    this.timeSub = center.createDiv('nd-ring-sub');
-    ringWrap.addEventListener('click', () => this.plugin.timer.toggle());
-    ringWrap.addEventListener(
-      'wheel',
-      (e) => {
-        e.preventDefault();
-        this.plugin.timer.adjust((e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 5 : 1));
-      },
-      { passive: false },
-    );
-    const ctr = body.createDiv('nd-timer-ctrls');
-    button(ctr, { icon: 'minus', cls: 'nd-round', title: '−5 min', onClick: () => this.plugin.timer.adjust(-5) });
-    this.playBtn = button(ctr, { cls: 'nd-play', onClick: () => this.plugin.timer.toggle() });
-    button(ctr, { icon: 'plus', cls: 'nd-round', title: '+5 min', onClick: () => this.plugin.timer.adjust(5) });
-    button(ctr, { icon: 'skip-forward', cls: 'nd-round', title: 'Skip to next phase', onClick: () => this.plugin.timer.skip() });
-    this.labelInput = body.createEl('input', { cls: 'nd-input nd-timer-label', attr: { type: 'text', placeholder: 'What are you focusing on?' } });
-    this.labelInput.value = this.plugin.timer.label;
-    this.labelInput.addEventListener('change', () => this.plugin.timer.setLabel(this.labelInput.value.trim()));
-    this.labelInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        this.plugin.timer.setLabel(this.labelInput.value.trim());
-        this.plugin.timer.start();
-        this.labelInput.blur();
-      }
-    });
-    this.tomatoEl = body.createDiv('nd-tomatoes');
-    this.register(this.plugin.timer.on(() => this.updateTimer()));
-    this.updateTimer();
-  }
-  updateTimer() {
-    const t = this.plugin.timer;
-    const left = t.timeLeft();
-    const frac = t.total ? clamp(1 - left / t.total, 0, 1) : 0;
-    this.timeEl.setText(fmtClock(left));
-    this.ringProg.setAttr('stroke-dashoffset', (RING_C * (1 - frac)).toFixed(2));
-    this.timeSub.setText(t.mode === 'focus' ? `Session ${t.cycle + 1}` : MODE_LABEL[t.mode]);
-    for (const [m, b] of Object.entries(this.modeBtns)) b.toggleClass('is-active', m === t.mode);
-    this.timerCard.toggleClass('is-running', t.running);
-    this.timerCard.dataset.mode = t.mode;
-    const state = t.running ? 'pause' : left < t.total ? 'resume' : 'start';
-    if (this.playState !== state) {
-      this.playState = state;
-      this.playBtn.empty();
-      icon(this.playBtn, t.running ? 'pause' : 'play');
-      this.playBtn.createSpan({ cls: 'nd-btn-label', text: state[0].toUpperCase() + state.slice(1) });
-    }
-    if (document.activeElement !== this.labelInput && this.labelInput.value !== t.label) this.labelInput.value = t.label;
-    this.renderTomatoes();
-  }
-  renderTomatoes() {
-    const log = this.plugin.settings.focusLog;
-    const today = dayKey(Date.now());
-    const goal = this.plugin.settings.dailyGoal;
-    const key = `${log.length}|${today}|${goal}`;
-    if (this.tomatoKey === key) return;
-    this.tomatoKey = key;
-    const todays = log.filter((e) => dayKey(e.t) === today);
-    const mins = todays.reduce((s, e) => s + e.m, 0);
-    const el = this.tomatoEl;
-    el.empty();
-    const dots = el.createDiv('nd-tomato-row');
-    for (let i = 0; i < Math.max(goal, todays.length); i++) {
-      const d = dots.createSpan({ cls: 'nd-tomato' + (i < todays.length ? ' is-done' : '') + (i >= goal ? ' is-bonus' : '') });
-      if (todays[i]) tip(d, `${moment(todays[i].t).format('HH:mm')} · ${todays[i].m} min${todays[i].l ? ' — ' + todays[i].l : ''}`);
-    }
-    el.createDiv({ cls: 'nd-tomato-text', text: `${todays.length}/${goal} sessions · ${fmtMin(mins)} focused` });
-    this.timerBadge.setText(todays.length ? String(todays.length) : '');
-  }
-
   /* capture ------------------------------------------------------------ */
   buildCapture(grid) {
     const { body } = this.place(widget(grid, 'nd-w-capture', 'Quick capture', 'zap'), 'capture');
@@ -1986,7 +1766,7 @@ class DashboardView extends ItemView {
     this.renderTicker(d);
     this.renderTotals(d);
     const words = await this.plugin.totalWords(d.md);
-    if (token === this.dataToken && this.wordsEl) this.wordsEl.setText(words.toLocaleString());
+    if (token === this.dataToken && this.wordsEl) this.countTo(this.wordsEl, 'pulse:words', words);
   }
   perDay(list, key) {
     const out = [];
@@ -1999,29 +1779,28 @@ class DashboardView extends ItemView {
   renderStats(d) {
     const b = this.stats.body;
     b.empty();
-    const tiles = b.createDiv('nd-tiles');
+    // first paint: sparklines draw in and tiles rise one after another
+    const tiles = b.createDiv('nd-tiles' + (this.statsShown ? '' : ' is-intro'));
+    this.statsShown = true;
+    let i = 0;
     const tile = (value, label, accent, onClick, hint, spark) => {
       const t = tiles.createDiv('nd-tile' + (onClick ? ' is-clickable' : ''));
       t.style.setProperty('--tile-accent', accent);
-      const v = t.createDiv({ cls: 'nd-tile-value', text: typeof value === 'number' ? value.toLocaleString() : value });
+      t.style.setProperty('--i', String(i++));
+      const v = t.createDiv({ cls: 'nd-tile-value' });
+      if (typeof value === 'number') this.countTo(v, `pulse:${label}`, value);
+      else v.setText(value);
       t.createDiv({ cls: 'nd-tile-label', text: label });
       if (spark) sparkline(t, spark);
       if (onClick) t.addEventListener('click', onClick);
       if (hint) tip(t, hint);
       return v;
     };
-    const log = this.plugin.settings.focusLog;
-    const focusDays = [];
-    for (let i = 6; i >= 0; i--) {
-      const k = moment().subtract(i, 'days').format('YYYY-MM-DD');
-      focusDays.push(log.filter((e) => dayKey(e.t) === k).reduce((s, e) => s + e.m, 0));
-    }
     tile(d.md.length, 'notes', 'var(--nd-text)', () => this.plugin.activate(VIEW_CARDS, 'tab'), 'Open the card explorer · line: notes created per day', this.perDay(d.md, (f) => f.stat.ctime));
     this.wordsEl = tile('…', 'words', 'var(--nd-text)');
     tile(d.links, 'links', 'var(--nd-info)', () => this.plugin.openGraph('notes'), 'Open the note graph');
     tile(d.orphans.length, 'orphans', 'var(--nd-accent)', () => new FileListModal(this.plugin, d.orphans, 'Orphan notes — no links in or out').open(), 'Notes with no links in or out');
     tile(d.editedToday.length, 'edited today', 'var(--nd-go)', () => new FileListModal(this.plugin, d.editedToday, 'Edited today').open(), 'Line: notes edited per day', this.perDay(d.md, (f) => f.stat.mtime));
-    tile(fmtMin(focusDays[6]), 'focused today', 'var(--nd-info)', null, 'Line: focus minutes per day', focusDays);
   }
   renderRecent(d) {
     const b = this.recent.body;
@@ -2075,8 +1854,9 @@ class DashboardView extends ItemView {
       bump(c, f);
       if (m !== c) bump(m, f);
     }
-    for (const e of this.plugin.settings.focusLog) bump(dayKey(e.t), null);
-    const grid = b.createDiv('nd-heat');
+    // first paint: the dots fade in week by week, left to right
+    const grid = b.createDiv('nd-heat' + (this.heatShown ? '' : ' is-intro'));
+    this.heatShown = true;
     grid.style.gridTemplateColumns = `repeat(${weeks}, ${fit.cell}px)`;
     grid.style.gridTemplateRows = `repeat(7, ${fit.cell}px)`;
     grid.style.gap = `${fit.gap}px`;
@@ -2089,6 +1869,7 @@ class DashboardView extends ItemView {
       const lvl = n === 0 ? 0 : n < 2 ? 1 : n < 4 ? 2 : n < 7 ? 3 : 4;
       const cell = grid.createDiv(`nd-heat-cell lvl-${lvl}` + (k > todayKey ? ' is-future' : '') + (k === todayKey ? ' is-today' : ''));
       cell.style.gridColumn = String(Math.floor(i / 7) + 1);
+      cell.style.setProperty('--c', String(Math.floor(i / 7)));
       cell.style.gridRow = String((i % 7) + 1);
       cell.createDiv('nd-heat-dot');
       tip(cell, `${day.format('ddd D MMM')} · ${n} event${n === 1 ? '' : 's'}`);
@@ -2110,9 +1891,6 @@ class DashboardView extends ItemView {
   renderTicker(d) {
     d = d || this.lastData || this.plugin.collectVaultData();
     const p = this.plugin;
-    const log = p.settings.focusLog;
-    const today = dayKey(Date.now());
-    const mins = log.filter((e) => dayKey(e.t) === today).reduce((s, e) => s + e.m, 0);
     const items = [];
     for (const fn of p.facts.values()) {
       try {
@@ -2122,9 +1900,6 @@ class DashboardView extends ItemView {
       }
     }
     items.push({ v: d.md.length, l: 'notes' }, { v: d.editedToday.length, l: 'edited today' });
-    if (mins) items.push({ v: fmtMin(mins), l: 'focused today' });
-    const streak = p.focusStreak();
-    if (streak) items.push({ v: streak, l: 'day streak' });
     // about one line in ten is a sign-off
     const n = Math.max(1, Math.round(items.length / 9));
     for (let i = 0; i < n; i++) {
@@ -2173,17 +1948,24 @@ class DashboardView extends ItemView {
     });
   }
 
-  /** Totals strip: live counts from Neon Time, Tickets, Tasks, the timer and the vault. */
+  /** Totals card: live counts from Neon Time, Tickets, Tasks and the vault. The first tile spans the card. */
   renderTotals(d) {
     if (!this.totals) return;
     d = d || this.lastData || this.plugin.collectVaultData();
     const b = this.totals.body;
     b.empty();
-    const tiles = b.createDiv('nd-tiles nd-totals');
+    const tiles = b.createDiv('nd-tiles nd-totals' + (this.totalsShown ? '' : ' is-intro'));
+    this.totalsShown = true;
+    let i = 0;
+    /** value: a number, or [number, format] for minutes and the like; numbers count up when they change */
     const tile = (value, label, accent, sub, hint) => {
       const t = tiles.createDiv('nd-tile');
       t.style.setProperty('--tile-accent', accent);
-      t.createDiv({ cls: 'nd-tile-value', text: typeof value === 'number' ? value.toLocaleString() : value });
+      t.style.setProperty('--i', String(i++));
+      const v = t.createDiv({ cls: 'nd-tile-value' });
+      const [n, fmt] = Array.isArray(value) ? value : [value, null];
+      if (typeof n === 'number') this.countTo(v, `totals:${label.replace(/s$/, '')}`, n, fmt);
+      else v.setText(n);
       t.createDiv({ cls: 'nd-tile-label', text: label });
       if (sub) t.createDiv({ cls: 'nd-tile-sub', text: sub });
       if (hint) tip(t, hint);
@@ -2220,7 +2002,7 @@ class DashboardView extends ItemView {
       } catch (e) {
         console.error('Neon Deck totals', e);
       }
-      tile(fmtMin(Math.round(total)), 'time worked', 'var(--nd-accent)', `${fmtMin(Math.round(monthMin))} in ${month}${bal ? ` · ${bal > 0 ? '+' : ''}${fmtMin(bal)} balance` : ''}`, 'All time tracked in Neon Time, automatic and manual');
+      tile([Math.round(total), (x) => fmtMin(Math.round(x))], 'time worked', 'var(--nd-accent)', `${fmtMin(Math.round(monthMin))} in ${month}${bal ? ` · ${bal > 0 ? '+' : ''}${fmtMin(bal)} balance` : ''}`, 'All time tracked in Neon Time, automatic and manual');
       tile(worked, worked === 1 ? 'day worked' : 'days worked', 'var(--nd-info)', null, 'Days with tracked time');
       tile(tasks, 'tasks done', 'var(--nd-go)', `${tasksMonth} in ${month}`, 'Tasks ticked since Neon Time started counting');
     } else {
@@ -2241,11 +2023,6 @@ class DashboardView extends ItemView {
     // notes (vault)
     const created = d.md.filter((f) => thisMonth(f.stat.ctime)).length;
     tile(d.md.length, 'notes', 'var(--nd-text)', `${created} created in ${month}`, 'Notes in the vault, without excluded folders');
-
-    // focus timer
-    const log = this.plugin.settings.focusLog;
-    const fMin = log.reduce((s, e) => s + (e.m || 0), 0);
-    tile(log.length, log.length === 1 ? 'focus session' : 'focus sessions', 'var(--nd-cat-school, var(--nd-info))', `${fmtMin(fMin)} focused`, 'Focus timer sessions');
   }
 }
 
@@ -2311,6 +2088,7 @@ class CardsView extends ItemView {
     root.removeClass('nd-pattern-host', 'nd-has-pattern');
     root.addClass('nd-root', 'nd-cards');
     this.sidebar = this.isSidebar();
+    this.navigation = !this.sidebar; // in the main pane it joins Back / Forward
     root.toggleClass('is-sidebar', this.sidebar);
     this.sideShown = false;
     this.firstPaint = true;
@@ -2325,6 +2103,9 @@ class CardsView extends ItemView {
     this.registerEvent(this.app.vault.on('rename', re));
     this.registerEvent(this.app.metadataCache.on('changed', (f) => this.updateCard(f)));
     this.registerEvent(this.app.workspace.on('file-open', () => this.markActive()));
+    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.markNav()));
+    this.registerEvent(this.app.workspace.on('layout-change', () => this.markNav()));
+    this.registerEvent(this.app.workspace.on('neon-deck:slots-changed', () => this.renderNav()));
     this.registerEvent(this.app.workspace.on('neon-deck:pins-changed', () => this.refresh(0, true)));
     this.registerEvent(this.app.workspace.on('neon-deck:seen-changed', debounce(() => this.refresh(0, true), 600, true)));
     this.registerEvent(
@@ -2386,11 +2167,41 @@ class CardsView extends ItemView {
     this.pattern = new PatternLayer(this.plugin, root, this.scroller, '.nd-ci');
   }
   buildSidebar(root) {
+    this.navEl = root.createDiv('nd-side-nav');
+    this.renderNav();
     const top = root.createDiv('nd-side-top');
     this.buildSearch(top);
     this.scroller = root.createDiv('nd-cards-scroll');
     this.bodyEl = this.scroller.createDiv('nd-side-body');
     this.makeDropTarget(this.scroller, () => this.path);
+  }
+  /** Sidebar nav: each item shows its view in the main pane. Tickets, Time… come from the other plugins' actions. */
+  renderNav() {
+    const el = this.navEl;
+    if (!el || !this.sidebar) return;
+    el.empty();
+    const p = this.plugin;
+    const items = [
+      { icon: 'layout-dashboard', label: 'Dashboard', view: VIEW_DASH, run: () => p.activate(VIEW_DASH, 'tab') },
+      { icon: 'layout-grid', label: 'Cards', view: VIEW_CARDS, run: () => p.activate(VIEW_CARDS, 'tab') },
+      ...[...p.actions.values()].filter((a) => a.view).sort((a, b) => (a.order ?? 50) - (b.order ?? 50)),
+      { icon: 'waypoints', label: 'Graph', view: VIEW_GRAPH, run: () => p.activate(VIEW_GRAPH, 'tab') },
+    ];
+    for (const it of items) {
+      const b = el.createEl('button', { cls: 'nd-side-nav-item', attr: { type: 'button', 'data-view': it.view } });
+      icon(b, it.icon);
+      b.createSpan({ text: it.label });
+      b.addEventListener('click', () => it.run());
+    }
+    this.markNav();
+  }
+  /** Highlight the nav item for what the main pane shows. */
+  markNav() {
+    if (!this.navEl) return;
+    const ws = this.app.workspace;
+    const main = ws.getMostRecentLeaf(ws.rootSplit);
+    const type = main ? main.view.getViewType() : '';
+    for (const b of this.navEl.querySelectorAll('.nd-side-nav-item')) b.toggleClass('is-active', b.dataset.view === type);
   }
   buildSearch(parent) {
     const search = parent.createDiv('nd-search');
@@ -3047,6 +2858,7 @@ function shortAgo(t) {
 class GraphView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
+    this.navigation = true;
     this.plugin = plugin;
     this.mode = 'concepts';
     this.scope = 'vault';
@@ -3332,13 +3144,21 @@ class GraphView extends ItemView {
     if (this._col) return this._col;
     const cs = getComputedStyle(this.contentEl);
     const v = (name, fb) => (cs.getPropertyValue(name) || '').trim() || fb;
+    const pal = PALETTE.map((c, i) => v(`--nd-c${i + 1}`, c));
+    // canvas can't read var() or every CSS colour form: resolve once to rgb and build alpha variants
+    const rgb = (str) => parseColor(str).map((x) => Math.round(x * 255)).join(',');
+    const palRgb = pal.map(rgb);
     return (this._col = {
-      pal: PALETTE.map((c, i) => v(`--nd-c${i + 1}`, c)),
-      text: v('--text-normal', '#f3eaff'),
-      bg: v('--background-primary', '#0d0716'),
-      ink: v('--nd-ink', '#0a0510'),
-      muted: v('--text-faint', '#7a6a90'),
-      hot: v('--nd-pink', '#ff4fd8'),
+      pal,
+      a: (i, alpha) => `rgba(${palRgb[i % palRgb.length]},${alpha})`,
+      text: v('--nd-text', v('--text-normal', '#e4e6ea')),
+      bg: v('--nd-bg', v('--background-primary', '#121418')),
+      surface: v('--nd-surface', v('--background-secondary', '#191c21')),
+      muted: v('--nd-muted', v('--text-faint', '#8f95a0')),
+      hot: v('--nd-accent', '#e5506a'),
+      hotA: (alpha) => `rgba(${rgb(v('--nd-accent', '#e5506a'))},${alpha})`,
+      font: v('--nd-font-ui', '"Space Grotesk", sans-serif').replace(/var\([^)]*\),?\s*/g, ''),
+      dark: !document.body.hasClass('theme-light'),
     });
   }
   themeChanged() {
@@ -3421,55 +3241,92 @@ class GraphView extends ItemView {
     ctx.scale(cam.k, cam.k);
     const focus = this.focusSet();
     ctx.lineCap = 'round';
+    // links: thin and quiet, so the nodes carry the picture; same-cluster links take the cluster colour
+    // dense graphs get fainter links, so a thousand of them read as structure, not haze
+    // (dark lines on a light page read heavier, so light themes go lighter still)
+    const linkA = (col.dark ? 0.24 : 0.14) * clamp(250 / Math.max(1, this.links.length), 0.3, 1);
     for (const l of this.links) {
       const on = !focus || (focus.has(l.s.i) && focus.has(l.t.i));
-      ctx.globalAlpha = on ? (focus ? 0.8 : 0.3) : 0.04;
+      ctx.globalAlpha = on ? (focus ? 0.75 : linkA) : 0.03;
       ctx.strokeStyle = l.s.c === l.t.c ? pal[l.s.c % pal.length] : col.muted;
-      ctx.lineWidth = (0.6 + 2.6 * Math.sqrt(l.w / this.maxW)) / Math.sqrt(cam.k);
+      ctx.lineWidth = (0.5 + 1.8 * Math.sqrt(l.w / this.maxW)) / Math.sqrt(cam.k);
       ctx.beginPath();
       ctx.moveTo(l.s.x, l.s.y);
       ctx.lineTo(l.t.x, l.t.y);
       ctx.stroke();
     }
+    // nodes: a dark core lit from inside by the cluster colour, a crisp ring, a soft glow (dark themes);
+    // light themes get the same shape without the glow
+    const glowK = Math.min(1.6, Math.max(0.6, cam.k));
     for (const n of this.nodes) {
       const on = !focus || focus.has(n.i);
-      ctx.globalAlpha = on ? 1 : 0.12;
+      ctx.globalAlpha = on ? 1 : 0.1;
       const c = pal[n.c % pal.length];
-      ctx.fillStyle = col.ink;
-      ctx.beginPath();
-      ctx.arc(n.x + 2.2, n.y + 2.2, n.r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = c;
+      const hub = n.r > 12;
+      const core = ctx.createRadialGradient(n.x - n.r * 0.3, n.y - n.r * 0.35, n.r * 0.1, n.x, n.y, n.r);
+      core.addColorStop(0, col.a(n.c, col.dark ? 0.55 : 0.35));
+      core.addColorStop(1, col.dark ? col.a(n.c, 0.08) : col.a(n.c, 0.12));
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = col.surface;
+      if (col.dark && on) {
+        ctx.shadowColor = col.a(n.c, hub ? 0.75 : 0.5);
+        ctx.shadowBlur = (hub ? 22 : 10) * glowK;
+      }
       ctx.fill();
-      ctx.lineWidth = 1.6;
-      ctx.strokeStyle = col.ink;
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = core;
+      ctx.fill();
+      ctx.lineWidth = (hub ? 2.2 : 1.6) / Math.sqrt(cam.k);
+      ctx.strokeStyle = c;
       ctx.stroke();
-      if (n.r > 9) {
-        // halftone sparkle on bigger nodes
-        ctx.fillStyle = 'rgba(255,255,255,0.55)';
-        const s = n.r * 0.16;
-        for (let d = 0; d < 3; d++) {
-          ctx.beginPath();
-          ctx.arc(n.x - n.r * 0.38 + d * s * 1.6, n.y - n.r * 0.38 + d * s * 0.4, s * (1 - d * 0.28), 0, Math.PI * 2);
-          ctx.fill();
-        }
+      if (hub) {
+        // a faint outer orbit marks the hubs
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r + 4, 0, Math.PI * 2);
+        ctx.lineWidth = 1 / cam.k;
+        ctx.strokeStyle = col.a(n.c, 0.35);
+        ctx.stroke();
       }
       if (n.kind === 'link' || n.kind === 'tag') {
-        ctx.fillStyle = col.ink;
+        ctx.fillStyle = c;
         ctx.beginPath();
-        ctx.arc(n.x, n.y, Math.max(1.5, n.r * 0.22), 0, Math.PI * 2);
+        ctx.arc(n.x, n.y, Math.max(1.5, n.r * 0.24), 0, Math.PI * 2);
         ctx.fill();
       }
-      if (n.i === this.selected) {
-        ctx.setLineDash([4, 3]);
-        ctx.strokeStyle = col.hot;
-        ctx.lineWidth = 2.4 / cam.k;
+    }
+    // hover / selection: an accent ring with a slow ripple
+    const special = [this.selected, this.hover].filter((i, k, arr) => i >= 0 && arr.indexOf(i) === k);
+    if (special.length) {
+      const still = prefersReducedMotion();
+      const phase = still ? 0 : (performance.now() % 1600) / 1600;
+      ctx.globalAlpha = 1;
+      for (const i of special) {
+        const n = this.nodes[i];
+        if (!n) continue;
         ctx.beginPath();
-        ctx.arc(n.x, n.y, n.r + 5 / cam.k + 2, 0, Math.PI * 2);
+        ctx.arc(n.x, n.y, n.r + 3 / cam.k + 2, 0, Math.PI * 2);
+        ctx.lineWidth = 2 / cam.k;
+        ctx.strokeStyle = col.hot;
+        ctx.shadowColor = col.hotA(0.6);
+        ctx.shadowBlur = col.dark ? 12 : 0;
         ctx.stroke();
-        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+        if (!still) {
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.r + (4 + phase * 12) / cam.k + 2, 0, Math.PI * 2);
+          ctx.lineWidth = 1.5 / cam.k;
+          ctx.strokeStyle = col.hotA(0.55 * (1 - phase));
+          ctx.stroke();
+        }
+      }
+      // keep the ripple moving while something is hovered or selected
+      if (!still && !this.pulseQueued) {
+        this.pulseQueued = true;
+        requestAnimationFrame(() => {
+          this.pulseQueued = false;
+          if (this.selected >= 0 || this.hover >= 0) this.requestDraw();
+        });
       }
     }
     ctx.textAlign = 'center';
@@ -3482,12 +3339,13 @@ class GraphView extends ItemView {
       const fs = 9 + n.r * 0.55;
       if (!special && fs * cam.k < 7 && !(focus && on)) continue;
       ctx.globalAlpha = on ? 1 : 0.14;
-      ctx.font = `${n.r > 12 || special ? 700 : 500} ${fs}px "Space Grotesk", "Noto Sans", sans-serif`;
-      ctx.lineWidth = 3.2;
+      ctx.font = `${n.r > 12 || special ? 700 : 500} ${fs}px ${col.font}`;
+      ctx.lineWidth = 3.6;
       ctx.strokeStyle = col.bg;
       const y = n.y + n.r + fs * 0.72;
       ctx.strokeText(n.label, n.x, y);
-      ctx.fillStyle = special ? col.hot : col.text;
+      // hubs speak up, small nodes stay quiet
+      ctx.fillStyle = special ? col.hot : n.r > 12 ? col.text : col.muted;
       ctx.fillText(n.label, n.x, y);
     }
     ctx.globalAlpha = 1;
@@ -3896,7 +3754,7 @@ class NeonSettingTab extends PluginSettingTab {
       .addDropdown((d) => d.addOptions(STRENGTH_LABEL).setValue(s.patternStrength).onChange((v) => p.setLook({ patternStrength: v })));
     new Setting(containerEl)
       .setName('Pattern motion')
-      .setDesc('The pattern drifts very slowly. It always pauses when Obsidian is in the background, during a focus session, and when your system asks for reduced motion.')
+      .setDesc('The pattern drifts very slowly. It always pauses when Obsidian is in the background and when your system asks for reduced motion.')
       .addToggle((t) => t.setValue(s.patternMotion).onChange((v) => p.setLook({ patternMotion: v })));
     new Setting(containerEl)
       .setName('Light / dark mode')
@@ -3907,24 +3765,6 @@ class NeonSettingTab extends PluginSettingTab {
       .addText((t) => t.setValue(s.name).onChange((v) => ((s.name = v.trim()), save())));
     new Setting(containerEl).setName('Open dashboard on startup').addToggle((t) => t.setValue(s.openDashboardOnStartup).onChange((v) => ((s.openDashboardOnStartup = v), save())));
 
-    new Setting(containerEl).setName('Focus timer').setHeading();
-    num(new Setting(containerEl).setName('Focus length (min)'), 'focusMinutes', 1, 180);
-    num(new Setting(containerEl).setName('Short break (min)'), 'shortBreak', 1, 60);
-    num(new Setting(containerEl).setName('Long break (min)'), 'longBreak', 1, 90);
-    num(new Setting(containerEl).setName('Long break every N sessions'), 'longEvery', 1, 12);
-    num(new Setting(containerEl).setName('Daily goal (sessions)'), 'dailyGoal', 1, 24);
-    new Setting(containerEl).setName('Auto-start breaks').addToggle((t) => t.setValue(s.autoStartBreaks).onChange((v) => ((s.autoStartBreaks = v), save())));
-    new Setting(containerEl).setName('Auto-start focus after breaks').addToggle((t) => t.setValue(s.autoStartFocus).onChange((v) => ((s.autoStartFocus = v), save())));
-    new Setting(containerEl)
-      .setName('Chime')
-      .addToggle((t) => t.setValue(s.sound).onChange((v) => ((s.sound = v), save())))
-      .addSlider((sl) => sl.setLimits(0.05, 1, 0.05).setValue(s.volume).setDynamicTooltip().onChange((v) => ((s.volume = v), save())))
-      .addExtraButton((b) => b.setIcon('volume-2').setTooltip('Test').onClick(() => p.chime(true, true)));
-    new Setting(containerEl)
-      .setName('Log sessions to daily note')
-      .setDesc('Appends “🍅 HH:mm · 25 min” under a “Focus log” heading in today’s daily note (if it exists).')
-      .addToggle((t) => t.setValue(s.logToDaily).onChange((v) => ((s.logToDaily = v), save())));
-
     new Setting(containerEl).setName('Notes').setHeading();
     new Setting(containerEl)
       .setName('Core folder')
@@ -3933,7 +3773,7 @@ class NeonSettingTab extends PluginSettingTab {
       .addExtraButton((b) => b.setIcon('folder-input').setTooltip('Move Neon files into this folder now').onClick(() => p.tidyIntoCore(true)));
     new Setting(containerEl)
       .setName('Weekly review folder')
-      .setDesc('Optional template: a note named Weekly Review in your templates folder with {{weekLine}}, {{weekFocus}} and {{weekNotes}}.')
+      .setDesc('Optional template: a note named Weekly Review in your templates folder with {{weekLine}} and {{weekNotes}}.')
       .addText((t) => t.setValue(s.reviewFolder).onChange((v) => ((s.reviewFolder = v.trim() || 'Core/Reviews'), save())));
     new Setting(containerEl)
       .setName('Excluded folders')
@@ -3968,7 +3808,6 @@ module.exports = class NeonDeck extends Plugin {
   async onload() {
     await this.loadSettings();
     this.wordCache = new Map();
-    this.focusListeners = new Set();
     this.lookListeners = new Set();
     this.widgets = new Map();
     this.captures = new Map();
@@ -3981,7 +3820,6 @@ module.exports = class NeonDeck extends Plugin {
     this.api = this.buildApi();
     this.loadFonts();
     this.applyLook();
-    this.timer = new FocusTimer(this);
 
     this.registerView(VIEW_DASH, (leaf) => new DashboardView(leaf, this));
     this.registerView(VIEW_CARDS, (leaf) => new CardsView(leaf, this));
@@ -3998,9 +3836,6 @@ module.exports = class NeonDeck extends Plugin {
       ['open-cards-sidebar', 'Open card explorer (sidebar)', () => this.activate(VIEW_CARDS, 'left')],
       ['open-graph', 'Open concept graph', () => this.openGraph('concepts')],
       ['graph-active-note', 'Concept graph of active note', () => this.openGraph('concepts', 'note')],
-      ['timer-toggle', 'Focus timer: start / pause', () => this.timer.toggle()],
-      ['timer-reset', 'Focus timer: reset', () => this.timer.reset()],
-      ['timer-skip', 'Focus timer: skip to next phase', () => this.timer.skip()],
       ['open-today', 'Open today’s daily note', () => this.openToday()],
       ['toggle-light-dark', 'Toggle light / dark mode', () => this.toggleLightDark()],
       ['next-theme', 'Next theme', () => this.setLook({ theme: THEMES[(THEMES.indexOf(this.settings.theme) + 1) % THEMES.length] }, true)],
@@ -4040,9 +3875,7 @@ module.exports = class NeonDeck extends Plugin {
     });
 
     // last, so Alt+1..4 stay Task, Global task, Ticket, Time entry as in the spec
-    this.buildStatusBar();
     this.addSettingTab(new NeonSettingTab(this.app, this));
-    this.registerInterval(window.setInterval(() => this.timer.tick(), 1000));
     this.registerEvent(
       this.app.workspace.on('file-open', (f) => {
         if (!f) return;
@@ -4076,7 +3909,7 @@ module.exports = class NeonDeck extends Plugin {
 
   onunload() {
     if (this.fontStyle) this.fontStyle.remove();
-    document.body.removeClass('nd-focus-running', 'nd-themed', ...THEMES.map((x) => `nd-theme-${x}`));
+    document.body.removeClass('nd-themed', ...THEMES.map((x) => `nd-theme-${x}`));
     this.app.workspace.trigger('neon-deck:core-unloaded');
   }
 
@@ -4084,7 +3917,6 @@ module.exports = class NeonDeck extends Plugin {
     const raw = (await this.loadData()) || {};
     this.settings = Object.assign({}, DEFAULT_SETTINGS, raw);
     const s = this.settings;
-    if (!Array.isArray(s.focusLog)) s.focusLog = [];
     if (!Array.isArray(s.pinnedFolders)) s.pinnedFolders = [];
     if (!s.seen || typeof s.seen !== 'object') s.seen = {};
     if ((raw.settingsVersion || 0) < 3) {
@@ -4169,7 +4001,6 @@ module.exports = class NeonDeck extends Plugin {
       fileMenu: (f, e, extra) => p.fileMenu(f, e, extra),
       onLook: (fn) => p.onLook(fn),
       theme: () => p.settings.theme,
-      focusRunning: () => p.timer.running && p.timer.mode === 'focus',
     };
   }
   registerCapture(def) {
@@ -4408,116 +4239,40 @@ module.exports = class NeonDeck extends Plugin {
     const ws = this.app.workspace;
     if (!this.settings.coreTidied) await this.tidyIntoCore(false);
     this.lastFile = ws.getActiveFile();
-    if (this.settings.cardsInSidebar) {
-      const has = ws.getLeavesOfType(VIEW_CARDS).some((l) => l.getRoot() === ws.leftSplit);
-      if (!has) {
-        const leaf = ws.getLeftLeaf(false);
-        if (leaf) await leaf.setViewState({ type: VIEW_CARDS, active: true });
-      }
-      if (this.settings.replaceFileExplorer) ws.getLeavesOfType('file-explorer').forEach((l) => l.detach());
-    }
-    if (this.settings.openDashboardOnStartup) await this.activate(VIEW_DASH, 'tab');
+    // after a plugin restart Obsidian puts our tabs back only once onload is done, so arrange tabs a moment later
+    // (doing it straight away added a second Cards tab and a second Dashboard on every restart)
+    window.setTimeout(() => this.arrangeOnStart(), 600);
     ws.trigger('neon-deck:core-ready', this.api);
   }
 
-  /* status bar --------------------------------------------------------- */
-  buildStatusBar() {
-    const el = this.addStatusBarItem();
-    el.addClass('nd-status', 'mod-clickable');
-    const ic = el.createSpan('nd-status-icon');
-    const txt = el.createSpan('nd-status-text');
-    tip(el, 'Focus timer — click: start/pause · right-click: menu');
-    el.addEventListener('click', () => this.timer.toggle());
-    el.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      const m = new Menu();
-      m.addItem((i) => i.setTitle(this.timer.running ? 'Pause' : 'Start').setIcon(this.timer.running ? 'pause' : 'play').onClick(() => this.timer.toggle()));
-      m.addItem((i) => i.setTitle('Reset').setIcon('rotate-ccw').onClick(() => this.timer.reset()));
-      m.addItem((i) => i.setTitle('Skip').setIcon('skip-forward').onClick(() => this.timer.skip()));
-      m.addSeparator();
-      for (const mode of ['focus', 'short', 'long']) m.addItem((i) => i.setTitle(MODE_LABEL[mode]).setChecked(this.timer.mode === mode).onClick(() => this.timer.setMode(mode)));
-      m.addSeparator();
-      m.addItem((i) => i.setTitle('Open dashboard').setIcon('layout-dashboard').onClick(() => this.activate(VIEW_DASH, 'tab')));
-      m.showAtMouseEvent(e);
-    });
-    let lastIcon = '';
-    let lastFocus = null;
-    const update = () => {
-      const t = this.timer;
-      const want = t.running ? (t.mode === 'focus' ? 'flame' : 'coffee') : 'timer';
-      if (want !== lastIcon) {
-        ic.empty();
-        setIcon(ic, want);
-        lastIcon = want;
-      }
-      txt.setText(`${fmtClock(t.timeLeft())}${t.running ? '' : ' ⏸'}`);
-      el.toggleClass('is-running', t.running);
-      el.toggleClass('is-break', t.mode !== 'focus');
-      const focus = t.running && t.mode === 'focus';
-      document.body.toggleClass('nd-focus-running', focus);
-      if (focus !== lastFocus) {
-        lastFocus = focus;
-        this.emitLook();
-      }
+  async arrangeOnStart() {
+    await this.ensureSidebarCards();
+    await this.foldNeonTabs();
+    if (!this.settings.openDashboardOnStartup) return;
+    const ws = this.app.workspace;
+    // reuse a Dashboard that's already open in the main area instead of adding another
+    const open = ws.getLeavesOfType(VIEW_DASH).find((l) => l.getRoot() === ws.rootSplit);
+    if (open) await ws.revealLeaf(open);
+    else await this.activate(VIEW_DASH, 'tab');
+  }
+  /** One Cards tab in the left sidebar: add it when missing, close copies left by earlier restarts. */
+  async ensureSidebarCards() {
+    const ws = this.app.workspace;
+    if (!this.settings.cardsInSidebar) return;
+    const side = [];
+    const walk = (n) => {
+      if (n.view && n.getViewState().type === VIEW_CARDS) side.push(n);
+      (n.children || []).forEach(walk);
     };
-    this.register(this.timer.on(update));
-    update();
-  }
-
-  chime(focusDone, force) {
-    if (!this.settings.sound && !force) return;
-    try {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      const ctx = new Ctx();
-      const notes = focusDone ? [659.25, 783.99, 1046.5, 1318.5] : [523.25, 659.25, 783.99];
-      const vol = clamp(this.settings.volume, 0.01, 1);
-      const t0 = ctx.currentTime + 0.02;
-      notes.forEach((f, i) => {
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = i % 2 ? 'sine' : 'triangle';
-        o.frequency.value = f;
-        const t = t0 + i * 0.14;
-        g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
-        o.connect(g).connect(ctx.destination);
-        o.start(t);
-        o.stop(t + 0.65);
-      });
-      window.setTimeout(() => ctx.close(), 2000);
-    } catch (e) {
-      console.warn('Neon Deck chime failed', e);
+    walk(ws.leftSplit);
+    if (!side.length) {
+      const leaf = ws.getLeftLeaf(false);
+      if (leaf) await leaf.setViewState({ type: VIEW_CARDS, active: true });
+    } else if (side.length > 1) {
+      const keep = side.find((l) => !l.isDeferred) || side[0];
+      for (const l of side) if (l !== keep) l.detach();
     }
-  }
-  onFocusLogged(fn) {
-    this.focusListeners.add(fn);
-    return () => this.focusListeners.delete(fn);
-  }
-  async logFocus(minutes, label, start) {
-    const log = this.settings.focusLog;
-    log.push({ t: start, m: minutes, l: label || '' });
-    if (log.length > 5000) log.splice(0, log.length - 5000);
-    await this.saveSettings();
-    if (this.settings.logToDaily) {
-      const f = dailyFile(this.app);
-      if (f) {
-        const line = `- 🍅 ${moment(start).format('HH:mm')} · ${minutes} min${label ? ' — ' + label : ''}`;
-        await this.app.vault.process(f, (d) => insertUnderHeading(d, /^#{1,6}\s+.*focus log.*$/im, line, '## Focus log'));
-      }
-    }
-    for (const fn of this.focusListeners) fn();
-  }
-  focusStreak() {
-    const days = new Set(this.settings.focusLog.map((e) => dayKey(e.t)));
-    let streak = 0;
-    const cur = moment();
-    if (!days.has(cur.format('YYYY-MM-DD'))) cur.subtract(1, 'day');
-    while (days.has(cur.format('YYYY-MM-DD'))) {
-      streak++;
-      cur.subtract(1, 'day');
-    }
-    return streak;
+    if (this.settings.replaceFileExplorer) ws.getLeavesOfType('file-explorer').forEach((l) => l.detach());
   }
 
   /* weekly review ------------------------------------------------------------ */
@@ -4545,24 +4300,6 @@ module.exports = class NeonDeck extends Plugin {
     if (existing instanceof TFile) return openFile(this.app, existing);
 
     const inWeek = (t) => t >= m.valueOf() && t < end.valueOf();
-    const log = this.settings.focusLog.filter((e) => inWeek(e.t));
-    const total = log.reduce((n, e) => n + e.m, 0);
-    const perDay = [];
-    for (let i = 0; i < 7; i++) {
-      const d = m.clone().add(i, 'days');
-      const mins = log.filter((e) => dayKey(e.t) === d.format('YYYY-MM-DD')).reduce((n, e) => n + e.m, 0);
-      perDay.push(`| ${d.format('ddd D MMM')} | ${mins ? fmtMin(mins) : '–'} |`);
-    }
-    const labels = new Map();
-    for (const e of log) if (e.l) labels.set(e.l, (labels.get(e.l) || 0) + e.m);
-    const focusMd = [
-      `**${log.length}** sessions · **${fmtMin(total)}** focused`,
-      '',
-      '| Day | Focus |',
-      '|---|---|',
-      ...perDay,
-      ...(labels.size ? ['', ...[...labels].sort((a, b) => b[1] - a[1]).map(([l, n]) => `- ${l} — ${fmtMin(n)}`)] : []),
-    ].join('\n');
     const md = this.app.vault.getMarkdownFiles().filter((f) => !this.isExcluded(f));
     const created = md.filter((f) => inWeek(f.stat.ctime)).sort((a, b) => a.stat.ctime - b.stat.ctime);
     const touched = md.filter((f) => inWeek(f.stat.mtime) && !inWeek(f.stat.ctime)).sort((a, b) => b.stat.mtime - a.stat.mtime);
@@ -4576,16 +4313,34 @@ module.exports = class NeonDeck extends Plugin {
     let tpl = '';
     const tf = this.app.metadataCache.getFirstLinkpathDest('Templates/Weekly Review', '');
     if (tf) tpl = await this.app.vault.read(tf);
-    if (!tpl) tpl = '# Week {{date:GGGG-[W]WW}}\n\n> {{weekLine}}\n\n## Focus\n{{weekFocus}}\n\n## Notes\n{{weekNotes}}\n';
+    if (!tpl) tpl = '# Week {{date:GGGG-[W]WW}}\n\n> {{weekLine}}\n\n## Notes\n{{weekNotes}}\n';
     else if (!/{{\s*weekLine\s*}}/.test(tpl)) tpl = tpl.replace(/^(#[^\n]*\n)?/, (h) => `${h || ''}\n> {{weekLine}}\n\n`);
     const content = applyTemplate(tpl, m, path.split('/').pop().replace(/\.md$/, ''))
       .replace(/{{\s*weekLine\s*}}/g, line)
-      .replace(/{{\s*weekFocus\s*}}/g, focusMd)
+      .replace(/{{\s*weekFocus\s*}}/g, '') // old templates: the focus timer is gone
       .replace(/{{\s*weekNotes\s*}}/g, notesMd)
       .replace(/{{\s*weekEnd(?::([^}]+))?\s*}}/g, (_, f) => end.clone().subtract(1, 'day').format(f ? f.trim() : 'YYYY-MM-DD'));
     await ensureFolder(this.app, folder);
     const f = await this.app.vault.create(path, content);
     openFile(this.app, f);
+  }
+
+  /**
+   * Once, after the switch to one main pane: Dashboard, Cards, Tickets, Time… used to sit in their
+   * own (often pinned) tabs. Keep one of them as the unpinned main pane and close the rest.
+   */
+  async foldNeonTabs() {
+    if (this.settings.singlePane) return;
+    const ws = this.app.workspace;
+    // getLeavesOfType also finds tabs Obsidian hasn't loaded yet
+    const neon = MAIN_VIEWS.flatMap((t) => ws.getLeavesOfType(t)).filter((l) => l.getRoot() === ws.rootSplit);
+    if (neon.length) {
+      const keep = neon.find((l) => l.getViewState().type === VIEW_DASH) || neon[0];
+      for (const l of neon) if (l !== keep) l.detach();
+      keep.setPinned(false);
+    }
+    this.settings.singlePane = true;
+    await this.saveSettings();
   }
 
   /* navigation helpers ---------------------------------------------------- */
@@ -4596,7 +4351,7 @@ module.exports = class NeonDeck extends Plugin {
     const ws = this.app.workspace;
     let leaf;
     if (newTab) leaf = ws.getLeaf('tab');
-    else leaf = ws.getLeavesOfType(VIEW_CARDS).find((l) => l.getRoot() === ws.rootSplit) || ws.getLeaf('tab');
+    else leaf = reusableLeaf(this.app); // the main pane
     await leaf.setViewState({ type: VIEW_CARDS, active: true, state: { path } });
     await ws.revealLeaf(leaf);
   }

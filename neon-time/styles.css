@@ -576,3 +576,72 @@ body:not(.nd-themed) .nd-empty {
   color: var(--nd-faint);
   text-align: center;
 }
+/* ---- motion (all of it switches off with reduced motion, see Neon Deck's styles) ---- */
+/* ring: segments draw in one after another, the ring turns into place */
+.tm-donut.is-intro svg {
+  animation: tm-ring-in 0.9s var(--nd-ease, ease) backwards;
+}
+@keyframes tm-ring-in {
+  from {
+    transform: rotate(-150deg);
+    opacity: 0;
+  }
+}
+.tm-donut.is-intro .tm-donut-seg {
+  animation: tm-seg-in 0.8s var(--nd-ease, ease) backwards;
+  animation-delay: calc(150ms + var(--i, 0) * 90ms);
+}
+@keyframes tm-seg-in {
+  from {
+    stroke-dasharray: 0 400;
+  }
+}
+.tm-donut.is-clickable {
+  transition: transform var(--nd-med, 250ms) var(--nd-ease, ease);
+}
+.tm-donut.is-clickable:hover {
+  transform: scale(1.04);
+}
+/* rows: rise in on first paint, a new row slides in from the left */
+.tm-w-row.is-intro,
+.tm-entry.is-intro {
+  animation: tm-row-in 0.4s var(--nd-ease, ease) backwards;
+  animation-delay: calc(250ms + var(--i, 0) * 45ms);
+}
+@keyframes tm-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.tm-w-row.is-new {
+  animation: tm-row-new 0.5s var(--nd-ease, ease) backwards;
+}
+@keyframes tm-row-new {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+    background: color-mix(in srgb, var(--cat) 18%, transparent);
+  }
+}
+/* live time: the dot breathes */
+.tm-w-row.is-live .tm-w-min::before {
+  display: inline-block;
+  animation: tm-pulse 1.8s ease-in-out infinite;
+}
+.tm-w-row {
+  transition: background var(--nd-fast, 150ms) ease, padding-left var(--nd-fast, 150ms) ease;
+}
+.tm-w-row:not(.is-live):hover {
+  padding-left: 11px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tm-donut.is-intro svg,
+  .tm-donut.is-intro .tm-donut-seg,
+  .tm-w-row,
+  .tm-entry,
+  .tm-w-row.is-live .tm-w-min::before {
+    animation: none !important;
+    transition: none !important;
+  }
+}

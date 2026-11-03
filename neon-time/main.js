@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Neon Time — active-time tracking per category, manual entries, overtime, Time Log notes.
- * Version 1.4.1 · made by yobzz + Claude.
+ * Version 1.5.0 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. Files are only written when you do something that writes.
@@ -14,9 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.4.1';
-/** Every view type owned by a Neon plugin (never reused for opening notes). */
-const NEON_VIEWS = new Set(['neon-deck-dashboard', 'neon-deck-cards', 'neon-deck-graph', 'neon-deck-tickets', 'neon-ticket', 'neon-time']);
+const ND_VERSION = '1.5.0';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };
@@ -42,6 +40,19 @@ function fmtMin(m) {
   const sign = m < 0 ? '−' : '';
   if (!h) return `${sign}${r}m`;
   return `${sign}${h}h${r ? ` ${pad(r)}m` : ''}`;
+}
+/** Count a number shown in el from `from` to `to` (ease-out). Shows `to` at once when they match or motion is reduced. */
+function countUp(el, from, to, fmt, ms = 700) {
+  if (from === to || prefersReducedMotion()) return el.setText(fmt(to));
+  const t0 = performance.now();
+  const step = (now) => {
+    if (!el.isConnected) return;
+    const k = Math.min(1, (now - t0) / ms);
+    el.setText(fmt(from + (to - from) * (1 - Math.pow(1 - k, 3))));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  el.setText(fmt(from));
+  requestAnimationFrame(step);
 }
 function icon(parent, name, cls = 'nd-ico') {
   const s = parent.createSpan({ cls });
@@ -299,12 +310,18 @@ async function createUnique(app, folder, name, content = '') {
   await ensureFolder(app, folder);
   return app.vault.create(uniquePath(app, folder, name), content);
 }
-/** Most recently used normal tab (never a Neon view or a pinned tab). */
+/**
+ * The main pane: the most recently used tab in the main area, Neon views included, so the
+ * dashboard, the other Neon views and notes all take turns in one pane (Back / Forward work).
+ * Never a pinned tab.
+ */
 function reusableLeaf(app) {
   const ws = app.workspace;
+  const recent = ws.getMostRecentLeaf(ws.rootSplit);
+  if (recent && !recent.pinned) return recent;
   const cands = [];
   ws.iterateRootLeaves((l) => {
-    if (!NEON_VIEWS.has(l.view.getViewType()) && !l.pinned) cands.push(l);
+    if (!l.pinned) cands.push(l);
   });
   cands.sort((a, b) => (b.activeTime || 0) - (a.activeTime || 0));
   return cands[0] || ws.getLeaf('tab');
@@ -317,15 +334,19 @@ function openFile(app, file, evt, line) {
   else leaf = reusableLeaf(app);
   return leaf.openFile(file, line != null ? { active: true, eState: { line } } : { active: true });
 }
+/** Show a view: 'tab' puts it in the main pane (no extra tabs); 'left' / 'right' in a sidebar. */
 async function activateView(app, type, where = 'tab') {
   const ws = app.workspace;
-  const inRoot = (l) => l.getRoot() === ws.rootSplit;
-  let leaf = ws.getLeavesOfType(type).find((l) => (where === 'tab' ? inRoot(l) : !inRoot(l)));
-  if (!leaf) {
-    if (where === 'left') leaf = ws.getLeftLeaf(false);
-    else if (where === 'right') leaf = ws.getRightLeaf(false);
-    else leaf = ws.getLeavesOfType('empty').find(inRoot) || ws.getLeaf('tab');
-    await leaf.setViewState({ type, active: true });
+  let leaf;
+  if (where === 'tab') {
+    leaf = reusableLeaf(app);
+    if (leaf.view.getViewType() !== type) await leaf.setViewState({ type, active: true });
+  } else {
+    leaf = ws.getLeavesOfType(type).find((l) => l.getRoot() !== ws.rootSplit);
+    if (!leaf) {
+      leaf = where === 'left' ? ws.getLeftLeaf(false) : ws.getRightLeaf(false);
+      await leaf.setViewState({ type, active: true });
+    }
   }
   await ws.revealLeaf(leaf);
   return leaf;
@@ -521,7 +542,7 @@ class WrapUpModal extends Modal {
     this.titleEl.setText(`Wrap up · ${moment().format('dddd D MMM')}`);
     const c = this.contentEl;
     const top = c.createDiv('tm-wrap-top');
-    p.donut(top, sum, 96);
+    p.donut(top, sum, 96, true);
     const bars = top.createDiv('tm-legend');
     p.legend(bars, sum);
     const facts = c.createDiv('tm-wrap-facts');
@@ -563,6 +584,7 @@ class WrapUpModal extends Modal {
 class TimeView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
+    this.navigation = true; // part of the main pane's Back / Forward history
     this.plugin = plugin;
     this.cursor = moment().startOf('day');
   }
@@ -636,7 +658,10 @@ class TimeView extends ItemView {
 
     const top = root.createDiv('tm-top');
     const today = this.card(top, 'tm-today', isToday ? 'Today' : 'This day', 'pie-chart', sum.target ? `${fmtMin(sum.total)} of ${fmtMin(sum.target)}` : fmtMin(sum.total)).body;
-    p.donut(today, sum, 150);
+    // a new day on screen (or the tab just opened): the ring draws in and entries rise in
+    const intro = key !== this.shownKey;
+    this.shownKey = key;
+    p.donut(today, sum, 150, intro);
     p.legend(today.createDiv('tm-legend'), sum);
 
     const bal = this.card(top, 'tm-balance', 'Balance', 'scale').body;
@@ -682,8 +707,9 @@ class TimeView extends ItemView {
     if (isToday && p.session) ec.actions.createDiv({ cls: 'tm-live', text: `● tracking ${p.session.name}` });
     const entries = p.entriesOf(key, isToday);
     if (!entries.length) emptyState(list, isToday ? 'Nothing tracked yet today. Work in a note and time counts by itself.' : 'Nothing tracked on this day.');
-    for (const e of entries) {
-      const r = list.createDiv('tm-entry' + (e.live ? ' is-live' : ''));
+    entries.forEach((e, idx) => {
+      const r = list.createDiv('tm-entry' + (e.live ? ' is-live' : '') + (intro ? ' is-intro' : ''));
+      r.style.setProperty('--i', String(idx));
       r.style.setProperty('--cat', catColor(e.cat));
       r.createSpan({ cls: 'tm-entry-at', text: moment(e.start).format('HH:mm') });
       r.createSpan({ cls: 'tm-entry-min', text: fmtMin(entryMin(e)) });
@@ -701,7 +727,7 @@ class TimeView extends ItemView {
       const a = r.createDiv('tm-entry-acts');
       if (!e.live) button(a, { icon: 'pencil', cls: 'nd-icon-btn', title: 'Edit', onClick: () => new EntryModal(p, e, false).open() });
       button(a, { icon: 'trash-2', cls: 'nd-icon-btn', title: e.live ? 'Discard live time' : 'Delete', onClick: () => p.deleteEntry(e) });
-    }
+    });
     const day = p.days[key];
     if (day && day.tomorrow) {
       const t = this.card(root, 'tm-tomorrow', 'Note for tomorrow', 'sunrise').body;
@@ -911,7 +937,7 @@ module.exports = class NeonTime extends Plugin {
     if (!api) return;
     api.registerWidget({ id: 'time', slot: 'time', title: 'Time today', icon: 'clock', sub: this.widgetSub(), mount: (card) => this.mountWidget(card) });
     api.registerCapture({ id: 'time', label: 'Time entry', short: 'Time', icon: 'clock', order: 30, allowEmpty: true, run: (v) => this.newEntry({ note: v }) });
-    api.registerAction({ id: 'time', icon: 'clock', label: 'Time', order: 40, run: () => this.openTab() });
+    api.registerAction({ id: 'time', icon: 'clock', label: 'Time', order: 40, view: VIEW_TIME, run: () => this.openTab() });
     api.registerExcluded('time', () => [this.settings.logFolder || 'Core/Time Log']);
     api.registerFacts('time', () => {
       const s = this.summary(moment().format('YYYY-MM-DD'), true);
@@ -1338,8 +1364,9 @@ module.exports = class NeonTime extends Plugin {
     await activateView(this.app, VIEW_TIME, 'tab');
   }
   /** SVG donut: categories against the day target, overtime as an accent slice. */
-  donut(parent, sum, size) {
-    const wrap = parent.createDiv('tm-donut');
+  /** intro: segments draw in one after another and the total counts up (first paint only). */
+  donut(parent, sum, size, intro = false) {
+    const wrap = parent.createDiv('tm-donut' + (intro ? ' is-intro' : ''));
     wrap.style.setProperty('--size', `${size}px`);
     const svg = wrap.createSvg('svg', { attr: { viewBox: '0 0 120 120', width: String(size), height: String(size) } });
     const R = 50;
@@ -1352,6 +1379,7 @@ module.exports = class NeonTime extends Plugin {
     if (sum.over && sum.target) slices.push(['var(--nd-accent)', sum.over, true]);
     const gap = slices.length > 1 ? 1.2 : 0;
     let off = 0;
+    let i = 0;
     for (const [color, v, isOver] of slices) {
       const len = (v / base) * C;
       if (len > gap) {
@@ -1359,13 +1387,16 @@ module.exports = class NeonTime extends Plugin {
         const c = svg.createSvg('circle', { cls: 'tm-donut-seg', attr: { cx: '60', cy: '60', r: String(R) } });
         if (isOver) c.classList.add('is-over');
         c.style.stroke = color;
+        c.style.setProperty('--i', String(i++));
         c.setAttribute('stroke-dasharray', `${len - gap} ${C - len + gap}`);
         c.setAttribute('stroke-dashoffset', String(-off));
       }
       off += len;
     }
     const mid = wrap.createDiv('tm-donut-mid');
-    mid.createDiv({ cls: 'tm-donut-v', text: fmtMin(sum.total) });
+    const v = mid.createDiv({ cls: 'tm-donut-v' });
+    if (intro) countUp(v, 0, sum.total, (x) => fmtMin(Math.round(x)), 900);
+    else v.setText(fmtMin(sum.total));
     // small rings have no room for the word "over"; the accent colour says it
     const overText = `+${fmtMin(sum.over)}${size >= 140 ? ' over' : ''}`;
     const l = mid.createDiv({ cls: 'tm-donut-l', text: !sum.target ? 'weekend' : sum.over ? overText : `of ${fmtMin(sum.target)}` });
@@ -1395,13 +1426,18 @@ module.exports = class NeonTime extends Plugin {
     button(card.actions, { icon: 'maximize-2', cls: 'nd-icon-btn', title: 'Open the Time tab', onClick: () => p.openTab() });
     const body = card.body;
     body.addClass('tm-widget');
+    // motion: everything rises in on first paint; after that only rows that weren't there before slide in
+    let shown = false;
+    let seen = new Set();
+    const rowKey = (e) => e.id || `live:${e.pendingPath || e.path}:${e.start}`;
     const render = () => {
       if (!body.isConnected) return;
       body.empty();
       const key = moment().format('YYYY-MM-DD');
       const sum = p.summary(key, true);
       const top = body.createDiv('tm-w-top');
-      const d = p.donut(top, sum, 112);
+      const intro = !shown;
+      const d = p.donut(top, sum, 112, intro);
       d.addClass('is-clickable');
       tip(d, 'Open the Time tab');
       d.addEventListener('click', () => p.openTab());
@@ -1413,8 +1449,10 @@ module.exports = class NeonTime extends Plugin {
       const recent = p.entriesOf(key, true).slice(-4).reverse();
       const list = body.createDiv('tm-w-list');
       if (!recent.length) emptyState(list, p.settings.tracking ? 'Time counts while you work in a note.' : 'Automatic tracking is paused.');
-      for (const e of recent) {
-        const r = list.createDiv('tm-w-row' + (e.live ? ' is-live' : ''));
+      recent.forEach((e, idx) => {
+        const k = rowKey(e);
+        const r = list.createDiv('tm-w-row' + (e.live ? ' is-live' : '') + (intro ? ' is-intro' : seen.has(k) ? '' : ' is-new'));
+        r.style.setProperty('--i', String(idx));
         r.style.setProperty('--cat', catColor(e.cat));
         r.createSpan({ cls: 'tm-w-at', text: moment(e.start).format('HH:mm') });
         r.createSpan({ cls: 'tm-w-note', text: e.note || (e.path ? e.path.split('/').pop().replace(/\.md$/, '') : CAT_LABEL[e.cat]) });
@@ -1431,7 +1469,9 @@ module.exports = class NeonTime extends Plugin {
             },
           });
         }
-      }
+      });
+      seen = new Set(recent.map(rowKey));
+      shown = true;
       const day = p.days[key];
       if (sum.target && sum.total >= sum.target - p.settings.wrapLead) {
         const foot = body.createDiv('tm-w-foot');

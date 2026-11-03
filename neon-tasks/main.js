@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Neon Tasks — tasks from tagged notes and your daily note, Global tasks, New note card, Fix properties.
- * Version 1.4.1 · made by yobzz + Claude.
+ * Version 1.5.0 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. Files are only written when you do something that writes.
@@ -14,9 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.4.1';
-/** Every view type owned by a Neon plugin (never reused for opening notes). */
-const NEON_VIEWS = new Set(['neon-deck-dashboard', 'neon-deck-cards', 'neon-deck-graph', 'neon-deck-tickets', 'neon-ticket', 'neon-time']);
+const ND_VERSION = '1.5.0';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };
@@ -42,6 +40,19 @@ function fmtMin(m) {
   const sign = m < 0 ? '−' : '';
   if (!h) return `${sign}${r}m`;
   return `${sign}${h}h${r ? ` ${pad(r)}m` : ''}`;
+}
+/** Count a number shown in el from `from` to `to` (ease-out). Shows `to` at once when they match or motion is reduced. */
+function countUp(el, from, to, fmt, ms = 700) {
+  if (from === to || prefersReducedMotion()) return el.setText(fmt(to));
+  const t0 = performance.now();
+  const step = (now) => {
+    if (!el.isConnected) return;
+    const k = Math.min(1, (now - t0) / ms);
+    el.setText(fmt(from + (to - from) * (1 - Math.pow(1 - k, 3))));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  el.setText(fmt(from));
+  requestAnimationFrame(step);
 }
 function icon(parent, name, cls = 'nd-ico') {
   const s = parent.createSpan({ cls });
@@ -299,12 +310,18 @@ async function createUnique(app, folder, name, content = '') {
   await ensureFolder(app, folder);
   return app.vault.create(uniquePath(app, folder, name), content);
 }
-/** Most recently used normal tab (never a Neon view or a pinned tab). */
+/**
+ * The main pane: the most recently used tab in the main area, Neon views included, so the
+ * dashboard, the other Neon views and notes all take turns in one pane (Back / Forward work).
+ * Never a pinned tab.
+ */
 function reusableLeaf(app) {
   const ws = app.workspace;
+  const recent = ws.getMostRecentLeaf(ws.rootSplit);
+  if (recent && !recent.pinned) return recent;
   const cands = [];
   ws.iterateRootLeaves((l) => {
-    if (!NEON_VIEWS.has(l.view.getViewType()) && !l.pinned) cands.push(l);
+    if (!l.pinned) cands.push(l);
   });
   cands.sort((a, b) => (b.activeTime || 0) - (a.activeTime || 0));
   return cands[0] || ws.getLeaf('tab');
@@ -317,15 +334,19 @@ function openFile(app, file, evt, line) {
   else leaf = reusableLeaf(app);
   return leaf.openFile(file, line != null ? { active: true, eState: { line } } : { active: true });
 }
+/** Show a view: 'tab' puts it in the main pane (no extra tabs); 'left' / 'right' in a sidebar. */
 async function activateView(app, type, where = 'tab') {
   const ws = app.workspace;
-  const inRoot = (l) => l.getRoot() === ws.rootSplit;
-  let leaf = ws.getLeavesOfType(type).find((l) => (where === 'tab' ? inRoot(l) : !inRoot(l)));
-  if (!leaf) {
-    if (where === 'left') leaf = ws.getLeftLeaf(false);
-    else if (where === 'right') leaf = ws.getRightLeaf(false);
-    else leaf = ws.getLeavesOfType('empty').find(inRoot) || ws.getLeaf('tab');
-    await leaf.setViewState({ type, active: true });
+  let leaf;
+  if (where === 'tab') {
+    leaf = reusableLeaf(app);
+    if (leaf.view.getViewType() !== type) await leaf.setViewState({ type, active: true });
+  } else {
+    leaf = ws.getLeavesOfType(type).find((l) => l.getRoot() !== ws.rootSplit);
+    if (!leaf) {
+      leaf = where === 'left' ? ws.getLeftLeaf(false) : ws.getRightLeaf(false);
+      await leaf.setViewState({ type, active: true });
+    }
   }
   await ws.revealLeaf(leaf);
   return leaf;

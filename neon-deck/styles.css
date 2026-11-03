@@ -645,7 +645,7 @@ body.nd-theme-brutal .nd-card::after {
   grid-template-rows: minmax(120px, 205fr) minmax(150px, 250fr) minmax(150px, 250fr) minmax(140px, 230fr);
   gap: 14px;
 }
-.nd-area-timer { grid-area: timer; }
+.nd-area-totals { grid-area: totals; }
 .nd-area-pulse { grid-area: pulse; }
 .nd-area-capture { grid-area: capture; }
 .nd-area-recent { grid-area: recent; }
@@ -761,125 +761,6 @@ body.nd-theme-brutal .nd-card-icon {
   color: var(--nd-faint);
   padding: 0 4px;
 }
-/* timer */
-.nd-w-timer .nd-card-body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-.nd-ring-wrap {
-  position: relative;
-  width: min(100%, 190px);
-  aspect-ratio: 1;
-  flex: 0 1 auto;
-  min-height: 110px;
-  cursor: pointer;
-}
-.nd-ring {
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-}
-.nd-ring-ticks line {
-  stroke: var(--nd-line-strong);
-  stroke-width: 1;
-}
-.nd-ring-track {
-  fill: none;
-  stroke: var(--nd-surface2);
-  stroke-width: 7;
-}
-.nd-ring-prog {
-  fill: none;
-  stroke: var(--nd-accent);
-  stroke-width: 7;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 1s linear;
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--nd-accent) 55%, transparent));
-}
-.nd-w-timer[data-mode="short"] .nd-ring-prog,
-.nd-w-timer[data-mode="long"] .nd-ring-prog {
-  stroke: var(--nd-info);
-}
-.nd-ring-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-.nd-ring-time {
-  font: 600 34px var(--nd-mono);
-  letter-spacing: 0.02em;
-}
-.nd-ring-sub {
-  font: 600 10.5px var(--nd-mono);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--nd-muted);
-}
-.nd-timer-ctrls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-.nd-round {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 50%;
-  color: var(--nd-muted);
-}
-.nd-play {
-  background: var(--nd-go);
-  border-color: var(--nd-go);
-  color: var(--nd-on-go);
-  padding: 9px 20px;
-  box-shadow: 0 0 18px -4px color-mix(in srgb, var(--nd-go) 55%, transparent);
-}
-.nd-play:hover {
-  background: var(--nd-go);
-  filter: brightness(1.06);
-}
-.nd-timer-label {
-  max-width: 260px;
-  text-align: center;
-  font-size: 12.5px;
-  padding: 6px 10px;
-}
-.nd-tomatoes {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-.nd-tomato-row {
-  display: flex;
-  gap: 5px;
-}
-.nd-tomato {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--nd-surface2);
-  border: 1px solid var(--nd-line-strong);
-}
-.nd-tomato.is-done {
-  background: var(--nd-go);
-  border-color: var(--nd-go);
-}
-.nd-tomato.is-bonus {
-  background: var(--nd-accent);
-  border-color: var(--nd-accent);
-}
-.nd-tomato-text {
-  font: 12px var(--nd-mono);
-  color: var(--nd-faint);
-}
 /* vault pulse */
 .nd-tiles {
   display: grid;
@@ -928,18 +809,28 @@ body.nd-theme-brutal .nd-tile {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* totals strip under the grid */
-.nd-w-totals {
-  flex: none;
-}
-.nd-w-totals .nd-card-body {
-  overflow: visible;
-}
+/* totals card: left column, top two rows. Tiles share the card's height; the first spans both columns.
+   In a short card they keep their natural size and the card body scrolls. */
 .nd-totals {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  min-height: 100%;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(min-content, 1fr);
+}
+.nd-totals .nd-tile {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.nd-totals .nd-tile:first-child {
+  grid-column: 1 / -1;
 }
 .nd-totals .nd-tile-value {
   font-size: 24px;
+}
+.nd-totals .nd-tile:first-child .nd-tile-value {
+  font-size: 28px;
 }
 .nd-spark {
   position: absolute;
@@ -1458,6 +1349,52 @@ body.nd-theme-brutal .nd-folder-icon {
   padding: 8px 8px 0;
   /* faint dot texture behind the list */
   background: radial-gradient(circle, color-mix(in srgb, var(--nd-text) 7%, transparent) 1px, transparent 1.6px) 0 0 / 10px 10px, var(--nd-bg2);
+}
+/* sidebar nav: Dashboard, Cards, Tickets, Time, Graph open in the main pane */
+.nd-side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--nd-line);
+}
+/* .nd-side-nav prefix: beats Obsidian's own button:not(.clickable-icon) style */
+.nd-side-nav .nd-side-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  height: auto;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--nd-muted);
+  font: 600 13px var(--nd-font-ui);
+  cursor: pointer;
+  transition: background var(--nd-fast) ease, color var(--nd-fast) ease;
+}
+.nd-side-nav-item .nd-ico svg {
+  width: 16px;
+  height: 16px;
+}
+.nd-side-nav .nd-side-nav-item:hover {
+  background: color-mix(in srgb, var(--nd-text) 6%, transparent);
+  color: var(--nd-text);
+}
+.nd-side-nav .nd-side-nav-item.is-active {
+  background: color-mix(in srgb, var(--nd-accent) 14%, transparent);
+  box-shadow: inset 2px 0 0 var(--nd-accent);
+  color: var(--nd-text);
+}
+.nd-side-nav-item.is-active .nd-ico {
+  color: var(--nd-accent);
+}
+body.nd-theme-brutal .nd-side-nav .nd-side-nav-item {
+  border-radius: 2px;
 }
 .nd-side-top .nd-search {
   max-width: none;
@@ -2048,20 +1985,89 @@ body.nd-theme-brutal .nd-side-browse .nd-icon-btn.nd-side-add {
   color: var(--nd-on-accent);
   background: var(--nd-accent);
 }
-.nd-status.is-running.is-break {
-  background: var(--nd-info);
-  color: var(--nd-bg);
-}
 
 /* ---------- 8. motion ---------- */
-.nd-dash-grid.is-entering > .nd-card {
-  animation: nd-card-in 0.3s var(--nd-ease) backwards;
+/* dashboard opens: hero drops in, cards rise and settle one after another */
+.nd-dash-inner > .nd-hero {
+  animation: nd-dash-in 0.45s var(--nd-ease) backwards;
 }
-.nd-dash-grid.is-entering > .nd-card:nth-child(2) { animation-delay: 30ms; }
-.nd-dash-grid.is-entering > .nd-card:nth-child(3) { animation-delay: 60ms; }
-.nd-dash-grid.is-entering > .nd-card:nth-child(4) { animation-delay: 90ms; }
-.nd-dash-grid.is-entering > .nd-card:nth-child(5) { animation-delay: 120ms; }
-.nd-dash-grid.is-entering > .nd-card:nth-child(n + 6) { animation-delay: 150ms; }
+.nd-dash-grid.is-entering > .nd-card {
+  animation: nd-dash-in 0.5s var(--nd-ease) backwards;
+  animation-delay: 60ms;
+}
+.nd-dash-grid.is-entering > .nd-card:nth-child(2) { animation-delay: 100ms; }
+.nd-dash-grid.is-entering > .nd-card:nth-child(3) { animation-delay: 140ms; }
+.nd-dash-grid.is-entering > .nd-card:nth-child(4) { animation-delay: 180ms; }
+.nd-dash-grid.is-entering > .nd-card:nth-child(5) { animation-delay: 220ms; }
+.nd-dash-grid.is-entering > .nd-card:nth-child(6) { animation-delay: 260ms; }
+.nd-dash-grid.is-entering > .nd-card:nth-child(n + 7) { animation-delay: 300ms; }
+@keyframes nd-dash-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+}
+/* cards: a soft accent edge and a nudge of the icon chip on hover */
+.nd-dash-grid > .nd-card {
+  transition: border-color var(--nd-med) ease, box-shadow var(--nd-med) ease;
+}
+.nd-dash-grid > .nd-card:hover {
+  border-color: color-mix(in srgb, var(--nd-accent) 32%, var(--nd-line));
+  box-shadow: var(--nd-hi), var(--nd-shadow), 0 10px 30px -16px color-mix(in srgb, var(--nd-accent) 45%, transparent);
+}
+.nd-card-icon {
+  transition: transform var(--nd-med) var(--nd-ease), box-shadow var(--nd-med) ease;
+}
+.nd-card:hover .nd-card-icon {
+  transform: scale(1.08) rotate(-6deg);
+  box-shadow: 0 0 18px -2px color-mix(in srgb, var(--nd-accent) 45%, transparent);
+}
+/* tiles (Vault pulse, Totals): rise in one by one, sparklines draw themselves, on first paint only */
+.nd-tiles.is-intro > .nd-tile {
+  animation: nd-tile-in 0.45s var(--nd-ease) backwards;
+  animation-delay: calc(200ms + var(--i, 0) * 50ms);
+}
+@keyframes nd-tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+.nd-tiles.is-intro .nd-spark polyline {
+  stroke-dasharray: 1;
+  animation: nd-draw 0.9s var(--nd-ease) backwards;
+  animation-delay: calc(450ms + var(--i, 0) * 50ms);
+}
+@keyframes nd-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.nd-tile {
+  transition: border-color var(--nd-fast) ease, transform var(--nd-fast) ease, background var(--nd-med) ease;
+}
+.nd-tile:hover {
+  border-color: color-mix(in srgb, var(--tile-accent) 35%, var(--nd-line));
+}
+/* activity: dots pop in week by week, left to right; today's dot breathes */
+.nd-heat.is-intro .nd-heat-cell {
+  animation: nd-heat-in 0.4s var(--nd-ease) backwards;
+  animation-delay: calc(250ms + var(--c, 0) * 14ms);
+}
+@keyframes nd-heat-in {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+.nd-heat-cell.is-today .nd-heat-dot {
+  animation: nd-breathe 2.8s ease-in-out infinite;
+}
+@keyframes nd-breathe {
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--nd-go) 22%, transparent);
+  }
+}
 @keyframes nd-card-in {
   from {
     opacity: 0;
