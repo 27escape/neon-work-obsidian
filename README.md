@@ -13,7 +13,7 @@ Everything runs **100% locally**: no network calls, no telemetry, no remote font
 | **Neon Tickets** | Ticket view and pop-up, New ticket form, tracker, reminders, self-writing log, monthly counter |
 | **Neon Time** | Active time per category, manual entries, overtime, daily Time Log notes for an AI agent |
 | **Neon Write** | Table picker, slash menu, a toolbar on selected text and a faint pattern behind notes |
-| **Neon Research** | A separate Research tab: sources, concepts and topic hubs, link suggestions, resurfacing and flashcards |
+| **Neon Research** | A separate Research tab: a topic tree (topics → subtopics → notes) with quiz cards and link suggestions |
 
 Neon Deck is the core. The others plug their cards, capture targets and facts into its dashboard. Turn any of them off and the rest keeps working; the dashboard gives the free space to the neighbours.
 
@@ -65,12 +65,11 @@ Neon Deck is the core. The others plug their cards, capture targets and facts in
 - Optional: turn Neon Write off and the other four behave exactly as before.
 
 ### Research (Neon Research)
-- **Its own Research tab**, separate from work, showing only notes in `Learning/Core-topics` (changeable): topics, sources, notes to revisit and flashcards. Research notes are left out of work time by default.
-- **Note types** (`/source`, `/concept`, `/topic` in the slash menu, or the buttons): a small form creates the note with the right properties — sources (kind, author, year, link, read status), concepts (topics, seed → growing → done, source) and topic hubs.
-- **Topic pages:** every note tagged with a topic, linking to it or linked from its hub note, plus notes that mention it without a link (one click links them).
-- **Link suggestions:** in a research note, the status bar offers to link mentions of other research note titles.
-- **Resurfacing:** research notes you haven't opened for a while (14 days by default) show under Revisit.
-- **Flashcards:** any line `Question :: Answer` in a research note becomes a card; study per topic or all, with Again / Hard / Easy spacing kept in the plugin's own data.
+- **Its own Research tab**, separate from work: one tree of **topics → subtopics → notes**. Topics are folders in `Learning/Core-topics` (changeable), so the tree matches Obsidian's own file views.
+- **+** on a topic adds a subtopic or a note; **⋯** (or right-click) renames, quizzes or deletes. Deleting asks first and goes to the system trash. Notes open in the main pane.
+- **Quiz cards:** a line `Question :: Answer` in a note becomes a card. "Quiz me" asks all due cards, or one topic's from its ⋯ menu (space shows the answer, 1 / 2 / 3 = again / hard / easy).
+- **Link suggestions:** in a research note, the status bar offers to link words that match other research note titles.
+- Research notes are left out of work time by default (`untracked: true`).
 
 ## Install
 
@@ -93,7 +92,7 @@ Requires Obsidian 1.5.0 or later.
 
 ## Release notes
 
-Only the latest release notes are kept: [1.6.4](docs/release-notes/1.6.4.md): new Neon Research plugin (its own Research tab for `Learning/Core-topics`: note types, topics, link suggestions, revisit, flashcards) and clearing done tickets. Older notes are in the git history.
+Only the latest release notes are kept: [1.6.5](docs/release-notes/1.6.5.md): the Research tab is now a simple topic tree (topics → subtopics → notes) with add / rename / delete, a quiz picker and a cleaner layout. Older notes are in the git history.
 
 ## License
 

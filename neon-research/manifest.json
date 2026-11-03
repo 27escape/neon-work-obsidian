@@ -1,9 +1,9 @@
 {
   "id": "neon-research",
   "name": "Neon Research",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "minAppVersion": "1.5.0",
-  "description": "Research kept apart from work: sources, concepts and topic hubs, link suggestions, resurfacing and flashcards, in its own Research tab. 100% offline.",
+  "description": "A topic tree for learning (topics, subtopics, notes) with quiz cards and link suggestions, in its own Research tab. 100% offline.",
   "author": "yobzz + Claude",
   "isDesktopOnly": false
 }
