@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Neon Tickets — ticket tracker, compact ticket view, self-writing log, done folder, monthly counter.
- * Version 1.6.2 · made by yobzz + Claude.
+ * Version 1.6.3 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. Files are only written when you do something that writes.
@@ -14,7 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.6.2';
+const ND_VERSION = '1.6.3';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };
@@ -464,8 +464,10 @@ const SEC = {
   steps: { re: /^#{1,6}\s+(next steps|steps|first steps)\s*$/i, head: '## Next steps' },
   log: { re: /^#{1,6}\s+log\s*$/i, head: '## Log' },
   time: { re: /^#{1,6}\s+time( logged)?\s*$/i, head: '## Time' },
+  shots: { re: /^#{1,6}\s+(screenshots|images|attachments)\s*$/i, head: '## Screenshots' },
 };
-const SEC_ORDER = ['description', 'steps', 'log', 'time'];
+const SEC_ORDER = ['description', 'steps', 'shots', 'log', 'time'];
+const IMG_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
 const STAMP = () => moment().format('YYYY-MM-DD HH:mm');
 
 function normTicketStatus(v) {
@@ -550,7 +552,7 @@ function addToSection(text, key, line) {
 }
 function parseTicketBody(text) {
   const lines = text.split('\n');
-  const out = { description: [], steps: [], log: [], time: [] };
+  const out = { description: [], steps: [], log: [], time: [], shots: [] };
   const sec = (k) => findSection(lines, k);
   const d = sec('description');
   if (d) for (let i = d[0] + 1; i < d[1]; i++) if (lines[i].trim()) out.description.push(lines[i].replace(/^\s*[-*]\s+/, ''));
@@ -572,6 +574,14 @@ function parseTicketBody(text) {
       const m = lines[i].match(/^\s*[-*]\s+(\d{4}-\d{2}-\d{2})(?:[ T](\d{1,2}:\d{2}))?\s*[—–-]+\s*(.*)$/);
       if (m) out.log.push({ when: moment(`${m[1]} ${m[2] || '00:00'}`, 'YYYY-MM-DD HH:mm'), hasTime: !!m[2], text: m[3] });
       else if (/^\s*[-*]\s+\S/.test(lines[i])) out.log.push({ when: null, text: lines[i].replace(/^\s*[-*]\s+/, '') });
+    }
+  }
+  const sh = sec('shots');
+  if (sh) {
+    for (let i = sh[0] + 1; i < sh[1]; i++) {
+      // ![[path]] or ![alt](path)
+      const m = lines[i].match(/!\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/) || lines[i].match(/!\[[^\]]*\]\(([^)]+)\)/);
+      if (m) out.shots.push({ line: i, link: m[1].trim() });
     }
   }
   const tm = sec('time');
@@ -876,6 +886,22 @@ class TemplateModal extends Modal {
   }
 }
 
+/** A screenshot at full size. */
+class ShotModal extends Modal {
+  constructor(app, file) {
+    super(app);
+    this.file = file;
+  }
+  onOpen() {
+    this.modalEl.addClass('nd-modal', 'tk-shot-modal');
+    this.titleEl.setText(this.file.name);
+    this.contentEl.createEl('img', { attr: { src: this.app.vault.getResourcePath(this.file), alt: this.file.basename } });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 class WaitingModal extends Modal {
   constructor(plugin, t, onDone) {
     super(plugin.app);
@@ -1002,6 +1028,8 @@ class TicketView extends FileView {
   async onOpen() {
     this.contentEl.addClass('nd-root', 'tk-view');
     this.card = new TicketCard(this.plugin, this.contentEl, { popup: false, file: () => this.file, raw: (f) => this.plugin.openRaw(f, this.leaf) });
+    this.register(this.card.attachInputs(() => this.app.workspace.activeLeaf === this.leaf && !document.querySelector('.modal-container')));
+    this.addAction('file-down', 'Export as PDF', () => this.file && this.plugin.ticketFor(this.file) && this.plugin.exportTicket(this.plugin.ticketFor(this.file)));
     this.card.mountPattern();
     this.register(() => this.card.unmountPattern());
     this.registerEvent(this.app.workspace.on('neon-deck:core-ready', () => this.card.mountPattern()));
@@ -1018,6 +1046,14 @@ class TicketView extends FileView {
         if (this.file && f.path === this.file.path) re();
       }),
     );
+    // a screenshot file added, deleted or renamed outside the ticket: redraw so thumbnails stay true
+    const shotChange = (f, old) => {
+      const dir = this.plugin.shotFolder() + '/';
+      if (f.path.startsWith(dir) || (old && old.startsWith(dir))) re();
+    };
+    this.registerEvent(this.app.vault.on('delete', shotChange));
+    this.registerEvent(this.app.vault.on('rename', shotChange));
+    this.registerEvent(this.app.vault.on('create', shotChange));
   }
   async onLoadFile(file) {
     await this.render();
@@ -1091,11 +1127,21 @@ class TicketCard {
     if (t.id) kick.createSpan({ cls: 'tk-id', text: t.id });
     if (t.jira) kick.createSpan({ cls: 'tk-jira', text: t.jira });
     kick.createSpan({ cls: 'tk-path', text: `· ${file.parent && file.parent.path !== '/' ? file.parent.path + '/' : ''}` });
+    const corner = kick.createSpan('tk-corner tk-corner-btns');
+    button(corner, {
+      icon: 'file-down',
+      cls: 'nd-icon-btn',
+      title: 'Export as PDF (steps, screenshots, log)',
+      onClick: () => {
+        // close the pop-up first, or it would sit on top of the report and the PDF dialog
+        if (this.host.popup) this.host.close();
+        this.plugin.exportTicket(t);
+      },
+    });
     if (this.host.popup) {
-      const c = kick.createSpan('tk-corner tk-corner-btns');
-      button(c, { icon: 'maximize-2', cls: 'nd-icon-btn', title: 'Open as a tab', onClick: () => this.host.tab(file) });
-      button(c, { icon: 'x', cls: 'nd-icon-btn', title: 'Close (Esc)', onClick: () => this.host.close() });
-    } else kick.createSpan({ cls: 'tk-corner', text: '// ticket' });
+      button(corner, { icon: 'maximize-2', cls: 'nd-icon-btn', title: 'Open as a tab', onClick: () => this.host.tab(file) });
+      button(corner, { icon: 'x', cls: 'nd-icon-btn', title: 'Close (Esc)', onClick: () => this.host.close() });
+    }
     card.createDiv({ cls: 'tk-title', text: t.title });
 
     const st = card.createDiv('nd-pills tk-status');
@@ -1185,6 +1231,30 @@ class TicketCard {
     }
     if (!b.steps.length) ss.createDiv({ cls: 'tk-faint', text: 'No steps yet — the + adds one, Enter adds the next.' });
 
+    // screenshots: paste (Ctrl+V), drop files on the ticket, or + to pick; saved in Core/Images/Tickets
+    const shs = sec('Screenshots', b.shots.length ? String(b.shots.length) : '', () => this.pickShots(t), 'Add screenshots');
+    if (b.shots.length) {
+      const grid = shs.createDiv('tk-shots');
+      for (const shot of b.shots) {
+        const f = this.app.metadataCache.getFirstLinkpathDest(shot.link, file.path);
+        const tile = grid.createDiv('tk-shot' + (f ? '' : ' is-missing'));
+        if (f) {
+          tile.createEl('img', { attr: { src: this.app.vault.getResourcePath(f), alt: f.basename, loading: 'lazy' } });
+          tile.addEventListener('click', () => new ShotModal(this.app, f).open());
+          tip(tile, f.name);
+        } else tile.createDiv({ cls: 'tk-faint', text: `Missing: ${shot.link}` });
+        button(tile, {
+          icon: 'x',
+          cls: 'nd-icon-btn tk-shot-x',
+          title: 'Remove screenshot',
+          onClick: (e) => {
+            e.stopPropagation();
+            new ConfirmModal(this.app, { title: 'Remove screenshot?', text: 'It leaves the ticket and the image goes to the system trash.', cta: 'Remove', onConfirm: () => this.plugin.removeScreenshot(t, shot) }).open();
+          },
+        });
+      }
+    } else shs.createDiv({ cls: 'tk-faint', text: 'No screenshots yet — paste one (Ctrl+V), drop image files here, or use the +.' });
+
     const ls = sec('Log', '', (s) => this.inline(s, 'Write a log line…', (v) => this.plugin.addLog(t, v), false, true), 'Write your own log line');
     const log = b.log.slice().sort((x, y) => (y.when ? y.when.valueOf() : 0) - (x.when ? x.when.valueOf() : 0));
     log.forEach((e, i) => {
@@ -1250,6 +1320,53 @@ class TicketCard {
     input.select();
   }
   /** Inline input at the end of a section. keep: Enter keeps it open for another. */
+  /** + on Screenshots: pick image files. */
+  pickShots(t) {
+    const input = createEl('input', { attr: { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp', multiple: '' } });
+    input.addEventListener('change', () => this.plugin.addScreenshots(t, [...input.files]));
+    input.click();
+  }
+  /** Paste and drop of images onto the ticket. isActive says whether this card is the one in front. Returns a cleanup function. */
+  attachInputs(isActive) {
+    const images = (list) => [...(list || [])].filter((f) => IMG_TYPES[f.type]);
+    const onPaste = (e) => {
+      if (!this.el.isConnected || !isActive()) return;
+      const files = images(e.clipboardData && e.clipboardData.files);
+      if (!files.length) return; // plain text pastes into + boxes as usual
+      const t = this.file && this.plugin.ticketFor(this.file);
+      if (!t) return;
+      e.preventDefault();
+      this.plugin.addScreenshots(t, files);
+    };
+    const onOver = (e) => {
+      if (e.dataTransfer && [...e.dataTransfer.items].some((i) => i.kind === 'file')) {
+        e.preventDefault();
+        this.el.addClass('is-dropping');
+      }
+    };
+    const onLeave = (e) => {
+      if (!this.el.contains(e.relatedTarget)) this.el.removeClass('is-dropping');
+    };
+    const onDrop = (e) => {
+      this.el.removeClass('is-dropping');
+      const files = images(e.dataTransfer && e.dataTransfer.files);
+      if (!files.length) return;
+      const t = this.file && this.plugin.ticketFor(this.file);
+      if (!t) return;
+      e.preventDefault();
+      this.plugin.addScreenshots(t, files);
+    };
+    document.addEventListener('paste', onPaste, true);
+    this.el.addEventListener('dragover', onOver);
+    this.el.addEventListener('dragleave', onLeave);
+    this.el.addEventListener('drop', onDrop);
+    return () => {
+      document.removeEventListener('paste', onPaste, true);
+      this.el.removeEventListener('dragover', onOver);
+      this.el.removeEventListener('dragleave', onLeave);
+      this.el.removeEventListener('drop', onDrop);
+    };
+  }
   inline(sec, placeholder, onSubmit, keep, top) {
     const old = sec.querySelector('.tk-inline');
     if (old) {
@@ -1331,8 +1448,15 @@ class TicketPopup extends Modal {
     this.refs.push([mc, mc.on('changed', (f) => f === this.file && re())]);
     this.refs.push([v, v.on('rename', (f) => f === this.file && re())]);
     this.refs.push([v, v.on('delete', (f) => f === this.file && this.close())]);
+    const shotChange = (f, old) => {
+      const dir = this.plugin.shotFolder() + '/';
+      if (f.path.startsWith(dir) || (old && old.startsWith(dir))) re();
+    };
+    for (const ev of ['delete', 'rename', 'create']) this.refs.push([v, v.on(ev, shotChange)]);
     this.card.render();
     this.card.mountPattern();
+    // the pop-up is in front while it's open: it takes pasted and dropped images
+    this.detachInputs = this.card.attachInputs(() => true);
     this.refs.push([this.app.workspace, this.app.workspace.on('neon-deck:core-ready', () => this.card.mountPattern())]);
     this.refs.push([this.app.workspace, this.app.workspace.on('neon-deck:core-unloaded', () => this.card.unmountPattern())]);
   }
@@ -1349,6 +1473,7 @@ class TicketPopup extends Modal {
   onClose() {
     for (const [src, ref] of this.refs) src.offref(ref);
     this.refs = [];
+    if (this.detachInputs) this.detachInputs();
     this.card.unmountPattern();
     this.contentEl.empty();
   }
@@ -2161,6 +2286,109 @@ module.exports = class NeonTickets extends Plugin {
   /* creating ------------------------------------------------------------------ */
   newTicket(opts) {
     new NewTicketModal(this, opts || {}).open();
+  }
+
+  /* ---- screenshots ---- */
+  shotFolder() {
+    const deck = neonPlugin(this.app, 'neon-deck');
+    const core = (deck && deck.settings && deck.settings.coreFolder) || 'Core';
+    return normalizePath(`${core}/Images/Tickets`);
+  }
+  /** Save image files into Core/Images/Tickets and link them under ## Screenshots. */
+  async addScreenshots(t, files) {
+    if (!files.length) return;
+    const dir = this.shotFolder();
+    await ensureFolder(this.app, dir);
+    const links = [];
+    for (const [i, f] of files.entries()) {
+      const ext = IMG_TYPES[f.type];
+      if (!ext) continue;
+      const base = safeName(`${t.id || t.title} ${moment().format('YYYY-MM-DD HH-mm-ss')}${files.length > 1 ? ` ${i + 1}` : ''}`);
+      const created = await this.app.vault.createBinary(uniquePath(this.app, dir, base, ext), await f.arrayBuffer());
+      links.push(`![[${created.path}]]`);
+    }
+    if (!links.length) return;
+    await this.app.vault.process(t.file, (d) => links.reduce((acc, l) => addToSection(acc, 'shots', l), d));
+    await this.log(t, links.length === 1 ? 'Screenshot added' : `${links.length} screenshots added`);
+    new Notice(`${links.length === 1 ? 'Screenshot' : `${links.length} screenshots`} saved to ${dir}`);
+  }
+  /** Take a screenshot off the ticket; the image itself goes to the system trash. */
+  async removeScreenshot(t, shot) {
+    const f = this.app.metadataCache.getFirstLinkpathDest(shot.link, t.file.path);
+    await this.app.vault.process(t.file, (d) => {
+      const lines = d.split('\n');
+      const sec = findSection(lines, 'shots');
+      if (!sec) return d;
+      const i = lines.findIndex((l, n) => n > sec[0] && n < sec[1] && l.includes(shot.link));
+      if (i !== -1) lines.splice(i, 1);
+      return lines.join('\n');
+    });
+    if (f) await this.app.vault.trash(f, true);
+  }
+
+  /* ---- export ---- */
+  /** Build a report note for the ticket (Core/Tickets/Exports) and open Obsidian's PDF export for it. */
+  async exportTicket(t) {
+    const text = await this.app.vault.read(t.file);
+    const b = parseTicketBody(stripFrontmatter(text));
+    const day = (m) => (m ? moment(m).format('D MMM YYYY') : '—');
+    const done = b.steps.filter((x) => x.done).length;
+    const total = b.time.reduce((sum, x) => sum + x.min, 0);
+    const facts = [
+      ['Ticket', t.id || '—'],
+      ['Jira', t.jira || '—'],
+      ['Status', TICKET_STATUS_LABEL[t.status] || t.status],
+      ['Priority', t.priority],
+      ['Opened', day(t.created)],
+      ['Due', day(t.due)],
+      ['Completed', day(t.completed)],
+      ['Time logged', total ? fmtMin(total) : '—'],
+    ];
+    const md = [
+      '---',
+      'type: ticket-report',
+      'untracked: true', // reading a report is not work on the ticket
+      `ticket: ${JSON.stringify(t.file.path)}`,
+      `exported: ${moment().format('YYYY-MM-DD HH:mm')}`,
+      'cssclasses: [tk-report]',
+      '---',
+      `# ${t.title}`,
+      '',
+      '| Detail | Value |',
+      '| --- | --- |',
+      ...facts.map(([k, v]) => `| **${k}** | ${String(v).replace(/\|/g, '\\|')} |`),
+      '',
+      '## Description',
+      ...(b.description.length ? b.description : ['_No description._']),
+      '',
+      `## Steps (${done} of ${b.steps.length} done)`,
+      ...(b.steps.length ? b.steps.map((x) => `- [${x.done ? 'x' : ' '}] ${x.text}${x.done && x.at ? ` — done ${x.at}` : ''}`) : ['_No steps._']),
+      '',
+      '## Screenshots',
+      ...(b.shots.length ? b.shots.flatMap((x) => [`![[${x.link}]]`, '']) : ['_No screenshots._', '']),
+      '## Time logged',
+      ...(b.time.length ? b.time.map((x) => `- ${x.date}${x.start ? ' ' + x.start : ''} · ${fmtMin(x.min)}${x.note ? ` · ${x.note}` : ''}`) : ['_No time logged._']),
+      '',
+      '## Log',
+      ...(b.log.length ? b.log.slice().sort((x, y) => (x.when ? x.when.valueOf() : 0) - (y.when ? y.when.valueOf() : 0)).map((x) => `- ${x.when ? x.when.format(x.hasTime ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD') + ' — ' : ''}${x.text}`) : ['_Nothing logged._']),
+      '',
+      `_Exported ${moment().format('D MMM YYYY, HH:mm')} from Neon Tickets._`,
+      '',
+    ].join('\n');
+    const dir = normalizePath(`${this.settings.ticketFolder || 'Core/Tickets'}/Exports`);
+    await ensureFolder(this.app, dir);
+    const path = normalizePath(`${dir}/${safeName(`${t.id ? t.id + ' ' : ''}${t.title}`) || 'Ticket'} report.md`);
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    const report = existing instanceof TFile ? (await this.app.vault.modify(existing, md), existing) : await this.app.vault.create(path, md);
+    // open the report in reading mode (reusing its tab if it's already open) and hand it to Obsidian's PDF export
+    const open = this.app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === report);
+    const leaf = open || this.app.workspace.getLeaf('tab');
+    await leaf.openFile(report, { active: true, state: { mode: 'preview' } });
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
+    window.setTimeout(() => {
+      if (!this.app.commands.executeCommandById('workspace:export-pdf')) new Notice('Report ready — use “Export to PDF” from the note menu to save it.');
+    }, 400);
+    return report;
   }
 
   /* ---- ticket templates (local: stored in this plugin's data) ---- */

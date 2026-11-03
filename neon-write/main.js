@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Neon Write — table picker, slash menu, selection toolbar and a faint pattern behind notes.
- * Version 1.6.2 · made by yobzz + Claude.
+ * Version 1.6.3 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. It only edits the note you're typing in.
@@ -14,7 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.6.2';
+const ND_VERSION = '1.6.3';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };
@@ -432,6 +432,7 @@ const NW_DEFAULTS = {
   toolbar: true,
   liftedWindow: true,
   themeFonts: true,
+  styledTables: true,
   moveImages: true,
   notePattern: true,
   patternOpacity: 35, // percent of the dashboard pattern's strength (already faint by design)
@@ -772,6 +773,10 @@ class NeonWriteSettingTab extends PluginSettingTab {
       .setDesc('Body text, headings and code use the fonts of the Neon theme you picked on the dashboard.')
       .addToggle((t) => t.setValue(s.themeFonts).onChange((v) => ((s.themeFonts = v), p.saveSettings(), p.applyLook())));
     new Setting(containerEl)
+      .setName('Styled tables')
+      .setDesc('Tables in notes get a rounded card, a tinted header and soft row lines in the theme colours.')
+      .addToggle((t) => t.setValue(s.styledTables).onChange((v) => ((s.styledTables = v), p.saveSettings(), p.applyLook())));
+    new Setting(containerEl)
       .setName('Pattern behind notes')
       .setDesc('The dashboard pattern, dimmed right down, behind the note you are writing. Needs Neon Deck.')
       .addToggle((t) => t.setValue(s.notePattern).onChange((v) => ((s.notePattern = v), p.saveSettings(), p.mountNotePattern())));
@@ -818,11 +823,12 @@ module.exports = class NeonWrite extends Plugin {
   }
   onunload() {
     this.unmountNotePattern();
-    document.body.removeClass('nw-lifted', 'nw-fonts');
+    document.body.removeClass('nw-lifted', 'nw-fonts', 'nw-tables');
   }
   applyLook() {
     document.body.toggleClass('nw-lifted', this.settings.liftedWindow);
     document.body.toggleClass('nw-fonts', this.settings.themeFonts);
+    document.body.toggleClass('nw-tables', this.settings.styledTables);
   }
   async saveSettings() {
     await this.saveData(this.settings);

@@ -1342,3 +1342,85 @@ body:not(.nd-themed) .nd-empty {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---- screenshots on a ticket ---- */
+.tk-shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+.tk-shot {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--nd-line);
+  border-radius: var(--nd-radius-s, 10px);
+  overflow: hidden;
+  background: var(--nd-surface2);
+  cursor: zoom-in;
+  transition: transform var(--nd-fast, 150ms) var(--nd-ease, ease), border-color var(--nd-fast, 150ms) ease;
+}
+.tk-shot:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--nd-accent) 45%, var(--nd-line));
+}
+.tk-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.tk-shot.is-missing {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  cursor: default;
+}
+.tk-shot .tk-shot-x {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 24px;
+  height: 24px;
+  background: color-mix(in srgb, var(--nd-bg) 75%, transparent);
+  opacity: 0;
+  transition: opacity var(--nd-fast, 150ms) ease;
+}
+.tk-shot:hover .tk-shot-x,
+.tk-shot .tk-shot-x:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .tk-shot .tk-shot-x { opacity: 1; }
+}
+/* dropping image files onto a ticket */
+.tk-host.is-dropping {
+  outline: 2px dashed var(--nd-go);
+  outline-offset: -6px;
+}
+.tk-shot-modal {
+  width: min(92vw, 1400px);
+  max-width: none;
+}
+.tk-shot-modal img {
+  display: block;
+  max-width: 100%;
+  max-height: 78vh;
+  margin: 0 auto;
+  border-radius: var(--nd-radius-s, 10px);
+}
+/* exported report (note view and PDF): screenshots full width, framed */
+.tk-report img {
+  max-width: 100%;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+}
+/* the report reads as a document: no properties box, no file-name title above the real one */
+.tk-report {
+  --metadata-display-reading: none;
+  --metadata-display-editing: none;
+}
+.tk-report .metadata-container,
+.tk-report .inline-title {
+  display: none !important;
+}

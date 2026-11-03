@@ -219,6 +219,69 @@ body.nw-fonts.nd-themed .workspace-leaf-content[data-type='markdown'] :is(h1, h2
   letter-spacing: -0.01em;
 }
 
+/* ---- styled tables: a rounded card with a tinted header, soft row lines and zebra rows ---- */
+body.nw-tables .workspace-leaf-content[data-type='markdown'] {
+  --nw-tline: color-mix(in srgb, var(--nd-line, var(--background-modifier-border)) 85%, transparent);
+  --table-border-width: 0;
+  --table-border-color: var(--nw-tline);
+  --table-header-background: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 13%, var(--nd-surface2, var(--background-secondary)));
+  --table-header-background-hover: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 20%, var(--nd-surface2, var(--background-secondary)));
+  --table-header-color: var(--nd-text, var(--text-normal));
+  --table-row-alt-background: color-mix(in srgb, var(--nd-text, var(--text-normal)) 3%, transparent);
+  --table-row-background-hover: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 8%, transparent);
+  --table-row-alt-background-hover: var(--table-row-background-hover);
+}
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered table {
+  --nw-tr: var(--nd-radius-s, 10px);
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--nw-tline);
+  border-radius: var(--nw-tr);
+  background: color-mix(in srgb, var(--nd-surface2, var(--background-secondary)) 70%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 4%, transparent) inset,
+    0 10px 28px -18px rgba(0, 0, 0, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered :is(th, td) {
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--nw-tline);
+}
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered :is(th, td) + :is(th, td) {
+  border-left: 1px solid var(--nw-tline);
+}
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered th {
+  font: 600 0.78em var(--nd-mono, var(--font-monospace));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nd-text, var(--text-normal));
+  border-bottom-color: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 45%, var(--nw-tline));
+}
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered tr:last-child > td {
+  border-bottom: 0;
+}
+/* rounded corners on the corner cells (a separate-border table can't clip its cells) */
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered thead tr:first-child > :first-child {
+  border-top-left-radius: calc(var(--nw-tr) - 1px);
+}
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered thead tr:first-child > :last-child {
+  border-top-right-radius: calc(var(--nw-tr) - 1px);
+}
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered tbody tr:last-child > :first-child {
+  border-bottom-left-radius: calc(var(--nw-tr) - 1px);
+}
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered tbody tr:last-child > :last-child {
+  border-bottom-right-radius: calc(var(--nw-tr) - 1px);
+}
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered tbody tr > td {
+  transition: background var(--nd-fast, 150ms) ease;
+}
+body.nw-tables.nd-theme-brutal .workspace-leaf-content[data-type='markdown'] .markdown-rendered table {
+  --nw-tr: 2px;
+  border-width: 2px;
+}
+
 @keyframes nw-pop {
   from {
     opacity: 0;
@@ -234,4 +297,14 @@ body.nw-fonts.nd-themed .workspace-leaf-content[data-type='markdown'] :is(h1, h2
   .nw-toolbar .nw-tb-btn {
     transition: none;
   }
+}
+/* wide tables scroll sideways inside the note instead of running past the card edge
+   (reading view only: the editor's table already scrolls and needs room for its handles) */
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-preview-view .table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered th {
+  white-space: nowrap;
 }

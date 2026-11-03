@@ -37,6 +37,7 @@ Neon Deck is the core. The others plug their cards, capture targets and facts in
 - A ticket is a normal note with `type: ticket`. It opens as a pop-up with steps, a log that writes itself, due dates, reminders and a Waiting state with follow-ups.
 - Done tickets file themselves into `Done/YYYY-MM/`; a counter reads like *14 done in November · 11 in October*.
 - **Templates:** a Templates tab in the tracker to add, edit, duplicate and delete ticket blueprints (steps, description, priority, due). Pick one in New ticket and its steps are filled in. Stored locally in the plugin's data.
+- **Screenshots and PDF export:** paste, drop or pick screenshots on a ticket (saved in `Core/Images/Tickets/`), and export the whole ticket (steps, screenshots, log, time) as a PDF report.
 
 ### Time (Neon Time)
 
@@ -82,7 +83,7 @@ Requires Obsidian 1.5.0 or later.
 
 ## Release notes
 
-Only the latest release notes are kept: [1.6.2](docs/release-notes/1.6.2.md): ticket templates (Templates tab, editor, picker in New ticket), instant step adding, the log keeps only finished steps. Older notes are in the git history.
+Only the latest release notes are kept: [1.6.3](docs/release-notes/1.6.3.md): screenshots on tickets (paste, drop, pick; saved in Core/Images/Tickets), export a ticket as PDF, styled tables in notes. Older notes are in the git history.
 
 ## License
 
