@@ -81,6 +81,7 @@ Requires Obsidian 1.5.0 or later.
 
 ## Release notes
 
+- [1.6.1](docs/release-notes/1.6.1.md): sidebar New note / New folder buttons no longer run into the list; Cards toolbar stays on one row.
 - [1.6.0](docs/release-notes/1.6.0.md): new Neon Write plugin (table picker, slash menu, toolbar, lifted window, theme fonts, images to Core/Images), Damascus and Meteorite reworked, notes-only graph, Tickets animations, pattern and performance fixes, license now CC BY-NC-SA 4.0.
 - [1.5.0](docs/release-notes/1.5.0.md): one main pane with sidebar nav, focus timer removed (Totals took its place), widget animations, graph restyle, duplicate-tab fix.
 - [1.4.1](docs/release-notes/1.4.1.md): dashboard fits the window; Neon Time fixes (nothing worked past 8h, untracked notes still tracked, midnight split and more).

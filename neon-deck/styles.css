@@ -978,6 +978,14 @@ body.nd-theme-brutal .nd-tile {
 }
 .nd-tools {
   margin-left: auto;
+  /* the toolbar shrinks its filter box before wrapping, so New folder stays in the row next to Note */
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.nd-tools > .nd-search {
+  flex: 0 1 230px;
+  min-width: 120px;
 }
 .nd-crumbs {
   display: flex;
@@ -1482,6 +1490,8 @@ body.nd-theme-brutal .nd-side-nav .nd-side-nav-item {
   align-items: center;
   gap: 6px;
   margin-top: 10px;
+  /* room under the New note / New folder buttons so they don't sit on the first row */
+  margin-bottom: 8px;
 }
 .nd-side-browse .nd-section-k {
   flex: 1;

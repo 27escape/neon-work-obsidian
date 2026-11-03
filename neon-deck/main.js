@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Neon Deck — dashboard, themes, live patterns, card explorer and concept graph.
- * Version 1.6.0 · made by yobzz + Claude.
+ * Version 1.6.1 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. Files are only written when you do something that writes.
@@ -14,7 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.6.0';
+const ND_VERSION = '1.6.1';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };

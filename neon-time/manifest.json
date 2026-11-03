@@ -1,7 +1,7 @@
 {
   "id": "neon-time",
   "name": "Neon Time",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "minAppVersion": "1.5.0",
   "description": "Automatic time tracking per category, manual entries, overtime and daily log notes for your AI agent. 100% offline.",
   "author": "yobzz + Claude",
