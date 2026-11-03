@@ -36,6 +36,7 @@ Neon Deck is the core. The others plug their cards, capture targets and facts in
 ### Tickets (Neon Tickets)
 - A ticket is a normal note with `type: ticket`. It opens as a pop-up with steps, a log that writes itself, due dates, reminders and a Waiting state with follow-ups.
 - Done tickets file themselves into `Done/YYYY-MM/`; a counter reads like *14 done in November · 11 in October*.
+- **Templates:** a Templates tab in the tracker to add, edit, duplicate and delete ticket blueprints (steps, description, priority, due). Pick one in New ticket and its steps are filled in. Stored locally in the plugin's data.
 
 ### Time (Neon Time)
 
@@ -81,6 +82,7 @@ Requires Obsidian 1.5.0 or later.
 
 ## Release notes
 
+- [1.6.2](docs/release-notes/1.6.2.md): ticket templates (Templates tab, editor, picker in New ticket), instant step adding, the log keeps only finished steps.
 - [1.6.1](docs/release-notes/1.6.1.md): sidebar New note / New folder buttons no longer run into the list; Cards toolbar stays on one row.
 - [1.6.0](docs/release-notes/1.6.0.md): new Neon Write plugin (table picker, slash menu, toolbar, lifted window, theme fonts, images to Core/Images), Damascus and Meteorite reworked, notes-only graph, Tickets animations, pattern and performance fixes, license now CC BY-NC-SA 4.0.
 - [1.5.0](docs/release-notes/1.5.0.md): one main pane with sidebar nav, focus timer removed (Totals took its place), widget animations, graph restyle, duplicate-tab fix.

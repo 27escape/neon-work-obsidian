@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Neon Tickets — ticket tracker, compact ticket view, self-writing log, done folder, monthly counter.
- * Version 1.6.1 · made by yobzz + Claude.
+ * Version 1.6.2 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. Files are only written when you do something that writes.
@@ -14,7 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.6.1';
+const ND_VERSION = '1.6.2';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };
@@ -455,6 +455,8 @@ const TICKETS_DEFAULTS = {
   autoFollowUpDays: 3,
   notified: {},
   migrated: false,
+  // ticket templates: { id, name, steps[], description, priority, dueDays } — kept here, never as notes
+  templates: [],
 };
 const DUE_CHIPS = [[1, '1d'], [3, '3d'], [7, '1w'], [14, '2w'], [30, '1m']];
 const SEC = {
@@ -605,6 +607,10 @@ class NewTicketModal extends Modal {
       return f;
     };
     const row = () => c.createDiv('tk-row');
+    // template picker (only when there are templates): fills in steps, description, priority and due
+    const tpls = p.settings.templates || [];
+    let tplPick = null;
+    if (tpls.length) tplPick = pills(field(c, 'Template', 'optional'), [['', 'None'], ...tpls.map((x) => [x.id, x.name])], '', (v) => applyTemplate(v), 'tk-chips tk-tpl-pick');
     const r1 = row();
     const title = field(r1, 'Title', 'required', true).createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'What is it about?' } });
     title.value = this.opts.title || '';
@@ -636,25 +642,58 @@ class NewTicketModal extends Modal {
     const stepsF = field(c, 'First steps', 'optional · Enter adds another');
     const stepsList = stepsF.createDiv('tk-steps');
     const steps = [];
+    // the step list is always what the rows show, in order (template steps and your own mixed)
+    const syncSteps = () => steps.splice(0, steps.length, ...[...stepsList.children].map((r) => r.textContent));
+    const addStepRow = (v, fromTpl) => {
+      steps.push(v);
+      const r = stepsList.createDiv('tk-step-row' + (fromTpl ? ' is-from-tpl' : ''));
+      r.createSpan('tk-box');
+      r.createSpan({ text: v });
+      const x = r.createSpan('tk-step-x');
+      setIcon(x, 'x');
+      x.addEventListener('click', () => {
+        r.remove();
+        syncSteps();
+      });
+    };
     const stepIn = stepsF.createEl('input', { cls: 'nd-input tk-step-input', attr: { type: 'text', placeholder: 'Add a step…' } });
     stepIn.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.isComposing) {
         e.preventDefault();
         const v = stepIn.value.trim();
         if (!v) return;
-        steps.push(v);
-        const r = stepsList.createDiv('tk-step-row');
-        r.createSpan('tk-box');
-        r.createSpan({ text: v });
-        const x = r.createSpan('tk-step-x');
-        setIcon(x, 'x');
-        x.addEventListener('click', () => {
-          steps.splice(steps.indexOf(v), 1);
-          r.remove();
-        });
+        addStepRow(v);
         stepIn.value = '';
       }
     });
+    let tplDesc = '';
+    let base = null; // priority and due from before the first template, restored by None
+    const applyTemplate = (tid) => {
+      const tpl = tpls.find((x) => x.id === tid);
+      // what a previous template filled in is replaced; steps and text you typed yourself stay
+      for (const r of [...stepsList.querySelectorAll('.tk-step-row.is-from-tpl')]) r.remove();
+      syncSteps();
+      if (tplDesc && desc.value.trim() === tplDesc) desc.value = '';
+      tplDesc = '';
+      if (!base) base = { prio: prio.get(), due: due.value };
+      if (!tpl) {
+        prio.set(base.prio);
+        due.value = base.due;
+        base = null;
+        syncDue();
+        return syncValid();
+      }
+      // template steps go first, your own after them
+      const own = [...stepsList.children];
+      for (const s of tpl.steps) addStepRow(s, true);
+      for (const r of own) stepsList.appendChild(r);
+      syncSteps();
+      if (!desc.value.trim() && tpl.description) desc.value = tplDesc = tpl.description;
+      prio.set(tpl.priority || base.prio);
+      due.value = tpl.dueDays != null ? moment().add(tpl.dueDays, 'days').format('YYYY-MM-DD') : base.due;
+      syncDue();
+      syncValid();
+    };
     const r4 = row();
     const jira = field(r4, 'Jira key', 'optional').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'e.g. OPS-311' } });
     r4.createDiv('tk-field');
@@ -722,8 +761,115 @@ class NewTicketModal extends Modal {
     });
     due.value = p.settings.defaultDays ? moment().add(p.settings.defaultDays, 'days').format('YYYY-MM-DD') : '';
     syncDue();
+    if (tplPick && this.opts.template && tpls.some((x) => x.id === this.opts.template)) {
+      tplPick.set(this.opts.template);
+      applyTemplate(this.opts.template);
+    }
     syncValid();
     window.setTimeout(() => (title.value ? desc : title).focus(), 20);
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+const newTemplateId = () => `tpl-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+/** Add or edit a ticket template: a name and a list of steps, plus optional description, priority and due date. */
+class TemplateModal extends Modal {
+  constructor(plugin, tpl) {
+    super(plugin.app);
+    this.plugin = plugin;
+    this.isNew = !tpl;
+    this.tpl = tpl ? { ...tpl, steps: [...tpl.steps] } : { id: newTemplateId(), name: '', steps: [], description: '', priority: 'normal', dueDays: null };
+  }
+  onOpen() {
+    const t = this.tpl;
+    this.modalEl.addClass('nd-modal', 'tk-form-modal', 'tk-tpl-modal');
+    this.titleEl.empty();
+    setIcon(this.titleEl.createSpan('tk-form-icon'), 'layout-template');
+    this.titleEl.createSpan({ text: this.isNew ? 'New template' : 'Edit template' });
+    const c = this.contentEl.createDiv('tk-form');
+    const field = (label, note) => {
+      const f = c.createDiv('tk-field');
+      const l = f.createDiv('tk-label');
+      l.createSpan({ text: label });
+      if (note) l.createSpan({ cls: 'tk-opt', text: note });
+      return f;
+    };
+    const name = field('Name', 'required').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'e.g. New laptop setup' } });
+    name.value = t.name;
+
+    // steps: edit in place, move up / down, remove; Enter in the last box adds the next
+    const stepsF = field('Steps', 'Enter adds another');
+    const list = stepsF.createDiv('tk-tpl-edit-steps');
+    const draw = () => {
+      list.empty();
+      t.steps.forEach((s, i) => {
+        const r = list.createDiv('tk-tpl-step');
+        r.createSpan('tk-box');
+        const inp = r.createEl('input', { cls: 'nd-input', attr: { type: 'text' } });
+        inp.value = s;
+        inp.addEventListener('input', () => (t.steps[i] = inp.value));
+        const move = (d) => {
+          const j = i + d;
+          if (j < 0 || j >= t.steps.length) return;
+          [t.steps[i], t.steps[j]] = [t.steps[j], t.steps[i]];
+          draw();
+        };
+        button(r, { icon: 'arrow-up', cls: 'nd-icon-btn', title: 'Move up', onClick: () => move(-1) });
+        button(r, { icon: 'arrow-down', cls: 'nd-icon-btn', title: 'Move down', onClick: () => move(1) });
+        button(r, { icon: 'x', cls: 'nd-icon-btn', title: 'Remove step', onClick: () => (t.steps.splice(i, 1), draw()) });
+      });
+    };
+    draw();
+    const add = stepsF.createEl('input', { cls: 'nd-input tk-step-input', attr: { type: 'text', placeholder: 'Add a step…' } });
+    add.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.isComposing) {
+        e.preventDefault();
+        const v = add.value.trim();
+        if (!v) return;
+        t.steps.push(v);
+        add.value = '';
+        draw();
+      }
+    });
+
+    const desc = field('Description', 'optional · filled in when empty').createEl('textarea', { cls: 'nd-input', attr: { rows: '2', placeholder: 'Text the ticket starts with' } });
+    desc.value = t.description || '';
+    const row = c.createDiv('tk-row');
+    const pf = row.createDiv('tk-field');
+    pf.createDiv({ cls: 'tk-label', text: 'Priority' });
+    const prio = pills(pf, TICKET_PRIOS.map((x) => [x, x[0].toUpperCase() + x.slice(1)]), t.priority || 'normal', null, 'tk-seg tk-prio');
+    const df = row.createDiv('tk-field');
+    const dl = df.createDiv('tk-label');
+    dl.createSpan({ text: 'Due in (days)' });
+    dl.createSpan({ cls: 'tk-opt', text: 'optional' });
+    const dueDays = df.createEl('input', { cls: 'nd-input', attr: { type: 'number', min: '0', max: '365', placeholder: 'form default' } });
+    dueDays.value = t.dueDays == null ? '' : String(t.dueDays);
+
+    const foot = this.contentEl.createDiv('tk-form-foot');
+    foot.createDiv({ cls: 'tk-keys', text: 'Ctrl+Enter to save · Esc to cancel' });
+    button(foot, { text: 'Cancel', onClick: () => this.close() });
+    const save = async () => {
+      const n = name.value.trim();
+      if (!n) return name.addClass('is-invalid'), name.focus();
+      const pending = add.value.trim();
+      if (pending) t.steps.push(pending);
+      const dd = dueDays.value.trim() === '' ? null : clamp(Math.round(Number(dueDays.value)), 0, 365);
+      this.close();
+      await this.plugin.saveTemplate({ ...t, name: n, steps: t.steps.map((s) => s.trim()).filter(Boolean), description: desc.value.trim(), priority: prio.get() || 'normal', dueDays: Number.isFinite(dd) ? dd : null });
+      new Notice(`Template “${n}” saved`);
+    };
+    button(foot, { text: this.isNew ? 'Create template' : 'Save', cls: 'mod-cta', onClick: save });
+    name.addEventListener('input', () => name.removeClass('is-invalid'));
+    this.contentEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        save();
+      }
+    });
+    window.setTimeout(() => (t.name ? add : name).focus(), 20);
   }
   onClose() {
     this.contentEl.empty();
@@ -1131,8 +1277,19 @@ class TicketCard {
         const v = input.value.trim();
         if (!v) return close();
         input.value = '';
+        if (keep) {
+          // show the new step straight away; the save runs in the background and the redraw replaces this draft
+          if (sec.dataset.sec === 'Next steps') {
+            const d = createDiv('tk-step is-pending');
+            d.createDiv('tk-box');
+            d.createSpan({ cls: 'tk-step-text', text: v });
+            row.before(d);
+          }
+          onSubmit(v);
+          return;
+        }
         await onSubmit(v);
-        if (!keep) close();
+        close();
         // keep: the redraw that follows the save shows the new entry and keeps this box open
       }
     });
@@ -1232,7 +1389,7 @@ class TicketsView extends ItemView {
     const tools = bar.createDiv('tk-tools');
     const seg = tools.createDiv('nd-seg');
     this.segBtns = {};
-    for (const [k, label] of [['active', 'Active'], ['waiting', 'Waiting'], ['done', 'Done'], ['all', 'All']]) {
+    for (const [k, label] of [['active', 'Active'], ['waiting', 'Waiting'], ['done', 'Done'], ['all', 'All'], ['templates', 'Templates']]) {
       const b = seg.createEl('button', { cls: 'nd-seg-btn', text: label });
       b.addEventListener('click', () => {
         if (this.filter !== k) this.filterChanged = true; // rows rise in again for the new filter
@@ -1322,6 +1479,11 @@ class TicketsView extends ItemView {
     stat(active.length, 'active', 'is-active');
     stat(active.filter((t) => t.status === 'waiting').length, 'waiting', 'is-waiting', () => ((this.filter = 'waiting'), this.render()));
     for (const [k, b] of Object.entries(this.segBtns)) b.toggleClass('is-active', k === this.filter);
+    if (this.filter === 'templates') {
+      this.filterChanged = false;
+      this.rendered = true;
+      return this.renderTemplates();
+    }
     let items = all;
     if (this.filter === 'active') items = active;
     else if (this.filter === 'waiting') items = active.filter((t) => t.status === 'waiting');
@@ -1354,6 +1516,43 @@ class TicketsView extends ItemView {
       gh.createSpan({ cls: 'tk-group-count', text: String(group.length).padStart(2, '0') });
       for (const t of group) this.renderRow(sec, t, idx++);
     }
+  }
+  /** Templates tab: the ticket blueprints, kept in Neon Tickets' own data. */
+  renderTemplates() {
+    const p = this.plugin;
+    const el = this.listEl;
+    const list = p.settings.templates;
+    const q = this.query;
+    const shown = q ? list.filter((x) => `${x.name} ${x.steps.join(' ')}`.toLowerCase().includes(q)) : list;
+    el.empty();
+    el.removeClass('is-calm', 'is-refilter');
+    const head = el.createDiv('tk-group-head tk-tpl-head');
+    head.createSpan({ cls: 'tk-group-title', text: 'Templates' });
+    head.createSpan({ cls: 'tk-group-count', text: String(list.length).padStart(2, '0') });
+    button(head, { icon: 'plus', text: 'New template', cls: 'mod-cta tk-tpl-new', onClick: () => new TemplateModal(p).open() });
+    if (!shown.length) {
+      el.createDiv({ cls: 'tk-empty', text: list.length ? 'No template matches the filter.' : 'No templates yet. A template is a ready-made ticket: pick it in New ticket and its steps (plus an optional description, priority and due date) are filled in.' });
+      return;
+    }
+    shown.forEach((tpl, i) => {
+      const r = el.createDiv('tk-row tk-tpl');
+      r.style.setProperty('--i', String(Math.min(i, 20)));
+      setIcon(r.createDiv('tk-tpl-icon'), 'layout-template');
+      const main = r.createDiv('tk-row-main');
+      main.createDiv({ cls: 'tk-tpl-name', text: tpl.name });
+      const meta = [`${tpl.steps.length} step${tpl.steps.length === 1 ? '' : 's'}`];
+      if (tpl.priority && tpl.priority !== 'normal') meta.push(tpl.priority);
+      if (tpl.dueDays != null) meta.push(tpl.dueDays === 0 ? 'due today' : `due in ${tpl.dueDays}d`);
+      main.createDiv({ cls: 'tk-tpl-meta', text: meta.join(' · ') });
+      if (tpl.steps.length) main.createDiv({ cls: 'tk-tpl-steps', text: tpl.steps.slice(0, 4).join(' · ') + (tpl.steps.length > 4 ? ' …' : '') });
+      const acts = r.createDiv('tk-tpl-acts');
+      const stop = (fn) => (e) => (e.stopPropagation(), fn());
+      button(acts, { icon: 'plus', text: 'Use', cls: 'mod-cta', title: 'New ticket from this template', onClick: stop(() => p.newTicket({ template: tpl.id })) });
+      button(acts, { icon: 'pencil', cls: 'nd-icon-btn', title: 'Edit template', onClick: stop(() => new TemplateModal(p, tpl).open()) });
+      button(acts, { icon: 'copy', cls: 'nd-icon-btn', title: 'Duplicate', onClick: stop(() => p.duplicateTemplate(tpl.id)) });
+      button(acts, { icon: 'trash-2', cls: 'nd-icon-btn', title: 'Delete template', onClick: stop(() => new ConfirmModal(this.app, { title: 'Delete template?', text: tpl.name, cta: 'Delete', onConfirm: () => p.deleteTemplate(tpl.id) }).open()) });
+      r.addEventListener('click', () => new TemplateModal(p, tpl).open());
+    });
   }
   renderRow(parent, t, i) {
     const p = this.plugin;
@@ -1478,6 +1677,17 @@ module.exports = class NeonTickets extends Plugin {
     this.settings.defaultCategory = normCat(this.settings.defaultCategory);
     if (!raw) await this.migrateFromDeck();
     if (!this.settings.notified || typeof this.settings.notified !== 'object') this.settings.notified = {};
+    // templates: keep only well-formed ones (a name and a list of text steps)
+    this.settings.templates = (Array.isArray(this.settings.templates) ? this.settings.templates : [])
+      .filter((x) => x && typeof x === 'object' && String(x.name || '').trim())
+      .map((x) => ({
+        id: String(x.id || newTemplateId()),
+        name: String(x.name).trim(),
+        steps: Array.isArray(x.steps) ? x.steps.map((v) => String(v).trim()).filter(Boolean) : [],
+        description: String(x.description || ''),
+        priority: TICKET_PRIOS.includes(x.priority) ? x.priority : 'normal',
+        dueDays: Number.isFinite(x.dueDays) ? x.dueDays : null,
+      }));
     await this.saveSettings();
     this.rawPaths = new Set();
     this.listeners = new Set();
@@ -1802,9 +2012,15 @@ module.exports = class NeonTickets extends Plugin {
       onSubmit: (v) => (key === 'due' ? this.setDue(t, v) : this.setRemind(t, v)),
     }).open();
   }
-  async addStep(t, text) {
-    await this.app.vault.process(t.file, (d) => addToSection(d, 'steps', `- [ ] ${text}`));
-    await this.log(t, `Step added: ${text}`);
+  /** Add a step. No log line (only checking a step is logged). Writes per ticket are queued so fast Enters never clash. */
+  addStep(t, text) {
+    if (!this.writeQ) this.writeQ = new Map();
+    const key = t.file.path;
+    const next = (this.writeQ.get(key) || Promise.resolve())
+      .then(() => this.app.vault.process(t.file, (d) => addToSection(d, 'steps', `- [ ] ${text}`)))
+      .catch((e) => console.error('Neon Tickets: could not add step', e));
+    this.writeQ.set(key, next);
+    return next;
   }
   async toggleStep(t, step) {
     let ok = false;
@@ -1821,7 +2037,8 @@ module.exports = class NeonTickets extends Plugin {
       return lines.join('\n');
     });
     if (!ok) return new Notice('That step changed in the meantime — refreshed');
-    await this.log(t, `Step ${step.done ? 'reopened' : 'done'}: ${step.text}`);
+    // only finished steps go in the log; reopening one stays quiet
+    if (!step.done) await this.log(t, `Step done: ${step.text}`);
   }
   /** Change the line a step lives on. fn gets the line and returns the new line, or null to delete it. No log entry. */
   async changeStepLine(t, step, fn) {
@@ -1944,6 +2161,30 @@ module.exports = class NeonTickets extends Plugin {
   /* creating ------------------------------------------------------------------ */
   newTicket(opts) {
     new NewTicketModal(this, opts || {}).open();
+  }
+
+  /* ---- ticket templates (local: stored in this plugin's data) ---- */
+  async saveTemplate(tpl) {
+    const list = this.settings.templates;
+    const i = list.findIndex((x) => x.id === tpl.id);
+    if (i === -1) list.push(tpl);
+    else list[i] = tpl;
+    await this.saveSettings();
+    this.emitSoon();
+  }
+  async deleteTemplate(id) {
+    this.settings.templates = this.settings.templates.filter((x) => x.id !== id);
+    await this.saveSettings();
+    this.emitSoon();
+  }
+  async duplicateTemplate(id) {
+    const tpl = this.settings.templates.find((x) => x.id === id);
+    if (!tpl) return;
+    const copy = { ...tpl, steps: [...tpl.steps], id: newTemplateId(), name: `${tpl.name} copy` };
+    const list = this.settings.templates;
+    list.splice(list.indexOf(tpl) + 1, 0, copy);
+    await this.saveSettings();
+    this.emitSoon();
   }
   async createTicket({ title, id, description, priority, category, due, remind, steps, jira }) {
     const q = (v) => JSON.stringify(String(v || ''));

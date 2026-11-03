@@ -1,7 +1,7 @@
 {
   "id": "neon-deck",
   "name": "Neon Deck",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "minAppVersion": "1.5.0",
   "description": "Dashboard, themes, live patterns, card explorer and a local note graph. 100% offline.",
   "author": "yobzz + Claude",

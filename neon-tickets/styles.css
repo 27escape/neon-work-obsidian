@@ -1245,3 +1245,100 @@ body:not(.nd-themed) .nd-empty {
     transition: none;
   }
 }
+.tk-step.is-pending { opacity: 0.75; }
+
+/* ---- ticket templates ---- */
+.tk-tpl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tk-tpl-head .tk-tpl-new {
+  margin-left: auto;
+}
+.tk-list .tk-row.tk-tpl {
+  border-left-color: var(--nd-info);
+}
+.tk-tpl-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: var(--nd-info);
+  background: color-mix(in srgb, var(--nd-info) 14%, transparent);
+}
+.tk-tpl-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.tk-tpl-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tk-row.tk-tpl .tk-row-main {
+  min-width: 0;
+}
+.tk-tpl-meta {
+  font: 11px var(--nd-mono);
+  color: var(--nd-muted);
+  margin-top: 1px;
+}
+.tk-tpl-steps {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--nd-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tk-tpl-acts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.tk-tpl-acts .nd-icon-btn {
+  opacity: 0.55;
+  transition: opacity var(--nd-fast, 150ms) ease;
+}
+.tk-row.tk-tpl:hover .tk-tpl-acts .nd-icon-btn,
+.tk-tpl-acts .nd-icon-btn:focus-visible {
+  opacity: 1;
+}
+/* editor */
+.tk-tpl-edit-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.tk-tpl-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tk-tpl-step .nd-input {
+  flex: 1;
+  min-width: 0;
+}
+.tk-tpl-step .nd-icon-btn {
+  flex: none;
+  width: 26px;
+  height: 26px;
+}
+.tk-tpl-pick .nd-pill-btn.is-on {
+  background: color-mix(in srgb, var(--nd-info) 22%, transparent);
+  border-color: color-mix(in srgb, var(--nd-info) 60%, transparent);
+  color: var(--nd-text);
+}
+/* long template names don't stretch the picker */
+.tk-tpl-pick .nd-pill-btn {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
