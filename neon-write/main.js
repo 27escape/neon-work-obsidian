@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Neon Write — table picker, slash menu, selection toolbar and a faint pattern behind notes.
- * Version 1.6.3 · made by yobzz + Claude.
+ * Version 1.6.4 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. It only edits the note you're typing in.
@@ -14,7 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.6.3';
+const ND_VERSION = '1.6.4';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };
@@ -662,8 +662,10 @@ class SlashSuggest extends EditorSuggest {
   }
   getSuggestions(ctx) {
     const q = ctx.query.toLowerCase();
-    if (!q) return SLASH_ITEMS;
-    return SLASH_ITEMS.filter((i) => i.label.toLowerCase().includes(q) || i.keys.some((k) => k.startsWith(q)));
+    // other Neon plugins (e.g. Neon Research) add their own items through addSlashItem
+    const items = [...SLASH_ITEMS, ...this.plugin.slashExtras.values()];
+    if (!q) return items;
+    return items.filter((i) => i.label.toLowerCase().includes(q) || i.keys.some((k) => k.startsWith(q)));
   }
   renderSuggestion(item, el) {
     el.addClass('nw-slash-item');
@@ -792,7 +794,10 @@ class NeonWriteSettingTab extends PluginSettingTab {
 module.exports = class NeonWrite extends Plugin {
   async onload() {
     this.settings = Object.assign({}, NW_DEFAULTS, (await this.loadData()) || {});
+    this.slashExtras = new Map();
     this.registerEditorSuggest(new SlashSuggest(this));
+    // tell other Neon plugins they can add slash items now (they also check on their own load)
+    this.app.workspace.onLayoutReady(() => this.app.workspace.trigger('neon-write:ready', this));
     this.addCommand({ id: 'insert-table', name: 'Insert table…', editorCallback: (ed) => this.openTablePicker(ed) });
     this.registerEvent(
       this.app.workspace.on('editor-menu', (menu, editor) => {
@@ -832,6 +837,13 @@ module.exports = class NeonWrite extends Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+  /** For other Neon plugins: add or remove a slash-menu item ({ id, icon, label, hint, keys, run(editor) }). */
+  addSlashItem(item) {
+    this.slashExtras.set(item.id, item);
+  }
+  removeSlashItem(id) {
+    this.slashExtras.delete(id);
   }
   openTablePicker(editor) {
     new TablePicker(editor, caretRect(editor));

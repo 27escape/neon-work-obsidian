@@ -1,6 +1,6 @@
 # ✦ Neon Deck
 
-Five small Obsidian plugins that work together as a personal command centre: a dashboard, tasks, tickets and automatic time tracking, in a neon look with live background patterns.
+Six small Obsidian plugins that work together as a personal command centre: a dashboard, tasks, tickets and automatic time tracking, in a neon look with live background patterns.
 
 Everything runs **100% locally**: no network calls, no telemetry, no remote fonts or code, no `eval`. Files are only written when you do something that writes.
 
@@ -13,6 +13,7 @@ Everything runs **100% locally**: no network calls, no telemetry, no remote font
 | **Neon Tickets** | Ticket view and pop-up, New ticket form, tracker, reminders, self-writing log, monthly counter |
 | **Neon Time** | Active time per category, manual entries, overtime, daily Time Log notes for an AI agent |
 | **Neon Write** | Table picker, slash menu, a toolbar on selected text and a faint pattern behind notes |
+| **Neon Research** | A separate Research tab: sources, concepts and topic hubs, link suggestions, resurfacing and flashcards |
 
 Neon Deck is the core. The others plug their cards, capture targets and facts into its dashboard. Turn any of them off and the rest keeps working; the dashboard gives the free space to the neighbours.
 
@@ -38,6 +39,7 @@ Neon Deck is the core. The others plug their cards, capture targets and facts in
 - Done tickets file themselves into `Done/YYYY-MM/`; a counter reads like *14 done in November · 11 in October*.
 - **Templates:** a Templates tab in the tracker to add, edit, duplicate and delete ticket blueprints (steps, description, priority, due). Pick one in New ticket and its steps are filled in. Stored locally in the plugin's data.
 - **Screenshots and PDF export:** paste, drop or pick screenshots on a ticket (saved in `Core/Images/Tickets/`), and export the whole ticket (steps, screenshots, log, time) as a PDF report.
+- **Clear done tickets:** on the Done tab, clear all done tickets or only those finished before this month (optionally with their screenshots and reports) — they go to the system trash.
 
 ### Time (Neon Time)
 
@@ -62,12 +64,20 @@ Neon Deck is the core. The others plug their cards, capture targets and facts in
 - **Pattern behind notes:** the dashboard's pattern, dimmed right down, behind the note you're writing (needs Neon Deck; strength and on/off in settings).
 - Optional: turn Neon Write off and the other four behave exactly as before.
 
+### Research (Neon Research)
+- **Its own Research tab**, separate from work, showing only notes in `Learning/Core-topics` (changeable): topics, sources, notes to revisit and flashcards. Research notes are left out of work time by default.
+- **Note types** (`/source`, `/concept`, `/topic` in the slash menu, or the buttons): a small form creates the note with the right properties — sources (kind, author, year, link, read status), concepts (topics, seed → growing → done, source) and topic hubs.
+- **Topic pages:** every note tagged with a topic, linking to it or linked from its hub note, plus notes that mention it without a link (one click links them).
+- **Link suggestions:** in a research note, the status bar offers to link mentions of other research note titles.
+- **Resurfacing:** research notes you haven't opened for a while (14 days by default) show under Revisit.
+- **Flashcards:** any line `Question :: Answer` in a research note becomes a card; study per topic or all, with Again / Hard / Easy spacing kept in the plugin's own data.
+
 ## Install
 
 These plugins aren't in the Community plugins list. Install them by hand:
 
 1. Close Obsidian, or be ready to reload it.
-2. Copy the `neon-deck`, `neon-tasks`, `neon-tickets`, `neon-time` and (optionally) `neon-write` folders into your vault's `.obsidian/plugins/` folder.
+2. Copy the `neon-deck`, `neon-tasks`, `neon-tickets`, `neon-time` and (optionally) `neon-write` and `neon-research` folders into your vault's `.obsidian/plugins/` folder.
 3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable the plugins. Enable **Neon Deck** first, since the others add to its dashboard.
 4. Open the dashboard from the ribbon `▦` icon or `Ctrl+P → Neon Deck: Open dashboard`.
 
@@ -76,14 +86,14 @@ Requires Obsidian 1.5.0 or later.
 ## For developers
 
 - **No build step.** Each plugin's `main.js` is the source; edit it and reload Obsidian (`Ctrl+R`).
-- **Shared helpers.** Lines 1–423 of every `main.js` are the same shared helper block (DOM helpers, modals, categories, daily notes, cross-plugin glue). Keep the five copies identical; `ND_VERSION` lives there too.
+- **Shared helpers.** Lines 1–423 of every `main.js` are the same shared helper block (DOM helpers, modals, categories, daily notes, cross-plugin glue). Keep the six copies identical; `ND_VERSION` lives there too.
 - **Plugins talk through Neon Deck's API** (`registerWidget`, `registerCapture`, `registerFacts`, …) and workspace events such as `neon:time-entry` and `neon:task-done`.
 - **Saved data** (`data.json` in each plugin folder) is personal and isn't in this repo.
-- To release a new version, bump `ND_VERSION`, the header comment and `manifest.json` in all five plugins.
+- To release a new version, bump `ND_VERSION`, the header comment and `manifest.json` in all six plugins.
 
 ## Release notes
 
-Only the latest release notes are kept: [1.6.3](docs/release-notes/1.6.3.md): screenshots on tickets (paste, drop, pick; saved in Core/Images/Tickets), export a ticket as PDF, styled tables in notes. Older notes are in the git history.
+Only the latest release notes are kept: [1.6.4](docs/release-notes/1.6.4.md): new Neon Research plugin (its own Research tab for `Learning/Core-topics`: note types, topics, link suggestions, revisit, flashcards) and clearing done tickets. Older notes are in the git history.
 
 ## License
 

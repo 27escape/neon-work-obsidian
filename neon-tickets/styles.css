@@ -1424,3 +1424,26 @@ body:not(.nd-themed) .nd-empty {
 .tk-report .inline-title {
   display: none !important;
 }
+
+/* ---- clear done tickets ---- */
+.tk-clear-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 2px 0 10px;
+}
+.tk-clear-bar .tk-clear-btn:hover {
+  color: var(--text-error);
+  border-color: color-mix(in srgb, var(--text-error) 50%, var(--nd-line));
+}
+.tk-clear-modal .tk-chips {
+  flex-wrap: wrap;
+}
+.tk-clear-extra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 13px;
+}

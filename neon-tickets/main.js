@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Neon Tickets — ticket tracker, compact ticket view, self-writing log, done folder, monthly counter.
- * Version 1.6.3 · made by yobzz + Claude.
+ * Version 1.6.4 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. Files are only written when you do something that writes.
@@ -14,7 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.6.3';
+const ND_VERSION = '1.6.4';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };
@@ -886,6 +886,65 @@ class TemplateModal extends Modal {
   }
 }
 
+/** Clear done tickets: all of them, or only those finished before this month. They go to the system trash. */
+class ClearDoneModal extends Modal {
+  constructor(plugin, done) {
+    super(plugin.app);
+    this.plugin = plugin;
+    this.done = done;
+  }
+  onOpen() {
+    const p = this.plugin;
+    this.modalEl.addClass('nd-modal', 'tk-clear-modal');
+    this.titleEl.setText('Clear done tickets');
+    const c = this.contentEl;
+    const monthStart = moment().startOf('month');
+    const finished = (t) => (t.completed ? t.completed : moment(t.file.stat.mtime));
+    const sets = {
+      before: this.done.filter((t) => finished(t).isBefore(monthStart)),
+      all: this.done,
+    };
+    const what = c.createDiv('tk-field');
+    what.createDiv({ cls: 'tk-label', text: 'Which tickets' });
+    const choice = pills(
+      what,
+      [
+        ['before', `Finished before ${monthStart.format('MMMM')} (${sets.before.length})`],
+        ['all', `All done (${sets.all.length})`],
+      ],
+      sets.before.length ? 'before' : 'all',
+      () => sync(),
+      'tk-chips',
+    );
+    const extra = c.createEl('label', { cls: 'tk-clear-extra' });
+    const withFiles = extra.createEl('input', { attr: { type: 'checkbox' } });
+    withFiles.checked = true;
+    extra.appendText(' Also their screenshots and exported reports');
+    const info = c.createEl('p', { cls: 'tk-faint' });
+    const row = c.createDiv('nd-modal-row');
+    button(row, { text: 'Cancel', onClick: () => this.close() });
+    const go = button(row, {
+      text: 'Move to trash',
+      cls: 'mod-warning',
+      onClick: async () => {
+        const list = sets[choice.get()] || [];
+        if (!list.length) return;
+        this.close();
+        await p.clearDone(list, withFiles.checked);
+      },
+    });
+    const sync = () => {
+      const n = (sets[choice.get()] || []).length;
+      go.toggleClass('is-disabled', !n);
+      info.setText(n ? `${n} ticket${n === 1 ? '' : 's'} go${n === 1 ? 'es' : ''} to the system trash (you can restore them from there). The “done in …” counter counts them no more; time logged in Neon Time stays.` : 'Nothing to clear for this choice.');
+    };
+    sync();
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 /** A screenshot at full size. */
 class ShotModal extends Modal {
   constructor(app, file) {
@@ -1624,6 +1683,11 @@ class TicketsView extends ItemView {
     const before = this.rowState || null;
     this.rowState = new Map();
     this.rowCalm = calm ? before : null;
+    if (this.filter === 'done' && items.length) {
+      const bar = this.listEl.createDiv('tk-clear-bar');
+      bar.createSpan({ cls: 'tk-faint', text: `${items.length} done ticket${items.length === 1 ? '' : 's'}` });
+      button(bar, { icon: 'trash-2', text: 'Clear done…', cls: 'tk-clear-btn', onClick: () => new ClearDoneModal(p, all.filter((t) => t.status === 'done')).open() });
+    }
     if (!items.length) {
       const e = this.listEl.createDiv('tk-empty');
       e.createDiv({ text: all.length ? 'Nothing matches this filter.' : 'No tickets yet.' });
@@ -2324,6 +2388,42 @@ module.exports = class NeonTickets extends Plugin {
       return lines.join('\n');
     });
     if (f) await this.app.vault.trash(f, true);
+  }
+
+  /** Move done tickets (and optionally their screenshots and reports) to the system trash; tidy empty Done folders. */
+  async clearDone(list, withFiles) {
+    const reportsDir = normalizePath(`${this.ticketRoot()}/Exports`) + '/';
+    const files = new Set();
+    for (const t of list) {
+      if (withFiles) {
+        const b = parseTicketBody(stripFrontmatter(await this.app.vault.cachedRead(t.file)));
+        for (const shot of b.shots) {
+          const f = this.app.metadataCache.getFirstLinkpathDest(shot.link, t.file.path);
+          if (f) files.add(f);
+        }
+        for (const f of this.app.vault.getMarkdownFiles()) {
+          if (!f.path.startsWith(reportsDir)) continue;
+          const fm = (this.app.metadataCache.getFileCache(f) || {}).frontmatter || {};
+          if (fm.ticket === t.file.path) files.add(f);
+        }
+      }
+      files.add(t.file);
+    }
+    let n = 0;
+    for (const f of files) {
+      try {
+        await this.app.vault.trash(f, true);
+        n++;
+      } catch (e) {
+        console.error('Neon Tickets: could not trash', f.path, e);
+      }
+    }
+    // empty month folders under Done/ go too
+    const done = this.app.vault.getAbstractFileByPath(this.doneRoot());
+    if (done && done.children) for (const d of [...done.children]) if (d.children && !d.children.length) await this.app.vault.trash(d, true);
+    this.cache = null;
+    this.emitSoon();
+    new Notice(`Cleared ${list.length} done ticket${list.length === 1 ? '' : 's'}${n > list.length ? ` and ${n - list.length} file${n - list.length === 1 ? '' : 's'}` : ''} (system trash)`);
   }
 
   /* ---- export ---- */
