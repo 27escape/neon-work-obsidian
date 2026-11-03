@@ -1,6 +1,6 @@
 # ✦ Neon Deck
 
-Four small Obsidian plugins that work together as a personal command centre: a dashboard, tasks, tickets and automatic time tracking, in a neon look with live background patterns.
+Five small Obsidian plugins that work together as a personal command centre: a dashboard, tasks, tickets and automatic time tracking, in a neon look with live background patterns.
 
 Everything runs **100% locally**: no network calls, no telemetry, no remote fonts or code, no `eval`. Files are only written when you do something that writes.
 
@@ -8,12 +8,13 @@ Everything runs **100% locally**: no network calls, no telemetry, no remote font
 
 | Plugin | What it does |
 |---|---|
-| **Neon Deck** | Dashboard, themes, live patterns, quick capture, card explorer, concept graph, weekly review |
+| **Neon Deck** | Dashboard, themes, live patterns, quick capture, card explorer, note graph, weekly review |
 | **Neon Tasks** | Tasks widget, Global tasks, the New note card, Fix properties |
 | **Neon Tickets** | Ticket view and pop-up, New ticket form, tracker, reminders, self-writing log, monthly counter |
 | **Neon Time** | Active time per category, manual entries, overtime, daily Time Log notes for an AI agent |
+| **Neon Write** | Table picker, slash menu, a toolbar on selected text and a faint pattern behind notes |
 
-Neon Deck is the core. The other three plug their cards, capture targets and facts into its dashboard. Turn any of them off and the rest keeps working; the dashboard gives the free space to the neighbours.
+Neon Deck is the core. The others plug their cards, capture targets and facts into its dashboard. Turn any of them off and the rest keeps working; the dashboard gives the free space to the neighbours.
 
 ## Features
 
@@ -25,7 +26,7 @@ Neon Deck is the core. The other three plug their cards, capture targets and fac
 - A live background pattern (Damascus, Meteorite, Topo, Circuit, Hex mesh, Datastream, Radar) that pauses when Obsidian isn't focused or with *Reduce motion* on.
 - A ticker with live facts, and a Totals card: time worked, days worked, tasks and tickets done, notes created.
 - Quick capture from anywhere with `Ctrl+Shift+Space`: send to Task, Global task, Ticket or Time entry.
-- Card explorer with category chips and a *Revisit* reminder for notes you haven't opened in a while, plus a local concept graph.
+- Card explorer with category chips and a *Revisit* reminder for notes you haven't opened in a while, plus a local note graph that follows the theme.
 
 ### Tasks (Neon Tasks)
 - Open tasks from notes tagged `tasks`, today's daily note and a Quick tasks note, grouped Overdue · Today · Later.
@@ -49,13 +50,23 @@ Neon Deck is the core. The other three plug their cards, capture targets and fac
 
 ![Time tab](docs/screenshots/time-tab.png)
 
+### Writing (Neon Write)
+- **Table picker:** hover a rows × columns grid (or use the arrows) and click; an empty table lands at the cursor with the cursor in the first cell. Open it from the slash menu, the right-click menu or `Ctrl+P → Neon Write: Insert table…`.
+- **Slash menu:** type `/` at the start of a line or after a space for tables, headings, lists, checklists, quotes, callouts, code blocks, dividers, note links and today's date. Keep typing to filter.
+- **Toolbar on selected text:** bold, italic, strikethrough, highlight, inline code, note link, heading (H1 → H2 → H3 → none) and callout. Press a button again to undo it.
+- **Lifted writing window:** the note sits on a rounded, raised card that grows with the pane (70% of it, 700–1020px of text).
+- **Theme fonts and colours in notes:** body text, headings and code use the Neon theme's fonts; titles alternate between its primary and secondary colours.
+- **Images to Core/Images:** new `.png` / `.jpg` files move there automatically and links keep working; a command moves existing ones.
+- **Pattern behind notes:** the dashboard's pattern, dimmed right down, behind the note you're writing (needs Neon Deck; strength and on/off in settings).
+- Optional: turn Neon Write off and the other four behave exactly as before.
+
 ## Install
 
 These plugins aren't in the Community plugins list. Install them by hand:
 
 1. Close Obsidian, or be ready to reload it.
-2. Copy the `neon-deck`, `neon-tasks`, `neon-tickets` and `neon-time` folders into your vault's `.obsidian/plugins/` folder.
-3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable the four plugins. Enable **Neon Deck** first, since the others add to its dashboard.
+2. Copy the `neon-deck`, `neon-tasks`, `neon-tickets`, `neon-time` and (optionally) `neon-write` folders into your vault's `.obsidian/plugins/` folder.
+3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable the plugins. Enable **Neon Deck** first, since the others add to its dashboard.
 4. Open the dashboard from the ribbon `▦` icon or `Ctrl+P → Neon Deck: Open dashboard`.
 
 Requires Obsidian 1.5.0 or later.
@@ -63,20 +74,21 @@ Requires Obsidian 1.5.0 or later.
 ## For developers
 
 - **No build step.** Each plugin's `main.js` is the source; edit it and reload Obsidian (`Ctrl+R`).
-- **Shared helpers.** Lines 1–423 of every `main.js` are the same shared helper block (DOM helpers, modals, categories, daily notes, cross-plugin glue). Keep the four copies identical; `ND_VERSION` lives there too.
+- **Shared helpers.** Lines 1–423 of every `main.js` are the same shared helper block (DOM helpers, modals, categories, daily notes, cross-plugin glue). Keep the five copies identical; `ND_VERSION` lives there too.
 - **Plugins talk through Neon Deck's API** (`registerWidget`, `registerCapture`, `registerFacts`, …) and workspace events such as `neon:time-entry` and `neon:task-done`.
 - **Saved data** (`data.json` in each plugin folder) is personal and isn't in this repo.
-- To release a new version, bump `ND_VERSION`, the header comment and `manifest.json` in all four plugins.
+- To release a new version, bump `ND_VERSION`, the header comment and `manifest.json` in all five plugins.
 
 ## Release notes
 
+- [1.6.0](docs/release-notes/1.6.0.md): new Neon Write plugin (table picker, slash menu, toolbar, lifted window, theme fonts, images to Core/Images), Damascus and Meteorite reworked, notes-only graph, Tickets animations, pattern and performance fixes, license now CC BY-NC-SA 4.0.
 - [1.5.0](docs/release-notes/1.5.0.md): one main pane with sidebar nav, focus timer removed (Totals took its place), widget animations, graph restyle, duplicate-tab fix.
 - [1.4.1](docs/release-notes/1.4.1.md): dashboard fits the window; Neon Time fixes (nothing worked past 8h, untracked notes still tracked, midnight split and more).
 - [1.4.0](docs/release-notes/1.4.0.md): totals strip, Cyberpunk theme, sidebar navigator, Ops → Operations, and fixes.
 
 ## License
 
-The plugin code is under the [MIT License](LICENSE). The bundled fonts keep their own license (see below).
+**Free to use and fork, never to sell.** From 1.6.0 on, Neon Deck is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/): you may use, share and fork it with credit, but not sell it or use it commercially, and forks must keep the same license so they stay free too. See [LICENSE](LICENSE). (Versions up to 1.5.0 were MIT.) The bundled fonts keep their own license (see below).
 
 ## Credits
 

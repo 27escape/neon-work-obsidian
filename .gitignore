@@ -8,6 +8,7 @@
 !/neon-tasks/
 !/neon-tickets/
 !/neon-time/
+!/neon-write/
 
 # saved settings and personal time data
 data.json

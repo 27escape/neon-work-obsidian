@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Neon Tickets — ticket tracker, compact ticket view, self-writing log, done folder, monthly counter.
- * Version 1.5.0 · made by yobzz + Claude.
+ * Version 1.6.0 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. Files are only written when you do something that writes.
@@ -14,7 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.5.0';
+const ND_VERSION = '1.6.0';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };
@@ -1235,6 +1235,7 @@ class TicketsView extends ItemView {
     for (const [k, label] of [['active', 'Active'], ['waiting', 'Waiting'], ['done', 'Done'], ['all', 'All']]) {
       const b = seg.createEl('button', { cls: 'nd-seg-btn', text: label });
       b.addEventListener('click', () => {
+        if (this.filter !== k) this.filterChanged = true; // rows rise in again for the new filter
         this.filter = k;
         this.render();
       });
@@ -1294,11 +1295,23 @@ class TicketsView extends ItemView {
     }
     const count = (b) => active.filter((t) => t.bucket === b).length;
     this.dateEl.setText(`${moment().format('dddd D MMM YYYY')} · week ${moment().isoWeek()}`);
+    // numbers count from what they showed last (0 on first open); tiles rise in on first open only
+    if (!this.prevNums) this.prevNums = new Map();
+    const countTo = (el, key, n) => {
+      const from = this.prevNums.has(key) ? this.prevNums.get(key) : 0;
+      this.prevNums.set(key, n);
+      countUp(el, from, n, (x) => String(Math.round(x)), from ? 450 : 800);
+    };
     p.renderCounter(this.counterEl, all);
+    const cn = this.counterEl.querySelector('.tk-counter-n');
+    if (cn) countTo(cn, 'counter', Number(cn.textContent) || 0);
     this.summary.empty();
+    this.summary.toggleClass('is-intro', !this.rendered);
+    let si = 0;
     const stat = (n, label, cls, onClick) => {
       const s = this.summary.createDiv(`tk-stat ${cls}${n ? ' has-value' : ''}`);
-      s.createDiv({ cls: 'tk-stat-n', text: String(n) });
+      s.style.setProperty('--i', String(si++));
+      countTo(s.createDiv({ cls: 'tk-stat-n' }), `stat:${label}`, n);
       s.createDiv({ cls: 'tk-stat-l', text: label });
       if (onClick) s.addEventListener('click', onClick);
     };
@@ -1315,8 +1328,15 @@ class TicketsView extends ItemView {
     else if (this.filter === 'done') items = all.filter((t) => t.status === 'done');
     if (this.query) items = items.filter((t) => `${t.id} ${t.title} ${t.file.path} ${t.status} ${t.priority} ${t.jira}`.toLowerCase().includes(this.query));
     this.listEl.empty();
-    this.listEl.toggleClass('is-calm', !!this.rendered);
+    // calm = a refresh: only new or changed rows move. A first open or a new filter animates the list.
+    const calm = !!this.rendered && !this.filterChanged;
+    this.listEl.toggleClass('is-calm', calm);
+    this.listEl.toggleClass('is-refilter', !!this.filterChanged);
+    this.filterChanged = false;
     this.rendered = true;
+    const before = this.rowState || null;
+    this.rowState = new Map();
+    this.rowCalm = calm ? before : null;
     if (!items.length) {
       const e = this.listEl.createDiv('tk-empty');
       e.createDiv({ text: all.length ? 'Nothing matches this filter.' : 'No tickets yet.' });
@@ -1339,6 +1359,14 @@ class TicketsView extends ItemView {
     const p = this.plugin;
     const row = parent.createDiv(`tk-row is-${t.bucket} prio-${t.priority} status-${t.status}`);
     row.style.setProperty('--i', String(Math.min(i, 20)));
+    // on a refresh: a ticket that wasn't listed slides in, one whose status or due bucket changed flashes
+    const state = `${t.status}|${t.bucket}`;
+    if (this.rowState) this.rowState.set(t.file.path, state);
+    if (this.rowCalm) {
+      const was = this.rowCalm.get(t.file.path);
+      if (was === undefined) row.addClass('is-new');
+      else if (was !== state) row.addClass('is-changed');
+    }
     const check = row.createDiv('tk-row-check');
     tip(check, t.status === 'done' ? 'Reopen' : 'Mark done');
     check.addEventListener('click', (e) => {

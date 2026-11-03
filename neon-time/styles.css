@@ -174,7 +174,8 @@
 .nd-card-badge.is-live {
   color: var(--nd-go);
   background: transparent;
-  animation: tm-pulse 2.4s ease-in-out infinite;
+  /* pulses a few times when tracking starts, then stays lit: endless animations cost a restyle every frame */
+  animation: tm-pulse 2.4s ease-in-out 4;
 }
 @keyframes tm-pulse {
   50% {
@@ -627,7 +628,7 @@ body:not(.nd-themed) .nd-empty {
 /* live time: the dot breathes */
 .tm-w-row.is-live .tm-w-min::before {
   display: inline-block;
-  animation: tm-pulse 1.8s ease-in-out infinite;
+  animation: tm-pulse 1.8s ease-in-out 3; /* rows redraw every minute, so it pulses again then */
 }
 .tm-w-row {
   transition: background var(--nd-fast, 150ms) ease, padding-left var(--nd-fast, 150ms) ease;

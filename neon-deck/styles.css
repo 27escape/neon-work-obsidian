@@ -1255,6 +1255,25 @@ body.nd-theme-brutal .nd-folder-icon {
   height: 100%;
   object-fit: cover;
 }
+/* Cards tab: note cards stay only a little taller than folder cards
+   (one-line excerpt, tighter footer, shorter cover); folders get a touch more room */
+.nd-cards:not(.is-sidebar) .nd-ci-folder {
+  padding-block: 15px;
+}
+.nd-cards:not(.is-sidebar) .nd-ci-excerpt {
+  -webkit-line-clamp: 1;
+  min-height: 1.45em;
+}
+.nd-cards:not(.is-sidebar) .nd-ci-foot {
+  margin-top: 5px;
+}
+.nd-cards:not(.is-sidebar) .nd-ci:not(.nd-ci-folder) .nd-ci-title {
+  margin: 4px 0 2px;
+}
+.nd-cards:not(.is-sidebar) .nd-ci-cover {
+  height: 64px;
+  margin-bottom: 8px;
+}
 .nd-ci.nd-more {
   display: grid;
   place-items: center;
@@ -2060,12 +2079,30 @@ body.nd-theme-brutal .nd-side-browse .nd-icon-btn.nd-side-add {
     transform: scale(0.3);
   }
 }
+/* the breathing ring is a separate layer that only scales and fades, so it never forces a repaint */
 .nd-heat-cell.is-today .nd-heat-dot {
-  animation: nd-breathe 2.8s ease-in-out infinite;
+  position: relative;
+}
+.nd-heat-cell.is-today .nd-heat-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--nd-go) 45%, transparent);
+  /* a few breaths when the dashboard opens, then a steady ring: an endless animation restyled the page every frame */
+  opacity: 0.5;
+  will-change: transform, opacity;
+  animation: nd-breathe 2.8s ease-in-out 3;
 }
 @keyframes nd-breathe {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
   50% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--nd-go) 22%, transparent);
+    opacity: 1;
+    transform: scale(1.1);
   }
 }
 @keyframes nd-card-in {

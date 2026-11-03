@@ -1170,3 +1170,78 @@ body:not(.nd-themed) .nd-empty {
 @media (prefers-reduced-motion: reduce) {
   .tk-step-acts { transition: none; }
 }
+
+/* ---- tracker motion (first open, new filter, and only what changed on a refresh) ---- */
+.tk-summary.is-intro .tk-stat {
+  animation: tk-stat-in 0.45s var(--nd-ease, ease) backwards;
+  animation-delay: calc(120ms + var(--i, 0) * 45ms);
+}
+@keyframes tk-stat-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+.tk-stat {
+  transition: transform var(--nd-fast, 150ms) var(--nd-ease, ease), border-color var(--nd-fast, 150ms) ease;
+}
+.tk-stat:hover {
+  transform: translateY(-2px);
+  border-color: var(--nd-line-strong);
+}
+/* group headings slide in with their rows */
+.tk-list:not(.is-calm) .tk-group-head {
+  animation: tk-head-in 0.35s var(--nd-ease, ease) backwards;
+}
+@keyframes tk-head-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+/* a new filter: rows rise in quickly */
+.tk-list.is-refilter .tk-row {
+  animation-duration: 0.28s;
+  animation-delay: calc(var(--i, 0) * 12ms);
+}
+/* progress bars fill up when the list animates in */
+.tk-list:not(.is-calm) .tk-progress-fill {
+  animation: tk-fill 0.8s var(--nd-ease, ease) backwards;
+  animation-delay: calc(200ms + var(--i, 0) * 18ms);
+}
+@keyframes tk-fill {
+  from {
+    width: 0;
+  }
+}
+/* refresh: a ticket that just appeared slides in, one whose status changed pulses */
+.tk-list.is-calm .tk-row.is-new {
+  animation: tk-row-new 0.55s var(--nd-ease, ease) backwards;
+}
+@keyframes tk-row-new {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+    background: color-mix(in srgb, var(--nd-go) 20%, var(--nd-surface));
+  }
+}
+.tk-list.is-calm .tk-row.is-changed {
+  animation: tk-row-flash 0.9s ease-out;
+}
+@keyframes tk-row-flash {
+  from {
+    background: color-mix(in srgb, var(--nd-accent) 22%, var(--nd-surface));
+    border-color: color-mix(in srgb, var(--nd-accent) 60%, var(--nd-line));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tk-summary.is-intro .tk-stat,
+  .tk-list .tk-group-head,
+  .tk-list .tk-row,
+  .tk-list .tk-progress-fill {
+    animation: none !important;
+  }
+  .tk-stat {
+    transition: none;
+  }
+}

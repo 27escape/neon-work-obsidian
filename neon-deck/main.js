@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Neon Deck — dashboard, themes, live patterns, card explorer and concept graph.
- * Version 1.5.0 · made by yobzz + Claude.
+ * Version 1.6.0 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. Files are only written when you do something that writes.
@@ -14,7 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.5.0';
+const ND_VERSION = '1.6.0';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };
@@ -1026,36 +1026,41 @@ const float PI=3.14159265;
 float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
 float sdRR(vec2 p,vec4 r,float rad){vec2 c=r.xy+r.zw*.5;vec2 q=abs(p-c)-r.zw*.5+rad;return length(max(q,0.))+min(max(q.x,q.y),0.)-rad;}
 float damascus(vec2 c,float ph){
-  float wx=c.x+60.*sin(c.y/170.),wy=c.y+40.*sin(c.x/230.);
+  // two levels of folding (big slow ones, then smaller ones) so the layers never repeat the same way
+  float wx=c.x+60.*sin(c.y/170.+.3*sin(c.x/410.))+22.*sin(c.y/97.+c.x/530.);
+  float wy=c.y+40.*sin(c.x/230.+.4*sin(c.y/350.))+18.*sin(c.x/131.-c.y/470.);
   wx+=8.*sin(ph+c.y/300.);wy+=6.*cos(ph+c.x/280.);
-  float w=wy+22.*sin(wx/53.+ph)+30.*sin(wx/310.+wy/260.)+9.*sin(wx/17.+wy/41.-ph*2.)+5.*sin((wx+wy)/9.+ph)+7.5*ph;
-  return pow(max(0.,sin(w/7.5)),1.6);
+  // a slow zone field: tight straight layers in some places, loose twisted ones in others
+  float zone=.5+.5*sin(wx/520.+.7*sin(wy/610.))*cos(wy/450.-ph*.25);
+  float w=wy+22.*sin(wx/53.+ph)+30.*sin(wx/310.+wy/260.)+(6.+14.*zone)*sin(wx/17.+wy/41.-ph*2.)+5.*sin((wx+wy)/9.+ph)+7.5*ph;
+  float band=sin(w/(5.5+4.*zone));
+  // raindrop rings where the zone peaks
+  float drop=sin(length(mod(vec2(wx,wy),180.)-90.)/6.-ph);
+  band=mix(band,drop,smoothstep(.75,.97,zone)*.65);
+  return pow(max(0.,band),1.2+.8*zone);
 }
 float lam(vec2 p,float ang,float per,float wt,float off,float ph){
   float d=p.x*cos(ang)+p.y*sin(ang),q=-p.x*sin(ang)+p.y*cos(ang);
   float wob=sin(q/61.+off)*1.4+sin(d/233.+off*2.)*3.;
-  return wt*pow(max(0.,sin(d/per+wob+ph)),10.);
+  // softer lines (power 4, was 10): wide enough for the dots to show the waves
+  return wt*pow(max(0.,sin(d/per+wob+ph)),4.);
 }
 float meteorite(vec2 c,float ph){
   float bd=1e12,b2=1e12;vec4 G=vec4(0.);vec4 H=vec4(0.);
   for(int i=0;i<16;i++){vec2 s=uSeeds[i].xy;float dd=dot(c-s,c-s);
     if(dd<bd){b2=bd;bd=dd;G=uSeeds[i];H=uSeeds2[i];}else if(dd<b2){b2=dd;}}
   float edge=sqrt(b2)-sqrt(bd);float a=G.z;
-  float l=max(lam(c,a,4.6+H.x*3.,1.,H.y*9.,ph),max(lam(c,a+PI/3.,5.+H.y*4.,.25+H.z*.6,H.x*7.,ph),lam(c,a+2.*PI/3.,3.8+H.z*3.,.15+H.x*.5,H.z*5.,ph)))*G.w;
-  // each crystal breathes a little, out of step with its neighbours
-  l*=.86+.14*sin(ph*2.+H.x*6.2832);
-  // a soft band of light sweeps across now and then; each crystal catches it differently
-  float W=uRes.x/uDpr;
-  float sp=dot(c-vec2(0.,uOff),normalize(vec2(1.,.38)));
-  float pos=fract(uT*2.)*(W+1400.)-500.;
-  float sw=exp(-pow((sp-pos)/150.,2.))*(.45+.55*abs(sin(a*3.+H.y*5.)));
+  // the lamella lines bend in slow waves that drift through each crystal
+  vec2 wv=c+vec2(14.*sin(c.y/90.+ph*.5+H.x*6.2832),14.*sin(c.x/110.-ph*.5+H.y*6.2832));
+  float l=max(lam(wv,a,4.6+H.x*3.,1.,H.y*9.,ph),max(lam(wv,a+PI/3.,5.+H.y*4.,.25+H.z*.6,H.x*7.,ph),lam(wv,a+2.*PI/3.,3.8+H.z*3.,.15+H.x*.5,H.z*5.,ph)))*G.w;
+  // a gentle swell rolls across the whole surface (no flicker, no flashes)
+  l*=.85+.25*sin((c.x*.6+c.y)/260.-ph);
   // a light that follows the mouse
   vec2 dm=c-vec2(uMouse.x,uMouse.y+uOff);
   float mg=uMouse.z*exp(-dot(dm,dm)/(2.*120.*120.));
-  l=min(1.,l*(1.+sw*.75+mg*.55));
-  if(edge<5.)l=max(l,.55+.14*mg);
-  // rare glints where crystals meet
-  if(edge<7.&&h21(floor(c/36.)+floor(uT*60.))>.996)l=1.;
+  l=min(1.,l*(1.+mg*.55));
+  // soft seams where crystals meet
+  l=max(l,(1.-smoothstep(2.,7.,edge))*(.42+.14*mg));
   return l;
 }
 float topo(vec2 c,float ph){
@@ -1112,7 +1117,8 @@ void main(){
     float g=6.;float rowH=g*.866;float r0=floor(p.y/rowH);float best=1e9;vec2 bc=vec2(0.);
     for(int k=0;k<2;k++){float rr=r0+float(k);float off=mod(rr,2.)*g*.5;vec2 cc=vec2(floor((p.x-off)/g+.5)*g+off,rr*rowH);
       float dd=distance(p,cc);if(dd<best){best=dd;bc=cc;}}
-    float v=field(bc,ph);float rad=v*g*.44;a=(1.-smoothstep(rad-.6,rad+.6,best))*step(.3,rad);
+    // dots fade in as they grow instead of popping on at a size cutoff (that popping looked like glitches)
+    float v=field(bc,ph);float rad=v*g*.44;a=(1.-smoothstep(rad-.6,rad+.6,best))*smoothstep(.15,.7,rad);
   } else if(uMode<3.5) a=hexmesh(p,ph);
   else if(uMode<4.5) a=circuit(p,ph);
   else if(uMode<5.5) a=datastream(p,ph);
@@ -1155,6 +1161,17 @@ class PatternLayer {
     this.ro.observe(host);
     this.onScroll = () => this.kick();
     scroller.addEventListener('scroll', this.onScroll, { passive: true });
+    // Cards slide in (and lift on hover), and widgets mount after the view: redraw once things settle,
+    // or the cut-outs stay where the cards were mid-animation (an offset second outline behind each card
+    // whenever the pattern isn't animating, e.g. right after a reload with Obsidian in the background).
+    this.onSettle = () => this.kick();
+    scroller.addEventListener('animationend', this.onSettle, true);
+    scroller.addEventListener('transitionend', this.onSettle, true);
+    this.mo = new MutationObserver((recs) => {
+      const isCard = (n) => n.nodeType === 1 && (n.matches(this.cardSel) || !!n.querySelector(this.cardSel));
+      if (recs.some((r) => [...r.addedNodes].some(isCard) || [...r.removedNodes].some(isCard))) this.kick();
+    });
+    this.mo.observe(scroller, { childList: true, subtree: true });
     // mouse light (Meteorite): position in host pixels, strength fades in and out
     this.mouse = { x: -9999, y: -9999, s: 0, at: 0 };
     this.onMove = (e) => {
@@ -1273,8 +1290,12 @@ class PatternLayer {
   }
   draw() {
     const lk = this.look();
-    this.canvas.toggleClass('is-hidden', !lk.on);
-    this.host.toggleClass('nd-has-pattern', lk.on);
+    // only touch the classes when on/off changes: setting them every frame made the page restyle ~20×/s
+    if (this.shownOn !== lk.on) {
+      this.shownOn = lk.on;
+      this.canvas.toggleClass('is-hidden', !lk.on);
+      this.host.toggleClass('nd-has-pattern', lk.on);
+    }
     if (!lk.on) return;
     const gl = this.gl;
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -1300,6 +1321,7 @@ class PatternLayer {
       if (rects.length >= MAX_RECTS * 4) break;
     }
     const n = rects.length / 4;
+    this.lastRects = rects.slice(); // what the cut-outs were drawn from (handy when checking alignment)
     while (rects.length < MAX_RECTS * 4) rects.push(0, 0, 0, 0);
     const [aOut, aIn] = STRENGTH_ALPHA[lk.strength] || STRENGTH_ALPHA.subtle;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -1326,6 +1348,11 @@ class PatternLayer {
     this.timer = 0;
     if (this.ro) this.ro.disconnect();
     if (this.scroller && this.onScroll) this.scroller.removeEventListener('scroll', this.onScroll);
+    if (this.scroller && this.onSettle) {
+      this.scroller.removeEventListener('animationend', this.onSettle, true);
+      this.scroller.removeEventListener('transitionend', this.onSettle, true);
+    }
+    if (this.mo) this.mo.disconnect();
     if (this.onMove) this.host.removeEventListener('mousemove', this.onMove);
     if (this.onLeave) this.host.removeEventListener('mouseleave', this.onLeave);
     window.removeEventListener('focus', this.onWake);
@@ -2550,7 +2577,7 @@ class CardsView extends ItemView {
       m.addItem((it) => it.setTitle('Open in new cards tab').setIcon('layout-grid').onClick(() => this.plugin.openCardsAt(folder.path, true)));
       m.addItem((it) => it.setTitle('New note here').setIcon('file-plus').onClick(() => this.plugin.newNote(folder.path)));
       m.addItem((it) => it.setTitle('New folder here').setIcon('folder-plus').onClick(() => this.plugin.newFolder(folder.path)));
-      m.addItem((it) => it.setTitle('Concept graph of this folder').setIcon('waypoints').onClick(() => this.plugin.openGraph('concepts', `folder:${folder.path}`)));
+      m.addItem((it) => it.setTitle('Graph of this folder').setIcon('waypoints').onClick(() => this.plugin.openGraph('notes', `folder:${folder.path}`)));
     });
   }
   dragFolder(el, folder) {
@@ -2600,12 +2627,15 @@ class CardsView extends ItemView {
     if (showPath && file.parent && file.parent.path !== '/') card.createDiv({ cls: 'nd-ci-path', text: file.parent.path });
     if (isMd) {
       this.fillExcerpt(file, card.createDiv('nd-ci-excerpt'));
-      const foot = card.createDiv('nd-ci-foot');
       const tags = [...new Set(getAllTags(cache || {}) || [])].filter((t) => !/^#(tasks|ticket|projects|school|admin|operations|ops)$/i.test(t));
-      const tg = foot.createDiv('nd-ci-tags');
-      tags.slice(0, 3).forEach((t) => tg.createSpan({ cls: 'nd-tag', text: t }));
       const n = this.linkCount(file);
-      foot.createSpan({ cls: 'nd-ci-links', text: `${n} link${n === 1 ? '' : 's'}` });
+      // no tags and no links: skip the footer, so the card stays close to a folder card's height
+      if (tags.length || n) {
+        const foot = card.createDiv('nd-ci-foot');
+        const tg = foot.createDiv('nd-ci-tags');
+        tags.slice(0, 3).forEach((t) => tg.createSpan({ cls: 'nd-tag', text: t }));
+        if (n) foot.createSpan({ cls: 'nd-ci-links', text: `${n} link${n === 1 ? '' : 's'}` });
+      }
       this.bindPreview(card, file);
     } else {
       const size = file.stat.size > 1048576 ? `${(file.stat.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(file.stat.size / 1024))} KB`;
@@ -2860,7 +2890,8 @@ class GraphView extends ItemView {
     super(leaf);
     this.navigation = true;
     this.plugin = plugin;
-    this.mode = 'concepts';
+    // notes only: the concept graph was taken out of the UI in 1.6 (its code is still below, unused)
+    this.mode = 'notes';
     this.scope = 'vault';
     this.showLabels = true;
     this.cam = { x: 0, y: 0, k: 1 };
@@ -2880,7 +2911,7 @@ class GraphView extends ItemView {
     return VIEW_GRAPH;
   }
   getDisplayText() {
-    return 'Concept graph';
+    return 'Graph';
   }
   getIcon() {
     return 'waypoints';
@@ -2890,7 +2921,8 @@ class GraphView extends ItemView {
   }
   async setState(state, result) {
     if (state) {
-      if (state.mode) this.mode = state.mode;
+      // older layouts may still ask for 'concepts'; always show notes
+      this.mode = 'notes';
       if (state.scope) this.scope = state.scope;
     }
     await super.setState(state, result);
@@ -2905,24 +2937,7 @@ class GraphView extends ItemView {
     root.empty();
     root.addClass('nd-root', 'nd-graph');
     const bar = root.createDiv('nd-graph-bar');
-    const seg = bar.createDiv('nd-seg');
-    this.segBtns = {};
-    for (const [m, label, ic] of [
-      ['concepts', 'Concepts', 'sparkles'],
-      ['notes', 'Notes', 'file-text'],
-    ]) {
-      const b = seg.createEl('button', { cls: 'nd-seg-btn' });
-      icon(b, ic);
-      b.createSpan({ text: label });
-      b.addEventListener('click', () => {
-        if (this.mode === m) return;
-        this.mode = m;
-        this.syncToolbar();
-        this.rebuild();
-        this.app.workspace.requestSaveLayout();
-      });
-      this.segBtns[m] = b;
-    }
+    this.segBtns = {}; // no Concepts / Notes switch any more
     this.scopeSel = bar.createEl('select', { cls: 'dropdown nd-select' });
     this.scopeSel.addEventListener('focus', () => this.fillScopes());
     this.scopeSel.addEventListener('change', () => {
@@ -2977,7 +2992,11 @@ class GraphView extends ItemView {
     const ro = new ResizeObserver(() => this.resize());
     ro.observe(this.stage);
     this.register(() => ro.disconnect());
-    this.register(() => cancelAnimationFrame(this.raf));
+    this.register(() => {
+      // closed for good: no timer or ripple may start drawing again
+      this.closed = true;
+      cancelAnimationFrame(this.raf);
+    });
     const soon = debounce(() => this.rebuild(), 1500, true);
     this.registerEvent(
       this.app.workspace.on('file-open', (f) => {
@@ -3320,13 +3339,14 @@ class GraphView extends ItemView {
           ctx.stroke();
         }
       }
-      // keep the ripple moving while something is hovered or selected
-      if (!still && !this.pulseQueued) {
+      // keep the ripple moving while something is hovered or selected, but only while the graph is on
+      // screen and Obsidian is focused, and at ~30 fps: a hidden graph tab must cost nothing
+      if (!still && !this.pulseQueued && this.contentEl.offsetParent && document.hasFocus()) {
         this.pulseQueued = true;
-        requestAnimationFrame(() => {
+        window.setTimeout(() => {
           this.pulseQueued = false;
-          if (this.selected >= 0 || this.hover >= 0) this.requestDraw();
-        });
+          if ((this.selected >= 0 || this.hover >= 0) && this.contentEl.offsetParent) this.requestDraw();
+        }, 33);
       }
     }
     ctx.textAlign = 'center';
@@ -3352,7 +3372,7 @@ class GraphView extends ItemView {
   }
 
   kick() {
-    if (this.raf) return;
+    if (this.raf || this.closed) return;
     const loop = (now) => {
       this.raf = 0;
       let busy = false;
@@ -3788,14 +3808,9 @@ class NeonSettingTab extends PluginSettingTab {
       .addToggle((t) => t.setValue(s.replaceFileExplorer).onChange((v) => ((s.replaceFileExplorer = v), save())));
     num(new Setting(containerEl).setName('Revisit school notes after (days)').setDesc('School notes you haven’t opened for this long get a Revisit badge.'), 'revisitDays', 1, 365);
 
-    new Setting(containerEl).setName('Concept graph').setHeading();
-    num(new Setting(containerEl).setName('Max concepts').setDesc('Notes mode uses 2× this.'), 'graphMaxNodes', 20, 400);
-    num(new Setting(containerEl).setName('Co-occurrence window (words)').setDesc('InfraNodus uses ~4.'), 'graphWindow', 2, 8);
+    new Setting(containerEl).setName('Graph').setHeading();
+    num(new Setting(containerEl).setName('Max notes').setDesc('The graph shows up to twice this many notes.'), 'graphMaxNodes', 20, 400);
     new Setting(containerEl).setName('Bridge note folder').addText((t) => t.setValue(s.bridgeFolder).onChange((v) => ((s.bridgeFolder = v.trim()), save())));
-    new Setting(containerEl)
-      .setName('Extra stop-words')
-      .setDesc('Words to ignore, comma-separated. Right-click a node → Hide adds here.')
-      .addTextArea((t) => t.setValue(s.extraStopwords).onChange((v) => ((s.extraStopwords = v), save())));
     madeWith(containerEl, 'Neon Deck');
   }
 }
@@ -3828,14 +3843,14 @@ module.exports = class NeonDeck extends Plugin {
 
     this.addRibbonIcon('layout-dashboard', 'Neon Deck dashboard', () => this.activate(VIEW_DASH, 'tab'));
     this.addRibbonIcon('layout-grid', 'Card explorer', () => this.activate(VIEW_CARDS, 'tab'));
-    this.addRibbonIcon('waypoints', 'Concept graph', () => this.activate(VIEW_GRAPH, 'tab'));
+    this.addRibbonIcon('waypoints', 'Note graph', () => this.openGraph('notes'));
 
     const cmds = [
       ['open-dashboard', 'Open dashboard', () => this.activate(VIEW_DASH, 'tab')],
       ['open-cards', 'Open card explorer (tab)', () => this.activate(VIEW_CARDS, 'tab')],
       ['open-cards-sidebar', 'Open card explorer (sidebar)', () => this.activate(VIEW_CARDS, 'left')],
-      ['open-graph', 'Open concept graph', () => this.openGraph('concepts')],
-      ['graph-active-note', 'Concept graph of active note', () => this.openGraph('concepts', 'note')],
+      ['open-graph', 'Open note graph', () => this.openGraph('notes')],
+      ['graph-active-note', 'Note graph of active note', () => this.openGraph('notes', 'note')],
       ['open-today', 'Open today’s daily note', () => this.openToday()],
       ['toggle-light-dark', 'Toggle light / dark mode', () => this.toggleLightDark()],
       ['next-theme', 'Next theme', () => this.setLook({ theme: THEMES[(THEMES.indexOf(this.settings.theme) + 1) % THEMES.length] }, true)],
@@ -4358,7 +4373,7 @@ module.exports = class NeonDeck extends Plugin {
   async openGraph(mode, scope) {
     const leaf = await this.activate(VIEW_GRAPH, 'tab');
     const view = leaf.view;
-    if (view instanceof GraphView) await view.setState({ mode, scope: scope || view.scope }, { history: false });
+    if (view instanceof GraphView) await view.setState({ mode: 'notes', scope: scope || view.scope }, { history: false });
   }
   openFile(file, evt, line) {
     return openFile(this.app, file, evt, line);
