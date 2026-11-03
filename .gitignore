@@ -1,0 +1,13 @@
+# Only the Neon plugins and the docs go in the repo
+/*
+!/.gitignore
+!/README.md
+!/LICENSE
+!/docs/
+!/neon-deck/
+!/neon-tasks/
+!/neon-tickets/
+!/neon-time/
+
+# saved settings and personal time data
+data.json

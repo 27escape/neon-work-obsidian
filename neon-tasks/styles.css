@@ -1,0 +1,370 @@
+/* NEON TASKS — uses the --nd-* tokens from Neon Deck (fallbacks for running alone) */
+.nt-list {
+  display: flex;
+  flex-direction: column;
+}
+.nt-group {
+  font: 600 10.5px var(--nd-mono, monospace);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nd-faint, var(--text-faint));
+  margin: 8px 0 2px;
+}
+.nt-group:first-child {
+  margin-top: 0;
+}
+.nt-group.is-overdue {
+  color: var(--nd-accent, var(--text-error));
+}
+.nt-task {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px;
+  min-width: 0;
+  border-radius: 8px;
+  transition: background var(--nd-fast, 150ms) ease, opacity 0.4s ease;
+}
+.nt-task:hover {
+  background: color-mix(in srgb, var(--nd-text, var(--text-normal)) 4%, transparent);
+}
+.nt-check {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  border: 1.6px solid var(--nd-muted, var(--text-muted));
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background var(--nd-fast, 150ms) ease, border-color var(--nd-fast, 150ms) ease, box-shadow var(--nd-fast, 150ms) ease;
+}
+.nt-check:hover {
+  border-color: var(--nd-go, var(--interactive-accent));
+}
+.nt-task.is-done .nt-check {
+  background: var(--nd-go, var(--interactive-accent));
+  border-color: var(--nd-go, var(--interactive-accent));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--nd-go, var(--interactive-accent)) 45%, transparent);
+}
+.nt-task.is-done .nt-text {
+  color: var(--nd-faint, var(--text-faint));
+  text-decoration: line-through;
+}
+.nt-task.is-done {
+  opacity: 0.6;
+}
+.nt-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.nt-due {
+  flex: none;
+  font: 600 11px var(--nd-mono, monospace);
+  color: var(--nd-muted, var(--text-muted));
+}
+.nt-due.is-overdue {
+  color: var(--nd-accent, var(--text-error));
+}
+.nt-due.is-today {
+  color: var(--nd-go, var(--interactive-accent));
+}
+.nt-due.is-carried {
+  color: var(--nd-warn, var(--text-muted));
+}
+.nt-src {
+  flex: none;
+  max-width: 34%;
+  font: 11px var(--nd-mono, monospace);
+  color: var(--nd-faint, var(--text-faint));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.nt-src:hover {
+  color: var(--nd-text, var(--text-normal));
+}
+/* "Add a task" boxes: clearly visible, with a + and an accent glow when focused */
+.nt-add {
+  flex: none;
+  position: relative;
+  margin-top: 10px;
+}
+.nt-add::before {
+  content: '+';
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-52%);
+  font: 700 17px/1 var(--nd-font-display, var(--font-interface));
+  color: var(--nd-accent, var(--interactive-accent));
+  pointer-events: none;
+  transition: transform var(--nd-fast, 150ms) ease;
+}
+.nt-add:focus-within::before {
+  transform: translateY(-52%) rotate(90deg);
+}
+.nt-add .nd-input {
+  height: 38px;
+  padding-left: 32px;
+  border: 1.5px solid color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 35%, var(--nd-line, var(--background-modifier-border)));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 6%, var(--nd-surface2, var(--background-secondary)));
+  font-size: 13px;
+  font-weight: 500;
+}
+.nt-add .nd-input::placeholder {
+  color: var(--nd-muted, var(--text-muted));
+}
+.nt-add .nd-input:hover {
+  border-color: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 60%, transparent);
+}
+.nt-add .nd-input:focus {
+  border-color: var(--nd-accent, var(--interactive-accent));
+  background: var(--nd-surface, var(--background-primary));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 20%, transparent);
+}
+body.nd-theme-brutal .nt-add .nd-input {
+  border-radius: 2px;
+  border-width: 2px;
+}
+.nd-card-body:has(> .nt-list) {
+  display: flex;
+  flex-direction: column;
+}
+.nd-card-body > .nt-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.nt-empty-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--nd-faint, var(--text-faint));
+}
+/* global tasks */
+.nt-gtask {
+  cursor: grab;
+}
+.nt-grip {
+  flex: none;
+  color: var(--nd-faint, var(--text-faint));
+  opacity: 0;
+  margin-right: -6px;
+  transition: opacity var(--nd-fast, 150ms) ease;
+}
+.nt-grip svg {
+  width: 13px;
+  height: 13px;
+}
+.nt-gtask:hover .nt-grip,
+.nt-gtask:hover .nt-del {
+  opacity: 1;
+}
+.nt-del {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--nd-faint, var(--text-faint));
+  opacity: 0;
+  cursor: pointer;
+}
+.nt-del:hover {
+  color: var(--nd-accent, var(--text-error));
+}
+.nt-del svg {
+  width: 13px;
+  height: 13px;
+}
+.nt-gtask.is-dragging {
+  opacity: 0.4;
+}
+.nt-gtask.is-drop-above {
+  box-shadow: inset 0 2px 0 var(--nd-accent, var(--interactive-accent));
+}
+.nt-gtask.is-drop-below {
+  box-shadow: inset 0 -2px 0 var(--nd-accent, var(--interactive-accent));
+}
+.nt-edit {
+  flex: 1;
+  padding: 3px 8px;
+  font-size: 13px;
+}
+/* new note card */
+.nt-newnote {
+  width: min(560px, 94vw);
+}
+.nt-field {
+  margin-bottom: 12px;
+}
+.nt-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font: 600 10.5px var(--nd-mono, monospace);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--nd-muted, var(--text-muted));
+  margin-bottom: 6px;
+}
+.nt-hint {
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--nd-faint, var(--text-faint));
+}
+.nt-note {
+  font-size: 12.5px;
+  color: var(--nd-faint, var(--text-faint));
+}
+.nt-keys {
+  margin-right: auto;
+  align-self: center;
+  font: 11.5px var(--nd-mono, monospace);
+  color: var(--nd-faint, var(--text-faint));
+}
+/* "No category yet" bar */
+.nt-nocat-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--nd-line, var(--background-modifier-border));
+  background: color-mix(in srgb, var(--nd-warn, #d9c56a) 8%, var(--background-primary));
+  font-size: 12.5px;
+}
+.nt-nocat-bar > .nd-ico {
+  color: var(--nd-warn, var(--text-muted));
+}
+.nt-nocat-k {
+  font-weight: 600;
+  margin-right: 4px;
+}
+.nt-nocat-bar .nd-pill-btn {
+  padding: 2px 10px;
+  font-size: 12px;
+}
+.nt-nocat-x {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--nd-faint, var(--text-faint));
+  cursor: pointer;
+}
+.nt-nocat-x svg {
+  width: 14px;
+  height: 14px;
+}
+.nt-status {
+  color: var(--nd-warn, var(--text-muted));
+}
+
+/* Fallback when the Neon Deck core plugin is off: map the --nd-* tokens to
+   Obsidian's own colours and give the shared controls a plain look. Inert
+   while the core is on (it puts .nd-themed on body). */
+body:not(.nd-themed) {
+  --nd-bg: var(--background-primary);
+  --nd-bg2: var(--background-secondary);
+  --nd-surface: var(--background-primary-alt, var(--background-primary));
+  --nd-surface2: var(--background-secondary);
+  --nd-line: var(--background-modifier-border);
+  --nd-line-strong: var(--text-faint);
+  --nd-text: var(--text-normal);
+  --nd-muted: var(--text-muted);
+  --nd-faint: var(--text-faint);
+  --nd-accent: var(--interactive-accent);
+  --nd-on-accent: var(--text-on-accent);
+  --nd-go: var(--color-green, #4caf50);
+  --nd-on-go: #fff;
+  --nd-link: var(--text-accent, var(--interactive-accent));
+  --nd-info: var(--color-blue, #4a90d9);
+  --nd-warn: var(--color-yellow, #d9a400);
+  --nd-cat-projects: var(--color-red, #e5534b);
+  --nd-cat-school: var(--color-purple, #a371f7);
+  --nd-cat-admin: var(--color-yellow, #d9a400);
+  --nd-cat-operations: var(--color-cyan, #39a5c9);
+  --nd-cat-other: var(--text-faint);
+  --nd-mono: var(--font-monospace);
+  --nd-font-ui: var(--font-interface);
+  --nd-font-display: var(--font-interface);
+  --nd-radius: 12px;
+  --nd-radius-s: 8px;
+  --nd-border: 1px;
+  --nd-shadow: none;
+  --nd-fast: 150ms;
+  --nd-med: 250ms;
+  --nd-ease: ease;
+}
+body:not(.nd-themed) :is(.nd-btn, .nd-pill-btn, .nd-seg-btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+body:not(.nd-themed) .nd-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+body:not(.nd-themed) .nd-pill-btn {
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+body:not(.nd-themed) :is(.nd-pill-btn.is-on, .nd-seg-btn.is-active) {
+  background: var(--pill-accent, var(--nd-accent));
+  color: var(--nd-on-accent);
+}
+body:not(.nd-themed) .nd-input {
+  width: 100%;
+}
+body:not(.nd-themed) .nd-modal-row {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+body:not(.nd-themed) .nd-empty {
+  padding: 14px 6px;
+  color: var(--nd-faint);
+  text-align: center;
+}
+
+/* newly added tasks slide in with a short lime glow */
+.nt-task.is-new {
+  animation: nt-task-in 0.45s var(--nd-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) backwards, nt-task-glow 1.4s ease-out;
+}
+@keyframes nt-task-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+@keyframes nt-task-glow {
+  0%,
+  25% {
+    background-color: color-mix(in srgb, var(--nd-go, var(--interactive-accent)) 16%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nt-task.is-new {
+    animation: none;
+  }
+}

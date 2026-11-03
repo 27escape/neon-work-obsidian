@@ -1,0 +1,578 @@
+/* NEON TIME — uses the --nd-* tokens from Neon Deck */
+.tm-view *,
+.tm-modal *,
+.tm-wrap * {
+  box-sizing: border-box;
+}
+.tm-label {
+  font: 600 10.5px var(--nd-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nd-muted);
+}
+.tm-hint {
+  font-size: 12px;
+  color: var(--nd-faint);
+}
+/* donut */
+.tm-donut {
+  position: relative;
+  flex: none;
+  width: var(--size);
+  height: var(--size);
+}
+.tm-donut svg {
+  transform: rotate(-90deg);
+  display: block;
+}
+.tm-donut.is-clickable {
+  cursor: pointer;
+}
+.tm-donut-track,
+.tm-donut-seg {
+  fill: none;
+  stroke-width: 11;
+}
+.tm-donut-track {
+  stroke: var(--nd-surface2);
+}
+.tm-donut-seg {
+  stroke-linecap: butt;
+  transition: stroke-dasharray var(--nd-med, 250ms) ease;
+}
+.tm-donut-seg.is-over {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--nd-accent) 60%, transparent));
+}
+.tm-donut-mid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+.tm-donut-v {
+  font: 700 calc(var(--size) * 0.14) / 1.1 var(--nd-font-display);
+  color: var(--nd-text);
+}
+.tm-donut-l {
+  font: 12px var(--nd-mono);
+  color: var(--nd-faint);
+  white-space: nowrap;
+}
+.tm-donut-l.is-over {
+  color: var(--nd-accent);
+}
+/* legend */
+.tm-legend {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tm-leg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.tm-leg.is-zero {
+  opacity: 0.45;
+}
+.tm-leg-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cat);
+}
+.tm-leg-k {
+  flex: 1;
+  min-width: 0;
+  color: var(--nd-muted);
+}
+.tm-leg-v {
+  font: 600 12px var(--nd-mono);
+  color: var(--nd-text);
+}
+.tm-leg.is-over .tm-leg-v {
+  color: var(--nd-accent);
+}
+/* dashboard widget */
+.nd-card-body.tm-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tm-w-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.tm-w-list {
+  flex: 1;
+  /* about two rows always stay visible; in a short card the card body scrolls instead */
+  min-height: 58px;
+  overflow: auto;
+  scrollbar-width: thin;
+  border-top: 1px solid var(--nd-line);
+  padding-top: 6px;
+}
+.tm-w-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 8px;
+  border-left: 2px solid var(--cat);
+  border-radius: 0 6px 6px 0;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.tm-w-row + .tm-w-row {
+  margin-top: 3px;
+}
+.tm-w-row:hover {
+  background: color-mix(in srgb, var(--nd-text) 4%, transparent);
+}
+.tm-w-row.is-live {
+  cursor: default;
+}
+.tm-w-at,
+.tm-w-min {
+  flex: none;
+  font: 12px var(--nd-mono);
+  color: var(--nd-faint);
+}
+.tm-w-min {
+  color: var(--nd-muted);
+}
+.tm-w-note {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tm-w-row.is-live .tm-w-min::before {
+  content: '● ';
+  color: var(--nd-go);
+}
+.tm-w-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.tm-wrapped {
+  margin-right: auto;
+  font: 600 12px var(--nd-mono);
+  color: var(--nd-go);
+}
+.nd-card-badge.is-live {
+  color: var(--nd-go);
+  background: transparent;
+  animation: tm-pulse 2.4s ease-in-out infinite;
+}
+@keyframes tm-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+/* Time tab */
+/* same look as the dashboard: Neon Deck's cards, hero bar and dot pattern */
+.tm-view.view-content {
+  background: var(--nd-bg);
+}
+.tm-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  z-index: 1;
+}
+.tm-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 20px 32px;
+}
+.tm-head {
+  justify-content: space-between;
+}
+.tm-nav,
+.tm-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.tm-date {
+  min-width: 13ch;
+  text-align: center;
+}
+.tm-panel.nd-card {
+  overflow: visible;
+  transition: transform var(--nd-fast, 150ms) ease, border-color var(--nd-fast, 150ms) ease;
+}
+.tm-panel.nd-card:hover {
+  border-color: var(--nd-line-strong);
+}
+.tm-panel .nd-card-body {
+  overflow: visible;
+}
+.tm-top {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 14px;
+}
+.tm-today {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.tm-balance {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+.tm-bal-v {
+  font: 700 24px / 1.1 var(--nd-font-display);
+  color: var(--nd-muted);
+}
+.tm-bal.is-over .tm-bal-v {
+  color: var(--nd-accent);
+}
+.tm-bal.is-under .tm-bal-v {
+  color: var(--nd-info);
+}
+.tm-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+.tm-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--nd-radius-s);
+  cursor: pointer;
+  text-align: center;
+}
+.tm-col:hover {
+  background: color-mix(in srgb, var(--nd-text) 4%, transparent);
+}
+.tm-col.is-cursor {
+  background: color-mix(in srgb, var(--nd-accent) 9%, transparent);
+}
+.tm-col-bar {
+  position: relative;
+  height: 110px;
+  display: flex;
+  flex-direction: column-reverse;
+  border-radius: 6px;
+  background: var(--nd-surface2);
+  overflow: hidden;
+}
+.tm-col-seg {
+  flex: none;
+}
+.tm-col-target {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--nd-line-strong);
+  z-index: 1;
+}
+.tm-col-v {
+  font: 600 12px var(--nd-mono);
+  color: var(--nd-text);
+}
+.tm-col-d {
+  font: 12px var(--nd-mono);
+  color: var(--nd-faint);
+}
+.tm-live {
+  font: 600 12px var(--nd-mono);
+  color: var(--nd-go);
+}
+.tm-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 6px 7px 10px;
+  border-left: 3px solid var(--cat);
+  border-radius: 0 8px 8px 0;
+  font-size: 13px;
+}
+.tm-entry + .tm-entry {
+  margin-top: 4px;
+}
+.tm-entry:hover {
+  background: color-mix(in srgb, var(--nd-text) 4%, transparent);
+}
+.tm-entry-at,
+.tm-entry-min {
+  flex: none;
+  font: 600 12px var(--nd-mono);
+  color: var(--nd-muted);
+  min-width: 5ch;
+}
+.tm-entry-cat {
+  flex: none;
+  font: 600 12px var(--nd-mono);
+  color: var(--cat);
+  min-width: 8ch;
+}
+.tm-entry-note {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tm-entry-note.is-link {
+  cursor: pointer;
+  color: var(--nd-link);
+}
+.tm-entry-note.is-link:hover {
+  text-decoration: underline;
+}
+.tm-entry-jira {
+  flex: none;
+  font: 600 12px var(--nd-mono);
+  color: var(--nd-go);
+}
+.tm-entry-src {
+  flex: none;
+  font: 12px var(--nd-mono);
+  color: var(--nd-faint);
+}
+.tm-entry-src.s-live {
+  color: var(--nd-go);
+}
+.tm-entry.is-live .tm-entry-src {
+  color: var(--nd-go);
+}
+.tm-entry-acts {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--nd-fast) ease;
+}
+.tm-entry:hover .tm-entry-acts,
+.tm-entry:focus-within .tm-entry-acts {
+  opacity: 1;
+}
+.tm-entry-acts .nd-icon-btn {
+  width: 26px;
+  height: 26px;
+}
+@media (hover: none) {
+  .tm-entry-acts {
+    opacity: 1;
+  }
+}
+.tm-tomorrow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tm-foot {
+  text-align: right;
+}
+/* cards fade in on first open, like the dashboard */
+.tm-inner.is-entering > .nd-card,
+.tm-inner.is-entering > .tm-top > .nd-card {
+  animation: nd-card-in 0.3s var(--nd-ease, ease) backwards;
+}
+.tm-inner.is-entering > .tm-top > .nd-card:nth-child(2) { animation-delay: 30ms; }
+.tm-inner.is-entering > .nd-card:nth-of-type(2) { animation-delay: 60ms; }
+.tm-inner.is-entering > .nd-card:nth-of-type(3) { animation-delay: 90ms; }
+.tm-inner.is-entering > .nd-card:nth-of-type(n + 4) { animation-delay: 120ms; }
+@media (prefers-reduced-motion: reduce) {
+  .tm-inner.is-entering .nd-card { animation: none; }
+}
+/* dashboard widget: delete on hover */
+.tm-w-del.nd-icon-btn {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+  transition: opacity var(--nd-fast, 150ms) ease;
+}
+.tm-w-del svg {
+  width: 13px;
+  height: 13px;
+}
+.tm-w-row:hover .tm-w-del,
+.tm-w-del:focus-visible {
+  opacity: 1;
+}
+.tm-w-del:hover {
+  color: var(--text-error);
+}
+@media (hover: none) {
+  .tm-w-del.nd-icon-btn { opacity: 1; }
+}
+@media (max-width: 640px) {
+  .tm-top {
+    grid-template-columns: 1fr;
+  }
+  .tm-today {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tm-today .tm-donut {
+    align-self: center;
+  }
+  .tm-entry-cat,
+  .tm-entry-src {
+    display: none;
+  }
+  .tm-col-bar {
+    height: 80px;
+  }
+}
+/* modals */
+.tm-modal .tm-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.tm-field {
+  margin-bottom: 12px;
+  min-width: 0;
+}
+.tm-field .tm-label {
+  margin-bottom: 6px;
+}
+.tm-chips {
+  margin: -4px 0 12px;
+}
+.tm-chips .nd-pill-btn {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.tm-del {
+  margin-right: auto;
+  color: var(--nd-accent);
+}
+.tm-wrap-top {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+.tm-wrap-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.tm-fact {
+  padding: 8px 10px;
+  border: var(--nd-border) solid var(--nd-line);
+  border-radius: var(--nd-radius-s);
+  background: var(--nd-surface2);
+}
+.tm-fact-v {
+  font: 700 17px var(--nd-font-display);
+}
+.tm-fact.is-over .tm-fact-v {
+  color: var(--nd-accent);
+}
+.tm-fact-l {
+  font-size: 12px;
+  color: var(--nd-faint);
+}
+.tm-wrap .tm-label {
+  margin-bottom: 6px;
+}
+@media (max-width: 520px) {
+  .tm-modal .tm-row,
+  .tm-wrap-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.tm-status.is-running .nd-status-icon {
+  color: var(--nd-go);
+}
+
+/* Fallback when the Neon Deck core plugin is off: map the --nd-* tokens to
+   Obsidian's own colours and give the shared controls a plain look. Inert
+   while the core is on (it puts .nd-themed on body). */
+body:not(.nd-themed) {
+  --nd-bg: var(--background-primary);
+  --nd-bg2: var(--background-secondary);
+  --nd-surface: var(--background-primary-alt, var(--background-primary));
+  --nd-surface2: var(--background-secondary);
+  --nd-line: var(--background-modifier-border);
+  --nd-line-strong: var(--text-faint);
+  --nd-text: var(--text-normal);
+  --nd-muted: var(--text-muted);
+  --nd-faint: var(--text-faint);
+  --nd-accent: var(--interactive-accent);
+  --nd-on-accent: var(--text-on-accent);
+  --nd-go: var(--color-green, #4caf50);
+  --nd-on-go: #fff;
+  --nd-link: var(--text-accent, var(--interactive-accent));
+  --nd-info: var(--color-blue, #4a90d9);
+  --nd-warn: var(--color-yellow, #d9a400);
+  --nd-cat-projects: var(--color-red, #e5534b);
+  --nd-cat-school: var(--color-purple, #a371f7);
+  --nd-cat-admin: var(--color-yellow, #d9a400);
+  --nd-cat-operations: var(--color-cyan, #39a5c9);
+  --nd-cat-other: var(--text-faint);
+  --nd-mono: var(--font-monospace);
+  --nd-font-ui: var(--font-interface);
+  --nd-font-display: var(--font-interface);
+  --nd-radius: 12px;
+  --nd-radius-s: 8px;
+  --nd-border: 1px;
+  --nd-shadow: none;
+  --nd-fast: 150ms;
+  --nd-med: 250ms;
+  --nd-ease: ease;
+}
+body:not(.nd-themed) :is(.nd-btn, .nd-pill-btn, .nd-seg-btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+body:not(.nd-themed) .nd-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+body:not(.nd-themed) .nd-pill-btn {
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+body:not(.nd-themed) :is(.nd-pill-btn.is-on, .nd-seg-btn.is-active) {
+  background: var(--pill-accent, var(--nd-accent));
+  color: var(--nd-on-accent);
+}
+body:not(.nd-themed) .nd-input {
+  width: 100%;
+}
+body:not(.nd-themed) .nd-modal-row {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+body:not(.nd-themed) .nd-empty {
+  padding: 14px 6px;
+  color: var(--nd-faint);
+  text-align: center;
+}
