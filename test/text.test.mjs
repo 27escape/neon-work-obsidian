@@ -51,3 +51,10 @@ test('! names sort first (item 24)', () => {
   const by = D.bangFirst((a, b) => a.name.localeCompare(b.name));
   assert.deepEqual(['b', '!a', 'a', '!!z'].map((name) => ({ name })).sort(by).map((x) => x.name), ['!!z', '!a', 'a', 'b']);
 });
+
+test('minimal edit for writes into an open editor', () => {
+  const S = load('neon-tasks', ['minimalEdit']);
+  const apply = (a, c) => a.slice(0, c.from) + c.text + a.slice(c.to);
+  for (const [a, b] of [['abc', 'abXc'], ['- [ ] a\n- [ ] b', '- [x] a\n- [ ] b'], ['x', ''], ['', 'new'], ['same', 'same'], ['aaa', 'aa']]) assert.equal(apply(a, S.minimalEdit(a, b)), b);
+  assert.deepEqual({ ...S.minimalEdit('- [ ] a', '- [x] a') }, { from: 3, to: 4, text: 'x' });
+});

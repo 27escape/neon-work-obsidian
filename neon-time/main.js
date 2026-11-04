@@ -372,6 +372,39 @@ async function ensureToday(app) {
   return app.vault.create(path, content);
 }
 
+/* ---- note writes ------------------------------------------------------ */
+/** The smallest replacement that turns `a` into `b`: { from, to, text } as offsets into `a`. */
+function minimalEdit(a, b) {
+  let s = 0;
+  while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let e = 0;
+  while (e < a.length - s && e < b.length - s && a[a.length - 1 - e] === b[b.length - 1 - e]) e++;
+  return { from: s, to: a.length - e, text: b.slice(s, b.length - e) };
+}
+const noteQueue = new Map(); // path -> last pending write
+/**
+ * Change a note's text with fn(text) -> text. One write at a time per note. When the note is open
+ * in an editor, the change goes through the editor as a minimal edit, so the cursor, focus and undo
+ * of someone typing there are kept (a disk write would reload the editor under them).
+ */
+function writeNote(app, file, fn) {
+  const run = () => {
+    const leaf = app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === file && l.view.editor && l.view.getMode() === 'source');
+    if (!leaf) return app.vault.process(file, fn);
+    const ed = leaf.view.editor;
+    const old = ed.getValue();
+    const next = fn(old);
+    if (typeof next !== 'string' || next === old) return old;
+    const c = minimalEdit(old, next);
+    ed.replaceRange(c.text, ed.offsetToPos(c.from), ed.offsetToPos(c.to));
+    return next;
+  };
+  const p = (noteQueue.get(file.path) || Promise.resolve()).catch(() => {}).then(run);
+  noteQueue.set(file.path, p);
+  p.finally(() => noteQueue.get(file.path) === p && noteQueue.delete(file.path));
+  return p;
+}
+
 /* ---- cross-plugin glue ------------------------------------------------ */
 /** The Neon Deck core API, or null when the core plugin is off. */
 function deckApi(app) {
@@ -1201,7 +1234,7 @@ Object.assign(NeonTime.prototype, {
     const table = (t) => (t.split(/\n## Entries\n/)[1] || '').trim();
     try {
       if (f instanceof TFile) {
-        await this.app.vault.process(f, (old) => {
+        await writeNote(this.app, f, (old) => {
           const wasSynced = /^synced:\s*true\s*$/m.test(old.split(/\n---/)[0] || '');
           const fresh = this.dayNote(key, false);
           const next = wasSynced && table(old) === table(fresh) ? this.dayNote(key, true) : fresh;
@@ -1257,7 +1290,7 @@ Object.assign(NeonTime.prototype, {
     try {
       if (existing instanceof TFile) {
         // keep it in step with the settings, as long as it's still the generated README
-        await this.app.vault.process(existing, (old) => (old.startsWith('# Time Log — format') ? text : old));
+        await writeNote(this.app, existing, (old) => (old.startsWith('# Time Log — format') ? text : old));
       } else if (!existing) {
         await ensureFolder(this.app, this.settings.logFolder);
         await this.app.vault.create(path, text);

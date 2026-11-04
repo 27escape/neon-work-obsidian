@@ -52,7 +52,7 @@ Object.assign(NeonTickets.prototype, {
     await ensureFolder(this.app, dir);
     const path = normalizePath(`${dir}/${safeName(`${t.id ? t.id + ' ' : ''}${t.title}`) || 'Ticket'} report.md`);
     const existing = this.app.vault.getAbstractFileByPath(path);
-    const report = existing instanceof TFile ? (await this.app.vault.process(existing, () => md), existing) : await this.app.vault.create(path, md);
+    const report = existing instanceof TFile ? (await writeNote(this.app, existing, () => md), existing) : await this.app.vault.create(path, md);
     // open the report in reading mode (reusing its tab if it's already open) and hand it to Obsidian's PDF export
     const open = this.app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === report);
     const leaf = open || this.app.workspace.getLeaf('tab');

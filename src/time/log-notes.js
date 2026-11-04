@@ -58,7 +58,7 @@ Object.assign(NeonTime.prototype, {
     const table = (t) => (t.split(/\n## Entries\n/)[1] || '').trim();
     try {
       if (f instanceof TFile) {
-        await this.app.vault.process(f, (old) => {
+        await writeNote(this.app, f, (old) => {
           const wasSynced = /^synced:\s*true\s*$/m.test(old.split(/\n---/)[0] || '');
           const fresh = this.dayNote(key, false);
           const next = wasSynced && table(old) === table(fresh) ? this.dayNote(key, true) : fresh;
@@ -114,7 +114,7 @@ Object.assign(NeonTime.prototype, {
     try {
       if (existing instanceof TFile) {
         // keep it in step with the settings, as long as it's still the generated README
-        await this.app.vault.process(existing, (old) => (old.startsWith('# Time Log — format') ? text : old));
+        await writeNote(this.app, existing, (old) => (old.startsWith('# Time Log — format') ? text : old));
       } else if (!existing) {
         await ensureFolder(this.app, this.settings.logFolder);
         await this.app.vault.create(path, text);

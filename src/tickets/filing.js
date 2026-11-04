@@ -92,14 +92,14 @@ Object.assign(NeonTickets.prototype, {
       links.push(`![[${created.path}]]`);
     }
     if (!links.length) return;
-    await this.app.vault.process(t.file, (d) => links.reduce((acc, l) => addToSection(acc, 'shots', l), d));
+    await writeNote(this.app, t.file, (d) => links.reduce((acc, l) => addToSection(acc, 'shots', l), d));
     await this.log(t, links.length === 1 ? 'Screenshot added' : `${links.length} screenshots added`);
     new Notice(`${links.length === 1 ? 'Screenshot' : `${links.length} screenshots`} saved to ${dir}`);
   },
   /** Take a screenshot off the ticket; the image itself goes to the system trash. */
   async removeScreenshot(t, shot) {
     const f = this.app.metadataCache.getFirstLinkpathDest(shot.link, t.file.path);
-    await this.app.vault.process(t.file, (d) => {
+    await writeNote(this.app, t.file, (d) => {
       const lines = d.split('\n');
       const sec = findSection(lines, 'shots');
       if (!sec) return d;

@@ -125,7 +125,7 @@ class NeonWrite extends Plugin {
       const info = ctx.getSectionInfo(c);
       const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
       if (!info || !(file instanceof TFile)) return;
-      this.app.vault.process(file, (d) => {
+      writeNote(this.app, file, (d) => {
         const lines = d.split('\n');
         const t = toggleLockMeta(lines[info.lineStart] || '');
         if (t != null) lines[info.lineStart] = t;

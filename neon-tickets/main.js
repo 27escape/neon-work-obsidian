@@ -372,6 +372,39 @@ async function ensureToday(app) {
   return app.vault.create(path, content);
 }
 
+/* ---- note writes ------------------------------------------------------ */
+/** The smallest replacement that turns `a` into `b`: { from, to, text } as offsets into `a`. */
+function minimalEdit(a, b) {
+  let s = 0;
+  while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let e = 0;
+  while (e < a.length - s && e < b.length - s && a[a.length - 1 - e] === b[b.length - 1 - e]) e++;
+  return { from: s, to: a.length - e, text: b.slice(s, b.length - e) };
+}
+const noteQueue = new Map(); // path -> last pending write
+/**
+ * Change a note's text with fn(text) -> text. One write at a time per note. When the note is open
+ * in an editor, the change goes through the editor as a minimal edit, so the cursor, focus and undo
+ * of someone typing there are kept (a disk write would reload the editor under them).
+ */
+function writeNote(app, file, fn) {
+  const run = () => {
+    const leaf = app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === file && l.view.editor && l.view.getMode() === 'source');
+    if (!leaf) return app.vault.process(file, fn);
+    const ed = leaf.view.editor;
+    const old = ed.getValue();
+    const next = fn(old);
+    if (typeof next !== 'string' || next === old) return old;
+    const c = minimalEdit(old, next);
+    ed.replaceRange(c.text, ed.offsetToPos(c.from), ed.offsetToPos(c.to));
+    return next;
+  };
+  const p = (noteQueue.get(file.path) || Promise.resolve()).catch(() => {}).then(run);
+  noteQueue.set(file.path, p);
+  p.finally(() => noteQueue.get(file.path) === p && noteQueue.delete(file.path));
+  return p;
+}
+
 /* ---- cross-plugin glue ------------------------------------------------ */
 /** The Neon Deck core API, or null when the core plugin is off. */
 function deckApi(app) {
@@ -2313,7 +2346,7 @@ Object.assign(NeonTickets.prototype, {
     await ensureFolder(this.app, dir);
     const path = normalizePath(`${dir}/${safeName(`${t.id ? t.id + ' ' : ''}${t.title}`) || 'Ticket'} report.md`);
     const existing = this.app.vault.getAbstractFileByPath(path);
-    const report = existing instanceof TFile ? (await this.app.vault.process(existing, () => md), existing) : await this.app.vault.create(path, md);
+    const report = existing instanceof TFile ? (await writeNote(this.app, existing, () => md), existing) : await this.app.vault.create(path, md);
     // open the report in reading mode (reusing its tab if it's already open) and hand it to Obsidian's PDF export
     const open = this.app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === report);
     const leaf = open || this.app.workspace.getLeaf('tab');
@@ -2481,14 +2514,14 @@ Object.assign(NeonTickets.prototype, {
       links.push(`![[${created.path}]]`);
     }
     if (!links.length) return;
-    await this.app.vault.process(t.file, (d) => links.reduce((acc, l) => addToSection(acc, 'shots', l), d));
+    await writeNote(this.app, t.file, (d) => links.reduce((acc, l) => addToSection(acc, 'shots', l), d));
     await this.log(t, links.length === 1 ? 'Screenshot added' : `${links.length} screenshots added`);
     new Notice(`${links.length === 1 ? 'Screenshot' : `${links.length} screenshots`} saved to ${dir}`);
   },
   /** Take a screenshot off the ticket; the image itself goes to the system trash. */
   async removeScreenshot(t, shot) {
     const f = this.app.metadataCache.getFirstLinkpathDest(shot.link, t.file.path);
-    await this.app.vault.process(t.file, (d) => {
+    await writeNote(this.app, t.file, (d) => {
       const lines = d.split('\n');
       const sec = findSection(lines, 'shots');
       if (!sec) return d;
@@ -2548,7 +2581,7 @@ Object.assign(NeonTickets.prototype, {
     });
   },
   async log(t, text) {
-    await this.app.vault.process(t.file, (d) => addToSection(d, 'log', `- ${STAMP()} — ${text}`));
+    await writeNote(this.app, t.file, (d) => addToSection(d, 'log', `- ${STAMP()} — ${text}`));
     this.app.workspace.trigger('neon:ticket-changed', { file: t.file, id: t.id, title: t.title, change: text });
   },
   async setStatus(t, status) {
@@ -2618,7 +2651,7 @@ Object.assign(NeonTickets.prototype, {
     if (!this.writeQ) this.writeQ = new Map();
     const key = t.file.path;
     const next = (this.writeQ.get(key) || Promise.resolve())
-      .then(() => this.app.vault.process(t.file, (d) => addToSection(d, 'steps', `- [ ] ${text}`)))
+      .then(() => writeNote(this.app, t.file, (d) => addToSection(d, 'steps', `- [ ] ${text}`)))
       .catch((e) => console.error('Neon Tickets: could not add step', e));
     this.writeQ.set(key, next);
     return next;
@@ -2635,7 +2668,7 @@ Object.assign(NeonTickets.prototype, {
     let ok = false;
     const next = (this.writeQ.get(key) || Promise.resolve())
       .then(() =>
-        this.app.vault.process(t.file, (d) => {
+        writeNote(this.app, t.file, (d) => {
           const lines = d.split('\n');
           const fmLen = d.length - stripFrontmatter(d).length;
           const offset = d.slice(0, fmLen).split('\n').length - 1;
@@ -2667,7 +2700,7 @@ Object.assign(NeonTickets.prototype, {
   /** Change the line a step lives on. fn gets the line and returns the new line, or null to delete it. No log entry. */
   async changeStepLine(t, step, fn) {
     let ok = false;
-    await this.app.vault.process(t.file, (d) => {
+    await writeNote(this.app, t.file, (d) => {
       const lines = d.split('\n');
       const fmLen = d.length - stripFrontmatter(d).length;
       const offset = d.slice(0, fmLen).split('\n').length - 1;
@@ -2696,12 +2729,12 @@ Object.assign(NeonTickets.prototype, {
     await this.log(t, text);
   },
   async addDescription(t, text) {
-    await this.app.vault.process(t.file, (d) => addToSection(d, 'description', text));
+    await writeNote(this.app, t.file, (d) => addToSection(d, 'description', text));
     await this.log(t, 'Description updated');
   },
   async logTime(t, { min, note }) {
     const start = moment().subtract(min, 'minutes');
-    await this.app.vault.process(t.file, (d) => addToSection(d, 'time', `- ${start.format('YYYY-MM-DD HH:mm')} · ${min}m${note ? ' · ' + note : ''}`));
+    await writeNote(this.app, t.file, (d) => addToSection(d, 'time', `- ${start.format('YYYY-MM-DD HH:mm')} · ${min}m${note ? ' · ' + note : ''}`));
     await this.log(t, `Time logged: ${fmtMin(min)}${note ? ' — ' + note : ''}`);
     this.app.workspace.trigger('neon:time-entry', {
       start: start.valueOf(),

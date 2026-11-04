@@ -292,7 +292,7 @@ class NeonResearch extends Plugin {
     new LinkSuggestModal(this, f, hits).open();
   }
   async linkMention(file, target) {
-    await this.app.vault.process(file, (text) => {
+    await writeNote(this.app, file, (text) => {
       const mask = plainMask(text);
       const re = new RegExp(`(^|[^\\p{L}\\p{N}])(${escRe(target.basename)})(?=$|[^\\p{L}\\p{N}])`, 'iu');
       const m = re.exec(mask);
@@ -320,7 +320,7 @@ class NeonResearch extends Plugin {
       ed.replaceRange((ed.getLine(last).trim() ? '\n' : '') + line + '\n', end);
       return;
     }
-    await this.app.vault.process(file, (d) => d.replace(/\s*$/, '') + `\n${line}\n`);
+    await writeNote(this.app, file, (d) => d.replace(/\s*$/, '') + `\n${line}\n`);
   }
 
   /* ---- quiz cards ---- */

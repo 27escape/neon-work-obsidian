@@ -9,7 +9,7 @@ Object.assign(NeonTickets.prototype, {
     });
   },
   async log(t, text) {
-    await this.app.vault.process(t.file, (d) => addToSection(d, 'log', `- ${STAMP()} — ${text}`));
+    await writeNote(this.app, t.file, (d) => addToSection(d, 'log', `- ${STAMP()} — ${text}`));
     this.app.workspace.trigger('neon:ticket-changed', { file: t.file, id: t.id, title: t.title, change: text });
   },
   async setStatus(t, status) {
@@ -79,7 +79,7 @@ Object.assign(NeonTickets.prototype, {
     if (!this.writeQ) this.writeQ = new Map();
     const key = t.file.path;
     const next = (this.writeQ.get(key) || Promise.resolve())
-      .then(() => this.app.vault.process(t.file, (d) => addToSection(d, 'steps', `- [ ] ${text}`)))
+      .then(() => writeNote(this.app, t.file, (d) => addToSection(d, 'steps', `- [ ] ${text}`)))
       .catch((e) => console.error('Neon Tickets: could not add step', e));
     this.writeQ.set(key, next);
     return next;
@@ -96,7 +96,7 @@ Object.assign(NeonTickets.prototype, {
     let ok = false;
     const next = (this.writeQ.get(key) || Promise.resolve())
       .then(() =>
-        this.app.vault.process(t.file, (d) => {
+        writeNote(this.app, t.file, (d) => {
           const lines = d.split('\n');
           const fmLen = d.length - stripFrontmatter(d).length;
           const offset = d.slice(0, fmLen).split('\n').length - 1;
@@ -128,7 +128,7 @@ Object.assign(NeonTickets.prototype, {
   /** Change the line a step lives on. fn gets the line and returns the new line, or null to delete it. No log entry. */
   async changeStepLine(t, step, fn) {
     let ok = false;
-    await this.app.vault.process(t.file, (d) => {
+    await writeNote(this.app, t.file, (d) => {
       const lines = d.split('\n');
       const fmLen = d.length - stripFrontmatter(d).length;
       const offset = d.slice(0, fmLen).split('\n').length - 1;
@@ -157,12 +157,12 @@ Object.assign(NeonTickets.prototype, {
     await this.log(t, text);
   },
   async addDescription(t, text) {
-    await this.app.vault.process(t.file, (d) => addToSection(d, 'description', text));
+    await writeNote(this.app, t.file, (d) => addToSection(d, 'description', text));
     await this.log(t, 'Description updated');
   },
   async logTime(t, { min, note }) {
     const start = moment().subtract(min, 'minutes');
-    await this.app.vault.process(t.file, (d) => addToSection(d, 'time', `- ${start.format('YYYY-MM-DD HH:mm')} · ${min}m${note ? ' · ' + note : ''}`));
+    await writeNote(this.app, t.file, (d) => addToSection(d, 'time', `- ${start.format('YYYY-MM-DD HH:mm')} · ${min}m${note ? ' · ' + note : ''}`));
     await this.log(t, `Time logged: ${fmtMin(min)}${note ? ' — ' + note : ''}`);
     this.app.workspace.trigger('neon:time-entry', {
       start: start.valueOf(),

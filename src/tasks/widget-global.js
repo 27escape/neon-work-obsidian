@@ -184,7 +184,7 @@ Object.assign(NeonTasks.prototype, {
       ].join('\n');
       const f = this.backupFile();
       if (f) {
-        await this.app.vault.process(f, (cur) => (stripFrontmatter(cur).trim() !== stripFrontmatter(body).trim() ? body : cur));
+        await writeNote(this.app, f, (cur) => (stripFrontmatter(cur).trim() !== stripFrontmatter(body).trim() ? body : cur));
       } else {
         await ensureFolder(this.app, path.split('/').slice(0, -1).join('/'));
         await this.app.vault.create(path, body);

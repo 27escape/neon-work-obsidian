@@ -372,6 +372,39 @@ async function ensureToday(app) {
   return app.vault.create(path, content);
 }
 
+/* ---- note writes ------------------------------------------------------ */
+/** The smallest replacement that turns `a` into `b`: { from, to, text } as offsets into `a`. */
+function minimalEdit(a, b) {
+  let s = 0;
+  while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let e = 0;
+  while (e < a.length - s && e < b.length - s && a[a.length - 1 - e] === b[b.length - 1 - e]) e++;
+  return { from: s, to: a.length - e, text: b.slice(s, b.length - e) };
+}
+const noteQueue = new Map(); // path -> last pending write
+/**
+ * Change a note's text with fn(text) -> text. One write at a time per note. When the note is open
+ * in an editor, the change goes through the editor as a minimal edit, so the cursor, focus and undo
+ * of someone typing there are kept (a disk write would reload the editor under them).
+ */
+function writeNote(app, file, fn) {
+  const run = () => {
+    const leaf = app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === file && l.view.editor && l.view.getMode() === 'source');
+    if (!leaf) return app.vault.process(file, fn);
+    const ed = leaf.view.editor;
+    const old = ed.getValue();
+    const next = fn(old);
+    if (typeof next !== 'string' || next === old) return old;
+    const c = minimalEdit(old, next);
+    ed.replaceRange(c.text, ed.offsetToPos(c.from), ed.offsetToPos(c.to));
+    return next;
+  };
+  const p = (noteQueue.get(file.path) || Promise.resolve()).catch(() => {}).then(run);
+  noteQueue.set(file.path, p);
+  p.finally(() => noteQueue.get(file.path) === p && noteQueue.delete(file.path));
+  return p;
+}
+
 /* ---- cross-plugin glue ------------------------------------------------ */
 /** The Neon Deck core API, or null when the core plugin is off. */
 function deckApi(app) {

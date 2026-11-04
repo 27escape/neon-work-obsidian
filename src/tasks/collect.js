@@ -74,12 +74,12 @@ Object.assign(NeonTasks.prototype, {
       await ensureFolder(this.app, path.split('/').slice(0, -1).join('/'));
       f = await this.app.vault.create(path, `---\ntags:\n  - tasks\n---\n# Quick tasks\n\nAdded from the dashboard. Stays until ticked.\n\n`);
     }
-    await this.app.vault.process(f, (d) => d.replace(/\s*$/, '') + `\n- [ ] ${text}\n`);
+    await writeNote(this.app, f, (d) => d.replace(/\s*$/, '') + `\n- [ ] ${text}\n`);
   },
   /** Rewrite one open task line in its note (item 15); the line must still be the task that was shown. */
   async editTask(t, raw) {
     let ok = false;
-    await this.app.vault.process(t.file, (data) => {
+    await writeNote(this.app, t.file, (data) => {
       const lines = data.split('\n');
       const l = lines[t.line];
       if (l === undefined || !/\[ \]/.test(l) || !l.includes(t.raw)) return data;
@@ -93,7 +93,7 @@ Object.assign(NeonTasks.prototype, {
   async completeTask(t) {
     const stamp = this.settings.stampDone ? ` ✅ ${moment().format('YYYY-MM-DD')}` : '';
     let ok = false;
-    await this.app.vault.process(t.file, (data) => {
+    await writeNote(this.app, t.file, (data) => {
       const lines = data.split('\n');
       const l = lines[t.line];
       // the line must still be this open task (the note may have changed since the list was drawn)
