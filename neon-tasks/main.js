@@ -1097,8 +1097,7 @@ module.exports = class NeonTasks extends Plugin {
       ].join('\n');
       const f = this.backupFile();
       if (f) {
-        const cur = await this.app.vault.read(f);
-        if (stripFrontmatter(cur).trim() !== stripFrontmatter(body).trim()) await this.app.vault.modify(f, body);
+        await this.app.vault.process(f, (cur) => (stripFrontmatter(cur).trim() !== stripFrontmatter(body).trim() ? body : cur));
       } else {
         await ensureFolder(this.app, path.split('/').slice(0, -1).join('/'));
         await this.app.vault.create(path, body);

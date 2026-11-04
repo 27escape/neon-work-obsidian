@@ -563,10 +563,16 @@ class QuizModal extends Modal {
     if (!card || this.grading) return;
     this.grading = true; // a quick double key press grades once
     this.card = null;
-    await this.plugin.gradeCard(card, how);
+    try {
+      await this.plugin.gradeCard(card, how);
+    } catch (e) {
+      console.error('Neon Research: could not save grade', e);
+      new Notice('Could not save this grade');
+    } finally {
+      this.grading = false;
+    }
     this.done++;
     if (how === 'again') this.queue.push(card); // seen again in this session
-    this.grading = false;
     this.next();
   }
   onClose() {
@@ -831,8 +837,6 @@ module.exports = class NeonResearch extends Plugin {
   async onload() {
     const raw = (await this.loadData()) || {};
     this.settings = Object.assign({}, NR_DEFAULTS, raw);
-    // older 1.6.x data: keep only what this version uses
-    for (const k of Object.keys(this.settings)) if (!(k in NR_DEFAULTS)) delete this.settings[k];
     if (!Array.isArray(this.settings.open)) this.settings.open = [];
     if (!this.settings.cards || typeof this.settings.cards !== 'object') this.settings.cards = {};
     this.listeners = new Set();
@@ -883,6 +887,7 @@ module.exports = class NeonResearch extends Plugin {
     });
   }
   onunload() {
+    if (this._save) (this._save.cancel(), this.saveData(this.settings)); // don't lose the last 1.5 s of changes
     const api = deckApi(this.app);
     if (api) api.unregisterAction('research');
   }
@@ -1108,7 +1113,9 @@ module.exports = class NeonResearch extends Plugin {
     return this.notesUnder(folder).flatMap((f) => this.cardsIn(f));
   }
   async refreshCardText() {
-    for (const f of this.researchNotes()) this.cardText.set(f.path, await this.app.vault.cachedRead(f));
+    const notes = this.researchNotes();
+    const texts = await Promise.all(notes.map((f) => this.app.vault.cachedRead(f).catch(() => '')));
+    notes.forEach((f, i) => this.cardText.set(f.path, texts[i]));
   }
   dueCards(cards) {
     const now = Date.now();

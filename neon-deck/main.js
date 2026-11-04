@@ -3079,7 +3079,9 @@ class GraphView extends ItemView {
     let net;
     if (this.mode === 'concepts') {
       const docs = [];
-      for (const f of files.slice(0, 1500)) docs.push({ path: f.path, text: await this.app.vault.cachedRead(f) });
+      const some = files.slice(0, 1500);
+      const texts = await Promise.all(some.map((f) => this.app.vault.cachedRead(f).catch(() => '')));
+      some.forEach((f, i) => docs.push({ path: f.path, text: texts[i] }));
       if (token !== this.buildToken) return;
       net = buildConceptNetwork(docs, { window: s.graphWindow, maxNodes: s.graphMaxNodes, stopwords: this.plugin.stopwords() });
     } else {
@@ -3923,6 +3925,7 @@ module.exports = class NeonDeck extends Plugin {
   }
 
   onunload() {
+    if (this._saveSoon) (this._saveSoon.cancel(), this.saveSettings()); // don't lose the last 4 s of changes
     if (this.fontStyle) this.fontStyle.remove();
     document.body.removeClass('nd-themed', ...THEMES.map((x) => `nd-theme-${x}`));
     this.app.workspace.trigger('neon-deck:core-unloaded');

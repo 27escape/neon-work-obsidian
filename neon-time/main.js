@@ -927,8 +927,11 @@ module.exports = class NeonTime extends Plugin {
     this.emit();
   }
   async flush() {
-    const keys = [...this.dirty];
-    this.dirty.clear();
+    const ed = this.app.workspace.activeEditor;
+    const editing = ed && ed.file ? ed.file.path : null;
+    const keys = [...this.dirty].filter((k) => this.dayNotePath(k) !== editing);
+    for (const k of keys) this.dirty.delete(k);
+    if (this.dirty.size) this._write(); // the open note is written once the user leaves it
     for (const k of keys) await this.writeDay(k);
   }
 
