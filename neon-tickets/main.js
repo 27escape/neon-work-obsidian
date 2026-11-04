@@ -457,6 +457,7 @@ const TICKETS_DEFAULTS = {
   migrated: false,
   // ticket templates: { id, name, steps[], description, priority, dueDays } — kept here, never as notes
   templates: [],
+  tabSort: 'due', // Tickets tab sort / group (TICKET_SORTS)
   statusLog: [], // { t, id, title, status, path }: tickets set to a status below (Recently done on the dashboard)
   activityStatuses: ['done', 'waiting'],
 };
@@ -509,6 +510,40 @@ function ticketSort(a, b) {
     return ad - bd;
   }
   return TICKET_PRIO_RANK[a.priority] - TICKET_PRIO_RANK[b.priority] || a.title.localeCompare(b.title);
+}
+
+/** Sort / group options of the Tickets tab (item 38); 'due' is the original due-date buckets. */
+const TICKET_SORTS = [
+  ['due', 'Due date'],
+  ['status', 'Status'],
+  ['priority', 'Priority'],
+  ['newest', 'Newest first'],
+  ['oldest', 'Oldest first'],
+  ['changed', 'Recently changed'],
+  ['title', 'Title A–Z'],
+  ['id', 'Ticket ID'],
+  ['jira', 'Jira key'],
+];
+const byText = (k) => (a, b) => (a[k] || '').localeCompare(b[k] || '', undefined, { numeric: true, sensitivity: 'base' }) || a.title.localeCompare(b.title);
+/** Tickets in sections for a sort mode: [[key, label, tickets]], from data already in memory. */
+function ticketGroups(items, mode) {
+  const label = (s) => s[0].toUpperCase() + s.slice(1);
+  if (mode === 'status') return TICKET_STATUS.map((st) => [`status-${st}`, TICKET_STATUS_LABEL[st], items.filter((t) => t.status === st).sort(ticketSort)]);
+  if (mode === 'priority') return [...TICKET_PRIOS].reverse().map((pr) => [`prio-${pr}`, label(pr), items.filter((t) => t.priority === pr).sort(ticketSort)]);
+  const flat = {
+    newest: ['Newest first', (a, b) => b.created.valueOf() - a.created.valueOf()],
+    oldest: ['Oldest first', (a, b) => a.created.valueOf() - b.created.valueOf()],
+    changed: ['Recently changed', (a, b) => b.file.stat.mtime - a.file.stat.mtime],
+    title: ['Title A–Z', byText('title')],
+    id: ['Ticket ID', byText('id')],
+    jira: ['Jira key', (a, b) => (!a.jira - !b.jira) || byText('jira')(a, b)],
+  }[mode];
+  if (flat) return [['flat', flat[0], items.slice().sort(flat[1])]];
+  return TICKET_BUCKETS.map(([bucket, l]) => {
+    const g = items.filter((t) => t.bucket === bucket);
+    if (bucket === 'done') g.sort((a, b) => (b.completed ? b.completed.valueOf() : b.file.stat.mtime) - (a.completed ? a.completed.valueOf() : a.file.stat.mtime));
+    return [bucket, l, g];
+  });
 }
 
 /* ---- ticket note body -------------------------------------------------- */
@@ -1595,6 +1630,16 @@ class TicketsView extends ItemView {
       });
       this.segBtns[k] = b;
     }
+    // sort / group (remembered; the dashboard card keeps its own order)
+    const sort = tools.createEl('select', { cls: 'dropdown tk-sort', attr: { 'aria-label': 'Sort or group tickets' } });
+    for (const [k, label] of TICKET_SORTS) sort.createEl('option', { value: k, text: label });
+    sort.value = this.plugin.settings.tabSort;
+    sort.addEventListener('change', () => {
+      this.plugin.settings.tabSort = sort.value;
+      this.plugin.saveSettings();
+      this.filterChanged = true; // rows rise in for the new order
+      this.render();
+    });
     const search = tools.createEl('input', { cls: 'nd-input tk-search', attr: { type: 'search', placeholder: 'Filter tickets…' } });
     search.addEventListener('input', () => {
       this.query = search.value.trim().toLowerCase();
@@ -1708,10 +1753,8 @@ class TicketsView extends ItemView {
       return;
     }
     let idx = 0;
-    for (const [bucket, label] of TICKET_BUCKETS) {
-      let group = items.filter((t) => t.bucket === bucket);
+    for (const [bucket, label, group] of ticketGroups(items, p.settings.tabSort)) {
       if (!group.length) continue;
-      if (bucket === 'done') group = group.sort((a, b) => (b.completed ? b.completed.valueOf() : b.file.stat.mtime) - (a.completed ? a.completed.valueOf() : a.file.stat.mtime));
       const sec = this.listEl.createDiv(`tk-group is-${bucket}`);
       const gh = sec.createDiv('tk-group-head');
       gh.createSpan({ cls: 'tk-group-title', text: label });
@@ -1903,6 +1946,7 @@ module.exports = class NeonTickets extends Plugin {
       }));
     // own copies, never the arrays in TICKETS_DEFAULTS
     this.settings.statusLog = Array.isArray(this.settings.statusLog) ? this.settings.statusLog.slice(-200) : [];
+    if (!TICKET_SORTS.some(([k]) => k === this.settings.tabSort)) this.settings.tabSort = 'due';
     this.settings.activityStatuses = Array.isArray(this.settings.activityStatuses) ? this.settings.activityStatuses.slice() : ['done', 'waiting'];
     await this.saveSettings();
     this.rawPaths = new Set();
