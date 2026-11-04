@@ -797,7 +797,9 @@ class ResearchView extends ItemView {
       if (c instanceof TFolder) folders.push(c);
       else if (c instanceof TFile && c.extension === 'md') notes.push(c);
     }
-    const by = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    // names starting with "!" first (as in the Neon sidebar), then A → Z
+    const bangs = (f) => (f.name.match(/^!+/) || [''])[0].length;
+    const by = (a, b) => bangs(b) - bangs(a) || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
     return { folders: folders.sort(by), notes: notes.sort(by) };
   }
   folderRow(parent, folder, depth) {

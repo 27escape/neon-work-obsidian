@@ -38,29 +38,7 @@ body.nd-theme-marathon.theme-light {
   --nd-shadow: 0 8px 24px -14px rgba(20, 24, 30, 0.35);
   --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-/* Brutal: concrete, square edges, thick borders, solid shadows, muted yellow */
-body.nd-theme-brutal {
-  --nd-radius: 3px; --nd-radius-s: 2px; --nd-border: 2px;
-  --nd-font-display: "Space Grotesk", var(--font-interface), sans-serif;
-}
-body.nd-theme-brutal.theme-dark {
-  --nd-bg: #1c1c1a; --nd-bg2: #171715; --nd-surface: #262624; --nd-surface2: #2f2f2c;
-  --nd-line: #48483f; --nd-line-strong: #5d5d52; --nd-text: #e8e6df; --nd-muted: #a3a097; --nd-faint: #74716a;
-  --nd-accent: #d8b74a; --nd-on-accent: #1c1c1a; --nd-go: #a9d45a; --nd-on-go: #1c1c1a; --nd-link: #d8b74a;
-  --nd-info: #8fb0bd; --nd-warn: #e07a4f; --nd-pattern: #d8b74a;
-  --nd-cat-projects: #e07a4f; --nd-cat-school: #b6a3cf; --nd-cat-admin: #d8b74a; --nd-cat-operations: #8fb0bd; --nd-cat-other: #6e6c66;
-  --nd-shadow: 4px 4px 0 #0b0b0a; --nd-hi: none;
-}
-body.nd-theme-brutal.theme-light {
-  --nd-bg: #d9d7d0; --nd-bg2: #cfcdc5; --nd-surface: #ecebe6; --nd-surface2: #e2e0d9;
-  --nd-line: #3a3a35; --nd-line-strong: #1d1d1b; --nd-text: #1d1d1b; --nd-muted: #4f4d47; --nd-faint: #807d75;
-  --nd-accent: #9c7a12; --nd-on-accent: #ffffff; --nd-go: #4f7d14; --nd-on-go: #ffffff; --nd-link: #7a5f0c;
-  --nd-info: #3c6676; --nd-warn: #b44a1f; --nd-pattern: #6b6a62;
-  --nd-cat-projects: #b44a1f; --nd-cat-school: #6d559a; --nd-cat-admin: #9c7a12; --nd-cat-operations: #3c6676; --nd-cat-other: #8a877f;
-  --nd-shadow: 4px 4px 0 #1d1d1b; --nd-hi: none;
-}
 /* Calm: muted pastels, low contrast */
-body.nd-theme-calm { --nd-radius: 16px; }
 body.nd-theme-calm.theme-dark {
   --nd-bg: #1a1d22; --nd-bg2: #16191d; --nd-surface: #21252b; --nd-surface2: #282d34;
   --nd-line: #323841; --nd-line-strong: #3f4651; --nd-text: #d6dbe1; --nd-muted: #8e96a1; --nd-faint: #66707b;
@@ -77,7 +55,6 @@ body.nd-theme-calm.theme-light {
   --nd-shadow: 0 8px 24px -16px rgba(30, 40, 50, 0.3); --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 /* Paper: warm off-white, ink, rust */
-body.nd-theme-paper { --nd-radius: 14px; }
 body.nd-theme-paper.theme-light {
   --nd-bg: #f1ece2; --nd-bg2: #e9e2d5; --nd-surface: #faf6ee; --nd-surface2: #f1eadd;
   --nd-line: #d9cfbd; --nd-line-strong: #c3b69f; --nd-text: #2b2620; --nd-muted: #6b6155; --nd-faint: #9b9081;
@@ -94,7 +71,6 @@ body.nd-theme-paper.theme-dark {
   --nd-cat-projects: #d27a52; --nd-cat-school: #ad9ccf; --nd-cat-admin: #d8b25a; --nd-cat-operations: #86aec2; --nd-cat-other: #776c5e;
 }
 /* Night shift: warm brown-grey with amber, no blue glare */
-body.nd-theme-night { --nd-radius: 18px; }
 body.nd-theme-night.theme-dark {
   --nd-bg: #1b1714; --nd-bg2: #171310; --nd-surface: #231e1a; --nd-surface2: #2b2520;
   --nd-line: #3a322b; --nd-line-strong: #4b4138; --nd-text: #e4d6c3; --nd-muted: #a6957d; --nd-faint: #726452;
@@ -110,46 +86,43 @@ body.nd-theme-night.theme-light {
   --nd-cat-projects: #a86a14; --nd-cat-school: #8c5f7a; --nd-cat-admin: #8f7a24; --nd-cat-operations: #7d6448; --nd-cat-other: #a8977f;
   --nd-shadow: 0 8px 22px -16px rgba(60, 40, 20, 0.35); --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-/* Phosphor: soft terminal green on near-black */
+/* Phosphor: near-black with terminal-green accents */
 body.nd-theme-phosphor {
-  --nd-radius: 10px; --nd-radius-s: 8px;
   --nd-font-display: "JetBrains Mono", var(--font-monospace), monospace;
 }
 body.nd-theme-phosphor.theme-dark {
-  --nd-bg: #0e1310; --nd-bg2: #0b0f0c; --nd-surface: #131a15; --nd-surface2: #19221c;
-  --nd-line: #243128; --nd-line-strong: #2f4035; --nd-text: #c6e4cb; --nd-muted: #7ea287; --nd-faint: #4f6c58;
-  --nd-accent: #6fd88a; --nd-on-accent: #0e1310; --nd-go: #b6ec6c; --nd-on-go: #0e1310; --nd-link: #8fe6a6;
-  --nd-info: #6ec4bc; --nd-warn: #d6cf72; --nd-pattern: #6fd88a;
-  --nd-cat-projects: #6fd88a; --nd-cat-school: #a7c3e8; --nd-cat-admin: #d6cf72; --nd-cat-operations: #6ec4bc; --nd-cat-other: #4f6c58;
+  --nd-bg: #111413; --nd-bg2: #0d100f; --nd-surface: #171b19; --nd-surface2: #1d221f;
+  --nd-line: #2a302c; --nd-line-strong: #373e39; --nd-text: #e0e6e1; --nd-muted: #9aa49c; --nd-faint: #69736c;
+  --nd-accent: #6fd88a; --nd-on-accent: #111413; --nd-go: #b6ec6c; --nd-on-go: #111413; --nd-link: #8fe6a6;
+  --nd-info: #82b9b3; --nd-warn: #cfc77d; --nd-pattern: #6fd88a;
+  --nd-cat-projects: #7cc795; --nd-cat-school: #a9bcd9; --nd-cat-admin: #cfc77d; --nd-cat-operations: #82b9b3; --nd-cat-other: #69736c;
 }
 body.nd-theme-phosphor.theme-light {
-  --nd-bg: #e4ece5; --nd-bg2: #dae4dc; --nd-surface: #f1f6f1; --nd-surface2: #e7efe8;
-  --nd-line: #c5d4c8; --nd-line-strong: #a9bfae; --nd-text: #18301f; --nd-muted: #4b6853; --nd-faint: #7e9786;
+  --nd-bg: #e9ecea; --nd-bg2: #e0e4e1; --nd-surface: #f5f7f5; --nd-surface2: #edf0ee;
+  --nd-line: #d0d6d1; --nd-line-strong: #b5bdb7; --nd-text: #1c241e; --nd-muted: #4f5a52; --nd-faint: #848d86;
   --nd-accent: #1f8a43; --nd-on-accent: #ffffff; --nd-go: #4f8a12; --nd-on-go: #ffffff; --nd-link: #1f7a3d;
   --nd-info: #1d7a73; --nd-warn: #857c12; --nd-pattern: #1f8a43;
   --nd-cat-projects: #1f8a43; --nd-cat-school: #49679a; --nd-cat-admin: #857c12; --nd-cat-operations: #1d7a73; --nd-cat-other: #8aa292;
   --nd-shadow: 0 8px 22px -16px rgba(20, 50, 30, 0.3); --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-/* Blueprint: navy grid, white ink, sky blue */
-body.nd-theme-blueprint { --nd-radius: 8px; --nd-radius-s: 6px; }
+/* Blueprint: cool grey with sky-blue accents */
 body.nd-theme-blueprint.theme-dark {
-  --nd-bg: #0f1a2b; --nd-bg2: #0c1524; --nd-surface: #142238; --nd-surface2: #1a2b45;
-  --nd-line: #29405f; --nd-line-strong: #36507a; --nd-text: #e4edf8; --nd-muted: #9db1cc; --nd-faint: #6a80a1;
-  --nd-accent: #6ec1ff; --nd-on-accent: #0f1a2b; --nd-go: #9fe3a6; --nd-on-go: #0f1a2b; --nd-link: #8fd0ff;
-  --nd-info: #6ec1ff; --nd-warn: #f0c86b; --nd-pattern: #6ec1ff;
-  --nd-cat-projects: #ff9f7a; --nd-cat-school: #c3a9ff; --nd-cat-admin: #f0c86b; --nd-cat-operations: #6ec1ff; --nd-cat-other: #6a80a1;
+  --nd-bg: #12161c; --nd-bg2: #0e1217; --nd-surface: #181d24; --nd-surface2: #1e242c;
+  --nd-line: #2b323c; --nd-line-strong: #39424e; --nd-text: #e5e9ee; --nd-muted: #9ca6b3; --nd-faint: #6a7482;
+  --nd-accent: #6ec1ff; --nd-on-accent: #12161c; --nd-go: #9fe3a6; --nd-on-go: #12161c; --nd-link: #8fd0ff;
+  --nd-info: #7fb6e0; --nd-warn: #dcc27a; --nd-pattern: #6ec1ff;
+  --nd-cat-projects: #e39a80; --nd-cat-school: #b5a6e0; --nd-cat-admin: #dcc27a; --nd-cat-operations: #7fb6e0; --nd-cat-other: #6a7482;
 }
 body.nd-theme-blueprint.theme-light {
-  --nd-bg: #e7eef7; --nd-bg2: #dde6f2; --nd-surface: #f4f8fc; --nd-surface2: #eaf1f9;
-  --nd-line: #c4d3e6; --nd-line-strong: #9fb6d4; --nd-text: #12233c; --nd-muted: #47607f; --nd-faint: #7f95b0;
-  --nd-accent: #1f6fb8; --nd-on-accent: #ffffff; --nd-go: #2f7d3a; --nd-on-go: #ffffff; --nd-link: #1f6fb8;
+  --nd-bg: #eaedf1; --nd-bg2: #e1e5ea; --nd-surface: #f6f8fa; --nd-surface2: #edf0f4;
+  --nd-line: #d0d6de; --nd-line-strong: #b4bdc9; --nd-text: #161c25; --nd-muted: #4c5665; --nd-faint: #858e9b;
+  --nd-accent: #1f6fb8; --nd-on-accent: #ffffff; --nd-go: #2f7d3a; --nd-on-go: #ffffff; --nd-link: #1a62a3;
   --nd-info: #1f6fb8; --nd-warn: #8f6b0a; --nd-pattern: #1f6fb8;
   --nd-cat-projects: #c2552f; --nd-cat-school: #6a4fb0; --nd-cat-admin: #8f6b0a; --nd-cat-operations: #1f6fb8; --nd-cat-other: #8fa3bc;
   --nd-shadow: 0 8px 22px -16px rgba(15, 35, 70, 0.35); --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-/* Cyberpunk: blue-black night city, acid yellow, cyan, hot red; sharp corners */
+/* Cyberpunk: blue-black night city, acid yellow, cyan, hot red */
 body.nd-theme-cyberpunk {
-  --nd-radius: 6px; --nd-radius-s: 4px;
   --nd-font-display: "Space Grotesk", var(--font-interface), sans-serif;
 }
 body.nd-theme-cyberpunk.theme-dark {
@@ -157,21 +130,16 @@ body.nd-theme-cyberpunk.theme-dark {
   --nd-line: #232c3d; --nd-line-strong: #34405a; --nd-text: #e9ecf2; --nd-muted: #8d97ab; --nd-faint: #5c6679;
   --nd-accent: #f3e600; --nd-on-accent: #0a0d14; --nd-go: #00e0f0; --nd-on-go: #0a0d14; --nd-link: #00e0f0;
   --nd-info: #00e0f0; --nd-warn: #ff2a6d; --nd-pattern: #ff2a4f;
-  --nd-cat-projects: #ff2a6d; --nd-cat-school: #b88cff; --nd-cat-admin: #f3e600; --nd-cat-operations: #00e0f0; --nd-cat-other: #5c6679;
+  --nd-cat-projects: #e8688e; --nd-cat-school: #b49ae6; --nd-cat-admin: #dccf5a; --nd-cat-operations: #4fc9d4; --nd-cat-other: #5c6679;
   --nd-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.85); --nd-hi: inset 0 1px 0 rgba(243, 230, 0, 0.07);
 }
 body.nd-theme-cyberpunk.theme-light {
   --nd-bg: #ecebe3; --nd-bg2: #e2e1d8; --nd-surface: #f7f6ef; --nd-surface2: #edece4;
   --nd-line: #cfcdc0; --nd-line-strong: #a9a796; --nd-text: #12151d; --nd-muted: #4c5160; --nd-faint: #868a95;
-  --nd-accent: #8a7d00; --nd-on-accent: #ffffff; --nd-go: #007f8f; --nd-on-go: #ffffff; --nd-link: #007f8f;
+  --nd-accent: #8a7d00; --nd-on-accent: #ffffff; --nd-go: #007f8f; --nd-on-go: #ffffff; --nd-link: #006a77;
   --nd-info: #007f8f; --nd-warn: #c8103e; --nd-pattern: #c8102e;
   --nd-cat-projects: #c8103e; --nd-cat-school: #6b44b8; --nd-cat-admin: #8a7d00; --nd-cat-operations: #007f8f; --nd-cat-other: #9a9da6;
   --nd-shadow: 0 8px 22px -16px rgba(18, 21, 29, 0.35); --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-}
-/* a faint neon edge on cards and the hero, in the accent */
-body.nd-theme-cyberpunk.theme-dark .nd-card,
-body.nd-theme-cyberpunk.theme-dark .nd-hero {
-  box-shadow: var(--nd-hi), var(--nd-shadow), 0 0 0 1px color-mix(in srgb, var(--nd-accent) 6%, transparent);
 }
 /* graph palette + aliases used by older class names */
 body.nd-themed {
@@ -302,9 +270,6 @@ body.nd-themed .workspace-tab-header.is-active {
   border-color: var(--nd-accent);
   color: var(--nd-accent);
 }
-body.nd-theme-brutal .nd-btn {
-  border-radius: var(--nd-radius-s);
-}
 .nd-kbd {
   font: 600 10px var(--nd-mono);
   opacity: 0.6;
@@ -366,9 +331,6 @@ textarea.nd-input {
 .nd-pill-btn .nd-ico svg {
   width: 13px;
   height: 13px;
-}
-body.nd-theme-brutal .nd-pill-btn {
-  border-radius: var(--nd-radius-s);
 }
 .nd-seg {
   display: inline-flex;
@@ -527,9 +489,6 @@ body.nd-theme-brutal .nd-pill-btn {
   height: 1px;
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--nd-accent) 55%, transparent), transparent);
   pointer-events: none;
-}
-body.nd-theme-brutal .nd-card::after {
-  display: none;
 }
 .nd-hero {
   display: flex;
@@ -692,12 +651,7 @@ body.nd-theme-brutal .nd-card::after {
   color: var(--nd-accent);
   background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--nd-accent) 32%, transparent), color-mix(in srgb, var(--nd-accent) 9%, transparent));
   border: 1px solid color-mix(in srgb, var(--nd-accent) 35%, transparent);
-  box-shadow: 0 0 14px -2px color-mix(in srgb, var(--nd-accent) 25%, transparent);
-}
-body.nd-theme-brutal .nd-card-icon {
-  border-radius: 2px;
-  box-shadow: none;
-  background: color-mix(in srgb, var(--nd-accent) 18%, transparent);
+  box-shadow: none; /* glows only on hover (item 22) */
 }
 .nd-card-icon svg {
   width: 15px;
@@ -776,17 +730,14 @@ body.nd-theme-brutal .nd-card-icon {
   background: linear-gradient(160deg, color-mix(in srgb, var(--nd-text) 4%, var(--nd-surface2)), var(--nd-surface2));
   min-width: 0;
   overflow: hidden;
-  transition: border-color var(--nd-fast) ease, transform var(--nd-fast) ease;
-}
-body.nd-theme-brutal .nd-tile {
-  border-radius: 2px;
+  transition: border-color var(--nd-fast) ease, background var(--nd-med) ease;
 }
 .nd-tile.is-clickable {
   cursor: pointer;
 }
+/* no lift on hover: the card body clips at the tiles' top edge, so a lifted tile lost its top border (item 37) */
 .nd-tile.is-clickable:hover {
   border-color: var(--nd-line-strong);
-  transform: translateY(-1px);
 }
 .nd-tile-value {
   font: 700 21px var(--nd-font-display);
@@ -894,63 +845,202 @@ body.nd-theme-brutal .nd-tile {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* activity: the dotted board */
+/* activity: month stats + calendar, or one week as day columns; fills the card and scales with it (item 7) */
 .nd-w-heat .nd-card-body {
   display: flex;
   flex-direction: column;
-  justify-content: safe center;
-  gap: 8px;
-  padding: 6px;
-  overflow: hidden;
-}
-/* the dot size and week count are set from the card size in main.js, so the board always fits */
-.nd-heat {
-  display: grid;
-  justify-content: center;
-  flex: none;
-}
-.nd-heat-cell {
-  display: grid;
-  place-items: center;
-}
-.nd-dash-grid.is-narrow > .nd-w-heat {
-  height: 230px;
-}
-.nd-heat-dot {
-  width: 38%;
-  height: 38%;
-  border-radius: 50%;
-  background: var(--nd-line-strong);
-  transition: transform var(--nd-fast) ease;
-}
-.nd-heat-cell.lvl-1 .nd-heat-dot { width: 52%; height: 52%; background: color-mix(in srgb, var(--nd-accent) 45%, var(--nd-line)); }
-.nd-heat-cell.lvl-2 .nd-heat-dot { width: 66%; height: 66%; background: color-mix(in srgb, var(--nd-accent) 70%, var(--nd-line)); }
-.nd-heat-cell.lvl-3 .nd-heat-dot { width: 80%; height: 80%; background: var(--nd-accent); }
-.nd-heat-cell.lvl-4 .nd-heat-dot { width: 92%; height: 92%; background: var(--nd-accent); box-shadow: 0 0 6px color-mix(in srgb, var(--nd-accent) 60%, transparent); }
-.nd-heat-cell.is-future .nd-heat-dot { opacity: 0.25; }
-.nd-heat-cell.is-today .nd-heat-dot { outline: 1.5px solid var(--nd-go); outline-offset: 1px; }
-.nd-heat-cell.is-clickable { cursor: pointer; }
-.nd-heat-cell.is-clickable:hover .nd-heat-dot { transform: scale(1.3); }
-.nd-heat-foot {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   gap: 10px;
-  font: 600 10.5px var(--nd-mono);
-  letter-spacing: 0.12em;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.nd-w-heat .nd-card-actions {
+  align-items: center;
+}
+.nd-act-month {
+  font: 600 11px var(--nd-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nd-muted);
+  min-width: 70px;
+  text-align: center;
+}
+.nd-act-tabs {
+  gap: 4px;
+  flex-wrap: nowrap;
+  margin-right: 6px;
+}
+.nd-act-tabs .nd-pill-btn {
+  padding: 3px 9px;
+  font-size: 11px;
+}
+.nd-act-monthview {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+  gap: 14px;
+}
+.nd-act-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.nd-act-stat-v {
+  font: 700 16px var(--nd-font-display);
+  color: var(--stat-accent);
+  line-height: 1.15;
+}
+.nd-act-stat-l {
+  font: 500 10.5px var(--nd-mono);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--nd-muted);
 }
-.nd-heat-legend {
-  display: flex;
-  align-items: center;
+.nd-act-cal {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
 }
-.nd-heat-legend .nd-heat-cell {
+/* narrow card: stats above the calendar */
+.nd-dash-grid.is-narrow .nd-act-monthview {
+  grid-template-columns: minmax(0, 1fr);
+}
+.nd-act-dow {
+  font: 600 10px var(--nd-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nd-faint);
+  text-align: center;
+  align-self: end;
+}
+.nd-act-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3px 6px;
+  border-radius: var(--nd-radius-s);
+  border: 1px solid var(--nd-line);
+  background: color-mix(in srgb, var(--nd-accent) calc(var(--lvl, 0) * 22%), var(--nd-surface2));
+  min-width: 0;
+}
+.nd-act-day.is-out {
+  opacity: 0.4;
+}
+.nd-act-day.is-today {
+  border-color: var(--nd-go);
+}
+.nd-act-day.is-clickable {
+  cursor: pointer;
+}
+.nd-act-day.is-clickable:hover {
+  border-color: var(--nd-line-strong);
+}
+.nd-act-num {
+  font: 600 11px var(--nd-mono);
+  color: var(--nd-muted);
+}
+.nd-act-dots {
+  display: flex;
+  gap: 3px;
+}
+.nd-act-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.nd-act-dot.is-task,
+.nd-act-item.is-task .nd-ico {
+  background: var(--nd-go);
+  color: var(--nd-go);
+}
+.nd-act-dot.is-ticket,
+.nd-act-item.is-ticket .nd-ico {
+  background: var(--nd-warn);
+  color: var(--nd-warn);
+}
+.nd-act-dot.is-time,
+.nd-act-item.is-time .nd-ico {
+  background: var(--nd-info);
+  color: var(--nd-info);
+}
+.nd-act-dot.is-note,
+.nd-act-item.is-note .nd-ico {
+  background: var(--nd-muted);
+  color: var(--nd-muted);
+}
+.nd-act-item .nd-ico {
+  background: none !important;
+  flex: none;
+}
+.nd-act-item .nd-ico svg {
   width: 12px;
   height: 12px;
 }
-
+.nd-act-week {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  min-height: 0;
+}
+.nd-act-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-radius: var(--nd-radius-s);
+  border: 1px solid var(--nd-line);
+  background: var(--nd-surface2);
+}
+.nd-act-col.is-today {
+  border-color: var(--nd-go);
+}
+.nd-act-col-head {
+  font: 600 10.5px var(--nd-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nd-muted);
+  padding: 6px 8px 4px;
+  border-bottom: 1px solid var(--nd-line);
+}
+.nd-act-col-list {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nd-act-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  min-width: 0;
+}
+.nd-act-item.is-clickable {
+  cursor: pointer;
+}
+.nd-act-item.is-clickable:hover {
+  background: color-mix(in srgb, var(--nd-text) 6%, transparent);
+}
+.nd-act-item-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nd-act-none {
+  color: var(--nd-faint);
+  text-align: center;
+}
 /* ---------- 5. card explorer ---------- */
 .nd-cards.view-content {
   display: flex;
@@ -1132,9 +1222,6 @@ body.nd-theme-brutal .nd-tile {
 .nd-folder-icon svg {
   width: 19px;
   height: 19px;
-}
-body.nd-theme-brutal .nd-folder-icon {
-  border-radius: 2px;
 }
 .nd-ci-main {
   flex: 1;
@@ -1420,9 +1507,6 @@ body.nd-theme-brutal .nd-folder-icon {
 .nd-side-nav-item.is-active .nd-ico {
   color: var(--nd-accent);
 }
-body.nd-theme-brutal .nd-side-nav .nd-side-nav-item {
-  border-radius: 2px;
-}
 .nd-side-top .nd-search {
   max-width: none;
 }
@@ -1650,11 +1734,6 @@ body.nd-theme-brutal .nd-side-nav .nd-side-nav-item {
 .nd-ci-note.is-image::before {
   display: none;
 }
-body.nd-theme-brutal .nd-ci-folder::before,
-body.nd-theme-brutal .nd-ci-note::before {
-  -webkit-mask-image: linear-gradient(#000, transparent 40%);
-  mask-image: linear-gradient(#000, transparent 40%);
-}
 /* new note / new folder: bigger, in the theme colours */
 .nd-side-browse .nd-icon-btn.nd-side-add {
   --add-c: var(--nd-accent);
@@ -1680,12 +1759,6 @@ body.nd-theme-brutal .nd-ci-note::before {
 }
 .nd-side-browse .nd-icon-btn.nd-side-add:active {
   transform: scale(0.94);
-}
-body.nd-theme-brutal .nd-side-browse .nd-icon-btn.nd-side-add {
-  border-radius: 2px;
-  border-width: 2px;
-  box-shadow: none;
-  background: color-mix(in srgb, var(--add-c) 18%, transparent);
 }
 /* sidebar: rows slide in one after another when you change folder */
 .nd-side-in-fade > *,
@@ -2072,48 +2145,8 @@ body.nd-theme-brutal .nd-side-browse .nd-icon-btn.nd-side-add {
     stroke-dashoffset: 1;
   }
 }
-.nd-tile {
-  transition: border-color var(--nd-fast) ease, transform var(--nd-fast) ease, background var(--nd-med) ease;
-}
 .nd-tile:hover {
   border-color: color-mix(in srgb, var(--tile-accent) 35%, var(--nd-line));
-}
-/* activity: dots pop in week by week, left to right; today's dot breathes */
-.nd-heat.is-intro .nd-heat-cell {
-  animation: nd-heat-in 0.4s var(--nd-ease) backwards;
-  animation-delay: calc(250ms + var(--c, 0) * 14ms);
-}
-@keyframes nd-heat-in {
-  from {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-}
-/* the breathing ring is a separate layer that only scales and fades, so it never forces a repaint */
-.nd-heat-cell.is-today .nd-heat-dot {
-  position: relative;
-}
-.nd-heat-cell.is-today .nd-heat-dot::after {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--nd-go) 45%, transparent);
-  /* a few breaths when the dashboard opens, then a steady ring: an endless animation restyled the page every frame */
-  opacity: 0.5;
-  will-change: transform, opacity;
-  animation: nd-breathe 2.8s ease-in-out 3;
-}
-@keyframes nd-breathe {
-  0%,
-  100% {
-    opacity: 0;
-    transform: scale(0.85);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1);
-  }
 }
 @keyframes nd-card-in {
   from {
@@ -2176,4 +2209,115 @@ body.nd-themed .notice {
 /* sidebar: a folder's contents sit indented under its name */
 .nd-side-body > .is-child {
   margin-left: 14px;
+}
+
+/* notes and folders whose name starts with "!" sort first and get a small pin */
+.nd-side-bang {
+  flex: none;
+  color: var(--nd-go);
+  opacity: 0.8;
+}
+.nd-side-bang svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Recently done / touched: the log of ticked tasks and tickets on top (about 8 rows, then it scrolls) */
+.nd-done-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 232px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--nd-line);
+}
+.nd-done-day {
+  font: 600 10.5px var(--nd-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--nd-faint);
+  margin: 6px 0 2px;
+}
+.nd-done-day:first-child {
+  margin-top: 0;
+}
+.nd-done-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: var(--nd-radius-s);
+  font-size: 12.5px;
+}
+.nd-done-row.is-new {
+  animation: nd-done-in 0.3s var(--nd-ease) backwards;
+}
+.nd-done-row.is-clickable {
+  cursor: pointer;
+}
+.nd-done-row.is-clickable:hover {
+  background: color-mix(in srgb, var(--nd-text) 5%, transparent);
+}
+.nd-done-ico {
+  flex: none;
+  color: var(--nd-go);
+}
+.nd-done-ico svg {
+  width: 13px;
+  height: 13px;
+}
+.nd-done-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nd-done-src,
+.nd-done-at {
+  flex: none;
+  font: 500 11px var(--nd-mono);
+  color: var(--nd-muted);
+}
+.nd-done-src {
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nd-done-chip {
+  flex: none;
+  font: 600 10px var(--nd-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+.nd-done-chip.is-done {
+  color: var(--nd-go);
+  background: color-mix(in srgb, var(--nd-go) 14%, transparent);
+}
+.nd-done-chip.is-waiting {
+  color: var(--nd-warn);
+  background: color-mix(in srgb, var(--nd-warn) 14%, transparent);
+}
+.nd-done-empty {
+  font-size: 12.5px;
+  color: var(--nd-muted);
+  padding: 4px 6px;
+}
+@keyframes nd-done-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nd-done-row.is-new {
+    animation: none;
+  }
 }

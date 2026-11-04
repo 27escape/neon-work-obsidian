@@ -422,6 +422,123 @@ function numSetting(setting, obj, key, min, max, save) {
 }
 /* ---- end shared ------------------------------------------------------- */
 
+/** Wrap a comparison so names starting with "!" come first ("!!" before "!"). */
+function bangFirst(cmp) {
+  const bangs = (f) => (f.name.match(/^!+/) || [''])[0].length;
+  return (a, b) => bangs(b) - bangs(a) || cmp(a, b);
+}
+/** Everything that happened per day in a month: tasks, tickets, time entries, notes. Map 'YYYY-MM-DD' -> lists. */
+function actDays(p, d, month) {
+  const from = month.clone().startOf('month').startOf('isoWeek').valueOf();
+  const to = month.clone().endOf('month').endOf('isoWeek').valueOf();
+  const days = new Map();
+  const day = (t) => {
+    const k = dayKey(t);
+    if (!days.has(k)) days.set(k, { tasks: [], tickets: [], time: [], notes: [], worked: null, over: 0 });
+    return days.get(k);
+  };
+  const inRange = (t) => t >= from && t <= to;
+  for (const [id, fn] of p.activity) {
+    let items = [];
+    try {
+      items = fn() || [];
+    } catch (e) {
+      console.error(`Neon Deck activity ${id}`, e);
+    }
+    for (const x of items) if (x && inRange(x.t)) day(x.t)[x.kind === 'ticket' ? 'tickets' : 'tasks'].push({ ...x, kind: x.kind === 'ticket' ? 'ticket' : 'task', extra: x.status || x.src });
+  }
+  for (const f of d.md) {
+    if (inRange(f.stat.ctime)) day(f.stat.ctime).notes.push({ t: f.stat.ctime, kind: 'note', text: f.basename, extra: 'created', open: (e) => openFile(p.app, f, e) });
+    else if (inRange(f.stat.mtime)) day(f.stat.mtime).notes.push({ t: f.stat.mtime, kind: 'note', text: f.basename, extra: 'edited', open: (e) => openFile(p.app, f, e) });
+  }
+  const timeDay = p.services.get('timeDay');
+  if (timeDay)
+    for (let m = moment(from); m.valueOf() <= to && !m.isAfter(moment(), 'day'); m.add(1, 'day')) {
+      const k = m.format('YYYY-MM-DD');
+      const td = timeDay(k);
+      if (!td || !td.worked) continue;
+      const x = day(m.valueOf());
+      x.worked = td.worked;
+      x.over = td.over;
+      for (const e of td.entries) x.time.push({ t: e.start, kind: 'time', text: e.text, extra: fmtMin(e.min) });
+    }
+  return days;
+}
+const actCount = (x) => x.tasks.length + x.tickets.length + x.time.length + x.notes.length;
+/**
+ * Month stats of the Activity card. Each entry: label, icon, accent, how it's counted, and get(days, month, plugin)
+ * returning { v, sub } (or null to hide it). Adding a stat = adding one entry here.
+ */
+const ACTIVITY_STATS = [
+  {
+    id: 'workday', label: 'avg workday', accent: 'var(--nd-info)', how: 'Average worked time on days with time (Neon Time); overtime days are past the day target.',
+    get(days, month) {
+      const xs = [...days.entries()].filter(([k, x]) => x.worked && moment(k).isSame(month, 'month'));
+      if (!xs.length) return null;
+      const over = xs.filter(([, x]) => x.over > 0).length;
+      return { v: fmtMin(Math.round(xs.reduce((n, [, x]) => n + x.worked, 0) / xs.length)), sub: `${over} overtime day${over === 1 ? '' : 's'}` };
+    },
+  },
+  {
+    id: 'busiest', label: 'busiest weekday', accent: 'var(--nd-accent)', how: 'Weekday with the most tasks, tickets, time entries and notes this month.',
+    get(days, month) {
+      const by = [0, 0, 0, 0, 0, 0, 0];
+      for (const [k, x] of days) if (moment(k).isSame(month, 'month')) by[moment(k).isoWeekday() - 1] += actCount(x);
+      const best = Math.max(...by);
+      return best ? { v: moment().isoWeekday(by.indexOf(best) + 1).format('dddd'), sub: `${best} things` } : null;
+    },
+  },
+  {
+    id: 'streak', label: 'longest streak', accent: 'var(--nd-go)', how: 'Most days in a row with any activity this month.',
+    get(days, month) {
+      let best = 0;
+      let run = 0;
+      for (let m = month.clone().startOf('month'); m.isSame(month, 'month'); m.add(1, 'day')) {
+        const x = days.get(m.format('YYYY-MM-DD'));
+        run = x && actCount(x) ? run + 1 : 0;
+        best = Math.max(best, run);
+      }
+      return best ? { v: `${best} day${best === 1 ? '' : 's'}` } : null;
+    },
+  },
+  {
+    id: 'ontime', label: 'tasks on time', accent: 'var(--nd-go)', how: 'Ticked tasks with a 📅 date: done on or before it vs after it.',
+    get(days, month) {
+      const xs = [...days.entries()].filter(([k]) => moment(k).isSame(month, 'month')).flatMap(([, x]) => x.tasks.filter((t) => t.due));
+      if (!xs.length) return null;
+      const late = xs.filter((t) => dayKey(t.t) > t.due).length;
+      return { v: `${Math.round((100 * (xs.length - late)) / xs.length)}%`, sub: `${late} late` };
+    },
+  },
+  {
+    id: 'tickets', label: 'tickets closed / opened', accent: 'var(--nd-warn)', how: 'Ticket notes with `completed` / `created` in this month; average days from created to completed.',
+    get(days, month, p) {
+      let opened = 0;
+      let closed = 0;
+      let span = 0;
+      for (const f of p.app.vault.getMarkdownFiles()) {
+        const fm = (p.app.metadataCache.getFileCache(f) || {}).frontmatter;
+        if (!fm || fm.type !== 'ticket') continue;
+        const c = fm.created ? moment(String(fm.created)) : null;
+        const done = fm.completed ? moment(String(fm.completed)) : null;
+        if (c && c.isValid() && c.isSame(month, 'month')) opened++;
+        if (done && done.isValid() && done.isSame(month, 'month')) {
+          closed++;
+          if (c && c.isValid()) span += Math.max(0, done.diff(c, 'days'));
+        }
+      }
+      return opened || closed ? { v: `${closed} / ${opened}`, sub: closed ? `avg ${Math.round((span / closed) * 10) / 10} d to close` : '' } : null;
+    },
+  },
+];
+/** A note's `created` property as a time (several spellings, any date moment reads), else the file's creation time. */
+function createdOf(app, f) {
+  const fm = (f.extension === 'md' && (app.metadataCache.getFileCache(f) || {}).frontmatter) || {};
+  const v = fm.created ?? fm.Created ?? fm['date created'] ?? fm.date_created;
+  const m = v != null && v !== '' ? moment(String(v), [moment.ISO_8601, 'YYYY-MM-DD HH:mm', 'YYYY-MM-DD', 'DD.MM.YYYY'], true) : null;
+  return m && m.isValid() ? m.valueOf() : f.stat.ctime;
+}
+
 /* ------------------------------------------------------------------ */
 /* Neon Deck core: constants                                           */
 /* ------------------------------------------------------------------ */
@@ -434,12 +551,12 @@ const MAIN_VIEWS = [VIEW_DASH, VIEW_CARDS, VIEW_GRAPH, 'neon-deck-tickets', 'neo
 const PALETTE = ['#c6e651', '#e5506a', '#7fb3c9', '#d9c56a', '#e4e6ea', '#b9a0d6', '#5fcf96', '#e08a5a', '#8f86b8', '#8f95a0'];
 const IMG_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif']);
 
-const THEMES = ['marathon', 'cyberpunk', 'brutal', 'calm', 'paper', 'night', 'phosphor', 'blueprint'];
+const THEMES = ['marathon', 'cyberpunk', 'calm', 'paper', 'night', 'phosphor', 'blueprint'];
 const THEME_LABEL = {
-  marathon: 'Marathon', cyberpunk: 'Cyberpunk', brutal: 'Brutal', calm: 'Calm', paper: 'Paper', night: 'Night shift', phosphor: 'Phosphor', blueprint: 'Blueprint',
+  marathon: 'Marathon', cyberpunk: 'Cyberpunk', calm: 'Calm', paper: 'Paper', night: 'Night shift', phosphor: 'Phosphor', blueprint: 'Blueprint',
 };
 const THEME_PATTERN = {
-  marathon: 'damascus', cyberpunk: 'circuit', brutal: 'hex', calm: 'none', paper: 'topo', night: 'circuit', phosphor: 'datastream', blueprint: 'radar',
+  marathon: 'damascus', cyberpunk: 'circuit', calm: 'none', paper: 'topo', night: 'circuit', phosphor: 'datastream', blueprint: 'radar',
 };
 
 /** Short lines Claude wrote for the ticker; roughly one in ten items. */
@@ -475,7 +592,8 @@ const DEFAULT_SETTINGS = {
   excludeFolders: 'Core/Templates',
   cardsInSidebar: true,
   replaceFileExplorer: true,
-  cardSort: 'modified',
+  showCapture: false, // the Quick capture card (the capture command and hotkey work either way)
+  cardSort: 'created-prop',
   cardMode: 'cards',
   revisitDays: 14,
   seen: {},
@@ -1494,7 +1612,7 @@ const DASH_LAYOUT = [
 ];
 /** Smallest grid height: the row minimums in styles.css (120 + 150 + 150 + 140) plus 3 gaps of 14. */
 const DASH_GRID_MIN = 602;
-const SLOT_FALLBACK = { tasks: 'global', global: 'tasks', tickets: 'time', time: 'tickets' };
+const SLOT_FALLBACK = { tasks: 'global', global: 'tasks', tickets: 'time', time: 'tickets', capture: 'recent' };
 
 function dashAreas(present) {
   const resolve = (name) => {
@@ -1546,9 +1664,10 @@ class DashboardView extends ItemView {
     window.setTimeout(() => this.grid && this.grid.removeClass('is-entering'), 900);
     this.totals = this.place(widget(this.grid, 'nd-w-totals', 'Totals', 'sigma', 'everything tracked so far'), 'totals');
     this.stats = this.place(widget(this.grid, 'nd-w-stats', 'Vault pulse', 'activity'), 'pulse');
-    this.buildCapture(this.grid);
-    this.recent = this.place(widget(this.grid, 'nd-w-recent', 'Recently touched', 'history'), 'recent');
+    if (this.plugin.settings.showCapture) this.buildCapture(this.grid);
+    this.recent = this.place(widget(this.grid, 'nd-w-recent', 'Recently done / touched', 'history'), 'recent');
     this.heat = this.place(widget(this.grid, 'nd-w-heat', 'Activity', 'flame'), 'activity');
+    this.heat.body.addClass('nd-act');
     this.footEl = inner.createDiv('nd-dash-foot');
     this.mountSlots();
 
@@ -1557,7 +1676,6 @@ class DashboardView extends ItemView {
     const ro = new ResizeObserver(() => this.onResize());
     ro.observe(root);
     ro.observe(this.heroEl); // the hero wraps to more lines on narrow widths
-    if (this.heat) ro.observe(this.heat.body);
     this.register(() => ro.disconnect());
 
     // Vault changes re-render only while the dashboard is visible; a hidden tab catches up when shown.
@@ -1580,6 +1698,7 @@ class DashboardView extends ItemView {
     this.registerEvent(this.app.workspace.on('neon-deck:slots-changed', () => this.mountSlots()));
     // Task, Ticket, Time… buttons arrive as the other Neon plugins load
     this.registerEvent(this.app.workspace.on('neon-deck:captures-changed', () => this.capRow && this.renderCaptureTargets()));
+    this.registerEvent(this.app.workspace.on('neon-deck:activity-changed', debounce(() => this.lastData && this.renderRecent(this.lastData), 200, true)));
     this.registerEvent(
       this.app.workspace.on(
         'neon-deck:facts-changed',
@@ -1612,8 +1731,6 @@ class DashboardView extends ItemView {
     const w = this.contentEl.clientWidth;
     this.grid.toggleClass('is-narrow', w < 880);
     this.fitGrid();
-    const fit = this.heatFit();
-    if (fit.key !== this.lastHeatKey && this.lastData) this.renderHeat(this.lastData);
   }
 
   /** Grid height = the visible space under the hero, so the dashboard fills any screen. Never below the row minimums (then the page scrolls). */
@@ -1658,7 +1775,8 @@ class DashboardView extends ItemView {
       }
       this.slotCards.set(def.id, { def, card, handle });
     }
-    const present = new Set(['totals', 'pulse', 'capture', 'recent', 'activity', ...[...defs.values()].map((d) => d.slot)]);
+    const present = new Set(['totals', 'pulse', 'recent', 'activity', ...[...defs.values()].map((d) => d.slot)]);
+    if (this.plugin.settings.showCapture) present.add('capture'); // off: Recently done / touched takes its place
     const { areas, cols } = dashAreas(present);
     this.grid.style.gridTemplateAreas = areas;
     this.grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
@@ -1789,7 +1907,7 @@ class DashboardView extends ItemView {
     this.renderStats(d);
     this.renderRecent(d);
     this.renderHeat(d);
-    this.renderCaptureTargets();
+    if (this.capRow) this.renderCaptureTargets();
     this.renderTicker(d);
     this.renderTotals(d);
     const words = await this.plugin.totalWords(d.md);
@@ -1829,9 +1947,50 @@ class DashboardView extends ItemView {
     tile(d.orphans.length, 'orphans', 'var(--nd-accent)', () => new FileListModal(this.plugin, d.orphans, 'Orphan notes — no links in or out').open(), 'Notes with no links in or out');
     tile(d.editedToday.length, 'edited today', 'var(--nd-go)', () => new FileListModal(this.plugin, d.editedToday, 'Edited today').open(), 'Line: notes edited per day', this.perDay(d.md, (f) => f.stat.mtime));
   }
+  /** Top of Recently done / touched: ticked tasks and tickets set to Done/Waiting, last 14 days, by day. */
+  renderDoneLog(b) {
+    const cut = moment().startOf('day').subtract(13, 'days').valueOf();
+    const items = [];
+    for (const [id, fn] of this.plugin.activity) {
+      try {
+        for (const x of fn() || []) if (x && x.t >= cut) items.push(x);
+      } catch (e) {
+        console.error(`Neon Deck activity ${id}`, e);
+      }
+    }
+    items.sort((a, b2) => b2.t - a.t);
+    const today = items.filter((x) => moment(x.t).isSame(moment(), 'day')).length;
+    this.recent.badge.setText(today ? `${today} today` : '');
+    if (!this.plugin.activity.size) return; // Tasks and Tickets both off: only the notes list
+    const box = b.createDiv('nd-done-log');
+    if (!items.length) return void box.createDiv({ cls: 'nd-done-empty', text: 'Nothing done yet today' });
+    let day = '';
+    const seen = this.doneSeen; // rows drawn last time: only new ones slide in
+    this.doneSeen = new Set();
+    for (const x of items.slice(0, 200)) {
+      const m = moment(x.t);
+      const k = m.format('YYYY-MM-DD');
+      if (k !== day) {
+        day = k;
+        const label = m.isSame(moment(), 'day') ? 'Today' : m.isSame(moment().subtract(1, 'day'), 'day') ? 'Yesterday' : m.format('dddd');
+        box.createDiv({ cls: 'nd-done-day', text: label });
+      }
+      const key = `${x.kind}|${x.t}|${x.text}`;
+      this.doneSeen.add(key);
+      const r = box.createDiv('nd-done-row' + (x.open ? ' is-clickable' : '') + (seen && !seen.has(key) ? ' is-new' : ''));
+      icon(r, x.kind === 'ticket' ? 'ticket' : 'check', 'nd-ico nd-done-ico');
+      r.createSpan({ cls: 'nd-done-text', text: x.text });
+      if (x.status) r.createSpan({ cls: `nd-done-chip is-${x.status}`, text: x.status === 'done' ? 'Done' : 'Waiting' });
+      if (x.src) r.createSpan({ cls: 'nd-done-src', text: x.src });
+      r.createSpan({ cls: 'nd-done-at', text: m.format('HH:mm') });
+      tip(r, x.text);
+      if (x.open) r.addEventListener('click', (e) => x.open(e));
+    }
+  }
   renderRecent(d) {
     const b = this.recent.body;
     b.empty();
+    this.renderDoneLog(b);
     const list = b.createDiv('nd-mini-list');
     const recent = d.md.slice().sort((a, b2) => b2.stat.mtime - a.stat.mtime).slice(0, 8);
     if (!recent.length) emptyState(list, 'No notes yet — create your first one ✦');
@@ -1846,75 +2005,83 @@ class DashboardView extends ItemView {
       this.plugin.bindFileMouse(c, f, this);
     });
   }
-  /** Dot size and week count that fit inside the Activity card, both ways. */
-  heatFit() {
-    const b = this.heat ? this.heat.body : null;
-    const gap = 4;
-    const pad = 12; // body padding, so the today ring, glow and hover zoom aren't clipped
-    const foot = 26; // footer line plus the gap above it
-    const w = b ? b.clientWidth - pad : 0;
-    const h = b ? b.clientHeight - pad - foot : 0;
-    const cell = h > 0 ? clamp(Math.floor((h - 6 * gap) / 7), 7, 14) : 12;
-    const weeks = w > 0 ? clamp(Math.floor((w + gap) / (cell + gap)), 4, 53) : 12;
-    return { cell, weeks, gap, key: `${cell}x${weeks}` };
-  }
+  /** Activity: a Month view (stats + calendar) and a Week view per week of the month (each day's entries). */
   renderHeat(d) {
     const b = this.heat.body;
     b.empty();
-    const fit = this.heatFit();
-    const weeks = fit.weeks;
-    this.lastHeatKey = fit.key;
-    const start = moment().startOf('isoWeek').subtract(weeks - 1, 'weeks');
-    const todayKey = dayKey(Date.now());
-    const counts = new Map();
-    const byDay = new Map();
-    const bump = (k, f) => {
-      counts.set(k, (counts.get(k) || 0) + 1);
-      if (f) {
-        if (!byDay.has(k)) byDay.set(k, []);
-        byDay.get(k).push(f);
-      }
-    };
-    for (const f of d.md) {
-      const c = dayKey(f.stat.ctime);
-      const m = dayKey(f.stat.mtime);
-      bump(c, f);
-      if (m !== c) bump(m, f);
-    }
-    // first paint: the dots fade in week by week, left to right
-    const grid = b.createDiv('nd-heat' + (this.heatShown ? '' : ' is-intro'));
-    this.heatShown = true;
-    grid.style.gridTemplateColumns = `repeat(${weeks}, ${fit.cell}px)`;
-    grid.style.gridTemplateRows = `repeat(7, ${fit.cell}px)`;
-    grid.style.gap = `${fit.gap}px`;
-    let active = 0;
-    const day = start.clone();
-    for (let i = 0; i < weeks * 7; i++) {
-      const k = day.format('YYYY-MM-DD');
-      const n = counts.get(k) || 0;
-      if (n) active++;
-      const lvl = n === 0 ? 0 : n < 2 ? 1 : n < 4 ? 2 : n < 7 ? 3 : 4;
-      const cell = grid.createDiv(`nd-heat-cell lvl-${lvl}` + (k > todayKey ? ' is-future' : '') + (k === todayKey ? ' is-today' : ''));
-      cell.style.gridColumn = String(Math.floor(i / 7) + 1);
-      cell.style.setProperty('--c', String(Math.floor(i / 7)));
-      cell.style.gridRow = String((i % 7) + 1);
-      cell.createDiv('nd-heat-dot');
-      tip(cell, `${day.format('ddd D MMM')} · ${n} event${n === 1 ? '' : 's'}`);
-      const files = byDay.get(k);
-      if (files) {
-        cell.addClass('is-clickable');
-        const label = day.format('ddd D MMM');
-        cell.addEventListener('click', () => new FileListModal(this.plugin, files, `Notes created or edited · ${label}`).open());
-      }
-      day.add(1, 'day');
-    }
-    const foot = b.createDiv('nd-heat-foot');
-    foot.createSpan({ text: `${active} active days · last ${weeks} weeks` });
-    const legend = foot.createSpan('nd-heat-legend');
-    legend.createSpan({ text: 'less' });
-    for (let l = 0; l <= 4; l++) legend.createDiv(`nd-heat-cell lvl-${l}`).createDiv('nd-heat-dot');
-    legend.createSpan({ text: 'more' });
+    const p = this.plugin;
+    const month = (this.actMonth = this.actMonth || moment().startOf('month'));
+    const days = actDays(p, d, month);
+    // header: month switch + Month / week chips
+    const acts = this.heat.actions;
+    acts.empty();
+    button(acts, { icon: 'chevron-left', cls: 'nd-icon-btn', title: 'Previous month', onClick: () => ((this.actMonth = month.clone().subtract(1, 'month')), (this.actView = 'month'), this.renderHeat(d)) });
+    acts.createSpan({ cls: 'nd-act-month', text: month.format('MMM YYYY') });
+    button(acts, { icon: 'chevron-right', cls: 'nd-icon-btn', title: 'Next month', onClick: () => ((this.actMonth = month.clone().add(1, 'month')), (this.actView = 'month'), this.renderHeat(d)) });
+    const weeks = [];
+    for (let w = month.clone().startOf('isoWeek'); w.isBefore(month.clone().endOf('month')); w.add(1, 'week')) weeks.push(w.clone());
+    const view = this.actView == null || (this.actView !== 'month' && !weeks[this.actView]) ? 'month' : this.actView;
+    const tabs = pills(acts, [['month', 'Month'], ...weeks.map((w, i) => [i, `W${w.isoWeek()}`])], view, (v) => ((this.actView = v), this.renderHeat(d)), 'nd-act-tabs');
+    acts.prepend(tabs.el);
+    if (view === 'month') this.renderActMonth(b, month, days, weeks);
+    else this.renderActWeek(b, weeks[view], days);
   }
+  renderActMonth(b, month, days, weeks) {
+    const wrap = b.createDiv('nd-act-monthview');
+    const stats = wrap.createDiv('nd-act-stats');
+    for (const st of ACTIVITY_STATS) {
+      const r = st.get(days, month, this.plugin);
+      if (!r) continue;
+      const t = stats.createDiv('nd-act-stat');
+      t.style.setProperty('--stat-accent', st.accent);
+      t.createDiv({ cls: 'nd-act-stat-v', text: r.v });
+      t.createDiv({ cls: 'nd-act-stat-l', text: r.sub ? `${st.label} · ${r.sub}` : st.label });
+      tip(t, st.how);
+    }
+    if (!stats.childElementCount) stats.createDiv({ cls: 'nd-act-none', text: 'No stats yet this month' });
+    const cal = wrap.createDiv('nd-act-cal');
+    cal.style.gridTemplateRows = `auto repeat(${weeks.length}, minmax(22px, 1fr))`;
+    for (const n of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) cal.createDiv({ cls: 'nd-act-dow', text: n });
+    const todayKey = dayKey(Date.now());
+    const max = Math.max(1, ...[...days.values()].map(actCount));
+    weeks.forEach((w, wi) => {
+      for (let i = 0; i < 7; i++) {
+        const m = w.clone().add(i, 'days');
+        const k = m.format('YYYY-MM-DD');
+        const x = days.get(k);
+        const n = x ? actCount(x) : 0;
+        const c = cal.createDiv('nd-act-day' + (m.month() !== month.month() ? ' is-out' : '') + (k === todayKey ? ' is-today' : '') + (n ? ' is-clickable' : ''));
+        c.style.setProperty('--lvl', String(n ? 0.15 + (0.85 * n) / max : 0));
+        c.createSpan({ cls: 'nd-act-num', text: String(m.date()) });
+        const dots = c.createDiv('nd-act-dots');
+        if (x) for (const [kind, list] of [['task', x.tasks], ['ticket', x.tickets], ['time', x.time], ['note', x.notes]]) if (list.length) dots.createSpan(`nd-act-dot is-${kind}`);
+        tip(c, `${m.format('ddd D MMM')} · ${x ? `${x.tasks.length} tasks · ${x.tickets.length} tickets · ${x.time.length} time entries · ${x.notes.length} notes` : 'nothing'}`);
+        if (n) c.addEventListener('click', () => ((this.actView = wi), this.renderHeat(this.lastData)));
+      }
+    });
+  }
+  renderActWeek(b, w, days) {
+    const wk = b.createDiv('nd-act-week');
+    const todayKey = dayKey(Date.now());
+    for (let i = 0; i < 7; i++) {
+      const m = w.clone().add(i, 'days');
+      const k = m.format('YYYY-MM-DD');
+      const x = days.get(k);
+      const col = wk.createDiv('nd-act-col' + (k === todayKey ? ' is-today' : ''));
+      col.createDiv({ cls: 'nd-act-col-head', text: m.format('ddd D') });
+      const list = col.createDiv('nd-act-col-list');
+      const rows = x ? [...x.tasks, ...x.tickets, ...x.time, ...x.notes].sort((a, b2) => a.t - b2.t) : [];
+      if (!rows.length) list.createDiv({ cls: 'nd-act-none', text: '·' });
+      for (const r of rows) {
+        const el = list.createDiv(`nd-act-item is-${r.kind}` + (r.open ? ' is-clickable' : ''));
+        icon(el, { task: 'check', ticket: 'ticket', time: 'clock', note: 'file-text' }[r.kind], 'nd-ico');
+        el.createSpan({ cls: 'nd-act-item-text', text: r.text });
+        tip(el, `${moment(r.t).format('HH:mm')} · ${r.text}${r.extra ? ' · ' + r.extra : ''}`);
+        if (r.open) el.addEventListener('click', (e) => r.open(e));
+      }
+    }
+  }
+
   renderTicker(d) {
     d = d || this.lastData || this.plugin.collectVaultData();
     const p = this.plugin;
@@ -2128,7 +2295,14 @@ class CardsView extends ItemView {
     this.registerEvent(this.app.vault.on('create', re));
     this.registerEvent(this.app.vault.on('delete', re));
     this.registerEvent(this.app.vault.on('rename', re));
-    this.registerEvent(this.app.metadataCache.on('changed', (f) => this.updateCard(f)));
+    this.registerEvent(
+      this.app.metadataCache.on('changed', (f) => {
+        this.updateCard(f);
+        // a shown note's `created` changed: its place in the sort may have changed
+        const seen = this.createdSeen && this.createdSeen.get(f.path);
+        if (seen != null && seen !== createdOf(this.app, f)) re();
+      }),
+    );
     this.registerEvent(this.app.workspace.on('file-open', () => this.markActive()));
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.markNav()));
     this.registerEvent(this.app.workspace.on('layout-change', () => this.markNav()));
@@ -2284,8 +2458,9 @@ class CardsView extends ItemView {
   sortMenu(e) {
     const m = new Menu();
     const opts = [
+      ['created-prop', 'Created property'],
       ['modified', 'Recently modified'],
-      ['created', 'Recently created'],
+      ['created', 'Recently created (file)'],
       ['revisit', 'Revisit first'],
       ['name', 'Name A → Z'],
       ['name-desc', 'Name Z → A'],
@@ -2301,14 +2476,21 @@ class CardsView extends ItemView {
     }
     m.showAtMouseEvent(e);
   }
+  /** Notes in sort order: names starting with "!" first (more "!" higher), then the chosen sort. */
   sorter() {
     const s = this.plugin.settings.cardSort;
     const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
-    if (s === 'name') return byName;
-    if (s === 'name-desc') return (a, b) => byName(b, a);
-    if (s === 'created') return (a, b) => b.stat.ctime - a.stat.ctime;
-    if (s === 'revisit') return (a, b) => this.revisitAge(b) - this.revisitAge(a) || b.stat.mtime - a.stat.mtime;
-    return (a, b) => b.stat.mtime - a.stat.mtime;
+    let cmp = (a, b) => b.stat.mtime - a.stat.mtime;
+    if (s === 'name') cmp = byName;
+    else if (s === 'name-desc') cmp = (a, b) => byName(b, a);
+    else if (s === 'created') cmp = (a, b) => b.stat.ctime - a.stat.ctime;
+    else if (s === 'revisit') cmp = (a, b) => this.revisitAge(b) - this.revisitAge(a) || b.stat.mtime - a.stat.mtime;
+    else if (s === 'created-prop') {
+      const keys = (this.createdSeen = new Map()); // one date per note per sort; also lets 'changed' spot a new date
+      const key = (f) => (keys.has(f.path) ? keys.get(f.path) : keys.set(f.path, createdOf(this.app, f)).get(f.path));
+      cmp = (a, b) => key(b) - key(a) || byName(a, b);
+    }
+    return bangFirst(cmp);
   }
   /** Days since the note was last opened (or marked revisited); -1 when it isn't a school note. */
   revisitAge(f) {
@@ -2392,7 +2574,7 @@ class CardsView extends ItemView {
     this.upBtn.toggleClass('is-disabled', !folder.parent);
     const mode = this.plugin.settings.cardMode;
     for (const [k, b] of Object.entries(this.modeBtns)) b.toggleClass('is-active', k === mode);
-    const sortLabel = { modified: 'Recent', created: 'Created', revisit: 'Revisit first', name: 'A → Z', 'name-desc': 'Z → A' }[this.plugin.settings.cardSort] || 'Recent';
+    const sortLabel = { 'created-prop': 'Created', modified: 'Recent', created: 'Created (file)', revisit: 'Revisit first', name: 'A → Z', 'name-desc': 'Z → A' }[this.plugin.settings.cardSort] || 'Recent';
     this.sortBtn.querySelector('.nd-btn-label').setText(`Sort: ${sortLabel}`);
 
     const deep = !!this.query || this.chip !== 'all';
@@ -2410,7 +2592,7 @@ class CardsView extends ItemView {
     if (CATS.includes(this.chip)) folders = folders.filter((f) => finfo.get(f).cat === this.chip);
     else if (this.chip === 'revisit') folders = folders.filter((f) => finfo.get(f).notes.some((n) => this.needsRevisit(n)));
     else if (this.chip === 'untracked') folders = folders.filter((f) => !finfo.get(f).cat);
-    folders.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    folders.sort(bangFirst((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })));
     files.sort(this.sorter());
 
     const before = flip ? this.snapshot() : null;
@@ -2792,7 +2974,7 @@ class CardsView extends ItemView {
     button(head, { icon: 'file-plus', cls: 'nd-icon-btn nd-side-add is-note', title: 'New note here', onClick: () => this.plugin.newNote(this.path) });
     button(head, { icon: 'folder-plus', cls: 'nd-icon-btn nd-side-add is-folder', title: 'New folder here', onClick: () => this.plugin.newFolder(this.path) });
     const kids = folder.children.slice();
-    const dirs = kids.filter((c) => c instanceof TFolder).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    const dirs = kids.filter((c) => c instanceof TFolder).sort(bangFirst((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })));
     const files = kids.filter((c) => c instanceof TFile).sort(this.sorter());
     for (const d of dirs) {
       const info = this.folderInfo(d);
@@ -2800,6 +2982,7 @@ class CardsView extends ItemView {
       row.dataset.path = d.path;
       if (info.cat) row.style.setProperty('--row-tint', catColor(info.cat));
       this.folderIcon(row, info.cat);
+      if (d.name.startsWith('!')) icon(row, 'pin', 'nd-ico nd-side-bang');
       row.createSpan({ cls: 'nd-side-name', text: d.name });
       row.createSpan({ cls: 'nd-side-count', text: String(info.notes.length) });
       row.addEventListener('click', () => this.navigate(d.path, 1));
@@ -2835,6 +3018,7 @@ class CardsView extends ItemView {
     if (this.plugin.lastFile && this.plugin.lastFile.path === f.path) row.addClass('is-active');
     const cat = fileCategory(this.app, f);
     if (cat && cat !== 'untracked') row.style.setProperty('--row-accent', catColor(cat));
+    if (f.name.startsWith('!')) icon(row, 'pin', 'nd-ico nd-side-bang');
     row.createSpan({ cls: 'nd-side-name', text: f.extension === 'md' ? f.basename : f.name });
     const t = Math.max(f.stat.mtime, this.plugin.settings.seen[f.path] || 0);
     row.createSpan({ cls: 'nd-side-count', text: showPath && f.parent && f.parent.path !== '/' ? f.parent.path : shortAgo(t) });
@@ -3803,6 +3987,16 @@ class NeonSettingTab extends PluginSettingTab {
       .addText((t) => t.setValue(s.excludeFolders).onChange((v) => ((s.excludeFolders = v), save())));
 
     new Setting(containerEl).setName('Card explorer').setHeading();
+    new Setting(containerEl)
+      .setName('Quick capture card')
+      .setDesc('Show the Quick capture card on the dashboard. The capture command and hotkey work either way.')
+      .addToggle((t) =>
+        t.setValue(s.showCapture).onChange(async (v) => {
+          s.showCapture = v;
+          await save();
+          p.app.workspace.getLeavesOfType(VIEW_DASH).forEach((l) => l.rebuildView());
+        }),
+      );
     new Setting(containerEl).setName('Show cards in the left sidebar').addToggle((t) => t.setValue(s.cardsInSidebar).onChange((v) => ((s.cardsInSidebar = v), save())));
     new Setting(containerEl)
       .setName('Replace the file explorer')
@@ -3829,6 +4023,7 @@ module.exports = class NeonDeck extends Plugin {
     this.widgets = new Map();
     this.captures = new Map();
     this.facts = new Map();
+    this.activity = new Map(); // id -> () => [{ t, kind, text, src, status?, open? }] (Recently done log)
     this.actions = new Map();
     this.weekLines = new Map();
     this.excludes = new Map();
@@ -3945,6 +4140,11 @@ module.exports = class NeonDeck extends Plugin {
       s.settingsVersion = 3;
       await this.saveData(s);
     }
+    // 1.6.6: the sidebar sorts by the `created` property by default (item 25); moved once
+    if ((s.sortRule || 0) < 1) {
+      if (s.cardSort === 'modified') s.cardSort = 'created-prop';
+      s.sortRule = 1;
+    }
     if (!THEMES.includes(s.theme)) s.theme = 'marathon';
     if (s.pattern !== 'auto' && !PATTERNS.includes(s.pattern)) s.pattern = 'auto';
     if (!STRENGTHS.includes(s.patternStrength)) s.patternStrength = 'subtle';
@@ -3985,6 +4185,15 @@ module.exports = class NeonDeck extends Plugin {
         p.facts.delete(id);
       },
       factsChanged: () => changed('neon-deck:facts-changed'),
+      /** Recently done: a module offers its log (ticked tasks, tickets set to Done/Waiting); the Deck only merges and draws */
+      registerActivity(id, fn) {
+        p.activity.set(id, fn);
+        changed('neon-deck:activity-changed');
+      },
+      unregisterActivity(id) {
+        if (p.activity.delete(id)) changed('neon-deck:activity-changed');
+      },
+      activityChanged: () => changed('neon-deck:activity-changed'),
       registerAction(def) {
         p.actions.set(def.id, def);
         changed('neon-deck:slots-changed');

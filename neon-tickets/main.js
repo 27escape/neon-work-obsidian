@@ -457,6 +457,8 @@ const TICKETS_DEFAULTS = {
   migrated: false,
   // ticket templates: { id, name, steps[], description, priority, dueDays } — kept here, never as notes
   templates: [],
+  statusLog: [], // { t, id, title, status, path }: tickets set to a status below (Recently done on the dashboard)
+  activityStatuses: ['done', 'waiting'],
 };
 const DUE_CHIPS = [[1, '1d'], [3, '3d'], [7, '1w'], [14, '2w'], [30, '1m']];
 const SEC = {
@@ -1849,6 +1851,17 @@ class NeonTicketsSettingTab extends PluginSettingTab {
       .setName('Open tickets as a pop-up')
       .setDesc('Clicking a ticket on the dashboard, in the tracker or in the card explorer opens it on top of what you are doing. Ctrl+click opens a tab.')
       .addToggle((t) => t.setValue(s.popup).onChange((v) => ((s.popup = v), save())));
+    // which status changes show in the dashboard's Recently done / touched card
+    for (const st of TICKET_STATUS)
+      new Setting(containerEl)
+        .setName(`Recently done: ${TICKET_STATUS_LABEL[st]}`)
+        .setDesc(st === 'done' ? 'Tickets set to this status appear in the dashboard’s Recently done / touched card.' : '')
+        .addToggle((t) =>
+          t.setValue(s.activityStatuses.includes(st)).onChange((v) => {
+            s.activityStatuses = v ? [...new Set([...s.activityStatuses, st])] : s.activityStatuses.filter((x) => x !== st);
+            save();
+          }),
+        );
     numSetting(new Setting(containerEl).setName('Default due in (days)').setDesc('Pre-filled in the New ticket form. 0 = no date.'), s, 'defaultDays', 0, 365, save);
     new Setting(containerEl)
       .setName('Default time category')
@@ -1888,6 +1901,9 @@ module.exports = class NeonTickets extends Plugin {
         priority: TICKET_PRIOS.includes(x.priority) ? x.priority : 'normal',
         dueDays: Number.isFinite(x.dueDays) ? x.dueDays : null,
       }));
+    // own copies, never the arrays in TICKETS_DEFAULTS
+    this.settings.statusLog = Array.isArray(this.settings.statusLog) ? this.settings.statusLog.slice(-200) : [];
+    this.settings.activityStatuses = Array.isArray(this.settings.activityStatuses) ? this.settings.activityStatuses.slice() : ['done', 'waiting'];
     await this.saveSettings();
     this.rawPaths = new Set();
     this.listeners = new Set();
@@ -1971,6 +1987,7 @@ module.exports = class NeonTickets extends Plugin {
       api.unregisterWidget('tickets');
       api.unregisterCapture('ticket');
       api.unregisterFacts('tickets');
+      api.unregisterActivity && api.unregisterActivity('tickets');
       api.unregisterAction('tickets');
       api.unprovide('ticketClick');
       api.unregisterWeekLine('tickets');
@@ -2015,6 +2032,20 @@ module.exports = class NeonTickets extends Plugin {
       new TicketPopup(this, f).open();
       return true;
     });
+    if (api.registerActivity)
+      api.registerActivity('tickets', () =>
+        this.settings.statusLog.map((x) => ({
+          t: x.t,
+          kind: 'ticket',
+          text: x.title,
+          src: x.id || '',
+          status: x.status,
+          open: () => {
+            const f = this.app.vault.getAbstractFileByPath(x.path);
+            if (f instanceof TFile) this.showTicket(f);
+          },
+        })),
+      );
     api.registerFacts('tickets', () => {
       const act = this.activeTickets();
       const week = act.filter((t) => t.due && t.daysLeft >= 0 && t.daysLeft <= 7).length;
@@ -2169,6 +2200,7 @@ module.exports = class NeonTickets extends Plugin {
         const wait = { status: 'waiting', waiting_on: who || null, follow_up: followUp || null, waiting_since: moment().format('YYYY-MM-DD') };
         if (t.status === 'done') wait.completed = null;
         await this.patch(t, wait);
+        this.logStatus(t, 'waiting');
         await this.log(t, `Waiting${who ? ' on ' + who : ''}${followUp ? ` · follow up ${moment(followUp).format('ddd D MMM')}` : ''}`);
       }).open();
     }
@@ -2176,11 +2208,22 @@ module.exports = class NeonTickets extends Plugin {
     if (status === 'done') patch.completed = moment().format('YYYY-MM-DD');
     else if (t.status === 'done') patch.completed = null;
     await this.patch(t, patch);
+    this.logStatus(t, status);
     await this.log(t, status === 'done' ? 'Done' : t.status === 'done' ? 'Reopened' : `Status: ${TICKET_STATUS_LABEL[t.status]} → ${TICKET_STATUS_LABEL[status]}`);
     if (status === 'done') {
       new Notice(`✓ ${t.id ? t.id + ' · ' : ''}${t.title} — done`);
       if (this.settings.autoFile) await this.moveDone(t.file, moment());
     } else if (t.status === 'done' && this.settings.autoFile) await this.moveBack(t.file);
+  }
+  /** Remember a status change for the dashboard's Recently done log (only the statuses chosen in settings). */
+  logStatus(t, status) {
+    if (!this.settings.activityStatuses.includes(status)) return;
+    const log = this.settings.statusLog;
+    log.push({ t: Date.now(), id: t.id || '', title: t.title, status, path: t.file.path });
+    if (log.length > 200) log.splice(0, log.length - 200);
+    this.saveSettings();
+    const api = deckApi(this.app);
+    if (api && api.activityChanged) api.activityChanged();
   }
   async setPriority(t, p) {
     if (p === t.priority) return;

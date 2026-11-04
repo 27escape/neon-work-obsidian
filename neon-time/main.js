@@ -901,6 +901,7 @@ module.exports = class NeonTime extends Plugin {
       api.unregisterCapture('time');
       api.unregisterFacts('time');
       api.unregisterWeekLine('time');
+      api.unprovide('timeDay');
       api.unregisterAction('time');
       api.unregisterExcluded('time');
     }
@@ -963,6 +964,11 @@ module.exports = class NeonTime extends Plugin {
       const wk = this.balance(moment().startOf('isoWeek'), moment().endOf('isoWeek'));
       if (wk.over) out.push({ v: fmtMin(wk.over), l: 'overtime this week' });
       return out;
+    });
+    // the dashboard's Activity timeline reads a day's worked time and entries from here
+    api.provide('timeDay', (key) => {
+      const s = this.summary(key, key === moment().format('YYYY-MM-DD'));
+      return { worked: s.total, target: s.target, over: s.over, entries: this.entriesOf(key, false).map((e) => ({ start: e.start, min: entryMin(e), text: e.note || (e.path ? e.path.split('/').pop().replace(/\.md$/, '') : CAT_LABEL[e.cat] || 'Time') })) };
     });
     api.registerWeekLine('time', (start, end) => {
       const by = {};

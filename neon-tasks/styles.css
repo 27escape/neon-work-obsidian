@@ -131,10 +131,6 @@
   background: var(--nd-surface, var(--background-primary));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 20%, transparent);
 }
-body.nd-theme-brutal .nt-add .nd-input {
-  border-radius: 2px;
-  border-width: 2px;
-}
 .nd-card-body:has(> .nt-list) {
   display: flex;
   flex-direction: column;

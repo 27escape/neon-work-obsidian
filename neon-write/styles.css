@@ -185,10 +185,6 @@ body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-vi
 body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-content {
   padding-bottom: 0 !important;
 }
-body.nd-theme-brutal.nw-lifted .workspace-leaf-content[data-type='markdown'] .cm-sizer,
-body.nd-theme-brutal.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-preview-sizer {
-  border-radius: 2px;
-}
 
 /* ---- theme fonts in notes: body text, headings and code follow the Neon theme ---- */
 body.nw-fonts.nd-themed .workspace-leaf-content[data-type='markdown'] {
@@ -276,10 +272,6 @@ body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered 
 }
 body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered tbody tr > td {
   transition: background var(--nd-fast, 150ms) ease;
-}
-body.nw-tables.nd-theme-brutal .workspace-leaf-content[data-type='markdown'] .markdown-rendered table {
-  --nw-tr: 2px;
-  border-width: 2px;
 }
 
 @keyframes nw-pop {

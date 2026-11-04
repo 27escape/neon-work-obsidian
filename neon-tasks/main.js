@@ -761,6 +761,7 @@ module.exports = class NeonTasks extends Plugin {
       api.unregisterCapture('task');
       api.unregisterCapture('global');
       api.unregisterFacts('tasks');
+      api.unregisterActivity && api.unregisterActivity('tasks');
       api.unregisterWeekLine('tasks');
       api.unprovide('newNote');
       api.unregisterExcluded('tasks');
@@ -795,6 +796,14 @@ module.exports = class NeonTasks extends Plugin {
     api.registerWidget({ id: 'global', slot: 'global', title: 'Global tasks', icon: 'star', sub: 'Important · not tied to notes', mount: (card) => this.mountGlobal(card) });
     api.registerCapture({ id: 'task', label: 'Task', short: 'Task', icon: 'square-check', order: 10, run: (v) => this.addQuickTask(v) });
     api.registerCapture({ id: 'global', label: 'Global task', short: 'Global', icon: 'star', order: 11, run: (v) => this.addGlobal(v) });
+    // Recently done on the dashboard: tasks ticked in the widgets (doneLog keeps 120 days)
+    if (api.registerActivity)
+      api.registerActivity('tasks', () =>
+        this.settings.doneLog.map((x) => {
+          const f = x.src && x.src !== 'global' ? this.app.vault.getAbstractFileByPath(x.src) : null;
+          return { t: x.t, kind: 'task', text: x.text, due: x.due || null, src: x.src === 'global' ? 'Global' : f ? f.basename : '', open: f ? (e) => openFile(this.app, f, e) : null };
+        }),
+      );
     api.registerFacts('tasks', () => {
       const out = [];
       if (this.openCount != null) out.push({ v: this.openCount, l: 'open tasks' });
@@ -813,13 +822,15 @@ module.exports = class NeonTasks extends Plugin {
     const k = m.format('YYYY-MM-DD');
     return this.settings.doneLog.filter((d) => dayKey(d.t) === k).length;
   }
-  logDone(text, src) {
+  logDone(text, src, due) {
     const log = this.settings.doneLog;
-    log.push({ t: Date.now(), text, src });
+    log.push(due ? { t: Date.now(), text, src, due } : { t: Date.now(), text, src });
     const cut = Date.now() - 120 * 864e5;
     while (log.length && log[0].t < cut) log.shift();
     this.saveSettings();
     this.app.workspace.trigger('neon:task-done', { text, src });
+    const api = deckApi(this.app);
+    if (api && api.activityChanged) api.activityChanged();
   }
 
   /* collecting tasks ----------------------------------------------------- */
@@ -927,7 +938,7 @@ module.exports = class NeonTasks extends Plugin {
       ok = true;
       return lines.join('\n');
     });
-    if (ok) this.logDone(t.display, t.file.path);
+    if (ok) this.logDone(t.display, t.file.path, t.due);
     else new Notice('That task changed in the meantime — refreshed');
   }
 
