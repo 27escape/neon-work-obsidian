@@ -310,8 +310,8 @@ body.nw-hr :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr {
   height: 4px;
   margin: 1.6em 0;
   background: radial-gradient(circle, var(--nw-hr-c) 1.4px, transparent 1.9px) 0 50% / 9px 4px repeat-x;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 20%, black 80%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 20%, black 80%, transparent);
   -webkit-mask-position: center;
   mask-position: center;
   -webkit-mask-repeat: no-repeat;
@@ -387,14 +387,14 @@ body.nw-fonts.nd-themed .print {
   --h2-font: var(--nd-font-display);
   --h3-font: var(--nd-font-display);
   --h4-font: var(--nd-font-ui);
-  --inline-title-color: color-mix(in srgb, var(--nd-accent) 72%, #000);
-  --h1-color: color-mix(in srgb, var(--nd-accent) 72%, #000);
-  --h2-color: color-mix(in srgb, var(--nd-go) 52%, #000);
-  --h3-color: color-mix(in srgb, var(--nd-accent) 72%, #000);
-  --h4-color: color-mix(in srgb, var(--nd-go) 52%, #000);
-  --h5-color: color-mix(in srgb, var(--nd-accent) 72%, #000);
-  --h6-color: color-mix(in srgb, var(--nd-go) 52%, #000);
-  --nw-hr-c: color-mix(in srgb, var(--nd-go) 52%, #000);
+  --inline-title-color: color-mix(in srgb, var(--nd-accent) 72%, black);
+  --h1-color: color-mix(in srgb, var(--nd-accent) 72%, black);
+  --h2-color: color-mix(in srgb, var(--nd-go) 52%, black);
+  --h3-color: color-mix(in srgb, var(--nd-accent) 72%, black);
+  --h4-color: color-mix(in srgb, var(--nd-go) 52%, black);
+  --h5-color: color-mix(in srgb, var(--nd-accent) 72%, black);
+  --h6-color: color-mix(in srgb, var(--nd-go) 52%, black);
+  --nw-hr-c: color-mix(in srgb, var(--nd-go) 52%, black);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -471,7 +471,7 @@ body.nw-fonts.nd-themed .print {
   padding-bottom: 10px;
 }
 .print table tr.nw-title-row > * {
-  color: color-mix(in srgb, var(--nd-accent, #c8233f) 72%, #000);
+  color: color-mix(in srgb, var(--nd-accent, var(--text-accent)) 72%, black);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
