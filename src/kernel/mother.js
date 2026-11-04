@@ -12,15 +12,20 @@ class NeonMother extends Plugin {
     this.state = Object.assign({ off: {}, starting: false, safe: false }, await this.readState());
     const crashed = this.state.starting; // the last start never finished
     this.state.starting = true;
+    // coming from 1.x (old plugin data present): keep the hotkeys 1.x set by default, once
+    this.upgrading = !this.state.keysKept && (await Promise.all(NEON_MODULES.map((m) => this.app.vault.adapter.exists(`${this.app.vault.configDir}/plugins/${m.id}/data.json`)))).some(Boolean);
+    this.state.keysKept = true;
     await this.writeState();
     this.addSettingTab(new NeonModulesTab(this.app, this));
     this.addCommand({ id: 'safe-mode', name: 'Restart in safe mode (modules off)', callback: () => this.setSafe(true) });
     if (crashed || this.state.safe) {
       new Notice(crashed ? 'Neon Deck did not finish starting last time: safe mode, modules are off. Turn them on in settings.' : 'Neon Deck safe mode: modules are off.', 0);
     } else for (const m of NEON_MODULES) await this.start(m);
-    this.keepOldHotkeys();
-    this.state.starting = false;
-    await this.writeState();
+    // modules finish starting asynchronously: only call the start done once the workspace is ready
+    this.app.workspace.onLayoutReady(() => window.setTimeout(() => {
+      this.state.starting = false;
+      this.writeState();
+    }, 3000));
   }
   /** Core API for the modules (same object Neon Deck 1.x exposed). */
   get api() {
@@ -42,10 +47,13 @@ class NeonMother extends Plugin {
     try {
       await this.adoptData(m.id, dir);
       const child = new m.cls(this.app, { ...this.manifest, id: m.id, name: m.name, dir, fontsInCss: true });
-      // no default hotkeys (community rule): remember them; people upgrading from 1.x keep theirs
+      // no default hotkeys (community rule); people upgrading from 1.x get them as their own, once
       const add = child.addCommand;
       child.addCommand = (c) => {
-        if (c.hotkeys) (this.defaultKeys = this.defaultKeys || []).push([`${m.id}:${c.id}`, c.hotkeys]), delete c.hotkeys;
+        if (c.hotkeys) {
+          if (this.upgrading) this.keepHotkey(`${m.id}:${c.id}`, c.hotkeys);
+          delete c.hotkeys;
+        }
         return add.call(child, c);
       };
       // a failing start stops only this module
@@ -87,14 +95,11 @@ class NeonMother extends Plugin {
     await this.writeState();
     new Notice(on ? 'Neon Deck: safe mode on. Reload Obsidian (or the plugin) to apply.' : 'Neon Deck: safe mode off. Reload to start the modules.');
   }
-  /** Once, for people coming from 1.x (old plugin data present): keep the hotkeys 1.x set by default. */
-  keepOldHotkeys() {
-    if (this.state.keysKept || !this.defaultKeys) return;
-    this.state.keysKept = true;
-    if (!this.hadOldData) return;
+  /** A 1.x default hotkey becomes the user's own (unless they already set one for that command). */
+  keepHotkey(id, keys) {
     const hm = this.app.hotkeyManager;
-    if (!hm || !hm.setHotkeys) return;
-    for (const [id, keys] of this.defaultKeys) if (!hm.getHotkeys(id)) hm.setHotkeys(id, keys);
+    if (!hm || !hm.setHotkeys || hm.getHotkeys(id)) return;
+    hm.setHotkeys(id, keys);
     if (hm.save) hm.save();
   }
   /** First start of a module: copy the settings of the old separate plugin (never move or delete it). */
@@ -105,7 +110,6 @@ class NeonMother extends Plugin {
     const old = normalizePath(`${this.app.vault.configDir}/plugins/${id}/data.json`);
     if (await fs.exists(old)) {
       await fs.write(`${dir}/data.json`, await fs.read(old));
-      this.hadOldData = true;
     }
   }
   async readState() {
