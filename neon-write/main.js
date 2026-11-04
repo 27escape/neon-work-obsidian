@@ -7,6 +7,7 @@
  * no shell access. It only edits the note you're typing in.
  * The shared helpers at the top are copied into every Neon plugin; keep the copies identical.
  */
+/* @src src/shared/shared.js */
 /* ---- shared helpers (same copy in every Neon plugin) ---------------- */
 const obsidian = require('obsidian');
 const {
@@ -402,6 +403,7 @@ function numSetting(setting, obj, key, min, max, save) {
   });
 }
 /* ---- end shared ------------------------------------------------------- */
+/* @src src/write/constants.js */
 
 /* =========================================================================
  * NEON WRITE — nicer note writing: a rows × columns table picker, a / menu,
@@ -423,6 +425,7 @@ const NW_DEFAULTS = {
 const GRID_COLS = 10;
 const GRID_ROWS = 8;
 
+/* @src src/write/editor-helpers.js */
 /* ---- editor helpers ------------------------------------------------------ */
 /** Empty Markdown table: the first of `rows` rows is the header. */
 function tableMarkdown(rows, cols) {
@@ -578,6 +581,7 @@ function insertPageBreak(ed) {
   ed.setLine(l, `${pre}${cur}<div class="nw-pagebreak" style="break-after: page; page-break-after: always;"></div>${post}`);
   ed.setCursor({ line: l + (pre ? 1 : 0) + (cur ? 2 : 0) + 2, ch: 0 });
 }
+/* @src src/write/table-merge.js */
 /* ---- merged table cells (item 36): a cell that is only "<" joins the cell on its left ---- */
 /** Reading view / PDF: apply the merges in one rendered table; a merged first body row becomes a title above the header. */
 function mergeTable(table) {
@@ -611,6 +615,7 @@ function toggleMergeCell(line, ch) {
   const cell = line.slice(bars[k] + 1, bars[k + 1]);
   return line.slice(0, bars[k] + 1) + (cell.trim() === '<' ? '  ' : ' < ') + line.slice(bars[k + 1]);
 }
+/* @src src/write/callout-lock.js */
 /* ---- lockable callouts (item 31): `> [!info|locked]`; the state lives in the note ---- */
 let cmState = null;
 try {
@@ -666,6 +671,7 @@ function makeCallout(editor, type = 'note') {
   editor.setCursor({ line: a, ch: text.split('\n')[0].length });
 }
 
+/* @src src/write/table-picker.js */
 /* ---- table picker ------------------------------------------------------- */
 /** A rows × columns grid under the caret: hover or use the arrows, click or Enter inserts. */
 class TablePicker {
@@ -741,6 +747,7 @@ class TablePicker {
   }
 }
 
+/* @src src/write/slash-menu.js */
 /* ---- slash menu ------------------------------------------------------- */
 const SLASH_ITEMS = [
   { id: 'table', icon: 'table', label: 'Table', hint: 'pick rows × columns', keys: ['table', 'grid'], run: (ed, p) => p.openTablePicker(ed) },
@@ -814,6 +821,7 @@ class SlashSuggest extends EditorSuggest {
   }
 }
 
+/* @src src/write/toolbar.js */
 /* ---- selection toolbar -------------------------------------------------- */
 const TOOLBAR = [
   { icon: 'bold', title: 'Bold', run: (ed) => toggleWrap(ed, '**') },
@@ -878,6 +886,7 @@ class SelectionToolbar {
   }
 }
 
+/* @src src/write/settings.js */
 /* ---- settings ---------------------------------------------------------- */
 class NeonWriteSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
@@ -929,8 +938,9 @@ class NeonWriteSettingTab extends PluginSettingTab {
   }
 }
 
+/* @src src/write/plugin.js */
 /* ---- plugin ------------------------------------------------------------- */
-module.exports = class NeonWrite extends Plugin {
+class NeonWrite extends Plugin {
   async onload() {
     this.settings = Object.assign({}, NW_DEFAULTS, (await this.loadData()) || {});
     this.registerEditorSuggest(new SlashSuggest(this));
@@ -1185,4 +1195,6 @@ module.exports = class NeonWrite extends Plugin {
   applyPatternOpacity() {
     if (this.pat) this.pat.host.style.setProperty('--nw-pattern-opacity', String(this.settings.patternOpacity / 100));
   }
-};
+}
+/* @src src/write/exports.js */
+module.exports = NeonWrite;

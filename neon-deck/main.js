@@ -7,6 +7,7 @@
  * no shell access. Files are only written when you do something that writes.
  * The shared helpers at the top are copied into every Neon plugin; keep the copies identical.
  */
+/* @src src/shared/shared.js */
 /* ---- shared helpers (same copy in every Neon plugin) ---------------- */
 const obsidian = require('obsidian');
 const {
@@ -402,6 +403,7 @@ function numSetting(setting, obj, key, min, max, save) {
   });
 }
 /* ---- end shared ------------------------------------------------------- */
+/* @src src/deck/helpers.js */
 
 /** Wrap a comparison so names starting with "!" come first ("!!" before "!"). */
 function bangFirst(cmp) {
@@ -520,6 +522,7 @@ function createdOf(app, f) {
   return m && m.isValid() ? m.valueOf() : f.stat.ctime;
 }
 
+/* @src src/deck/constants.js */
 /* ------------------------------------------------------------------ */
 /* Neon Deck core: constants                                           */
 /* ------------------------------------------------------------------ */
@@ -602,6 +605,7 @@ function sparkline(parent, values) {
   return svg;
 }
 
+/* @src src/deck/text-network.js */
 /* ------------------------------------------------------------------ */
 /* Text network analysis (InfraNodus-style)                            */
 /* ------------------------------------------------------------------ */
@@ -986,6 +990,7 @@ function analyzeNetwork(n, edges) {
   return { comm: cid, bc, deg, score, adj, topics, gaps: gaps.slice(0, 3), Q, diversity };
 }
 
+/* @src src/deck/force-layout.js */
 /* ------------------------------------------------------------------ */
 /* Force layout                                                        */
 /* ------------------------------------------------------------------ */
@@ -1096,6 +1101,7 @@ class ForceSim {
   }
 }
 
+/* @src src/deck/pattern.js */
 /* ------------------------------------------------------------------ */
 /* Live pattern background (WebGL)                                     */
 /* One canvas behind a view. Cards are solid in the middle, so the     */
@@ -1477,6 +1483,7 @@ function parseColor(str) {
   return m.slice(0, 3).map((x) => Number(x) / 255);
 }
 
+/* @src src/deck/modals.js */
 /* ------------------------------------------------------------------ */
 /* Small modals                                                        */
 /* ------------------------------------------------------------------ */
@@ -1629,6 +1636,7 @@ class QuickCaptureModal extends Modal {
   }
 }
 
+/* @src src/deck/dashboard.js */
 /* ------------------------------------------------------------------ */
 /* Dashboard                                                           */
 /* ------------------------------------------------------------------ */
@@ -1977,46 +1985,6 @@ class DashboardView extends ItemView {
     tile(d.orphans.length, 'orphans', 'var(--nd-accent)', () => new FileListModal(this.plugin, d.orphans, 'Orphan notes — no links in or out').open(), 'Notes with no links in or out');
     tile(d.editedToday.length, 'edited today', 'var(--nd-go)', () => new FileListModal(this.plugin, d.editedToday, 'Edited today').open(), 'Line: notes edited per day', this.perDay(d.md, (f) => f.stat.mtime));
   }
-  /** Top of Recently done / touched: ticked tasks and tickets set to Done/Waiting, last 14 days, by day. */
-  renderDoneLog(b) {
-    const cut = moment().startOf('day').subtract(13, 'days').valueOf();
-    const items = [];
-    for (const [id, fn] of this.plugin.activity) {
-      try {
-        for (const x of fn() || []) if (x && x.t >= cut) items.push(x);
-      } catch (e) {
-        console.error(`Neon Deck activity ${id}`, e);
-      }
-    }
-    items.sort((a, b2) => b2.t - a.t);
-    const today = items.filter((x) => moment(x.t).isSame(moment(), 'day')).length;
-    this.recent.badge.setText(today ? `${today} today` : '');
-    if (!this.plugin.activity.size) return; // Tasks and Tickets both off: only the notes list
-    const box = b.createDiv('nd-done-log');
-    if (!items.length) return void box.createDiv({ cls: 'nd-done-empty', text: 'Nothing done yet today' });
-    let day = '';
-    const seen = this.doneSeen; // rows drawn last time: only new ones slide in
-    this.doneSeen = new Set();
-    for (const x of items.slice(0, 200)) {
-      const m = moment(x.t);
-      const k = m.format('YYYY-MM-DD');
-      if (k !== day) {
-        day = k;
-        const label = m.isSame(moment(), 'day') ? 'Today' : m.isSame(moment().subtract(1, 'day'), 'day') ? 'Yesterday' : m.format('dddd');
-        box.createDiv({ cls: 'nd-done-day', text: label });
-      }
-      const key = `${x.kind}|${x.t}|${x.text}`;
-      this.doneSeen.add(key);
-      const r = box.createDiv('nd-done-row' + (x.open ? ' is-clickable' : '') + (seen && !seen.has(key) ? ' is-new' : ''));
-      icon(r, x.kind === 'ticket' ? 'ticket' : 'check', 'nd-ico nd-done-ico');
-      r.createSpan({ cls: 'nd-done-text', text: x.text });
-      if (x.status) r.createSpan({ cls: `nd-done-chip is-${x.status}`, text: x.status === 'done' ? 'Done' : 'Waiting' });
-      if (x.src) r.createSpan({ cls: 'nd-done-src', text: x.src });
-      r.createSpan({ cls: 'nd-done-at', text: m.format('HH:mm') });
-      tip(r, x.text);
-      if (x.open) r.addEventListener('click', (e) => x.open(e));
-    }
-  }
   renderRecent(d) {
     const b = this.recent.body;
     b.empty();
@@ -2035,90 +2003,10 @@ class DashboardView extends ItemView {
       this.plugin.bindFileMouse(c, f, this);
     });
   }
-  /** Activity: a Month view (stats + calendar) and a Week view per week of the month (each day's entries). */
-  renderHeat(d) {
-    const b = this.heat.body;
-    b.empty();
-    const p = this.plugin;
-    const month = (this.actMonth = this.actMonth || moment().startOf('month'));
-    const days = actDays(p, d, month);
-    // header: month switch + Month / week chips
-    const acts = this.heat.actions;
-    acts.empty();
-    button(acts, { icon: 'chevron-left', cls: 'nd-icon-btn', title: 'Previous month', onClick: () => ((this.actMonth = month.clone().subtract(1, 'month')), (this.actView = 'month'), this.renderHeat(d)) });
-    acts.createSpan({ cls: 'nd-act-month', text: month.format('MMM YYYY') });
-    button(acts, { icon: 'chevron-right', cls: 'nd-icon-btn', title: 'Next month', onClick: () => ((this.actMonth = month.clone().add(1, 'month')), (this.actView = 'month'), this.renderHeat(d)) });
-    const weeks = [];
-    for (let w = month.clone().startOf('isoWeek'); w.isBefore(month.clone().endOf('month')); w.add(1, 'week')) weeks.push(w.clone());
-    const view = this.actView == null || (this.actView !== 'month' && !weeks[this.actView]) ? 'month' : this.actView;
-    // rise-in only when the month or view changes, not on every data refresh
-    const animKey = `${month.format('YYYY-MM')}|${view}`;
-    b.toggleClass('is-anim', this.actAnimKey !== animKey);
-    this.actAnimKey = animKey;
-    const tabs = pills(acts, [['month', 'Month'], ...weeks.map((w, i) => [i, `W${w.isoWeek()}`])], view, (v) => ((this.actView = v), this.renderHeat(d)), 'nd-act-tabs');
-    acts.prepend(tabs.el);
-    if (view === 'month') this.renderActMonth(b, month, days, weeks);
-    else this.renderActWeek(b, weeks[view], days);
-  }
-  renderActMonth(b, month, days, weeks) {
-    const wrap = b.createDiv('nd-act-monthview');
-    const stats = wrap.createDiv('nd-act-stats');
-    for (const st of ACTIVITY_STATS) {
-      const r = st.get(days, month, this.plugin);
-      if (!r) continue;
-      const t = stats.createDiv('nd-act-stat');
-      t.style.setProperty('--stat-accent', st.accent);
-      t.createDiv({ cls: 'nd-act-stat-v', text: r.v });
-      t.createDiv({ cls: 'nd-act-stat-l', text: r.sub ? `${st.label} · ${r.sub}` : st.label });
-      tip(t, st.how);
-    }
-    if (!stats.childElementCount) stats.createDiv({ cls: 'nd-act-none', text: 'No stats yet this month' });
-    const cal = wrap.createDiv('nd-act-cal');
-    cal.style.gridTemplateRows = `auto repeat(${weeks.length}, minmax(22px, 1fr))`;
-    for (const n of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) cal.createDiv({ cls: 'nd-act-dow', text: n });
-    const todayKey = dayKey(Date.now());
-    const max = Math.max(1, ...[...days.values()].map(actCount));
-    weeks.forEach((w, wi) => {
-      for (let i = 0; i < 7; i++) {
-        const m = w.clone().add(i, 'days');
-        const k = m.format('YYYY-MM-DD');
-        const x = days.get(k);
-        const n = x ? actCount(x) : 0;
-        const c = cal.createDiv('nd-act-day' + (m.month() !== month.month() ? ' is-out' : '') + (k === todayKey ? ' is-today' : '') + (n ? ' is-clickable' : ''));
-        c.style.setProperty('--i', String(wi * 7 + i));
-        c.style.setProperty('--lvl', String(n ? 0.15 + (0.85 * n) / max : 0));
-        c.createSpan({ cls: 'nd-act-num', text: String(m.date()) });
-        const dots = c.createDiv('nd-act-dots');
-        if (x) for (const [kind, list] of [['task', x.tasks], ['ticket', x.tickets], ['time', x.time], ['note', x.notes]]) if (list.length) dots.createSpan(`nd-act-dot is-${kind}`);
-        tip(c, `${m.format('ddd D MMM')} · ${x ? `${x.tasks.length} tasks · ${x.tickets.length} tickets · ${x.time.length} time entries · ${x.notes.length} notes` : 'nothing'}`);
-        if (n) c.addEventListener('click', () => new ActivityDayModal(this.plugin, m, x).open());
-      }
-    });
-  }
-  renderActWeek(b, w, days) {
-    const wk = b.createDiv('nd-act-week');
-    const todayKey = dayKey(Date.now());
-    for (let i = 0; i < 7; i++) {
-      const m = w.clone().add(i, 'days');
-      const k = m.format('YYYY-MM-DD');
-      const x = days.get(k);
-      const col = wk.createDiv('nd-act-col' + (k === todayKey ? ' is-today' : ''));
-      col.style.setProperty('--i', String(i));
-      const head = col.createDiv({ cls: 'nd-act-col-head is-clickable', text: m.format('ddd D') });
-      head.addEventListener('click', () => new ActivityDayModal(this.plugin, m, x).open());
-      const list = col.createDiv('nd-act-col-list');
-      const rows = x ? [...x.tasks, ...x.tickets, ...x.time, ...x.notes].sort((a, b2) => a.t - b2.t) : [];
-      if (!rows.length) list.createDiv({ cls: 'nd-act-none', text: '·' });
-      for (const r of rows) {
-        const el = list.createDiv(`nd-act-item is-${r.kind}` + (r.open ? ' is-clickable' : ''));
-        icon(el, { task: 'check', ticket: 'ticket', time: 'clock', note: 'file-text' }[r.kind], 'nd-ico');
-        el.createSpan({ cls: 'nd-act-item-text', text: r.text });
-        tip(el, `${moment(r.t).format('HH:mm')} · ${r.text}${r.extra ? ' · ' + r.extra : ''}`);
-        if (r.open) el.addEventListener('click', (e) => r.open(e));
-      }
-    }
-  }
+}
 
+/* @src src/deck/dash-ticker.js */
+Object.assign(DashboardView.prototype, {
   renderTicker(d) {
     d = d || this.lastData || this.plugin.collectVaultData();
     const p = this.plugin;
@@ -2155,13 +2043,13 @@ class DashboardView extends ItemView {
     this.tickerLines = lines;
     if (first || this.tickerIdx >= lines.length) this.tickerIdx = 0;
     this.showTicker(false);
-  }
+  },
   nextTicker() {
     if (!this.tickerLines || this.tickerLines.length < 2 || !this.tickerEl || !this.tickerEl.isConnected) return;
     if (this.tickerEl.matches(':hover')) return;
     this.tickerIdx = (this.tickerIdx + 1) % this.tickerLines.length;
     this.showTicker(true);
-  }
+  },
   showTicker(fade) {
     const el = this.tickerEl;
     const line = this.tickerLines && this.tickerLines[this.tickerIdx];
@@ -2177,7 +2065,7 @@ class DashboardView extends ItemView {
         s.appendText(' ' + it.l);
       }
     });
-  }
+  },
 
   /** Totals card: live counts from Neon Time, Tickets, Tasks and the vault. The first tile spans the card. */
   renderTotals(d) {
@@ -2254,9 +2142,136 @@ class DashboardView extends ItemView {
     // notes (vault)
     const created = d.md.filter((f) => thisMonth(f.stat.ctime)).length;
     tile(d.md.length, 'notes', 'var(--nd-text)', `${created} created in ${month}`, 'Notes in the vault, without excluded folders');
-  }
-}
+  },
+});
+/* @src src/deck/dash-activity.js */
+Object.assign(DashboardView.prototype, {
+  /** Top of Recently done / touched: ticked tasks and tickets set to Done/Waiting, last 14 days, by day. */
+  renderDoneLog(b) {
+    const cut = moment().startOf('day').subtract(13, 'days').valueOf();
+    const items = [];
+    for (const [id, fn] of this.plugin.activity) {
+      try {
+        for (const x of fn() || []) if (x && x.t >= cut) items.push(x);
+      } catch (e) {
+        console.error(`Neon Deck activity ${id}`, e);
+      }
+    }
+    items.sort((a, b2) => b2.t - a.t);
+    const today = items.filter((x) => moment(x.t).isSame(moment(), 'day')).length;
+    this.recent.badge.setText(today ? `${today} today` : '');
+    if (!this.plugin.activity.size) return; // Tasks and Tickets both off: only the notes list
+    const box = b.createDiv('nd-done-log');
+    if (!items.length) return void box.createDiv({ cls: 'nd-done-empty', text: 'Nothing done yet today' });
+    let day = '';
+    const seen = this.doneSeen; // rows drawn last time: only new ones slide in
+    this.doneSeen = new Set();
+    for (const x of items.slice(0, 200)) {
+      const m = moment(x.t);
+      const k = m.format('YYYY-MM-DD');
+      if (k !== day) {
+        day = k;
+        const label = m.isSame(moment(), 'day') ? 'Today' : m.isSame(moment().subtract(1, 'day'), 'day') ? 'Yesterday' : m.format('dddd');
+        box.createDiv({ cls: 'nd-done-day', text: label });
+      }
+      const key = `${x.kind}|${x.t}|${x.text}`;
+      this.doneSeen.add(key);
+      const r = box.createDiv('nd-done-row' + (x.open ? ' is-clickable' : '') + (seen && !seen.has(key) ? ' is-new' : ''));
+      icon(r, x.kind === 'ticket' ? 'ticket' : 'check', 'nd-ico nd-done-ico');
+      r.createSpan({ cls: 'nd-done-text', text: x.text });
+      if (x.status) r.createSpan({ cls: `nd-done-chip is-${x.status}`, text: x.status === 'done' ? 'Done' : 'Waiting' });
+      if (x.src) r.createSpan({ cls: 'nd-done-src', text: x.src });
+      r.createSpan({ cls: 'nd-done-at', text: m.format('HH:mm') });
+      tip(r, x.text);
+      if (x.open) r.addEventListener('click', (e) => x.open(e));
+    }
+  },
+  /** Activity: a Month view (stats + calendar) and a Week view per week of the month (each day's entries). */
+  renderHeat(d) {
+    const b = this.heat.body;
+    b.empty();
+    const p = this.plugin;
+    const month = (this.actMonth = this.actMonth || moment().startOf('month'));
+    const days = actDays(p, d, month);
+    // header: month switch + Month / week chips
+    const acts = this.heat.actions;
+    acts.empty();
+    button(acts, { icon: 'chevron-left', cls: 'nd-icon-btn', title: 'Previous month', onClick: () => ((this.actMonth = month.clone().subtract(1, 'month')), (this.actView = 'month'), this.renderHeat(d)) });
+    acts.createSpan({ cls: 'nd-act-month', text: month.format('MMM YYYY') });
+    button(acts, { icon: 'chevron-right', cls: 'nd-icon-btn', title: 'Next month', onClick: () => ((this.actMonth = month.clone().add(1, 'month')), (this.actView = 'month'), this.renderHeat(d)) });
+    const weeks = [];
+    for (let w = month.clone().startOf('isoWeek'); w.isBefore(month.clone().endOf('month')); w.add(1, 'week')) weeks.push(w.clone());
+    const view = this.actView == null || (this.actView !== 'month' && !weeks[this.actView]) ? 'month' : this.actView;
+    // rise-in only when the month or view changes, not on every data refresh
+    const animKey = `${month.format('YYYY-MM')}|${view}`;
+    b.toggleClass('is-anim', this.actAnimKey !== animKey);
+    this.actAnimKey = animKey;
+    const tabs = pills(acts, [['month', 'Month'], ...weeks.map((w, i) => [i, `W${w.isoWeek()}`])], view, (v) => ((this.actView = v), this.renderHeat(d)), 'nd-act-tabs');
+    acts.prepend(tabs.el);
+    if (view === 'month') this.renderActMonth(b, month, days, weeks);
+    else this.renderActWeek(b, weeks[view], days);
+  },
+  renderActMonth(b, month, days, weeks) {
+    const wrap = b.createDiv('nd-act-monthview');
+    const stats = wrap.createDiv('nd-act-stats');
+    for (const st of ACTIVITY_STATS) {
+      const r = st.get(days, month, this.plugin);
+      if (!r) continue;
+      const t = stats.createDiv('nd-act-stat');
+      t.style.setProperty('--stat-accent', st.accent);
+      t.createDiv({ cls: 'nd-act-stat-v', text: r.v });
+      t.createDiv({ cls: 'nd-act-stat-l', text: r.sub ? `${st.label} · ${r.sub}` : st.label });
+      tip(t, st.how);
+    }
+    if (!stats.childElementCount) stats.createDiv({ cls: 'nd-act-none', text: 'No stats yet this month' });
+    const cal = wrap.createDiv('nd-act-cal');
+    cal.style.gridTemplateRows = `auto repeat(${weeks.length}, minmax(22px, 1fr))`;
+    for (const n of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) cal.createDiv({ cls: 'nd-act-dow', text: n });
+    const todayKey = dayKey(Date.now());
+    const max = Math.max(1, ...[...days.values()].map(actCount));
+    weeks.forEach((w, wi) => {
+      for (let i = 0; i < 7; i++) {
+        const m = w.clone().add(i, 'days');
+        const k = m.format('YYYY-MM-DD');
+        const x = days.get(k);
+        const n = x ? actCount(x) : 0;
+        const c = cal.createDiv('nd-act-day' + (m.month() !== month.month() ? ' is-out' : '') + (k === todayKey ? ' is-today' : '') + (n ? ' is-clickable' : ''));
+        c.style.setProperty('--i', String(wi * 7 + i));
+        c.style.setProperty('--lvl', String(n ? 0.15 + (0.85 * n) / max : 0));
+        c.createSpan({ cls: 'nd-act-num', text: String(m.date()) });
+        const dots = c.createDiv('nd-act-dots');
+        if (x) for (const [kind, list] of [['task', x.tasks], ['ticket', x.tickets], ['time', x.time], ['note', x.notes]]) if (list.length) dots.createSpan(`nd-act-dot is-${kind}`);
+        tip(c, `${m.format('ddd D MMM')} · ${x ? `${x.tasks.length} tasks · ${x.tickets.length} tickets · ${x.time.length} time entries · ${x.notes.length} notes` : 'nothing'}`);
+        if (n) c.addEventListener('click', () => new ActivityDayModal(this.plugin, m, x).open());
+      }
+    });
+  },
+  renderActWeek(b, w, days) {
+    const wk = b.createDiv('nd-act-week');
+    const todayKey = dayKey(Date.now());
+    for (let i = 0; i < 7; i++) {
+      const m = w.clone().add(i, 'days');
+      const k = m.format('YYYY-MM-DD');
+      const x = days.get(k);
+      const col = wk.createDiv('nd-act-col' + (k === todayKey ? ' is-today' : ''));
+      col.style.setProperty('--i', String(i));
+      const head = col.createDiv({ cls: 'nd-act-col-head is-clickable', text: m.format('ddd D') });
+      head.addEventListener('click', () => new ActivityDayModal(this.plugin, m, x).open());
+      const list = col.createDiv('nd-act-col-list');
+      const rows = x ? [...x.tasks, ...x.tickets, ...x.time, ...x.notes].sort((a, b2) => a.t - b2.t) : [];
+      if (!rows.length) list.createDiv({ cls: 'nd-act-none', text: '·' });
+      for (const r of rows) {
+        const el = list.createDiv(`nd-act-item is-${r.kind}` + (r.open ? ' is-clickable' : ''));
+        icon(el, { task: 'check', ticket: 'ticket', time: 'clock', note: 'file-text' }[r.kind], 'nd-ico');
+        el.createSpan({ cls: 'nd-act-item-text', text: r.text });
+        tip(el, `${moment(r.t).format('HH:mm')} · ${r.text}${r.extra ? ' · ' + r.extra : ''}`);
+        if (r.open) el.addEventListener('click', (e) => r.open(e));
+      }
+    }
+  },
 
+});
+/* @src src/deck/cards-view.js */
 /* ------------------------------------------------------------------ */
 /* Card explorer                                                       */
 /* ------------------------------------------------------------------ */
@@ -2715,247 +2730,17 @@ class CardsView extends ItemView {
     return (out ? Object.keys(out).length : 0) + ((this.incoming && this.incoming.get(f.path)) || []).length;
   }
 
-  renderCrumbs(folder) {
-    const c = this.crumbs;
-    c.empty();
-    const mk = (label, path) => {
-      const b = c.createEl('button', { cls: 'nd-crumb', text: label });
-      b.addEventListener('click', () => this.navigate(path, -1));
-      this.makeDropTarget(b, () => path);
-      return b;
-    };
-    const home = mk(this.app.vault.getName(), '/');
-    if (folder.path === '/') home.addClass('is-current');
-    let acc = '';
-    const parts = folder.path === '/' ? [] : folder.path.split('/');
-    parts.forEach((p, i) => {
-      c.createSpan({ cls: 'nd-crumb-sep', text: '/' });
-      acc = acc ? `${acc}/${p}` : p;
-      const b = mk(p, acc);
-      if (i === parts.length - 1) b.addClass('is-current');
-    });
-    c.scrollLeft = c.scrollWidth;
-  }
+}
+function shortAgo(t) {
+  const m = Math.max(0, (Date.now() - t) / 60000);
+  if (m < 60) return `${Math.max(1, Math.round(m))}m`;
+  if (m < 1440) return `${Math.round(m / 60)}h`;
+  if (m < 1440 * 60) return `${Math.round(m / 1440)}d`;
+  return moment(t).format('MMM YY');
+}
 
-  baseCard(parent, cls, i, path) {
-    const card = parent.createDiv(`nd-ci ${cls}`);
-    card.style.setProperty('--i', String(Math.min(i, 24)));
-    card.dataset.path = path;
-    return card;
-  }
-  catTag(parent, cat) {
-    if (!cat || cat === 'untracked') return null;
-    const t = parent.createSpan({ cls: 'nd-cat-tag', text: CAT_LABEL[cat] });
-    t.style.setProperty('--tag-accent', catColor(cat));
-    return t;
-  }
-  folderIcon(parent, cat) {
-    const ic = icon(parent, 'folder', 'nd-folder-icon');
-    ic.style.setProperty('--folder-accent', cat ? catColor(cat) : 'var(--nd-muted)');
-    return ic;
-  }
-  folderCard(parent, folder, info, i) {
-    const card = this.baseCard(parent, 'nd-ci-folder', i, folder.path);
-    this.folderIcon(card, info.cat);
-    const main = card.createDiv('nd-ci-main');
-    const top = main.createDiv('nd-ci-top');
-    top.createDiv({ cls: 'nd-ci-title', text: folder.name });
-    this.catTag(top, info.cat);
-    const n = info.notes.length;
-    const weekAgo = Date.now() - 7 * 864e5;
-    let meta = `${n} note${n === 1 ? '' : 's'}`;
-    if (info.cat === 'school' && n) {
-      const fresh = info.notes.filter((f) => !this.needsRevisit(f)).length;
-      meta += ` · ${fresh} / ${n} revisited`;
-      const bar = main.createDiv('nd-ci-progress');
-      bar.createDiv('nd-ci-progress-fill').style.width = `${Math.round((fresh / n) * 100)}%`;
-    } else {
-      const wk = info.notes.filter((f) => f.stat.mtime >= weekAgo).length;
-      if (wk) meta += ` · ${wk} edited this week`;
-    }
-    main.insertBefore(createDiv({ cls: 'nd-ci-meta', text: meta }), main.querySelector('.nd-ci-progress'));
-    card.addEventListener('click', () => this.navigate(folder.path, 1));
-    card.addEventListener('mousedown', (e) => {
-      if (e.button === 1) e.preventDefault();
-    });
-    card.addEventListener('auxclick', (e) => {
-      if (e.button === 1) {
-        e.preventDefault();
-        this.plugin.openCardsAt(folder.path, true);
-      }
-    });
-    card.addEventListener('contextmenu', (e) => this.folderMenu(folder, e));
-    this.dragFolder(card, folder);
-    this.makeDropTarget(card, () => folder.path);
-  }
-  folderMenu(folder, e) {
-    e.preventDefault();
-    this.plugin.fileMenu(folder, e, (m) => {
-      const pinned = this.plugin.settings.pinnedFolders.includes(folder.path);
-      m.addItem((it) => it.setTitle(pinned ? 'Unpin folder' : 'Pin folder').setIcon(pinned ? 'pin-off' : 'pin').onClick(() => this.plugin.togglePin(folder.path)));
-      m.addItem((it) => it.setTitle('Open in new cards tab').setIcon('layout-grid').onClick(() => this.plugin.openCardsAt(folder.path, true)));
-      m.addItem((it) => it.setTitle('New note here').setIcon('file-plus').onClick(() => this.plugin.newNote(folder.path)));
-      m.addItem((it) => it.setTitle('New folder here').setIcon('folder-plus').onClick(() => this.plugin.newFolder(folder.path)));
-      m.addItem((it) => it.setTitle('Graph of this folder').setIcon('waypoints').onClick(() => this.plugin.openGraph('notes', `folder:${folder.path}`)));
-    });
-  }
-  dragFolder(el, folder) {
-    el.setAttr('draggable', 'true');
-    el.addEventListener('dragstart', (e) => {
-      this.plugin.dragging = folder;
-      try {
-        const dm = this.app.dragManager;
-        dm.onDragStart(e, dm.dragFolder(e, folder));
-      } catch (_) {
-        if (e.dataTransfer) e.dataTransfer.setData('text/plain', folder.path);
-      }
-    });
-    el.addEventListener('dragend', () => (this.plugin.dragging = null));
-  }
-  fileCard(parent, file, i, showPath) {
-    const ext = file.extension.toLowerCase();
-    const isMd = ext === 'md';
-    const isImg = IMG_EXT.has(ext);
-    const cache = isMd ? this.app.metadataCache.getFileCache(file) : null;
-    const cat = isMd ? noteCategory(cache) : null;
-    const card = this.baseCard(parent, 'nd-ci-note' + (isImg ? ' is-image' : '') + (isMd ? '' : ' is-other'), i, file.path);
-    if (cat && cat !== 'untracked') card.style.setProperty('--ci-accent', catColor(cat));
-    if (this.plugin.lastFile && this.plugin.lastFile.path === file.path) card.addClass('is-active');
-    const age = this.revisitAge(file);
-    const revisit = age >= this.plugin.settings.revisitDays;
-    card.toggleClass('needs-revisit', revisit);
-    const cover = isImg ? this.app.vault.getResourcePath(file) : isMd ? this.coverFor(file, cache) : null;
-    if (cover) {
-      card.addClass('has-cover');
-      card.createDiv('nd-ci-cover').createEl('img', { attr: { src: cover, loading: 'lazy', alt: '' } });
-    }
-    const top = card.createDiv('nd-ci-top');
-    if (!this.catTag(top, cat)) {
-      if (!isMd) top.createSpan({ cls: 'nd-cat-tag is-ext', text: ext });
-      else top.createSpan({ cls: 'nd-cat-tag is-none', text: cat === 'untracked' ? 'Untracked' : 'Note' });
-    }
-    const when = top.createSpan('nd-ci-when');
-    if (revisit) {
-      when.addClass('is-revisit');
-      when.setText(`Revisit · ${age}d`);
-    } else {
-      const seen = this.plugin.settings.seen[file.path] || 0;
-      when.setText(seen > file.stat.mtime ? `opened ${moment(seen).fromNow()}` : `edited ${moment(file.stat.mtime).fromNow()}`);
-    }
-    card.createDiv({ cls: 'nd-ci-title', text: file.basename });
-    if (showPath && file.parent && file.parent.path !== '/') card.createDiv({ cls: 'nd-ci-path', text: file.parent.path });
-    if (isMd) {
-      this.fillExcerpt(file, card.createDiv('nd-ci-excerpt'));
-      const tags = [...new Set(getAllTags(cache || {}) || [])].filter((t) => !/^#(tasks|ticket|projects|school|admin|operations|ops)$/i.test(t));
-      const n = this.linkCount(file);
-      // no tags and no links: skip the footer, so the card stays close to a folder card's height
-      if (tags.length || n) {
-        const foot = card.createDiv('nd-ci-foot');
-        const tg = foot.createDiv('nd-ci-tags');
-        tags.slice(0, 3).forEach((t) => tg.createSpan({ cls: 'nd-tag', text: t }));
-        if (n) foot.createSpan({ cls: 'nd-ci-links', text: `${n} link${n === 1 ? '' : 's'}` });
-      }
-      this.bindPreview(card, file);
-    } else {
-      const size = file.stat.size > 1048576 ? `${(file.stat.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(file.stat.size / 1024))} KB`;
-      card.createDiv({ cls: 'nd-ci-meta', text: size });
-    }
-    this.plugin.bindFileMouse(card, file, this);
-  }
-  coverFor(file, cache) {
-    if (!cache) return null;
-    const resolve = (link) => {
-      if (typeof link !== 'string') return null;
-      const clean = link.replace(/^!?\[\[|\]\]$/g, '').split('|')[0].split('#')[0].trim();
-      if (!clean || /^https?:/i.test(clean)) return null;
-      const dest = this.app.metadataCache.getFirstLinkpathDest(clean, file.path);
-      return dest && IMG_EXT.has(dest.extension.toLowerCase()) ? this.app.vault.getResourcePath(dest) : null;
-    };
-    const fm = cache.frontmatter || {};
-    for (const k of ['cover', 'banner', 'image']) {
-      const r = resolve(fm[k]);
-      if (r) return r;
-    }
-    for (const e of cache.embeds || []) {
-      const r = resolve(e.link);
-      if (r) return r;
-    }
-    return null;
-  }
-  async excerpt(file, max = 180) {
-    const key = `${file.path}:${file.stat.mtime}:${max}`;
-    let t = this.excerpts.get(key);
-    if (t === undefined) {
-      t = excerptOf(await this.app.vault.cachedRead(file), max);
-      if (this.excerpts.size > 2000) this.excerpts.clear();
-      this.excerpts.set(key, t);
-    }
-    return t;
-  }
-  async fillExcerpt(file, el) {
-    const t = await this.excerpt(file);
-    el.setText(t || 'Empty note — click to start writing');
-    el.toggleClass('is-empty', !t);
-  }
-  updateCard(file) {
-    if (!this.bodyEl || !(file instanceof TFile)) return;
-    const card = this.bodyEl.querySelector(`[data-path="${CSS.escape(file.path)}"]`);
-    if (!card) return;
-    const ex = card.querySelector('.nd-ci-excerpt');
-    if (ex) this.fillExcerpt(file, ex);
-  }
-  markActive() {
-    if (!this.bodyEl) return;
-    const p = this.plugin.lastFile && this.plugin.lastFile.path;
-    this.bodyEl.querySelectorAll('[data-path]').forEach((c) => c.toggleClass('is-active', c.dataset.path === p));
-  }
-
-  /* hover preview ------------------------------------------------------ */
-  bindPreview(card, file) {
-    card.addEventListener('mouseenter', () => {
-      window.clearTimeout(this.previewTimer);
-      this.previewTimer = window.setTimeout(() => this.showPreview(file, card), 550);
-    });
-    card.addEventListener('mouseleave', () => {
-      window.clearTimeout(this.previewTimer);
-      this.hidePreview();
-    });
-  }
-  async showPreview(file, card) {
-    if (!card.isConnected) return;
-    this.hidePreview(true);
-    const pv = this.contentEl.createDiv('nd-preview');
-    this.previewEl = pv;
-    pv.addEventListener('mouseenter', () => window.clearTimeout(this.hideTimer));
-    pv.addEventListener('mouseleave', () => this.hidePreview());
-    pv.createDiv({ cls: 'nd-preview-k', text: `Preview · ${file.basename}` });
-    const text = pv.createDiv('nd-preview-text');
-    const ex = await this.excerpt(file, 320);
-    if (this.previewEl !== pv) return;
-    text.setText(ex || 'Empty note.');
-    const from = ((this.incoming && this.incoming.get(file.path)) || []).map((p) => p.split('/').pop().replace(/\.md$/, ''));
-    if (from.length) pv.createDiv({ cls: 'nd-preview-links', text: `Linked from: ${from.slice(0, 5).join(', ')}${from.length > 5 ? ` +${from.length - 5}` : ''}` });
-    const row = pv.createDiv('nd-preview-row');
-    button(row, { text: 'Open', cls: 'mod-cta', onClick: (e) => (this.hidePreview(true), openFile(this.app, file, e)) });
-    if (fileCategory(this.app, file) === 'school') button(row, { text: 'Mark revisited', onClick: () => (this.plugin.markSeen(file.path), this.hidePreview(true)) });
-    const hr = this.contentEl.getBoundingClientRect();
-    const cr = card.getBoundingClientRect();
-    const w = 340;
-    let left = cr.right - hr.left + 10;
-    if (left + w > hr.width - 8) left = Math.max(8, cr.left - hr.left - w - 10);
-    pv.style.left = `${left}px`;
-    pv.style.top = `${clamp(cr.top - hr.top, 8, Math.max(8, hr.height - pv.offsetHeight - 8))}px`;
-  }
-  hidePreview(now) {
-    window.clearTimeout(this.hideTimer);
-    const kill = () => {
-      if (this.previewEl) this.previewEl.remove();
-      this.previewEl = null;
-    };
-    if (now) kill();
-    else this.hideTimer = window.setTimeout(kill, 220);
-  }
-
+/* @src src/deck/cards-sidebar.js */
+Object.assign(CardsView.prototype, {
   /* sidebar ------------------------------------------------------------- */
   renderSidebar(folder, dir = 0) {
     const body = this.bodyEl;
@@ -3038,7 +2823,7 @@ class CardsView extends ItemView {
     this.toneRows(body);
     finishAnim();
     this.scroller.scrollTop = animate && dir !== 0 ? 0 : scroll;
-  }
+  },
   /** Folders in shades of the accent (red), notes in shades of go (lime); shades alternate per kind. */
   toneRows(body) {
     let dirs = 0;
@@ -3048,7 +2833,7 @@ class CardsView extends ItemView {
       else if (el.matches('.nd-side-row.is-note')) el.addClass(notes++ % 2 ? 'tone-b' : 'tone-a');
       else if (el.matches('.nd-section-k')) dirs = notes = 0;
     }
-  }
+  },
   sideNote(parent, f, showPath) {
     const row = parent.createDiv('nd-side-row is-note');
     row.dataset.path = f.path;
@@ -3061,7 +2846,7 @@ class CardsView extends ItemView {
     row.createSpan({ cls: 'nd-side-count', text: showPath && f.parent && f.parent.path !== '/' ? f.parent.path : shortAgo(t) });
     if (this.needsRevisit(f)) row.addClass('needs-revisit');
     this.plugin.bindFileMouse(row, f, this);
-  }
+  },
 
   canMove(f, dest) {
     if (dest == null) return false;
@@ -3069,7 +2854,7 @@ class CardsView extends ItemView {
     if (parent === dest) return false;
     if (f instanceof TFolder && (dest === f.path || dest.startsWith(f.path + '/'))) return false;
     return true;
-  }
+  },
   makeDropTarget(el, getPath) {
     el.addEventListener('dragover', (e) => {
       const f = this.plugin.dragging;
@@ -3092,16 +2877,253 @@ class CardsView extends ItemView {
       this.plugin.dragging = null;
       await this.plugin.moveTo(f, dest);
     });
-  }
-}
-function shortAgo(t) {
-  const m = Math.max(0, (Date.now() - t) / 60000);
-  if (m < 60) return `${Math.max(1, Math.round(m))}m`;
-  if (m < 1440) return `${Math.round(m / 60)}h`;
-  if (m < 1440 * 60) return `${Math.round(m / 1440)}d`;
-  return moment(t).format('MMM YY');
-}
+  },
+});
+/* @src src/deck/cards-render.js */
+Object.assign(CardsView.prototype, {
+  renderCrumbs(folder) {
+    const c = this.crumbs;
+    c.empty();
+    const mk = (label, path) => {
+      const b = c.createEl('button', { cls: 'nd-crumb', text: label });
+      b.addEventListener('click', () => this.navigate(path, -1));
+      this.makeDropTarget(b, () => path);
+      return b;
+    };
+    const home = mk(this.app.vault.getName(), '/');
+    if (folder.path === '/') home.addClass('is-current');
+    let acc = '';
+    const parts = folder.path === '/' ? [] : folder.path.split('/');
+    parts.forEach((p, i) => {
+      c.createSpan({ cls: 'nd-crumb-sep', text: '/' });
+      acc = acc ? `${acc}/${p}` : p;
+      const b = mk(p, acc);
+      if (i === parts.length - 1) b.addClass('is-current');
+    });
+    c.scrollLeft = c.scrollWidth;
+  },
 
+  baseCard(parent, cls, i, path) {
+    const card = parent.createDiv(`nd-ci ${cls}`);
+    card.style.setProperty('--i', String(Math.min(i, 24)));
+    card.dataset.path = path;
+    return card;
+  },
+  catTag(parent, cat) {
+    if (!cat || cat === 'untracked') return null;
+    const t = parent.createSpan({ cls: 'nd-cat-tag', text: CAT_LABEL[cat] });
+    t.style.setProperty('--tag-accent', catColor(cat));
+    return t;
+  },
+  folderIcon(parent, cat) {
+    const ic = icon(parent, 'folder', 'nd-folder-icon');
+    ic.style.setProperty('--folder-accent', cat ? catColor(cat) : 'var(--nd-muted)');
+    return ic;
+  },
+  folderCard(parent, folder, info, i) {
+    const card = this.baseCard(parent, 'nd-ci-folder', i, folder.path);
+    this.folderIcon(card, info.cat);
+    const main = card.createDiv('nd-ci-main');
+    const top = main.createDiv('nd-ci-top');
+    top.createDiv({ cls: 'nd-ci-title', text: folder.name });
+    this.catTag(top, info.cat);
+    const n = info.notes.length;
+    const weekAgo = Date.now() - 7 * 864e5;
+    let meta = `${n} note${n === 1 ? '' : 's'}`;
+    if (info.cat === 'school' && n) {
+      const fresh = info.notes.filter((f) => !this.needsRevisit(f)).length;
+      meta += ` · ${fresh} / ${n} revisited`;
+      const bar = main.createDiv('nd-ci-progress');
+      bar.createDiv('nd-ci-progress-fill').style.width = `${Math.round((fresh / n) * 100)}%`;
+    } else {
+      const wk = info.notes.filter((f) => f.stat.mtime >= weekAgo).length;
+      if (wk) meta += ` · ${wk} edited this week`;
+    }
+    main.insertBefore(createDiv({ cls: 'nd-ci-meta', text: meta }), main.querySelector('.nd-ci-progress'));
+    card.addEventListener('click', () => this.navigate(folder.path, 1));
+    card.addEventListener('mousedown', (e) => {
+      if (e.button === 1) e.preventDefault();
+    });
+    card.addEventListener('auxclick', (e) => {
+      if (e.button === 1) {
+        e.preventDefault();
+        this.plugin.openCardsAt(folder.path, true);
+      }
+    });
+    card.addEventListener('contextmenu', (e) => this.folderMenu(folder, e));
+    this.dragFolder(card, folder);
+    this.makeDropTarget(card, () => folder.path);
+  },
+  folderMenu(folder, e) {
+    e.preventDefault();
+    this.plugin.fileMenu(folder, e, (m) => {
+      const pinned = this.plugin.settings.pinnedFolders.includes(folder.path);
+      m.addItem((it) => it.setTitle(pinned ? 'Unpin folder' : 'Pin folder').setIcon(pinned ? 'pin-off' : 'pin').onClick(() => this.plugin.togglePin(folder.path)));
+      m.addItem((it) => it.setTitle('Open in new cards tab').setIcon('layout-grid').onClick(() => this.plugin.openCardsAt(folder.path, true)));
+      m.addItem((it) => it.setTitle('New note here').setIcon('file-plus').onClick(() => this.plugin.newNote(folder.path)));
+      m.addItem((it) => it.setTitle('New folder here').setIcon('folder-plus').onClick(() => this.plugin.newFolder(folder.path)));
+      m.addItem((it) => it.setTitle('Graph of this folder').setIcon('waypoints').onClick(() => this.plugin.openGraph('notes', `folder:${folder.path}`)));
+    });
+  },
+  dragFolder(el, folder) {
+    el.setAttr('draggable', 'true');
+    el.addEventListener('dragstart', (e) => {
+      this.plugin.dragging = folder;
+      try {
+        const dm = this.app.dragManager;
+        dm.onDragStart(e, dm.dragFolder(e, folder));
+      } catch (_) {
+        if (e.dataTransfer) e.dataTransfer.setData('text/plain', folder.path);
+      }
+    });
+    el.addEventListener('dragend', () => (this.plugin.dragging = null));
+  },
+  fileCard(parent, file, i, showPath) {
+    const ext = file.extension.toLowerCase();
+    const isMd = ext === 'md';
+    const isImg = IMG_EXT.has(ext);
+    const cache = isMd ? this.app.metadataCache.getFileCache(file) : null;
+    const cat = isMd ? noteCategory(cache) : null;
+    const card = this.baseCard(parent, 'nd-ci-note' + (isImg ? ' is-image' : '') + (isMd ? '' : ' is-other'), i, file.path);
+    if (cat && cat !== 'untracked') card.style.setProperty('--ci-accent', catColor(cat));
+    if (this.plugin.lastFile && this.plugin.lastFile.path === file.path) card.addClass('is-active');
+    const age = this.revisitAge(file);
+    const revisit = age >= this.plugin.settings.revisitDays;
+    card.toggleClass('needs-revisit', revisit);
+    const cover = isImg ? this.app.vault.getResourcePath(file) : isMd ? this.coverFor(file, cache) : null;
+    if (cover) {
+      card.addClass('has-cover');
+      card.createDiv('nd-ci-cover').createEl('img', { attr: { src: cover, loading: 'lazy', alt: '' } });
+    }
+    const top = card.createDiv('nd-ci-top');
+    if (!this.catTag(top, cat)) {
+      if (!isMd) top.createSpan({ cls: 'nd-cat-tag is-ext', text: ext });
+      else top.createSpan({ cls: 'nd-cat-tag is-none', text: cat === 'untracked' ? 'Untracked' : 'Note' });
+    }
+    const when = top.createSpan('nd-ci-when');
+    if (revisit) {
+      when.addClass('is-revisit');
+      when.setText(`Revisit · ${age}d`);
+    } else {
+      const seen = this.plugin.settings.seen[file.path] || 0;
+      when.setText(seen > file.stat.mtime ? `opened ${moment(seen).fromNow()}` : `edited ${moment(file.stat.mtime).fromNow()}`);
+    }
+    card.createDiv({ cls: 'nd-ci-title', text: file.basename });
+    if (showPath && file.parent && file.parent.path !== '/') card.createDiv({ cls: 'nd-ci-path', text: file.parent.path });
+    if (isMd) {
+      this.fillExcerpt(file, card.createDiv('nd-ci-excerpt'));
+      const tags = [...new Set(getAllTags(cache || {}) || [])].filter((t) => !/^#(tasks|ticket|projects|school|admin|operations|ops)$/i.test(t));
+      const n = this.linkCount(file);
+      // no tags and no links: skip the footer, so the card stays close to a folder card's height
+      if (tags.length || n) {
+        const foot = card.createDiv('nd-ci-foot');
+        const tg = foot.createDiv('nd-ci-tags');
+        tags.slice(0, 3).forEach((t) => tg.createSpan({ cls: 'nd-tag', text: t }));
+        if (n) foot.createSpan({ cls: 'nd-ci-links', text: `${n} link${n === 1 ? '' : 's'}` });
+      }
+      this.bindPreview(card, file);
+    } else {
+      const size = file.stat.size > 1048576 ? `${(file.stat.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(file.stat.size / 1024))} KB`;
+      card.createDiv({ cls: 'nd-ci-meta', text: size });
+    }
+    this.plugin.bindFileMouse(card, file, this);
+  },
+  coverFor(file, cache) {
+    if (!cache) return null;
+    const resolve = (link) => {
+      if (typeof link !== 'string') return null;
+      const clean = link.replace(/^!?\[\[|\]\]$/g, '').split('|')[0].split('#')[0].trim();
+      if (!clean || /^https?:/i.test(clean)) return null;
+      const dest = this.app.metadataCache.getFirstLinkpathDest(clean, file.path);
+      return dest && IMG_EXT.has(dest.extension.toLowerCase()) ? this.app.vault.getResourcePath(dest) : null;
+    };
+    const fm = cache.frontmatter || {};
+    for (const k of ['cover', 'banner', 'image']) {
+      const r = resolve(fm[k]);
+      if (r) return r;
+    }
+    for (const e of cache.embeds || []) {
+      const r = resolve(e.link);
+      if (r) return r;
+    }
+    return null;
+  },
+  async excerpt(file, max = 180) {
+    const key = `${file.path}:${file.stat.mtime}:${max}`;
+    let t = this.excerpts.get(key);
+    if (t === undefined) {
+      t = excerptOf(await this.app.vault.cachedRead(file), max);
+      if (this.excerpts.size > 2000) this.excerpts.clear();
+      this.excerpts.set(key, t);
+    }
+    return t;
+  },
+  async fillExcerpt(file, el) {
+    const t = await this.excerpt(file);
+    el.setText(t || 'Empty note — click to start writing');
+    el.toggleClass('is-empty', !t);
+  },
+  updateCard(file) {
+    if (!this.bodyEl || !(file instanceof TFile)) return;
+    const card = this.bodyEl.querySelector(`[data-path="${CSS.escape(file.path)}"]`);
+    if (!card) return;
+    const ex = card.querySelector('.nd-ci-excerpt');
+    if (ex) this.fillExcerpt(file, ex);
+  },
+  markActive() {
+    if (!this.bodyEl) return;
+    const p = this.plugin.lastFile && this.plugin.lastFile.path;
+    this.bodyEl.querySelectorAll('[data-path]').forEach((c) => c.toggleClass('is-active', c.dataset.path === p));
+  },
+
+  /* hover preview ------------------------------------------------------ */
+  bindPreview(card, file) {
+    card.addEventListener('mouseenter', () => {
+      window.clearTimeout(this.previewTimer);
+      this.previewTimer = window.setTimeout(() => this.showPreview(file, card), 550);
+    });
+    card.addEventListener('mouseleave', () => {
+      window.clearTimeout(this.previewTimer);
+      this.hidePreview();
+    });
+  },
+  async showPreview(file, card) {
+    if (!card.isConnected) return;
+    this.hidePreview(true);
+    const pv = this.contentEl.createDiv('nd-preview');
+    this.previewEl = pv;
+    pv.addEventListener('mouseenter', () => window.clearTimeout(this.hideTimer));
+    pv.addEventListener('mouseleave', () => this.hidePreview());
+    pv.createDiv({ cls: 'nd-preview-k', text: `Preview · ${file.basename}` });
+    const text = pv.createDiv('nd-preview-text');
+    const ex = await this.excerpt(file, 320);
+    if (this.previewEl !== pv) return;
+    text.setText(ex || 'Empty note.');
+    const from = ((this.incoming && this.incoming.get(file.path)) || []).map((p) => p.split('/').pop().replace(/\.md$/, ''));
+    if (from.length) pv.createDiv({ cls: 'nd-preview-links', text: `Linked from: ${from.slice(0, 5).join(', ')}${from.length > 5 ? ` +${from.length - 5}` : ''}` });
+    const row = pv.createDiv('nd-preview-row');
+    button(row, { text: 'Open', cls: 'mod-cta', onClick: (e) => (this.hidePreview(true), openFile(this.app, file, e)) });
+    if (fileCategory(this.app, file) === 'school') button(row, { text: 'Mark revisited', onClick: () => (this.plugin.markSeen(file.path), this.hidePreview(true)) });
+    const hr = this.contentEl.getBoundingClientRect();
+    const cr = card.getBoundingClientRect();
+    const w = 340;
+    let left = cr.right - hr.left + 10;
+    if (left + w > hr.width - 8) left = Math.max(8, cr.left - hr.left - w - 10);
+    pv.style.left = `${left}px`;
+    pv.style.top = `${clamp(cr.top - hr.top, 8, Math.max(8, hr.height - pv.offsetHeight - 8))}px`;
+  },
+  hidePreview(now) {
+    window.clearTimeout(this.hideTimer);
+    const kill = () => {
+      if (this.previewEl) this.previewEl.remove();
+      this.previewEl = null;
+    };
+    if (now) kill();
+    else this.hideTimer = window.setTimeout(kill, 220);
+  },
+
+});
+/* @src src/deck/graph-view.js */
 /* ------------------------------------------------------------------ */
 /* Concept graph (InfraNodus-style)                                    */
 /* ------------------------------------------------------------------ */
@@ -3382,27 +3404,6 @@ class GraphView extends ItemView {
     });
   }
 
-  colors() {
-    if (this._col) return this._col;
-    const cs = getComputedStyle(this.contentEl);
-    const v = (name, fb) => (cs.getPropertyValue(name) || '').trim() || fb;
-    const pal = PALETTE.map((c, i) => v(`--nd-c${i + 1}`, c));
-    // canvas can't read var() or every CSS colour form: resolve once to rgb and build alpha variants
-    const rgb = (str) => parseColor(str).map((x) => Math.round(x * 255)).join(',');
-    const palRgb = pal.map(rgb);
-    return (this._col = {
-      pal,
-      a: (i, alpha) => `rgba(${palRgb[i % palRgb.length]},${alpha})`,
-      text: v('--nd-text', v('--text-normal', '#e4e6ea')),
-      bg: v('--nd-bg', v('--background-primary', '#121418')),
-      surface: v('--nd-surface', v('--background-secondary', '#191c21')),
-      muted: v('--nd-muted', v('--text-faint', '#8f95a0')),
-      hot: v('--nd-accent', '#e5506a'),
-      hotA: (alpha) => `rgba(${rgb(v('--nd-accent', '#e5506a'))},${alpha})`,
-      font: v('--nd-font-ui', '"Space Grotesk", sans-serif').replace(/var\([^)]*\),?\s*/g, ''),
-      dark: !document.body.hasClass('theme-light'),
-    });
-  }
   themeChanged() {
     this._col = null;
     if (this.an && this.net) this.renderPanel();
@@ -3470,6 +3471,272 @@ class GraphView extends ItemView {
     return null;
   }
 
+}
+
+/* @src src/deck/graph-panel.js */
+Object.assign(GraphView.prototype, {
+  select(i) {
+    this.selected = i;
+    this.renderSelection();
+    this.requestDraw();
+  },
+  nodeFile(n) {
+    if (this.mode === 'notes') return this.net.files[n.i];
+    if (n.kind === 'link') return this.app.metadataCache.getFirstLinkpathDest(this.net.keys[n.i].slice(1, -1), '');
+    return null;
+  },
+  activateNode(n, e) {
+    const f = this.nodeFile(n);
+    if (f) this.plugin.openFile(f, e);
+    else this.plugin.openSearch(n.kind === 'tag' ? `tag:${n.label}` : n.label);
+  },
+  nodeMenu(n, e) {
+    const f = this.nodeFile(n);
+    if (this.mode === 'notes' && f) {
+      this.plugin.fileMenu(f, e);
+      return;
+    }
+    const m = new Menu();
+    m.addItem((it) => it.setTitle(`Search notes for “${n.label}”`).setIcon('search').onClick(() => this.plugin.openSearch(n.kind === 'tag' ? `tag:${n.label}` : n.label)));
+    if (f) m.addItem((it) => it.setTitle('Open note').setIcon('file-text').onClick(() => this.plugin.openFile(f)));
+    else if (n.kind === 'word')
+      m.addItem((it) =>
+        it.setTitle(`Create note “${n.label}”`).setIcon('file-plus').onClick(async () => {
+          const nf = await createUnique(this.app, '', n.label, `# ${n.label}\n\n`);
+          this.plugin.openFile(nf);
+        }),
+      );
+    m.addItem((it) => it.setTitle('Focus its topic').setIcon('shapes').onClick(() => this.toggleTopic(n.c)));
+    m.addSeparator();
+    m.addItem((it) =>
+      it.setTitle(`Hide “${n.label}” (stop-word)`).setIcon('eye-off').onClick(async () => {
+        const s = this.plugin.settings;
+        s.extraStopwords = [s.extraStopwords, this.net.keys[n.i]].filter(Boolean).join(', ');
+        await this.plugin.saveSettings();
+        this.rebuild();
+      }),
+    );
+    m.showAtMouseEvent(e);
+  },
+  toggleTopic(k) {
+    this.focusTopic = this.focusTopic === k ? -1 : k;
+    this.gapFocus = null;
+    this.panel.querySelectorAll('.nd-topic').forEach((r, idx) => r.toggleClass('is-active', idx === this.focusTopic));
+    if (this.focusTopic >= 0) this.fit(true, this.an.topics[k].members);
+    else this.fit(true);
+    this.requestDraw();
+  },
+
+  section(title, ic) {
+    const s = this.panel.createDiv('nd-panel-sec');
+    const h = s.createDiv('nd-panel-head');
+    icon(h, ic);
+    h.createSpan({ text: title });
+    return s;
+  },
+  topicWords(k, n = 3) {
+    return this.an.topics[k].members.slice(0, n).map((i) => this.net.labels[i]);
+  },
+
+  renderPanel() {
+    const p = this.panel;
+    p.empty();
+    const an = this.an;
+    const pal = this.colors().pal;
+    const unit = this.mode === 'concepts' ? 'concepts' : 'notes';
+
+    const st = this.section('Structure', 'gauge');
+    const badge = st.createDiv(`nd-diversity is-${an.diversity.toLowerCase()}`);
+    badge.createDiv({ cls: 'nd-div-label', text: an.diversity });
+    badge.createDiv({ cls: 'nd-div-q', text: `modularity ${an.Q.toFixed(2)} · top topic ${Math.round(an.topics[0].share * 100)}%` });
+    const scale = st.createDiv('nd-div-scale');
+    for (const lvl of ['Biased', 'Focused', 'Diversified', 'Dispersed']) scale.createDiv({ cls: 'nd-div-step' + (lvl === an.diversity ? ' is-on' : ''), text: lvl });
+    st.createDiv({ cls: 'nd-muted', text: DIVERSITY_HINT[an.diversity] });
+
+    const tp = this.section('Main topics', 'shapes');
+    an.topics.slice(0, 8).forEach((t, k) => {
+      const row = tp.createDiv('nd-topic');
+      row.style.setProperty('--topic', pal[k % pal.length]);
+      row.createDiv({ cls: 'nd-topic-sw', text: String(k + 1) });
+      const txt = row.createDiv('nd-topic-txt');
+      txt.createDiv({ cls: 'nd-topic-words', text: this.topicWords(k, 4).join(' · ') });
+      const meter = txt.createDiv('nd-topic-meter');
+      meter.createDiv('nd-topic-fill').style.setProperty('--w', `${Math.round(t.share * 100)}%`);
+      txt.createDiv({ cls: 'nd-topic-share', text: `${Math.round(t.share * 100)}% · ${t.members.length} ${unit}` });
+      row.addEventListener('mouseenter', () => {
+        this.previewTopic = k;
+        this.requestDraw();
+      });
+      row.addEventListener('mouseleave', () => {
+        this.previewTopic = -1;
+        this.requestDraw();
+      });
+      row.addEventListener('click', () => this.toggleTopic(k));
+    });
+
+    const inf = this.section('Most influential', 'zap');
+    const chips = inf.createDiv('nd-chip-row');
+    this.bcRank.slice(0, 14).forEach((i) => {
+      const n = this.nodes[i];
+      const chip = chips.createEl('button', { cls: 'nd-chip', text: n.label });
+      chip.style.setProperty('--card-accent', pal[n.c % pal.length]);
+      chip.addEventListener('click', () => {
+        this.select(i);
+        this.focusNode(n);
+      });
+      chip.addEventListener('mouseenter', () => {
+        this.hover = i;
+        this.requestDraw();
+      });
+      chip.addEventListener('mouseleave', () => {
+        this.hover = -1;
+        this.requestDraw();
+      });
+    });
+
+    const gp = this.section('Structural gaps', 'unlink');
+    if (!an.gaps.length) gp.createDiv({ cls: 'nd-muted', text: 'Not enough distinct topics to detect gaps yet.' });
+    an.gaps.forEach((g) => {
+      const card = gp.createDiv('nd-gap');
+      const line = card.createDiv('nd-gap-line');
+      const wa = this.topicWords(g.a, 2);
+      const wb = this.topicWords(g.b, 2);
+      const sa = line.createSpan({ cls: 'nd-gap-side', text: wa.join(' · ') });
+      sa.style.setProperty('--topic', pal[g.a % pal.length]);
+      line.createSpan({ cls: 'nd-gap-x', text: '⟷' });
+      const sb = line.createSpan({ cls: 'nd-gap-side', text: wb.join(' · ') });
+      sb.style.setProperty('--topic', pal[g.b % pal.length]);
+      card.createDiv({
+        cls: 'nd-gap-q',
+        text: this.mode === 'concepts' ? `How does “${wa[0]}” relate to “${wb[0]}”?` : `What connects [[${wa[0]}]] with [[${wb[0]}]]?`,
+      });
+      card.createDiv({ cls: 'nd-gap-meta', text: g.weight ? `only ${g.weight} weak link${g.weight === 1 ? '' : 's'} between them` : 'no links between them yet' });
+      const row = card.createDiv('nd-gap-actions');
+      const hl = button(row, {
+        icon: 'scan-eye',
+        text: 'Highlight',
+        onClick: () => {
+          const same = this.gapFocus === g;
+          this.gapFocus = same ? null : g;
+          this.focusTopic = -1;
+          gp.querySelectorAll('.nd-gap').forEach((c) => c.removeClass('is-active'));
+          if (!same) card.addClass('is-active');
+          if (!same) this.fit(true, [...an.topics[g.a].members, ...an.topics[g.b].members]);
+          this.requestDraw();
+        },
+      });
+      hl.addClass('nd-small');
+      button(row, { icon: 'git-merge', text: 'Bridge note', cls: 'mod-cta nd-small', onClick: () => this.createBridge(g) });
+    });
+
+    this.selEl = this.section('Selection', 'mouse-pointer-click');
+    this.renderSelection();
+  },
+
+  renderSelection() {
+    const s = this.selEl;
+    if (!s) return;
+    s.querySelectorAll('.nd-sel').forEach((x) => x.remove());
+    const box = s.createDiv('nd-sel');
+    if (this.selected < 0 || !this.nodes[this.selected]) {
+      box.createDiv({ cls: 'nd-muted', text: 'Click a node to inspect it. Double-click opens it.' });
+      return;
+    }
+    const n = this.nodes[this.selected];
+    const pal = this.colors().pal;
+    const title = box.createDiv({ cls: 'nd-sel-title', text: n.label });
+    title.style.setProperty('--topic', pal[n.c % pal.length]);
+    const stats = box.createDiv('nd-chip-row');
+    const rank = this.bcRank.indexOf(n.i) + 1;
+    stats.createSpan({ cls: 'nd-pill', text: `#${rank} influence` });
+    stats.createSpan({ cls: 'nd-pill', text: `${this.neighbors[n.i].size} connections` });
+    stats.createSpan({ cls: 'nd-pill', text: `topic ${n.c + 1}` });
+    if (this.mode === 'concepts') stats.createSpan({ cls: 'nd-pill', text: `×${this.net.freq[n.i]}` });
+    const actions = box.createDiv('nd-gap-actions');
+    const f = this.nodeFile(n);
+    if (f) button(actions, { icon: 'file-text', text: 'Open', cls: 'mod-cta nd-small', onClick: (e) => this.plugin.openFile(f, e) });
+    if (this.mode === 'concepts') button(actions, { icon: 'search', text: 'Search', cls: 'nd-small', onClick: () => this.plugin.openSearch(n.kind === 'tag' ? `tag:${n.label}` : n.label) });
+    const list = box.createDiv('nd-mini-list');
+    const files =
+      this.mode === 'concepts'
+        ? this.net.where[n.i].map((p) => this.app.vault.getAbstractFileByPath(p)).filter((x) => x instanceof TFile)
+        : [...this.neighbors[n.i]].map((j) => this.net.files[j]);
+    box.createDiv({ cls: 'nd-muted', text: this.mode === 'concepts' ? `Appears in ${files.length} note${files.length === 1 ? '' : 's'}:` : 'Linked notes:' });
+    box.appendChild(list);
+    files.slice(0, 12).forEach((file, i) => {
+      const row = list.createDiv('nd-mini');
+      row.style.setProperty('--i', String(i));
+      row.style.setProperty('--card-accent', pal[n.c % pal.length]);
+      row.createDiv({ cls: 'nd-mini-title', text: file.basename });
+      this.plugin.bindFileMouse(row, file, this);
+    });
+  },
+
+  async createBridge(g) {
+    const wa = this.topicWords(g.a, 4);
+    const wb = this.topicWords(g.b, 4);
+    const notesOf = (k) => {
+      const t = this.an.topics[k];
+      const out = new Set();
+      if (this.mode === 'notes') t.members.slice(0, 4).forEach((i) => out.add(this.net.files[i].basename));
+      else
+        for (const i of t.members.slice(0, 4))
+          for (const p of this.net.where[i].slice(0, 2)) {
+            const f = this.app.vault.getAbstractFileByPath(p);
+            if (f instanceof TFile) out.add(f.basename);
+          }
+      return [...out].slice(0, 5);
+    };
+    const strip = (w) => w.replace(/^\[\[|\]\]$/g, '');
+    const title = `Bridge – ${strip(wa[0])} × ${strip(wb[0])}`;
+    const body = [
+      '---',
+      'tags: [bridge, idea]',
+      `created: ${moment().format('YYYY-MM-DD HH:mm')}`,
+      '---',
+      `# 🌉 ${strip(wa[0])} × ${strip(wb[0])}`,
+      '',
+      '> [!question] Structural gap found by Neon Deck',
+      `> How does **${wa.join(', ')}** relate to **${wb.join(', ')}**?`,
+      '',
+      `## Side A — ${wa.join(' · ')}`,
+      ...notesOf(g.a).map((b) => `- [[${b}]]`),
+      '',
+      `## Side B — ${wb.join(' · ')}`,
+      ...notesOf(g.b).map((b) => `- [[${b}]]`),
+      '',
+      '## Connecting ideas',
+      '- ',
+      '',
+    ].join('\n');
+    const f = await createUnique(this.app, this.plugin.settings.bridgeFolder, title, body);
+    new Notice('🌉 Bridge note created');
+    this.plugin.openFile(f, { ctrlKey: true });
+  },
+});
+/* @src src/deck/graph-draw.js */
+Object.assign(GraphView.prototype, {
+  colors() {
+    if (this._col) return this._col;
+    const cs = getComputedStyle(this.contentEl);
+    const v = (name, fb) => (cs.getPropertyValue(name) || '').trim() || fb;
+    const pal = PALETTE.map((c, i) => v(`--nd-c${i + 1}`, c));
+    // canvas can't read var() or every CSS colour form: resolve once to rgb and build alpha variants
+    const rgb = (str) => parseColor(str).map((x) => Math.round(x * 255)).join(',');
+    const palRgb = pal.map(rgb);
+    return (this._col = {
+      pal,
+      a: (i, alpha) => `rgba(${palRgb[i % palRgb.length]},${alpha})`,
+      text: v('--nd-text', v('--text-normal', '#e4e6ea')),
+      bg: v('--nd-bg', v('--background-primary', '#121418')),
+      surface: v('--nd-surface', v('--background-secondary', '#191c21')),
+      muted: v('--nd-muted', v('--text-faint', '#8f95a0')),
+      hot: v('--nd-accent', '#e5506a'),
+      hotA: (alpha) => `rgba(${rgb(v('--nd-accent', '#e5506a'))},${alpha})`,
+      font: v('--nd-font-ui', '"Space Grotesk", sans-serif').replace(/var\([^)]*\),?\s*/g, ''),
+      dark: !document.body.hasClass('theme-light'),
+    });
+  },
   draw() {
     const ctx = this.ctx;
     if (!ctx || !this.cw) return;
@@ -3592,7 +3859,7 @@ class GraphView extends ItemView {
       ctx.fillText(n.label, n.x, y);
     }
     ctx.globalAlpha = 1;
-  }
+  },
 
   kick() {
     if (this.raf || this.closed) return;
@@ -3624,11 +3891,11 @@ class GraphView extends ItemView {
       if (busy || this.drag) this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
-  }
+  },
   requestDraw() {
     this.dirty = true;
     this.kick();
-  }
+  },
 
   hit(x, y) {
     for (let j = this.nodes.length - 1; j >= 0; j--) {
@@ -3637,7 +3904,7 @@ class GraphView extends ItemView {
       if ((n.x - x) ** 2 + (n.y - y) ** 2 <= r * r) return n;
     }
     return null;
-  }
+  },
 
   bindCanvas() {
     const cv = this.canvas;
@@ -3723,248 +3990,10 @@ class GraphView extends ItemView {
       const n = this.hit(p.x, p.y);
       if (n) this.nodeMenu(n, e);
     });
-  }
+  },
 
-  select(i) {
-    this.selected = i;
-    this.renderSelection();
-    this.requestDraw();
-  }
-  nodeFile(n) {
-    if (this.mode === 'notes') return this.net.files[n.i];
-    if (n.kind === 'link') return this.app.metadataCache.getFirstLinkpathDest(this.net.keys[n.i].slice(1, -1), '');
-    return null;
-  }
-  activateNode(n, e) {
-    const f = this.nodeFile(n);
-    if (f) this.plugin.openFile(f, e);
-    else this.plugin.openSearch(n.kind === 'tag' ? `tag:${n.label}` : n.label);
-  }
-  nodeMenu(n, e) {
-    const f = this.nodeFile(n);
-    if (this.mode === 'notes' && f) {
-      this.plugin.fileMenu(f, e);
-      return;
-    }
-    const m = new Menu();
-    m.addItem((it) => it.setTitle(`Search notes for “${n.label}”`).setIcon('search').onClick(() => this.plugin.openSearch(n.kind === 'tag' ? `tag:${n.label}` : n.label)));
-    if (f) m.addItem((it) => it.setTitle('Open note').setIcon('file-text').onClick(() => this.plugin.openFile(f)));
-    else if (n.kind === 'word')
-      m.addItem((it) =>
-        it.setTitle(`Create note “${n.label}”`).setIcon('file-plus').onClick(async () => {
-          const nf = await createUnique(this.app, '', n.label, `# ${n.label}\n\n`);
-          this.plugin.openFile(nf);
-        }),
-      );
-    m.addItem((it) => it.setTitle('Focus its topic').setIcon('shapes').onClick(() => this.toggleTopic(n.c)));
-    m.addSeparator();
-    m.addItem((it) =>
-      it.setTitle(`Hide “${n.label}” (stop-word)`).setIcon('eye-off').onClick(async () => {
-        const s = this.plugin.settings;
-        s.extraStopwords = [s.extraStopwords, this.net.keys[n.i]].filter(Boolean).join(', ');
-        await this.plugin.saveSettings();
-        this.rebuild();
-      }),
-    );
-    m.showAtMouseEvent(e);
-  }
-  toggleTopic(k) {
-    this.focusTopic = this.focusTopic === k ? -1 : k;
-    this.gapFocus = null;
-    this.panel.querySelectorAll('.nd-topic').forEach((r, idx) => r.toggleClass('is-active', idx === this.focusTopic));
-    if (this.focusTopic >= 0) this.fit(true, this.an.topics[k].members);
-    else this.fit(true);
-    this.requestDraw();
-  }
-
-  section(title, ic) {
-    const s = this.panel.createDiv('nd-panel-sec');
-    const h = s.createDiv('nd-panel-head');
-    icon(h, ic);
-    h.createSpan({ text: title });
-    return s;
-  }
-  topicWords(k, n = 3) {
-    return this.an.topics[k].members.slice(0, n).map((i) => this.net.labels[i]);
-  }
-
-  renderPanel() {
-    const p = this.panel;
-    p.empty();
-    const an = this.an;
-    const pal = this.colors().pal;
-    const unit = this.mode === 'concepts' ? 'concepts' : 'notes';
-
-    const st = this.section('Structure', 'gauge');
-    const badge = st.createDiv(`nd-diversity is-${an.diversity.toLowerCase()}`);
-    badge.createDiv({ cls: 'nd-div-label', text: an.diversity });
-    badge.createDiv({ cls: 'nd-div-q', text: `modularity ${an.Q.toFixed(2)} · top topic ${Math.round(an.topics[0].share * 100)}%` });
-    const scale = st.createDiv('nd-div-scale');
-    for (const lvl of ['Biased', 'Focused', 'Diversified', 'Dispersed']) scale.createDiv({ cls: 'nd-div-step' + (lvl === an.diversity ? ' is-on' : ''), text: lvl });
-    st.createDiv({ cls: 'nd-muted', text: DIVERSITY_HINT[an.diversity] });
-
-    const tp = this.section('Main topics', 'shapes');
-    an.topics.slice(0, 8).forEach((t, k) => {
-      const row = tp.createDiv('nd-topic');
-      row.style.setProperty('--topic', pal[k % pal.length]);
-      row.createDiv({ cls: 'nd-topic-sw', text: String(k + 1) });
-      const txt = row.createDiv('nd-topic-txt');
-      txt.createDiv({ cls: 'nd-topic-words', text: this.topicWords(k, 4).join(' · ') });
-      const meter = txt.createDiv('nd-topic-meter');
-      meter.createDiv('nd-topic-fill').style.setProperty('--w', `${Math.round(t.share * 100)}%`);
-      txt.createDiv({ cls: 'nd-topic-share', text: `${Math.round(t.share * 100)}% · ${t.members.length} ${unit}` });
-      row.addEventListener('mouseenter', () => {
-        this.previewTopic = k;
-        this.requestDraw();
-      });
-      row.addEventListener('mouseleave', () => {
-        this.previewTopic = -1;
-        this.requestDraw();
-      });
-      row.addEventListener('click', () => this.toggleTopic(k));
-    });
-
-    const inf = this.section('Most influential', 'zap');
-    const chips = inf.createDiv('nd-chip-row');
-    this.bcRank.slice(0, 14).forEach((i) => {
-      const n = this.nodes[i];
-      const chip = chips.createEl('button', { cls: 'nd-chip', text: n.label });
-      chip.style.setProperty('--card-accent', pal[n.c % pal.length]);
-      chip.addEventListener('click', () => {
-        this.select(i);
-        this.focusNode(n);
-      });
-      chip.addEventListener('mouseenter', () => {
-        this.hover = i;
-        this.requestDraw();
-      });
-      chip.addEventListener('mouseleave', () => {
-        this.hover = -1;
-        this.requestDraw();
-      });
-    });
-
-    const gp = this.section('Structural gaps', 'unlink');
-    if (!an.gaps.length) gp.createDiv({ cls: 'nd-muted', text: 'Not enough distinct topics to detect gaps yet.' });
-    an.gaps.forEach((g) => {
-      const card = gp.createDiv('nd-gap');
-      const line = card.createDiv('nd-gap-line');
-      const wa = this.topicWords(g.a, 2);
-      const wb = this.topicWords(g.b, 2);
-      const sa = line.createSpan({ cls: 'nd-gap-side', text: wa.join(' · ') });
-      sa.style.setProperty('--topic', pal[g.a % pal.length]);
-      line.createSpan({ cls: 'nd-gap-x', text: '⟷' });
-      const sb = line.createSpan({ cls: 'nd-gap-side', text: wb.join(' · ') });
-      sb.style.setProperty('--topic', pal[g.b % pal.length]);
-      card.createDiv({
-        cls: 'nd-gap-q',
-        text: this.mode === 'concepts' ? `How does “${wa[0]}” relate to “${wb[0]}”?` : `What connects [[${wa[0]}]] with [[${wb[0]}]]?`,
-      });
-      card.createDiv({ cls: 'nd-gap-meta', text: g.weight ? `only ${g.weight} weak link${g.weight === 1 ? '' : 's'} between them` : 'no links between them yet' });
-      const row = card.createDiv('nd-gap-actions');
-      const hl = button(row, {
-        icon: 'scan-eye',
-        text: 'Highlight',
-        onClick: () => {
-          const same = this.gapFocus === g;
-          this.gapFocus = same ? null : g;
-          this.focusTopic = -1;
-          gp.querySelectorAll('.nd-gap').forEach((c) => c.removeClass('is-active'));
-          if (!same) card.addClass('is-active');
-          if (!same) this.fit(true, [...an.topics[g.a].members, ...an.topics[g.b].members]);
-          this.requestDraw();
-        },
-      });
-      hl.addClass('nd-small');
-      button(row, { icon: 'git-merge', text: 'Bridge note', cls: 'mod-cta nd-small', onClick: () => this.createBridge(g) });
-    });
-
-    this.selEl = this.section('Selection', 'mouse-pointer-click');
-    this.renderSelection();
-  }
-
-  renderSelection() {
-    const s = this.selEl;
-    if (!s) return;
-    s.querySelectorAll('.nd-sel').forEach((x) => x.remove());
-    const box = s.createDiv('nd-sel');
-    if (this.selected < 0 || !this.nodes[this.selected]) {
-      box.createDiv({ cls: 'nd-muted', text: 'Click a node to inspect it. Double-click opens it.' });
-      return;
-    }
-    const n = this.nodes[this.selected];
-    const pal = this.colors().pal;
-    const title = box.createDiv({ cls: 'nd-sel-title', text: n.label });
-    title.style.setProperty('--topic', pal[n.c % pal.length]);
-    const stats = box.createDiv('nd-chip-row');
-    const rank = this.bcRank.indexOf(n.i) + 1;
-    stats.createSpan({ cls: 'nd-pill', text: `#${rank} influence` });
-    stats.createSpan({ cls: 'nd-pill', text: `${this.neighbors[n.i].size} connections` });
-    stats.createSpan({ cls: 'nd-pill', text: `topic ${n.c + 1}` });
-    if (this.mode === 'concepts') stats.createSpan({ cls: 'nd-pill', text: `×${this.net.freq[n.i]}` });
-    const actions = box.createDiv('nd-gap-actions');
-    const f = this.nodeFile(n);
-    if (f) button(actions, { icon: 'file-text', text: 'Open', cls: 'mod-cta nd-small', onClick: (e) => this.plugin.openFile(f, e) });
-    if (this.mode === 'concepts') button(actions, { icon: 'search', text: 'Search', cls: 'nd-small', onClick: () => this.plugin.openSearch(n.kind === 'tag' ? `tag:${n.label}` : n.label) });
-    const list = box.createDiv('nd-mini-list');
-    const files =
-      this.mode === 'concepts'
-        ? this.net.where[n.i].map((p) => this.app.vault.getAbstractFileByPath(p)).filter((x) => x instanceof TFile)
-        : [...this.neighbors[n.i]].map((j) => this.net.files[j]);
-    box.createDiv({ cls: 'nd-muted', text: this.mode === 'concepts' ? `Appears in ${files.length} note${files.length === 1 ? '' : 's'}:` : 'Linked notes:' });
-    box.appendChild(list);
-    files.slice(0, 12).forEach((file, i) => {
-      const row = list.createDiv('nd-mini');
-      row.style.setProperty('--i', String(i));
-      row.style.setProperty('--card-accent', pal[n.c % pal.length]);
-      row.createDiv({ cls: 'nd-mini-title', text: file.basename });
-      this.plugin.bindFileMouse(row, file, this);
-    });
-  }
-
-  async createBridge(g) {
-    const wa = this.topicWords(g.a, 4);
-    const wb = this.topicWords(g.b, 4);
-    const notesOf = (k) => {
-      const t = this.an.topics[k];
-      const out = new Set();
-      if (this.mode === 'notes') t.members.slice(0, 4).forEach((i) => out.add(this.net.files[i].basename));
-      else
-        for (const i of t.members.slice(0, 4))
-          for (const p of this.net.where[i].slice(0, 2)) {
-            const f = this.app.vault.getAbstractFileByPath(p);
-            if (f instanceof TFile) out.add(f.basename);
-          }
-      return [...out].slice(0, 5);
-    };
-    const strip = (w) => w.replace(/^\[\[|\]\]$/g, '');
-    const title = `Bridge – ${strip(wa[0])} × ${strip(wb[0])}`;
-    const body = [
-      '---',
-      'tags: [bridge, idea]',
-      `created: ${moment().format('YYYY-MM-DD HH:mm')}`,
-      '---',
-      `# 🌉 ${strip(wa[0])} × ${strip(wb[0])}`,
-      '',
-      '> [!question] Structural gap found by Neon Deck',
-      `> How does **${wa.join(', ')}** relate to **${wb.join(', ')}**?`,
-      '',
-      `## Side A — ${wa.join(' · ')}`,
-      ...notesOf(g.a).map((b) => `- [[${b}]]`),
-      '',
-      `## Side B — ${wb.join(' · ')}`,
-      ...notesOf(g.b).map((b) => `- [[${b}]]`),
-      '',
-      '## Connecting ideas',
-      '- ',
-      '',
-    ].join('\n');
-    const f = await createUnique(this.app, this.plugin.settings.bridgeFolder, title, body);
-    new Notice('🌉 Bridge note created');
-    this.plugin.openFile(f, { ctrlKey: true });
-  }
-}
-
+});
+/* @src src/deck/settings.js */
 /* ------------------------------------------------------------------ */
 /* Settings                                                            */
 /* ------------------------------------------------------------------ */
@@ -4048,11 +4077,12 @@ class NeonSettingTab extends PluginSettingTab {
   }
 }
 
+/* @src src/deck/plugin.js */
 /* ------------------------------------------------------------------ */
 /* Plugin                                                              */
 /* ------------------------------------------------------------------ */
 
-module.exports = class NeonDeck extends Plugin {
+class NeonDeck extends Plugin {
   async onload() {
     await this.loadSettings();
     this.wordCache = new Map();
@@ -4326,34 +4356,9 @@ module.exports = class NeonDeck extends Plugin {
     this.emitLook();
   }
 
-  /* pins & seen -------------------------------------------------------------- */
-  async togglePin(path) {
-    const pins = this.settings.pinnedFolders;
-    const i = pins.indexOf(path);
-    if (i >= 0) pins.splice(i, 1);
-    else pins.push(path);
-    await this.saveSettings();
-    this.app.workspace.trigger('neon-deck:pins-changed');
-  }
-  async renamePins(oldPath, newPath) {
-    let hit = false;
-    this.settings.pinnedFolders = this.settings.pinnedFolders.map((p) => {
-      if (p === oldPath || p.startsWith(oldPath + '/')) {
-        hit = true;
-        return newPath + p.slice(oldPath.length);
-      }
-      return p;
-    });
-    if (!hit) return;
-    await this.saveSettings();
-    this.app.workspace.trigger('neon-deck:pins-changed');
-  }
-  markSeen(path, quiet) {
-    this.settings.seen[path] = Date.now();
-    this.saveSoon();
-    if (!quiet) this.app.workspace.trigger('neon-deck:seen-changed');
-  }
-
+}
+/* @src src/deck/workspace.js */
+Object.assign(NeonDeck.prototype, {
   /**
    * Puts everything the Neon plugins keep (tickets, time log, reviews, inbox,
    * quick tasks, daily notes, templates, backups, the guide) under one Core
@@ -4497,7 +4502,7 @@ module.exports = class NeonDeck extends Plugin {
     } finally {
       this._tidying = false;
     }
-  }
+  },
 
   async onReady() {
     const ws = this.app.workspace;
@@ -4507,7 +4512,7 @@ module.exports = class NeonDeck extends Plugin {
     // (doing it straight away added a second Cards tab and a second Dashboard on every restart)
     window.setTimeout(() => this.arrangeOnStart(), 600);
     ws.trigger('neon-deck:core-ready', this.api);
-  }
+  },
 
   async arrangeOnStart() {
     await this.ensureSidebarCards();
@@ -4518,7 +4523,7 @@ module.exports = class NeonDeck extends Plugin {
     const open = ws.getLeavesOfType(VIEW_DASH).find((l) => l.getRoot() === ws.rootSplit);
     if (open) await ws.revealLeaf(open);
     else await this.activate(VIEW_DASH, 'tab');
-  }
+  },
   /** One Cards tab in the left sidebar: add it when missing, close copies left by earlier restarts. */
   async ensureSidebarCards() {
     const ws = this.app.workspace;
@@ -4537,7 +4542,7 @@ module.exports = class NeonDeck extends Plugin {
       for (const l of side) if (l !== keep) l.detach();
     }
     if (this.settings.replaceFileExplorer) ws.getLeavesOfType('file-explorer').forEach((l) => l.detach());
-  }
+  },
 
   /* weekly review ------------------------------------------------------------ */
   weekLine(start, end) {
@@ -4554,7 +4559,7 @@ module.exports = class NeonDeck extends Plugin {
     if (!parts.length || made) parts.push(`${made} new note${made === 1 ? '' : 's'}`);
     const s = parts.join(', ');
     return s.charAt(0).toUpperCase() + s.slice(1) + '.';
-  }
+  },
   async weeklyReview() {
     const m = moment().startOf('isoWeek');
     const end = m.clone().add(7, 'days');
@@ -4587,7 +4592,7 @@ module.exports = class NeonDeck extends Plugin {
     await ensureFolder(this.app, folder);
     const f = await this.app.vault.create(path, content);
     openFile(this.app, f);
-  }
+  },
 
   /**
    * Once, after the switch to one main pane: Dashboard, Cards, Tickets, Time… used to sit in their
@@ -4605,12 +4610,12 @@ module.exports = class NeonDeck extends Plugin {
     }
     this.settings.singlePane = true;
     await this.saveSettings();
-  }
+  },
 
   /* navigation helpers ---------------------------------------------------- */
   activate(type, where = 'tab') {
     return activateView(this.app, type, where);
-  }
+  },
   async openCardsAt(path, newTab) {
     const ws = this.app.workspace;
     let leaf;
@@ -4618,20 +4623,51 @@ module.exports = class NeonDeck extends Plugin {
     else leaf = reusableLeaf(this.app); // the main pane
     await leaf.setViewState({ type: VIEW_CARDS, active: true, state: { path } });
     await ws.revealLeaf(leaf);
-  }
+  },
   async openGraph(mode, scope) {
     const leaf = await this.activate(VIEW_GRAPH, 'tab');
     const view = leaf.view;
     if (view instanceof GraphView) await view.setState({ mode: 'notes', scope: scope || view.scope }, { history: false });
-  }
+  },
   openFile(file, evt, line) {
     return openFile(this.app, file, evt, line);
-  }
+  },
   openSearch(q) {
     const gs = this.app.internalPlugins && this.app.internalPlugins.getPluginById && this.app.internalPlugins.getPluginById('global-search');
     if (gs && gs.instance && gs.instance.openGlobalSearch) gs.instance.openGlobalSearch(q);
     else new Notice('Enable the core “Search” plugin to use this');
-  }
+  },
+});
+/* @src src/deck/files.js */
+Object.assign(NeonDeck.prototype, {
+  /* pins & seen -------------------------------------------------------------- */
+  async togglePin(path) {
+    const pins = this.settings.pinnedFolders;
+    const i = pins.indexOf(path);
+    if (i >= 0) pins.splice(i, 1);
+    else pins.push(path);
+    await this.saveSettings();
+    this.app.workspace.trigger('neon-deck:pins-changed');
+  },
+  async renamePins(oldPath, newPath) {
+    let hit = false;
+    this.settings.pinnedFolders = this.settings.pinnedFolders.map((p) => {
+      if (p === oldPath || p.startsWith(oldPath + '/')) {
+        hit = true;
+        return newPath + p.slice(oldPath.length);
+      }
+      return p;
+    });
+    if (!hit) return;
+    await this.saveSettings();
+    this.app.workspace.trigger('neon-deck:pins-changed');
+  },
+  markSeen(path, quiet) {
+    this.settings.seen[path] = Date.now();
+    this.saveSoon();
+    if (!quiet) this.app.workspace.trigger('neon-deck:seen-changed');
+  },
+
   /** Excluded folders/files (settings + other Neon plugins). Cached briefly: isExcluded runs once per note in vault scans. */
   excludedPaths() {
     const now = Date.now();
@@ -4648,14 +4684,14 @@ module.exports = class NeonDeck extends Plugin {
       this._exAt = now;
     }
     return this._ex;
-  }
+  },
   isExcluded(f) {
     return this.excludedPaths().some((p) => f.path === p || f.path.startsWith(p + '/'));
-  }
+  },
   currentFolder() {
     const f = this.app.workspace.getActiveFile();
     return f && f.parent ? f.parent.path : '/';
-  }
+  },
 
   bindFileMouse(el, file, hoverParent) {
     el.addEventListener('click', (e) => {
@@ -4700,7 +4736,7 @@ module.exports = class NeonDeck extends Plugin {
       }
     });
     el.addEventListener('dragend', () => (this.dragging = null));
-  }
+  },
   fileMenu(file, e, extra) {
     const menu = new Menu();
     if (file instanceof TFile) {
@@ -4717,7 +4753,7 @@ module.exports = class NeonDeck extends Plugin {
     menu.addSeparator();
     this.app.workspace.trigger('file-menu', menu, file, 'neon-deck');
     menu.showAtMouseEvent(e);
-  }
+  },
   promptRename(file) {
     const base = file instanceof TFile ? file.basename : file.name;
     new PromptModal(this.app, {
@@ -4733,7 +4769,7 @@ module.exports = class NeonDeck extends Plugin {
         await this.app.fileManager.renameFile(file, np);
       },
     }).open();
-  }
+  },
   confirmDelete(file) {
     new ConfirmModal(this.app, {
       title: 'Move to trash?',
@@ -4741,13 +4777,13 @@ module.exports = class NeonDeck extends Plugin {
       cta: 'Move to trash',
       onConfirm: () => this.app.fileManager.trashFile(file),
     }).open();
-  }
+  },
   async moveTo(f, dest) {
     const np = normalizePath((dest === '/' ? '' : dest + '/') + f.name);
     if (this.app.vault.getAbstractFileByPath(np)) return new Notice('Something with that name already exists there');
     await this.app.fileManager.renameFile(f, np);
     new Notice(`Moved “${f.name}” → ${dest === '/' ? 'vault root' : dest}`);
-  }
+  },
 
   /* file creation --------------------------------------------------------- */
   newNote(folder) {
@@ -4762,7 +4798,7 @@ module.exports = class NeonDeck extends Plugin {
         await reusableLeaf(this.app).openFile(f, { active: true, state: { mode: 'source' } });
       },
     }).open();
-  }
+  },
   newFolder(parent) {
     new PromptModal(this.app, {
       title: 'New folder',
@@ -4776,10 +4812,10 @@ module.exports = class NeonDeck extends Plugin {
         await this.app.vault.createFolder(p);
       },
     }).open();
-  }
+  },
   async openToday() {
     openFile(this.app, await ensureToday(this.app));
-  }
+  },
 
   /* vault data ------------------------------------------------------------- */
   collectVaultData() {
@@ -4797,7 +4833,7 @@ module.exports = class NeonDeck extends Plugin {
     const startToday = moment().startOf('day').valueOf();
     const editedToday = md.filter((f) => f.stat.mtime >= startToday);
     return { md, links, orphans, editedToday };
-  }
+  },
   async totalWords(md) {
     let total = 0;
     for (const f of md.slice(0, 5000)) {
@@ -4811,12 +4847,14 @@ module.exports = class NeonDeck extends Plugin {
       total += words;
     }
     return total;
-  }
+  },
   stopwords() {
     const extra = this.settings.extraStopwords
       .split(/[,\n]/)
       .map((w) => w.trim().toLowerCase())
       .filter(Boolean);
     return new Set([...STOPWORDS, ...extra]);
-  }
-};
+  },
+});
+/* @src src/deck/exports.js */
+module.exports = NeonDeck;

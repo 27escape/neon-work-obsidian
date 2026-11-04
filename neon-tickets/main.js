@@ -7,6 +7,7 @@
  * no shell access. Files are only written when you do something that writes.
  * The shared helpers at the top are copied into every Neon plugin; keep the copies identical.
  */
+/* @src src/shared/shared.js */
 /* ---- shared helpers (same copy in every Neon plugin) ---------------- */
 const obsidian = require('obsidian');
 const {
@@ -402,6 +403,7 @@ function numSetting(setting, obj, key, min, max, save) {
   });
 }
 /* ---- end shared ------------------------------------------------------- */
+/* @src src/tickets/constants.js */
 
 /* ------------------------------------------------------------------ */
 /* Neon Tickets                                                        */
@@ -526,6 +528,7 @@ function ticketGroups(items, mode) {
   });
 }
 
+/* @src src/tickets/sections.js */
 /* ---- ticket note body -------------------------------------------------- */
 function findSection(lines, key) {
   const start = lines.findIndex((l) => SEC[key].re.test(l.trim()));
@@ -618,6 +621,7 @@ function parseTicketBody(text) {
   return out;
 }
 
+/* @src src/tickets/modals.js */
 /* ---- modals ------------------------------------------------------------- */
 class NewTicketModal extends Modal {
   constructor(plugin, opts = {}) {
@@ -1089,6 +1093,7 @@ function ticketMenu(plugin, t, m) {
   m.addItem((i) => i.setTitle('Remind me on…').setIcon('bell').onClick(() => plugin.promptDate(t, 'remind')));
 }
 
+/* @src src/tickets/ticket-view.js */
 /* ---- ticket view (a normal note underneath) ----------------------------------- */
 class TicketView extends FileView {
   constructor(leaf, plugin) {
@@ -1566,6 +1571,7 @@ class TicketPopup extends Modal {
   }
 }
 
+/* @src src/tickets/tracker.js */
 /* ---- tracker -------------------------------------------------------------- */
 class TicketsView extends ItemView {
   constructor(leaf, plugin) {
@@ -1844,6 +1850,7 @@ class TicketsView extends ItemView {
   }
 }
 
+/* @src src/tickets/settings.js */
 class NeonTicketsSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
@@ -1901,7 +1908,8 @@ class NeonTicketsSettingTab extends PluginSettingTab {
   }
 }
 
-module.exports = class NeonTickets extends Plugin {
+/* @src src/tickets/plugin.js */
+class NeonTickets extends Plugin {
   async onload() {
     this.moving = new Set();
     const raw = await this.loadData();
@@ -2130,399 +2138,125 @@ module.exports = class NeonTickets extends Plugin {
     return activateView(this.app, VIEW_TICKETS, 'tab');
   }
 
-  /* collecting ------------------------------------------------------------- */
-  collectTickets() {
-    if (this.cache && this.cache.day === dayKey(Date.now())) return this.cache.list;
-    const out = [];
-    const today = moment().startOf('day');
-    const deck = neonPlugin(this.app, 'neon-deck');
-    for (const f of this.app.vault.getMarkdownFiles()) {
-      const cache = this.app.metadataCache.getFileCache(f);
-      if (!isTicketCache(cache)) continue;
-      if (deck && deck.isExcluded && deck.isExcluded(f)) continue;
-      out.push(this.toTicket(f, cache, today));
-    }
-    out.sort(ticketSort);
-    this.cache = { day: dayKey(Date.now()), list: out, paths: new Set(out.map((t) => t.file.path)) };
-    return out;
-  }
-  toTicket(f, cache, today) {
-    const fm = (cache && cache.frontmatter) || {};
-    const created = parseDay(fm.created) || moment(f.stat.ctime);
-    const due = parseDay(fm.due);
-    const remindRaw = fm.remind != null ? String(fm.remind) : '';
-    const t = {
-      file: f,
-      title: String(fm.title || f.basename),
-      id: fm.ticket != null && fm.ticket !== '' ? String(fm.ticket) : fm.id != null ? String(fm.id) : '',
-      status: normTicketStatus(fm.status),
-      priority: normTicketPrio(fm.priority),
-      category: noteCategory(cache) || 'operations',
-      created,
-      due,
-      remind: parseDay(remindRaw),
-      remindHasTime: /\d{1,2}:\d{2}/.test(remindRaw),
-      completed: parseDay(fm.completed),
-      waitingOn: fm.waiting_on ? String(fm.waiting_on) : '',
-      followUp: parseDay(fm.follow_up),
-      waitingSince: parseDay(fm.waiting_since),
-      jira: fm.jira ? String(fm.jira) : '',
-      daysLeft: due ? daysFromToday(due) : null,
-      age: Math.max(0, today.diff(created.clone().startOf('day'), 'days')),
-      progress: 0,
+  buildStatus() {
+    const el = this.addStatusBarItem();
+    el.addClass('nd-status', 'tk-statusbar', 'mod-clickable');
+    setIcon(el.createSpan('nd-status-icon'), 'ticket');
+    const txt = el.createSpan('nd-status-text');
+    tip(el, 'Tickets — click to open the tracker');
+    el.addEventListener('click', () => this.openTracker());
+    const update = () => {
+      const act = this.activeTickets();
+      const over = act.filter((t) => t.bucket === 'overdue').length;
+      const fu = act.filter((t) => t.bucket === 'followup').length;
+      const today = act.filter((t) => t.bucket === 'today').length;
+      el.toggle(act.length > 0);
+      const parts = [];
+      if (over) parts.push(`${over} overdue`);
+      if (fu) parts.push(`${fu} follow up`);
+      if (today) parts.push(`${today} today`);
+      txt.setText(parts.length ? parts.join(' · ') : `${act.length} open`);
+      el.toggleClass('is-alert', over > 0);
+      el.toggleClass('is-warn', !over && today + fu > 0);
     };
-    if (t.id && t.title.startsWith(t.id)) t.title = t.title.slice(t.id.length).replace(/^[\s·:\-–—]+/, '') || t.title;
-    if (due) {
-      const span = due.clone().endOf('day').diff(created, 'minutes');
-      t.progress = span > 0 ? clamp(moment().diff(created, 'minutes') / span, 0, 1) : 1;
-    }
-    const followDue = t.status === 'waiting' && t.followUp && !t.followUp.isAfter(today, 'day');
-    t.bucket = t.status === 'done' ? 'done' : followDue ? 'followup' : !due ? 'nodate' : t.daysLeft < 0 ? 'overdue' : t.daysLeft === 0 ? 'today' : t.daysLeft <= 7 ? 'week' : 'later';
-    return t;
+    this.register(this.onChange(update));
+    this.registerInterval(window.setInterval(update, 5 * 60 * 1000));
+    this.app.workspace.onLayoutReady(update);
   }
-  activeTickets() {
-    return this.collectTickets().filter((t) => t.status !== 'done');
-  }
-  ticketFor(file) {
-    if (!file) return null;
-    const cache = this.app.metadataCache.getFileCache(file);
-    return isTicketCache(cache) ? this.toTicket(file, cache, moment().startOf('day')) : null;
-  }
-  doneIn(m) {
-    return this.collectTickets().filter((t) => t.status === 'done' && t.completed && t.completed.isSame(m, 'month')).length;
-  }
-  renderCounter(el, all) {
-    el.empty();
-    const now = moment();
-    const last = now.clone().subtract(1, 'month');
-    const done = (m) => all.filter((t) => t.status === 'done' && t.completed && t.completed.isSame(m, 'month')).length;
-    el.createSpan({ cls: 'tk-counter-n', text: String(done(now)) });
-    el.createSpan({ cls: 'tk-counter-l', text: `done in ${now.format('MMMM')} · ${done(last)} in ${last.format('MMMM')}` });
-  }
-
-  /* writing ------------------------------------------------------------------ */
-  async patch(t, patch) {
-    await this.app.fileManager.processFrontMatter(t.file, (fm) => {
-      for (const [k, v] of Object.entries(patch)) {
-        if (v === null || v === '') delete fm[k];
-        else fm[k] = v;
+}
+/* @src src/tickets/widget-reminders.js */
+Object.assign(NeonTickets.prototype, {
+  /* dashboard widget ------------------------------------------------------------ */
+  mountWidget(card) {
+    const p = this;
+    button(card.actions, { icon: 'plus', cls: 'nd-icon-btn', title: 'New ticket', onClick: () => p.newTicket() });
+    button(card.actions, { icon: 'maximize-2', cls: 'nd-icon-btn', title: 'Open ticket tracker', onClick: () => p.openTracker() });
+    const counter = card.body.createDiv('tk-counter is-mini');
+    const list = card.body.createDiv('tk-mini-list');
+    let renders = 0;
+    const render = () => {
+      if (!list.isConnected) return;
+      list.toggleClass('is-calm', renders++ > 0); // animate on first open only
+      const all = p.collectTickets();
+      const act = all.filter((t) => t.status !== 'done');
+      card.badge.setText(act.length ? String(act.length) : '');
+      card.w.toggleClass('has-overdue', act.some((t) => t.bucket === 'overdue' || t.bucket === 'followup'));
+      p.renderCounter(counter, all);
+      list.empty();
+      if (!act.length) {
+        emptyState(list, 'No open tickets ✦');
+        return;
       }
-    });
-  }
-  async log(t, text) {
-    await this.app.vault.process(t.file, (d) => addToSection(d, 'log', `- ${STAMP()} — ${text}`));
-    this.app.workspace.trigger('neon:ticket-changed', { file: t.file, id: t.id, title: t.title, change: text });
-  }
-  async setStatus(t, status) {
-    if (status === t.status) return;
-    if (status === 'waiting') {
-      return new WaitingModal(this, t, async ({ who, followUp }) => {
-        const wait = { status: 'waiting', waiting_on: who || null, follow_up: followUp || null, waiting_since: moment().format('YYYY-MM-DD') };
-        if (t.status === 'done') wait.completed = null;
-        await this.patch(t, wait);
-        this.logStatus(t, 'waiting');
-        await this.log(t, `Waiting${who ? ' on ' + who : ''}${followUp ? ` · follow up ${moment(followUp).format('ddd D MMM')}` : ''}`);
-      }).open();
-    }
-    const patch = { status, waiting_on: null, follow_up: null, waiting_since: null };
-    if (status === 'done') patch.completed = moment().format('YYYY-MM-DD');
-    else if (t.status === 'done') patch.completed = null;
-    await this.patch(t, patch);
-    this.logStatus(t, status);
-    await this.log(t, status === 'done' ? 'Done' : t.status === 'done' ? 'Reopened' : `Status: ${TICKET_STATUS_LABEL[t.status]} → ${TICKET_STATUS_LABEL[status]}`);
-    if (status === 'done') {
-      new Notice(`✓ ${t.id ? t.id + ' · ' : ''}${t.title} — done`);
-      if (this.settings.autoFile) await this.moveDone(t.file, moment());
-    } else if (t.status === 'done' && this.settings.autoFile) await this.moveBack(t.file);
-  }
-  /** Remember a status change for the dashboard's Recently done log (only the statuses chosen in settings). */
-  logStatus(t, status) {
-    if (!this.settings.activityStatuses.includes(status)) return;
-    const log = this.settings.statusLog;
-    log.push({ t: Date.now(), id: t.id || '', title: t.title, status, path: t.file.path });
-    if (log.length > 200) log.splice(0, log.length - 200);
-    this.saveSettings();
-    const api = deckApi(this.app);
-    if (api && api.activityChanged) api.activityChanged();
-  }
-  async setPriority(t, p) {
-    if (p === t.priority) return;
-    await this.patch(t, { priority: p });
-    await this.log(t, `Priority: ${t.priority} → ${p}`);
-  }
-  async postpone(t, days) {
-    const today = moment().startOf('day');
-    const base = t.due && !t.due.isBefore(today) ? t.due.clone() : today;
-    await this.setDue(t, base.add(days, 'days').format('YYYY-MM-DD'));
-  }
-  async setDue(t, v) {
-    await this.patch(t, { due: v || null });
-    await this.log(t, v ? `Due moved${t.due ? ` from ${t.due.format('D MMM')}` : ''} to ${moment(v).format('ddd D MMM')}` : 'Due date cleared');
-    if (v) new Notice(`${t.id || t.title} → due ${moment(v).format('ddd D MMM')}`);
-  }
-  async setRemind(t, v) {
-    await this.patch(t, { remind: v || null });
-    await this.log(t, v ? `Reminder set for ${moment(v, ['YYYY-MM-DD HH:mm', 'YYYY-MM-DD']).format('ddd D MMM HH:mm')}` : 'Reminder cleared');
-    delete this.settings.notified[t.file.path];
-    await this.saveSettings();
-  }
-  promptDate(t, key) {
-    const cur = t[key];
-    new DatePromptModal(this.app, {
-      title: key === 'due' ? `Due date · ${t.id || t.title}` : `Remind me · ${t.id || t.title}`,
-      time: key === 'remind',
-      value: cur ? cur.format(key === 'remind' ? 'YYYY-MM-DDTHH:mm' : 'YYYY-MM-DD') : '',
-      onSubmit: (v) => (key === 'due' ? this.setDue(t, v) : this.setRemind(t, v)),
-    }).open();
-  }
-  /** Add a step. No log line (only checking a step is logged). Writes per ticket are queued so fast Enters never clash. */
-  addStep(t, text) {
-    if (!this.writeQ) this.writeQ = new Map();
-    const key = t.file.path;
-    const next = (this.writeQ.get(key) || Promise.resolve())
-      .then(() => this.app.vault.process(t.file, (d) => addToSection(d, 'steps', `- [ ] ${text}`)))
-      .catch((e) => console.error('Neon Tickets: could not add step', e));
-    this.writeQ.set(key, next);
-    return next;
-  }
-  /**
-   * Tick or untick a step: one queued write flips the box and (for a finished step) adds the log line.
-   * step.done flips at once, so the row can update before the write and a quick second click toggles back.
-   */
-  toggleStep(t, step) {
-    const wasDone = step.done;
-    step.done = !wasDone;
-    if (!this.writeQ) this.writeQ = new Map();
-    const key = t.file.path;
-    let ok = false;
-    const next = (this.writeQ.get(key) || Promise.resolve())
-      .then(() =>
-        this.app.vault.process(t.file, (d) => {
-          const lines = d.split('\n');
-          const fmLen = d.length - stripFrontmatter(d).length;
-          const offset = d.slice(0, fmLen).split('\n').length - 1;
-          const i = step.line + offset;
-          const l = lines[i];
-          if (l === undefined || !l.includes(step.text)) return d;
-          ok = true;
-          if (wasDone) lines[i] = l.replace(/\[[^ ]\]/, '[ ]').replace(/\s*✅\s*\d{4}-\d{2}-\d{2}(\s+\d{1,2}:\d{2})?\s*$/u, '');
-          else lines[i] = l.replace('[ ]', '[x]').replace(/\s*$/, '') + ` ✅ ${STAMP()}`;
-          const out = lines.join('\n');
-          // only finished steps go in the log; reopening one stays quiet
-          return wasDone ? out : addToSection(out, 'log', `- ${STAMP()} — Step done: ${step.text}`);
-        }),
-      )
-      .then(() => {
-        if (!ok) {
-          step.done = wasDone;
-          new Notice('That step changed in the meantime — refreshed');
-        } else if (!wasDone) this.app.workspace.trigger('neon:ticket-changed', { file: t.file, id: t.id, title: t.title, change: `Step done: ${step.text}` });
-      })
-      .catch((e) => {
-        step.done = wasDone;
-        console.error('Neon Tickets: could not change step', e);
-        new Notice('Could not save the step');
+      act.slice(0, 30).forEach((t, i) => {
+        const r = list.createDiv(`tk-mini is-${t.bucket} prio-${t.priority}`);
+        r.style.setProperty('--i', String(Math.min(i, 20)));
+        r.createSpan({ cls: 'tk-mini-due', text: ticketDueText(t) });
+        const txt = r.createDiv('tk-mini-text');
+        if (t.id) txt.createSpan({ cls: 'tk-id', text: t.id });
+        txt.createSpan({ cls: 'tk-mini-title', text: t.title });
+        if (t.status === 'waiting' && t.bucket !== 'followup') r.createSpan({ cls: 'tk-tag-wait', text: 'waiting' });
+        r.addEventListener('click', (e) => p.showTicket(t.file, e));
+        r.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          const m = new Menu();
+          ticketMenu(p, t, m);
+          m.showAtMouseEvent(e);
+        });
       });
-    this.writeQ.set(key, next);
-    return next;
-  }
-  /** Change the line a step lives on. fn gets the line and returns the new line, or null to delete it. No log entry. */
-  async changeStepLine(t, step, fn) {
-    let ok = false;
-    await this.app.vault.process(t.file, (d) => {
-      const lines = d.split('\n');
-      const fmLen = d.length - stripFrontmatter(d).length;
-      const offset = d.slice(0, fmLen).split('\n').length - 1;
-      const i = step.line + offset;
-      const l = lines[i];
-      if (l === undefined || !l.includes(step.text)) return d;
-      ok = true;
-      const nl = fn(l);
-      if (nl === null) lines.splice(i, 1);
-      else lines[i] = nl;
-      return lines.join('\n');
-    });
-    if (!ok) new Notice('That step changed in the meantime — refreshed');
-    return ok;
-  }
-  async editStep(t, step, text) {
-    return this.changeStepLine(t, step, (l) => {
-      const m = l.match(/^(\s*[-*+]\s+\[.\]\s*)(.*?)(\s*✅\s*\d{4}-\d{2}-\d{2}(?:\s+\d{1,2}:\d{2})?\s*)?$/u);
-      return m ? m[1] + text + (m[3] || '') : l;
-    });
-  }
-  async removeStep(t, step) {
-    return this.changeStepLine(t, step, () => null);
-  }
-  async addLog(t, text) {
-    await this.log(t, text);
-  }
-  async addDescription(t, text) {
-    await this.app.vault.process(t.file, (d) => addToSection(d, 'description', text));
-    await this.log(t, 'Description updated');
-  }
-  async logTime(t, { min, note }) {
-    const start = moment().subtract(min, 'minutes');
-    await this.app.vault.process(t.file, (d) => addToSection(d, 'time', `- ${start.format('YYYY-MM-DD HH:mm')} · ${min}m${note ? ' · ' + note : ''}`));
-    await this.log(t, `Time logged: ${fmtMin(min)}${note ? ' — ' + note : ''}`);
-    this.app.workspace.trigger('neon:time-entry', {
-      start: start.valueOf(),
-      min,
-      cat: t.category,
-      note: note ? `${t.id ? t.id + ' ' : ''}${note}` : `${t.id ? t.id + ' · ' : ''}${t.title}`,
-      path: t.file.path,
-      jira: t.jira,
-      source: 'ticket',
-    });
-  }
+    };
+    const off = this.onChange(render);
+    render();
+    return { destroy: off };
+  },
 
-  /* filing done tickets ----------------------------------------------------- */
-  ticketRoot() {
-    return normalizePath(this.settings.ticketFolder || 'Core/Tickets');
-  }
-  doneRoot() {
-    return normalizePath(`${this.ticketRoot()}/${this.settings.doneFolder || 'Done'}`);
-  }
-  /** Where a done ticket goes, or null when it lives outside the ticket folder. */
-  doneDest(t, when) {
-    if (!this.settings.autoFile) return null;
-    const p = t.file.path;
-    const root = this.ticketRoot();
-    if (!p.startsWith(root + '/')) return null;
-    return `${this.doneRoot()}/${(t.completed || when).format('YYYY-MM')}`;
-  }
-  async moveTo(file, folder) {
-    let dest = normalizePath(`${folder}/${file.name}`);
-    if (dest === file.path) return;
-    if (this.moving.has(file)) return;
-    this.moving.add(file);
-    try {
-      await ensureFolder(this.app, folder);
-      // a note with the same name is already there: add a number instead of leaving the ticket behind
-      if (this.app.vault.getAbstractFileByPath(dest)) dest = uniquePath(this.app, folder, file.basename, file.extension);
-      await this.app.fileManager.renameFile(file, dest);
-    } catch (e) {
-      console.error('Neon Tickets: move failed', e);
-      new Notice(`Couldn’t move “${file.basename}” to ${folder}`);
-    } finally {
-      this.moving.delete(file);
-    }
-  }
-  /** Tickets marked done (or reopened) by editing the note get filed too. */
-  fileSoon(f) {
-    if (!this.settings.autoFile || !(f instanceof TFile)) return;
-    this.fileTimers = this.fileTimers || new Map();
-    window.clearTimeout(this.fileTimers.get(f));
-    this.fileTimers.set(
-      f,
-      window.setTimeout(async () => {
-        this.fileTimers.delete(f);
-        const t = this.ticketFor(f);
-        if (!t) return;
-        if (t.status === 'done') await this.moveDone(f, moment());
-        else await this.moveBack(f);
-      }, 1500),
-    );
-  }
-  async moveDone(file, when) {
-    const t = this.ticketFor(file) || { file, completed: null };
-    const dest = this.doneDest(t, when);
-    if (dest && !file.path.startsWith(dest + '/')) await this.moveTo(file, dest);
-  }
-  async moveBack(file) {
-    if (file.path.startsWith(this.doneRoot() + '/')) await this.moveTo(file, this.ticketRoot());
-  }
-  async fileAllDone(notify) {
-    let n = 0;
-    for (const t of this.collectTickets().filter((x) => x.status === 'done')) {
-      const dest = this.doneDest(t, moment(t.file.stat.mtime));
-      if (dest && !t.file.path.startsWith(dest + '/')) {
-        await this.moveTo(t.file, dest);
-        n++;
-      }
-    }
-    if (notify || n) new Notice(n ? `✦ Filed ${n} done ticket${n === 1 ? '' : 's'} into ${this.doneRoot()}/` : 'All done tickets are already filed');
-  }
-
-  /* creating ------------------------------------------------------------------ */
-  newTicket(opts) {
-    new NewTicketModal(this, opts || {}).open();
-  }
-
-  /* ---- screenshots ---- */
-  shotFolder() {
-    const deck = neonPlugin(this.app, 'neon-deck');
-    const core = (deck && deck.settings && deck.settings.coreFolder) || 'Core';
-    return normalizePath(`${core}/Images/Tickets`);
-  }
-  /** Save image files into Core/Images/Tickets and link them under ## Screenshots. */
-  async addScreenshots(t, files) {
-    if (!files.length) return;
-    const dir = this.shotFolder();
-    await ensureFolder(this.app, dir);
-    const links = [];
-    for (const [i, f] of files.entries()) {
-      const ext = IMG_TYPES[f.type];
-      if (!ext) continue;
-      const base = safeName(`${t.id || t.title} ${moment().format('YYYY-MM-DD HH-mm-ss')}${files.length > 1 ? ` ${i + 1}` : ''}`);
-      const created = await this.app.vault.createBinary(uniquePath(this.app, dir, base, ext), await f.arrayBuffer());
-      links.push(`![[${created.path}]]`);
-    }
-    if (!links.length) return;
-    await this.app.vault.process(t.file, (d) => links.reduce((acc, l) => addToSection(acc, 'shots', l), d));
-    await this.log(t, links.length === 1 ? 'Screenshot added' : `${links.length} screenshots added`);
-    new Notice(`${links.length === 1 ? 'Screenshot' : `${links.length} screenshots`} saved to ${dir}`);
-  }
-  /** Take a screenshot off the ticket; the image itself goes to the system trash. */
-  async removeScreenshot(t, shot) {
-    const f = this.app.metadataCache.getFirstLinkpathDest(shot.link, t.file.path);
-    await this.app.vault.process(t.file, (d) => {
-      const lines = d.split('\n');
-      const sec = findSection(lines, 'shots');
-      if (!sec) return d;
-      const i = lines.findIndex((l, n) => n > sec[0] && n < sec[1] && l.includes(shot.link));
-      if (i !== -1) lines.splice(i, 1);
-      return lines.join('\n');
-    });
-    if (f) await this.app.vault.trash(f, true);
-  }
-
-  /** Move done tickets (and optionally their screenshots and reports) to the system trash; tidy empty Done folders. */
-  async clearDone(list, withFiles) {
-    const reportsDir = normalizePath(`${this.ticketRoot()}/Exports`) + '/';
-    const files = new Set();
-    for (const t of list) {
-      if (withFiles) {
-        const b = parseTicketBody(stripFrontmatter(await this.app.vault.cachedRead(t.file)));
-        for (const shot of b.shots) {
-          const f = this.app.metadataCache.getFirstLinkpathDest(shot.link, t.file.path);
-          if (f) files.add(f);
-        }
-        for (const f of this.app.vault.getMarkdownFiles()) {
-          if (!f.path.startsWith(reportsDir)) continue;
-          const fm = (this.app.metadataCache.getFileCache(f) || {}).frontmatter || {};
-          if (fm.ticket === t.file.path) files.add(f);
+  /* reminders --------------------------------------------------------------------- */
+  async checkReminders(force) {
+    if (!this.settings.reminders && !force) return;
+    const now = moment();
+    const today = now.format('YYYY-MM-DD');
+    // waiting tickets without a follow-up date get one after N days
+    for (const t of this.activeTickets()) {
+      if (t.status === 'waiting' && !t.followUp) {
+        const since = t.waitingSince || moment(t.file.stat.mtime);
+        if (now.diff(since, 'days') >= this.settings.autoFollowUpDays) {
+          await this.patch(t, { follow_up: today });
+          await this.log(t, `No answer for ${this.settings.autoFollowUpDays} days — follow up today`);
         }
       }
-      files.add(t.file);
     }
-    let n = 0;
-    for (const f of files) {
-      try {
-        await this.app.vault.trash(f, true);
-        n++;
-      } catch (e) {
-        console.error('Neon Tickets: could not trash', f.path, e);
-      }
-    }
-    // empty month folders under Done/ go too
-    const done = this.app.vault.getAbstractFileByPath(this.doneRoot());
-    if (done && done.children) for (const d of [...done.children]) if (d.children && !d.children.length) await this.app.vault.trash(d, true);
     this.cache = null;
-    this.emitSoon();
-    new Notice(`Cleared ${list.length} done ticket${list.length === 1 ? '' : 's'}${n > list.length ? ` and ${n - list.length} file${n - list.length === 1 ? '' : 's'}` : ''} (system trash)`);
-  }
-
+    const seen = this.settings.notified;
+    for (const k of Object.keys(seen)) if (seen[k] !== today) delete seen[k];
+    const ahead = this.settings.remindDays;
+    const due = this.activeTickets().filter((t) => t.bucket === 'followup' || (t.due && t.daysLeft <= ahead) || (t.remind && !t.remind.isAfter(now)));
+    const fresh = force ? due : due.filter((t) => seen[t.file.path] !== today);
+    if (!fresh.length) {
+      if (force) new Notice('No tickets need attention right now ✦');
+      return;
+    }
+    for (const t of fresh) seen[t.file.path] = today;
+    await this.saveSettings();
+    const frag = createFragment((d) => {
+      d.createDiv({ cls: 'tk-notice-title', text: `🎫 ${fresh.length} ticket${fresh.length === 1 ? '' : 's'} need${fresh.length === 1 ? 's' : ''} attention` });
+      for (const t of fresh.slice(0, 6)) {
+        const line = d.createDiv({ cls: `tk-notice-line is-${t.bucket}` });
+        line.createSpan({ cls: 'tk-notice-due', text: ticketDueText(t) });
+        line.createSpan({ text: ` ${t.id ? t.id + ' · ' : ''}${t.title}` });
+      }
+      if (fresh.length > 6) d.createDiv({ text: `+${fresh.length - 6} more` });
+      d.createDiv({ cls: 'tk-notice-hint', text: 'Click to open the tracker' });
+    });
+    const n = new Notice(frag, 0);
+    const el = n.noticeEl || n.messageEl;
+    if (el) {
+      el.addClass('tk-notice');
+      el.addEventListener('click', () => this.openTracker());
+    }
+    // reminders stay inside Obsidian: a system notification froze Obsidian's main process for minutes on Linux
+  },
+});
+/* @src src/tickets/export-templates.js */
+Object.assign(NeonTickets.prototype, {
   /* ---- export ---- */
   /** Build a report note for the ticket (Core/Tickets/Exports) and open Obsidian's PDF export for it. */
   async exportTicket(t) {
@@ -2586,7 +2320,7 @@ module.exports = class NeonTickets extends Plugin {
       if (!this.app.commands.executeCommandById('workspace:export-pdf')) new Notice('Report ready — use “Export to PDF” from the note menu to save it.');
     }, 400);
     return report;
-  }
+  },
 
   /* ---- ticket templates (local: stored in this plugin's data) ---- */
   async saveTemplate(tpl) {
@@ -2596,12 +2330,12 @@ module.exports = class NeonTickets extends Plugin {
     else list[i] = tpl;
     await this.saveSettings();
     this.emitSoon();
-  }
+  },
   async deleteTemplate(id) {
     this.settings.templates = this.settings.templates.filter((x) => x.id !== id);
     await this.saveSettings();
     this.emitSoon();
-  }
+  },
   async duplicateTemplate(id) {
     const tpl = this.settings.templates.find((x) => x.id === id);
     if (!tpl) return;
@@ -2610,7 +2344,7 @@ module.exports = class NeonTickets extends Plugin {
     list.splice(list.indexOf(tpl) + 1, 0, copy);
     await this.saveSettings();
     this.emitSoon();
-  }
+  },
   async createTicket({ title, id, description, priority, category, due, remind, steps, jira }) {
     const q = (v) => JSON.stringify(String(v || ''));
     const yaml = [
@@ -2646,119 +2380,410 @@ module.exports = class NeonTickets extends Plugin {
     this.app.workspace.trigger('neon:ticket-changed', { file: f, id, title, change: 'Ticket opened' });
     await this.showTicket(f);
     new Notice(`🎫 Ticket created${due ? ` · due ${moment(due).format('ddd D MMM')}` : ''}`);
-  }
+  },
 
-  /* dashboard widget ------------------------------------------------------------ */
-  mountWidget(card) {
-    const p = this;
-    button(card.actions, { icon: 'plus', cls: 'nd-icon-btn', title: 'New ticket', onClick: () => p.newTicket() });
-    button(card.actions, { icon: 'maximize-2', cls: 'nd-icon-btn', title: 'Open ticket tracker', onClick: () => p.openTracker() });
-    const counter = card.body.createDiv('tk-counter is-mini');
-    const list = card.body.createDiv('tk-mini-list');
-    let renders = 0;
-    const render = () => {
-      if (!list.isConnected) return;
-      list.toggleClass('is-calm', renders++ > 0); // animate on first open only
-      const all = p.collectTickets();
-      const act = all.filter((t) => t.status !== 'done');
-      card.badge.setText(act.length ? String(act.length) : '');
-      card.w.toggleClass('has-overdue', act.some((t) => t.bucket === 'overdue' || t.bucket === 'followup'));
-      p.renderCounter(counter, all);
-      list.empty();
-      if (!act.length) {
-        emptyState(list, 'No open tickets ✦');
-        return;
+});
+/* @src src/tickets/filing.js */
+Object.assign(NeonTickets.prototype, {
+  /* filing done tickets ----------------------------------------------------- */
+  ticketRoot() {
+    return normalizePath(this.settings.ticketFolder || 'Core/Tickets');
+  },
+  doneRoot() {
+    return normalizePath(`${this.ticketRoot()}/${this.settings.doneFolder || 'Done'}`);
+  },
+  /** Where a done ticket goes, or null when it lives outside the ticket folder. */
+  doneDest(t, when) {
+    if (!this.settings.autoFile) return null;
+    const p = t.file.path;
+    const root = this.ticketRoot();
+    if (!p.startsWith(root + '/')) return null;
+    return `${this.doneRoot()}/${(t.completed || when).format('YYYY-MM')}`;
+  },
+  async moveTo(file, folder) {
+    let dest = normalizePath(`${folder}/${file.name}`);
+    if (dest === file.path) return;
+    if (this.moving.has(file)) return;
+    this.moving.add(file);
+    try {
+      await ensureFolder(this.app, folder);
+      // a note with the same name is already there: add a number instead of leaving the ticket behind
+      if (this.app.vault.getAbstractFileByPath(dest)) dest = uniquePath(this.app, folder, file.basename, file.extension);
+      await this.app.fileManager.renameFile(file, dest);
+    } catch (e) {
+      console.error('Neon Tickets: move failed', e);
+      new Notice(`Couldn’t move “${file.basename}” to ${folder}`);
+    } finally {
+      this.moving.delete(file);
+    }
+  },
+  /** Tickets marked done (or reopened) by editing the note get filed too. */
+  fileSoon(f) {
+    if (!this.settings.autoFile || !(f instanceof TFile)) return;
+    this.fileTimers = this.fileTimers || new Map();
+    window.clearTimeout(this.fileTimers.get(f));
+    this.fileTimers.set(
+      f,
+      window.setTimeout(async () => {
+        this.fileTimers.delete(f);
+        const t = this.ticketFor(f);
+        if (!t) return;
+        if (t.status === 'done') await this.moveDone(f, moment());
+        else await this.moveBack(f);
+      }, 1500),
+    );
+  },
+  async moveDone(file, when) {
+    const t = this.ticketFor(file) || { file, completed: null };
+    const dest = this.doneDest(t, when);
+    if (dest && !file.path.startsWith(dest + '/')) await this.moveTo(file, dest);
+  },
+  async moveBack(file) {
+    if (file.path.startsWith(this.doneRoot() + '/')) await this.moveTo(file, this.ticketRoot());
+  },
+  async fileAllDone(notify) {
+    let n = 0;
+    for (const t of this.collectTickets().filter((x) => x.status === 'done')) {
+      const dest = this.doneDest(t, moment(t.file.stat.mtime));
+      if (dest && !t.file.path.startsWith(dest + '/')) {
+        await this.moveTo(t.file, dest);
+        n++;
       }
-      act.slice(0, 30).forEach((t, i) => {
-        const r = list.createDiv(`tk-mini is-${t.bucket} prio-${t.priority}`);
-        r.style.setProperty('--i', String(Math.min(i, 20)));
-        r.createSpan({ cls: 'tk-mini-due', text: ticketDueText(t) });
-        const txt = r.createDiv('tk-mini-text');
-        if (t.id) txt.createSpan({ cls: 'tk-id', text: t.id });
-        txt.createSpan({ cls: 'tk-mini-title', text: t.title });
-        if (t.status === 'waiting' && t.bucket !== 'followup') r.createSpan({ cls: 'tk-tag-wait', text: 'waiting' });
-        r.addEventListener('click', (e) => p.showTicket(t.file, e));
-        r.addEventListener('contextmenu', (e) => {
-          e.preventDefault();
-          const m = new Menu();
-          ticketMenu(p, t, m);
-          m.showAtMouseEvent(e);
-        });
-      });
-    };
-    const off = this.onChange(render);
-    render();
-    return { destroy: off };
-  }
+    }
+    if (notify || n) new Notice(n ? `✦ Filed ${n} done ticket${n === 1 ? '' : 's'} into ${this.doneRoot()}/` : 'All done tickets are already filed');
+  },
 
-  /* reminders --------------------------------------------------------------------- */
-  async checkReminders(force) {
-    if (!this.settings.reminders && !force) return;
-    const now = moment();
-    const today = now.format('YYYY-MM-DD');
-    // waiting tickets without a follow-up date get one after N days
-    for (const t of this.activeTickets()) {
-      if (t.status === 'waiting' && !t.followUp) {
-        const since = t.waitingSince || moment(t.file.stat.mtime);
-        if (now.diff(since, 'days') >= this.settings.autoFollowUpDays) {
-          await this.patch(t, { follow_up: today });
-          await this.log(t, `No answer for ${this.settings.autoFollowUpDays} days — follow up today`);
+  /* creating ------------------------------------------------------------------ */
+  newTicket(opts) {
+    new NewTicketModal(this, opts || {}).open();
+  },
+
+  /* ---- screenshots ---- */
+  shotFolder() {
+    const deck = neonPlugin(this.app, 'neon-deck');
+    const core = (deck && deck.settings && deck.settings.coreFolder) || 'Core';
+    return normalizePath(`${core}/Images/Tickets`);
+  },
+  /** Save image files into Core/Images/Tickets and link them under ## Screenshots. */
+  async addScreenshots(t, files) {
+    if (!files.length) return;
+    const dir = this.shotFolder();
+    await ensureFolder(this.app, dir);
+    const links = [];
+    for (const [i, f] of files.entries()) {
+      const ext = IMG_TYPES[f.type];
+      if (!ext) continue;
+      const base = safeName(`${t.id || t.title} ${moment().format('YYYY-MM-DD HH-mm-ss')}${files.length > 1 ? ` ${i + 1}` : ''}`);
+      const created = await this.app.vault.createBinary(uniquePath(this.app, dir, base, ext), await f.arrayBuffer());
+      links.push(`![[${created.path}]]`);
+    }
+    if (!links.length) return;
+    await this.app.vault.process(t.file, (d) => links.reduce((acc, l) => addToSection(acc, 'shots', l), d));
+    await this.log(t, links.length === 1 ? 'Screenshot added' : `${links.length} screenshots added`);
+    new Notice(`${links.length === 1 ? 'Screenshot' : `${links.length} screenshots`} saved to ${dir}`);
+  },
+  /** Take a screenshot off the ticket; the image itself goes to the system trash. */
+  async removeScreenshot(t, shot) {
+    const f = this.app.metadataCache.getFirstLinkpathDest(shot.link, t.file.path);
+    await this.app.vault.process(t.file, (d) => {
+      const lines = d.split('\n');
+      const sec = findSection(lines, 'shots');
+      if (!sec) return d;
+      const i = lines.findIndex((l, n) => n > sec[0] && n < sec[1] && l.includes(shot.link));
+      if (i !== -1) lines.splice(i, 1);
+      return lines.join('\n');
+    });
+    if (f) await this.app.vault.trash(f, true);
+  },
+
+  /** Move done tickets (and optionally their screenshots and reports) to the system trash; tidy empty Done folders. */
+  async clearDone(list, withFiles) {
+    const reportsDir = normalizePath(`${this.ticketRoot()}/Exports`) + '/';
+    const files = new Set();
+    for (const t of list) {
+      if (withFiles) {
+        const b = parseTicketBody(stripFrontmatter(await this.app.vault.cachedRead(t.file)));
+        for (const shot of b.shots) {
+          const f = this.app.metadataCache.getFirstLinkpathDest(shot.link, t.file.path);
+          if (f) files.add(f);
+        }
+        for (const f of this.app.vault.getMarkdownFiles()) {
+          if (!f.path.startsWith(reportsDir)) continue;
+          const fm = (this.app.metadataCache.getFileCache(f) || {}).frontmatter || {};
+          if (fm.ticket === t.file.path) files.add(f);
         }
       }
+      files.add(t.file);
     }
-    this.cache = null;
-    const seen = this.settings.notified;
-    for (const k of Object.keys(seen)) if (seen[k] !== today) delete seen[k];
-    const ahead = this.settings.remindDays;
-    const due = this.activeTickets().filter((t) => t.bucket === 'followup' || (t.due && t.daysLeft <= ahead) || (t.remind && !t.remind.isAfter(now)));
-    const fresh = force ? due : due.filter((t) => seen[t.file.path] !== today);
-    if (!fresh.length) {
-      if (force) new Notice('No tickets need attention right now ✦');
-      return;
-    }
-    for (const t of fresh) seen[t.file.path] = today;
-    await this.saveSettings();
-    const frag = createFragment((d) => {
-      d.createDiv({ cls: 'tk-notice-title', text: `🎫 ${fresh.length} ticket${fresh.length === 1 ? '' : 's'} need${fresh.length === 1 ? 's' : ''} attention` });
-      for (const t of fresh.slice(0, 6)) {
-        const line = d.createDiv({ cls: `tk-notice-line is-${t.bucket}` });
-        line.createSpan({ cls: 'tk-notice-due', text: ticketDueText(t) });
-        line.createSpan({ text: ` ${t.id ? t.id + ' · ' : ''}${t.title}` });
+    let n = 0;
+    for (const f of files) {
+      try {
+        await this.app.vault.trash(f, true);
+        n++;
+      } catch (e) {
+        console.error('Neon Tickets: could not trash', f.path, e);
       }
-      if (fresh.length > 6) d.createDiv({ text: `+${fresh.length - 6} more` });
-      d.createDiv({ cls: 'tk-notice-hint', text: 'Click to open the tracker' });
-    });
-    const n = new Notice(frag, 0);
-    const el = n.noticeEl || n.messageEl;
-    if (el) {
-      el.addClass('tk-notice');
-      el.addEventListener('click', () => this.openTracker());
     }
-    // reminders stay inside Obsidian: a system notification froze Obsidian's main process for minutes on Linux
-  }
-  buildStatus() {
-    const el = this.addStatusBarItem();
-    el.addClass('nd-status', 'tk-statusbar', 'mod-clickable');
-    setIcon(el.createSpan('nd-status-icon'), 'ticket');
-    const txt = el.createSpan('nd-status-text');
-    tip(el, 'Tickets — click to open the tracker');
-    el.addEventListener('click', () => this.openTracker());
-    const update = () => {
-      const act = this.activeTickets();
-      const over = act.filter((t) => t.bucket === 'overdue').length;
-      const fu = act.filter((t) => t.bucket === 'followup').length;
-      const today = act.filter((t) => t.bucket === 'today').length;
-      el.toggle(act.length > 0);
-      const parts = [];
-      if (over) parts.push(`${over} overdue`);
-      if (fu) parts.push(`${fu} follow up`);
-      if (today) parts.push(`${today} today`);
-      txt.setText(parts.length ? parts.join(' · ') : `${act.length} open`);
-      el.toggleClass('is-alert', over > 0);
-      el.toggleClass('is-warn', !over && today + fu > 0);
+    // empty month folders under Done/ go too
+    const done = this.app.vault.getAbstractFileByPath(this.doneRoot());
+    if (done && done.children) for (const d of [...done.children]) if (d.children && !d.children.length) await this.app.vault.trash(d, true);
+    this.cache = null;
+    this.emitSoon();
+    new Notice(`Cleared ${list.length} done ticket${list.length === 1 ? '' : 's'}${n > list.length ? ` and ${n - list.length} file${n - list.length === 1 ? '' : 's'}` : ''} (system trash)`);
+  },
+
+});
+/* @src src/tickets/actions.js */
+Object.assign(NeonTickets.prototype, {
+  /* writing ------------------------------------------------------------------ */
+  async patch(t, patch) {
+    await this.app.fileManager.processFrontMatter(t.file, (fm) => {
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === null || v === '') delete fm[k];
+        else fm[k] = v;
+      }
+    });
+  },
+  async log(t, text) {
+    await this.app.vault.process(t.file, (d) => addToSection(d, 'log', `- ${STAMP()} — ${text}`));
+    this.app.workspace.trigger('neon:ticket-changed', { file: t.file, id: t.id, title: t.title, change: text });
+  },
+  async setStatus(t, status) {
+    if (status === t.status) return;
+    if (status === 'waiting') {
+      return new WaitingModal(this, t, async ({ who, followUp }) => {
+        const wait = { status: 'waiting', waiting_on: who || null, follow_up: followUp || null, waiting_since: moment().format('YYYY-MM-DD') };
+        if (t.status === 'done') wait.completed = null;
+        await this.patch(t, wait);
+        this.logStatus(t, 'waiting');
+        await this.log(t, `Waiting${who ? ' on ' + who : ''}${followUp ? ` · follow up ${moment(followUp).format('ddd D MMM')}` : ''}`);
+      }).open();
+    }
+    const patch = { status, waiting_on: null, follow_up: null, waiting_since: null };
+    if (status === 'done') patch.completed = moment().format('YYYY-MM-DD');
+    else if (t.status === 'done') patch.completed = null;
+    await this.patch(t, patch);
+    this.logStatus(t, status);
+    await this.log(t, status === 'done' ? 'Done' : t.status === 'done' ? 'Reopened' : `Status: ${TICKET_STATUS_LABEL[t.status]} → ${TICKET_STATUS_LABEL[status]}`);
+    if (status === 'done') {
+      new Notice(`✓ ${t.id ? t.id + ' · ' : ''}${t.title} — done`);
+      if (this.settings.autoFile) await this.moveDone(t.file, moment());
+    } else if (t.status === 'done' && this.settings.autoFile) await this.moveBack(t.file);
+  },
+  /** Remember a status change for the dashboard's Recently done log (only the statuses chosen in settings). */
+  logStatus(t, status) {
+    if (!this.settings.activityStatuses.includes(status)) return;
+    const log = this.settings.statusLog;
+    log.push({ t: Date.now(), id: t.id || '', title: t.title, status, path: t.file.path });
+    if (log.length > 200) log.splice(0, log.length - 200);
+    this.saveSettings();
+    const api = deckApi(this.app);
+    if (api && api.activityChanged) api.activityChanged();
+  },
+  async setPriority(t, p) {
+    if (p === t.priority) return;
+    await this.patch(t, { priority: p });
+    await this.log(t, `Priority: ${t.priority} → ${p}`);
+  },
+  async postpone(t, days) {
+    const today = moment().startOf('day');
+    const base = t.due && !t.due.isBefore(today) ? t.due.clone() : today;
+    await this.setDue(t, base.add(days, 'days').format('YYYY-MM-DD'));
+  },
+  async setDue(t, v) {
+    await this.patch(t, { due: v || null });
+    await this.log(t, v ? `Due moved${t.due ? ` from ${t.due.format('D MMM')}` : ''} to ${moment(v).format('ddd D MMM')}` : 'Due date cleared');
+    if (v) new Notice(`${t.id || t.title} → due ${moment(v).format('ddd D MMM')}`);
+  },
+  async setRemind(t, v) {
+    await this.patch(t, { remind: v || null });
+    await this.log(t, v ? `Reminder set for ${moment(v, ['YYYY-MM-DD HH:mm', 'YYYY-MM-DD']).format('ddd D MMM HH:mm')}` : 'Reminder cleared');
+    delete this.settings.notified[t.file.path];
+    await this.saveSettings();
+  },
+  promptDate(t, key) {
+    const cur = t[key];
+    new DatePromptModal(this.app, {
+      title: key === 'due' ? `Due date · ${t.id || t.title}` : `Remind me · ${t.id || t.title}`,
+      time: key === 'remind',
+      value: cur ? cur.format(key === 'remind' ? 'YYYY-MM-DDTHH:mm' : 'YYYY-MM-DD') : '',
+      onSubmit: (v) => (key === 'due' ? this.setDue(t, v) : this.setRemind(t, v)),
+    }).open();
+  },
+  /** Add a step. No log line (only checking a step is logged). Writes per ticket are queued so fast Enters never clash. */
+  addStep(t, text) {
+    if (!this.writeQ) this.writeQ = new Map();
+    const key = t.file.path;
+    const next = (this.writeQ.get(key) || Promise.resolve())
+      .then(() => this.app.vault.process(t.file, (d) => addToSection(d, 'steps', `- [ ] ${text}`)))
+      .catch((e) => console.error('Neon Tickets: could not add step', e));
+    this.writeQ.set(key, next);
+    return next;
+  },
+  /**
+   * Tick or untick a step: one queued write flips the box and (for a finished step) adds the log line.
+   * step.done flips at once, so the row can update before the write and a quick second click toggles back.
+   */
+  toggleStep(t, step) {
+    const wasDone = step.done;
+    step.done = !wasDone;
+    if (!this.writeQ) this.writeQ = new Map();
+    const key = t.file.path;
+    let ok = false;
+    const next = (this.writeQ.get(key) || Promise.resolve())
+      .then(() =>
+        this.app.vault.process(t.file, (d) => {
+          const lines = d.split('\n');
+          const fmLen = d.length - stripFrontmatter(d).length;
+          const offset = d.slice(0, fmLen).split('\n').length - 1;
+          const i = step.line + offset;
+          const l = lines[i];
+          if (l === undefined || !l.includes(step.text)) return d;
+          ok = true;
+          if (wasDone) lines[i] = l.replace(/\[[^ ]\]/, '[ ]').replace(/\s*✅\s*\d{4}-\d{2}-\d{2}(\s+\d{1,2}:\d{2})?\s*$/u, '');
+          else lines[i] = l.replace('[ ]', '[x]').replace(/\s*$/, '') + ` ✅ ${STAMP()}`;
+          const out = lines.join('\n');
+          // only finished steps go in the log; reopening one stays quiet
+          return wasDone ? out : addToSection(out, 'log', `- ${STAMP()} — Step done: ${step.text}`);
+        }),
+      )
+      .then(() => {
+        if (!ok) {
+          step.done = wasDone;
+          new Notice('That step changed in the meantime — refreshed');
+        } else if (!wasDone) this.app.workspace.trigger('neon:ticket-changed', { file: t.file, id: t.id, title: t.title, change: `Step done: ${step.text}` });
+      })
+      .catch((e) => {
+        step.done = wasDone;
+        console.error('Neon Tickets: could not change step', e);
+        new Notice('Could not save the step');
+      });
+    this.writeQ.set(key, next);
+    return next;
+  },
+  /** Change the line a step lives on. fn gets the line and returns the new line, or null to delete it. No log entry. */
+  async changeStepLine(t, step, fn) {
+    let ok = false;
+    await this.app.vault.process(t.file, (d) => {
+      const lines = d.split('\n');
+      const fmLen = d.length - stripFrontmatter(d).length;
+      const offset = d.slice(0, fmLen).split('\n').length - 1;
+      const i = step.line + offset;
+      const l = lines[i];
+      if (l === undefined || !l.includes(step.text)) return d;
+      ok = true;
+      const nl = fn(l);
+      if (nl === null) lines.splice(i, 1);
+      else lines[i] = nl;
+      return lines.join('\n');
+    });
+    if (!ok) new Notice('That step changed in the meantime — refreshed');
+    return ok;
+  },
+  async editStep(t, step, text) {
+    return this.changeStepLine(t, step, (l) => {
+      const m = l.match(/^(\s*[-*+]\s+\[.\]\s*)(.*?)(\s*✅\s*\d{4}-\d{2}-\d{2}(?:\s+\d{1,2}:\d{2})?\s*)?$/u);
+      return m ? m[1] + text + (m[3] || '') : l;
+    });
+  },
+  async removeStep(t, step) {
+    return this.changeStepLine(t, step, () => null);
+  },
+  async addLog(t, text) {
+    await this.log(t, text);
+  },
+  async addDescription(t, text) {
+    await this.app.vault.process(t.file, (d) => addToSection(d, 'description', text));
+    await this.log(t, 'Description updated');
+  },
+  async logTime(t, { min, note }) {
+    const start = moment().subtract(min, 'minutes');
+    await this.app.vault.process(t.file, (d) => addToSection(d, 'time', `- ${start.format('YYYY-MM-DD HH:mm')} · ${min}m${note ? ' · ' + note : ''}`));
+    await this.log(t, `Time logged: ${fmtMin(min)}${note ? ' — ' + note : ''}`);
+    this.app.workspace.trigger('neon:time-entry', {
+      start: start.valueOf(),
+      min,
+      cat: t.category,
+      note: note ? `${t.id ? t.id + ' ' : ''}${note}` : `${t.id ? t.id + ' · ' : ''}${t.title}`,
+      path: t.file.path,
+      jira: t.jira,
+      source: 'ticket',
+    });
+  },
+
+});
+/* @src src/tickets/model.js */
+Object.assign(NeonTickets.prototype, {
+  /* collecting ------------------------------------------------------------- */
+  collectTickets() {
+    if (this.cache && this.cache.day === dayKey(Date.now())) return this.cache.list;
+    const out = [];
+    const today = moment().startOf('day');
+    const deck = neonPlugin(this.app, 'neon-deck');
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      const cache = this.app.metadataCache.getFileCache(f);
+      if (!isTicketCache(cache)) continue;
+      if (deck && deck.isExcluded && deck.isExcluded(f)) continue;
+      out.push(this.toTicket(f, cache, today));
+    }
+    out.sort(ticketSort);
+    this.cache = { day: dayKey(Date.now()), list: out, paths: new Set(out.map((t) => t.file.path)) };
+    return out;
+  },
+  toTicket(f, cache, today) {
+    const fm = (cache && cache.frontmatter) || {};
+    const created = parseDay(fm.created) || moment(f.stat.ctime);
+    const due = parseDay(fm.due);
+    const remindRaw = fm.remind != null ? String(fm.remind) : '';
+    const t = {
+      file: f,
+      title: String(fm.title || f.basename),
+      id: fm.ticket != null && fm.ticket !== '' ? String(fm.ticket) : fm.id != null ? String(fm.id) : '',
+      status: normTicketStatus(fm.status),
+      priority: normTicketPrio(fm.priority),
+      category: noteCategory(cache) || 'operations',
+      created,
+      due,
+      remind: parseDay(remindRaw),
+      remindHasTime: /\d{1,2}:\d{2}/.test(remindRaw),
+      completed: parseDay(fm.completed),
+      waitingOn: fm.waiting_on ? String(fm.waiting_on) : '',
+      followUp: parseDay(fm.follow_up),
+      waitingSince: parseDay(fm.waiting_since),
+      jira: fm.jira ? String(fm.jira) : '',
+      daysLeft: due ? daysFromToday(due) : null,
+      age: Math.max(0, today.diff(created.clone().startOf('day'), 'days')),
+      progress: 0,
     };
-    this.register(this.onChange(update));
-    this.registerInterval(window.setInterval(update, 5 * 60 * 1000));
-    this.app.workspace.onLayoutReady(update);
-  }
-};
+    if (t.id && t.title.startsWith(t.id)) t.title = t.title.slice(t.id.length).replace(/^[\s·:\-–—]+/, '') || t.title;
+    if (due) {
+      const span = due.clone().endOf('day').diff(created, 'minutes');
+      t.progress = span > 0 ? clamp(moment().diff(created, 'minutes') / span, 0, 1) : 1;
+    }
+    const followDue = t.status === 'waiting' && t.followUp && !t.followUp.isAfter(today, 'day');
+    t.bucket = t.status === 'done' ? 'done' : followDue ? 'followup' : !due ? 'nodate' : t.daysLeft < 0 ? 'overdue' : t.daysLeft === 0 ? 'today' : t.daysLeft <= 7 ? 'week' : 'later';
+    return t;
+  },
+  activeTickets() {
+    return this.collectTickets().filter((t) => t.status !== 'done');
+  },
+  ticketFor(file) {
+    if (!file) return null;
+    const cache = this.app.metadataCache.getFileCache(file);
+    return isTicketCache(cache) ? this.toTicket(file, cache, moment().startOf('day')) : null;
+  },
+  doneIn(m) {
+    return this.collectTickets().filter((t) => t.status === 'done' && t.completed && t.completed.isSame(m, 'month')).length;
+  },
+  renderCounter(el, all) {
+    el.empty();
+    const now = moment();
+    const last = now.clone().subtract(1, 'month');
+    const done = (m) => all.filter((t) => t.status === 'done' && t.completed && t.completed.isSame(m, 'month')).length;
+    el.createSpan({ cls: 'tk-counter-n', text: String(done(now)) });
+    el.createSpan({ cls: 'tk-counter-l', text: `done in ${now.format('MMMM')} · ${done(last)} in ${last.format('MMMM')}` });
+  },
+
+});
+/* @src src/tickets/exports.js */
+module.exports = NeonTickets;

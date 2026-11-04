@@ -7,6 +7,7 @@
  * no shell access. Files are only written when you do something that writes.
  * The shared helpers at the top are copied into every Neon plugin; keep the copies identical.
  */
+/* @src src/shared/shared.js */
 /* ---- shared helpers (same copy in every Neon plugin) ---------------- */
 const obsidian = require('obsidian');
 const {
@@ -402,6 +403,7 @@ function numSetting(setting, obj, key, min, max, save) {
   });
 }
 /* ---- end shared ------------------------------------------------------- */
+/* @src src/research/constants.js */
 
 /* =========================================================================
  * NEON RESEARCH — one tree: topics (folders) → subtopics (folders) → notes,
@@ -442,6 +444,7 @@ function plainMask(text) {
     .replace(/^#{1,6}\s.*$/gm, blank);
 }
 
+/* @src src/research/link-suggest.js */
 /* ---- link suggestions -------------------------------------------------------- */
 class LinkSuggestModal extends Modal {
   constructor(plugin, file, hits) {
@@ -490,6 +493,7 @@ class LinkSuggestModal extends Modal {
   }
 }
 
+/* @src src/research/quiz.js */
 /* ---- quiz ------------------------------------------------------------------- */
 class QuizModal extends Modal {
   constructor(plugin, cards, label) {
@@ -679,6 +683,7 @@ function slide(el, open) {
   a.onfinish = () => (open ? (el.style.overflow = '') : el.remove());
 }
 
+/* @src src/research/tree-view.js */
 /* ---- the Research tab: one topic tree ------------------------------------------ */
 class ResearchView extends ItemView {
   constructor(leaf, plugin) {
@@ -871,6 +876,7 @@ class ResearchView extends ItemView {
   }
 }
 
+/* @src src/research/settings.js */
 /* ---- settings --------------------------------------------------------------- */
 class NeonResearchSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
@@ -930,8 +936,9 @@ class NeonResearchSettingTab extends PluginSettingTab {
   }
 }
 
+/* @src src/research/plugin.js */
 /* ---- plugin ------------------------------------------------------------------ */
-module.exports = class NeonResearch extends Plugin {
+class NeonResearch extends Plugin {
   async onload() {
     const raw = (await this.loadData()) || {};
     this.settings = Object.assign({}, NR_DEFAULTS, raw);
@@ -1337,4 +1344,6 @@ module.exports = class NeonResearch extends Plugin {
     this.settings.cards[card.id] = { ivl, due };
     await this.saveSettings();
   }
-};
+}
+/* @src src/research/exports.js */
+module.exports = NeonResearch;

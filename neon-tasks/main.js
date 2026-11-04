@@ -7,6 +7,7 @@
  * no shell access. Files are only written when you do something that writes.
  * The shared helpers at the top are copied into every Neon plugin; keep the copies identical.
  */
+/* @src src/shared/shared.js */
 /* ---- shared helpers (same copy in every Neon plugin) ---------------- */
 const obsidian = require('obsidian');
 const {
@@ -402,6 +403,7 @@ function numSetting(setting, obj, key, min, max, save) {
   });
 }
 /* ---- end shared ------------------------------------------------------- */
+/* @src src/tasks/helpers.js */
 
 /* ------------------------------------------------------------------ */
 /* Neon Tasks                                                          */
@@ -624,6 +626,7 @@ class UncategorisedModal extends SuggestModal {
   }
 }
 
+/* @src src/tasks/settings.js */
 class NeonTasksSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
@@ -667,7 +670,8 @@ class NeonTasksSettingTab extends PluginSettingTab {
   }
 }
 
-module.exports = class NeonTasks extends Plugin {
+/* @src src/tasks/plugin.js */
+class NeonTasks extends Plugin {
   async onload() {
     const raw = await this.loadData();
     this.settings = Object.assign({}, TASKS_DEFAULTS, raw || {});
@@ -814,261 +818,189 @@ module.exports = class NeonTasks extends Plugin {
     if (api && api.activityChanged) api.activityChanged();
   }
 
-  /* collecting tasks ----------------------------------------------------- */
-  isTaskSource(f, cache) {
-    if (isTicketCache(cache)) return false;
-    return fmTags(cache && cache.frontmatter).includes('tasks');
-  }
-  async collectTasks() {
-    const app = this.app;
-    const today = moment().startOf('day');
-    const todayKey = today.format('YYYY-MM-DD');
-    const sources = new Map();
-    for (const f of app.vault.getMarkdownFiles()) {
-      const cache = app.metadataCache.getFileCache(f);
-      if (!cache || !cache.listItems) continue;
-      if (isTicketCache(cache)) continue;
-      if (this.isTaskSource(f, cache) || f.path === this.quickPath()) {
-        sources.set(f.path, { f, cache, daily: null });
-        continue;
-      }
-      const d = dailyDateOf(app, f);
-      if (d && !d.isAfter(today) && today.diff(d, 'days') <= this.settings.carryDays) sources.set(f.path, { f, cache, daily: d });
-    }
-    const out = [];
-    for (const { f, cache, daily } of sources.values()) {
-      const lis = cache.listItems.filter((li) => li.task === ' ');
-      if (!lis.length) continue;
-      const lines = (await app.vault.cachedRead(f)).split('\n');
-      for (const li of lis) {
-        const line = (lines[li.position.start.line] || '').replace(/\r$/, '');
-        const m = line.match(TASK_LINE_RE);
-        if (!m || !m[1].trim()) continue;
-        const raw = m[1];
-        const { due, group } = taskGroup(raw, daily, todayKey);
-        out.push({
-          file: f,
-          line: li.position.start.line,
-          raw,
-          due,
-          group,
-          carried: daily && !daily.isSame(today, 'day') ? daily : null,
-          display: taskDisplay(raw),
-          quick: f.path === this.quickPath(),
-        });
-      }
-    }
-    out.sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || b.file.stat.mtime - a.file.stat.mtime || a.line - b.line);
-    this.sourcePaths = new Set(sources.keys());
-    return out;
-  }
-  quickPath() {
-    const p = this.settings.quickTasksPath;
-    return normalizePath(p.endsWith('.md') ? p : p + '.md');
-  }
-  async addQuickTask(text) {
-    text = String(text || '').trim();
-    if (!text) return;
-    // shown at once; the real row takes its place once Obsidian has indexed the note
-    const pend = { text, at: Date.now() };
-    (this.pendingQuick = this.pendingQuick || []).push(pend);
-    this.emit();
-    try {
-      await this.writeQuickTask(text);
-    } catch (e) {
-      console.error('Neon Tasks: could not add task', e);
-      new Notice('Could not add the task');
-      this.pendingQuick = this.pendingQuick.filter((x) => x !== pend);
-      this.emit();
-    }
-  }
-  async writeQuickTask(text) {
-    const path = this.quickPath();
-    let f = this.app.vault.getAbstractFileByPath(path);
-    if (!(f instanceof TFile)) {
-      await ensureFolder(this.app, path.split('/').slice(0, -1).join('/'));
-      f = await this.app.vault.create(path, `---\ntags:\n  - tasks\n---\n# Quick tasks\n\nAdded from the dashboard. Stays until ticked.\n\n`);
-    }
-    await this.app.vault.process(f, (d) => d.replace(/\s*$/, '') + `\n- [ ] ${text}\n`);
-  }
-  /** Rewrite one open task line in its note (item 15); the line must still be the task that was shown. */
-  async editTask(t, raw) {
-    let ok = false;
-    await this.app.vault.process(t.file, (data) => {
-      const lines = data.split('\n');
-      const l = lines[t.line];
-      if (l === undefined || !/\[ \]/.test(l) || !l.includes(t.raw)) return data;
-      lines[t.line] = l.replace(t.raw, () => raw);
-      ok = true;
-      return lines.join('\n');
-    });
-    if (!ok) new Notice('That task changed in the meantime — refreshed');
-    return ok;
-  }
-  async completeTask(t) {
-    const stamp = this.settings.stampDone ? ` ✅ ${moment().format('YYYY-MM-DD')}` : '';
-    let ok = false;
-    await this.app.vault.process(t.file, (data) => {
-      const lines = data.split('\n');
-      const l = lines[t.line];
-      // the line must still be this open task (the note may have changed since the list was drawn)
-      if (l === undefined || !/\[ \]/.test(l) || !l.includes(t.raw)) return data;
-      const cr = l.endsWith('\r') ? '\r' : '';
-      const body = cr ? l.slice(0, -1) : l;
-      lines[t.line] = body.replace('[ ]', '[x]') + stamp + cr;
-      ok = true;
-      return lines.join('\n');
-    });
-    if (ok) this.logDone(t.display, t.file.path, t.due);
-    else new Notice('That task changed in the meantime — refreshed');
-  }
-
-  /* tasks widget --------------------------------------------------------- */
-  mountTasks(card) {
-    const body = card.body;
-    const list = body.createDiv('nt-list');
-    const add = body.createDiv('nt-add');
-    const input = add.createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'Add a task… (Enter → Quick tasks)' } });
-    input.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter' || e.isComposing) return;
-      if (!input.value.trim()) return shake(add);
-      const v = input.value;
-      input.value = '';
-      this.addQuickTask(v);
-    });
-    button(card.actions, { icon: 'calendar-days', cls: 'nd-icon-btn', title: 'Open today’s note', onClick: async () => openFile(this.app, await ensureToday(this.app)) });
-    let token = 0;
-    let first = true; // the first draw shows rows without the "new" animation
-    let count = 0;
-    const render = async () => {
-      const my = ++token;
-      const items = await this.collectTasks();
-      if (my !== token || !list.isConnected) return;
-      if (editingIn(list)) return; // redrawn when the edit ends
-      // quick tasks typed a moment ago that the index hasn't seen yet
-      const quick = this.quickPath();
-      const have = new Set(items.filter((t) => t.quick).map((t) => t.raw));
-      const todayKey = moment().format('YYYY-MM-DD');
-      this.pendingQuick = (this.pendingQuick || []).filter((p) => !have.has(p.text) && Date.now() - p.at < 10000);
-      for (const p of this.pendingQuick) {
-        const file = this.app.vault.getAbstractFileByPath(quick) || { path: quick, basename: 'Quick tasks' };
-        items.push({ file, line: -1, raw: p.text, ...taskGroup(p.text, null, todayKey), carried: null, display: taskDisplay(p.text), quick: true, pending: true });
-      }
-      this.openCount = items.length;
-      countUp(card.badge, count, items.length, (v) => (Math.round(v) ? String(Math.round(v)) : ''), 300);
-      count = items.length;
-      const old = new Map([...list.children].filter((el) => el.dataset.key && !el.hasClass('is-leaving')).map((el) => [el.dataset.key, el]));
-      const want = [];
-      if (!items.length) {
-        let e = old.get('empty');
-        if (!e) {
-          e = emptyState(list, 'All clear ✦ no open tasks');
-          e.addClass('nt-fade-in');
-          e.dataset.key = 'empty';
-          e.createDiv({ cls: 'nt-empty-hint', text: 'Tasks come from notes tagged “tasks”, today’s daily note and the box below.' });
-        }
-        want.push(e);
-      }
-      let i = 0;
-      const dup = new Map();
-      for (const [g, label] of [['overdue', 'Overdue'], ['today', 'Today'], ['later', 'Later']]) {
-        const group = items.filter((t) => t.group === g);
-        if (!group.length) continue;
-        const head = old.get(`g:${g}`) || list.createDiv({ cls: `nt-group is-${g}` });
-        head.dataset.key = `g:${g}`;
-        head.setText(`${label} · ${group.length}`);
-        want.push(head);
-        for (const t of group.slice(0, 40)) {
-          const base = `${t.file.path}|${t.raw}`;
-          const n = dup.get(base) || 0;
-          dup.set(base, n + 1);
-          const key = `${base}#${n}`;
-          const sig = `${t.group}|${t.due}|${t.carried ? t.carried.format('YYYY-MM-DD') : ''}|${t.display}|${t.pending ? 1 : 0}`;
-          let row = old.get(key);
-          if (row && row.dataset.sig === sig) row._t = t;
-          else {
-            const fresh = this.taskRow(list, t, i);
-            fresh.dataset.key = key;
-            fresh.dataset.sig = sig;
-            if (row) row.replaceWith(fresh); // same task, changed text: swap in place
-            else if (!first) fresh.addClass('is-new');
-            row = fresh;
-          }
-          i++;
-          want.push(row);
-        }
-      }
-      patchList(list, want);
-      first = false;
+}
+/* @src src/tasks/props.js */
+Object.assign(NeonTasks.prototype, {
+  /* new notes ------------------------------------------------------------- */
+  newNote(folder) {
+    new NewNoteModal(this, { folder }).open();
+  },
+  /** Folders the plugins write to themselves (log notes, reviews, backups): never asked about. */
+  isSystemPath(path) {
+    const deck = neonPlugin(this.app, 'neon-deck');
+    const time = neonPlugin(this.app, 'neon-time');
+    const dirs = [...SYSTEM_FOLDERS, deck && deck.settings && deck.settings.reviewFolder, time && time.settings && time.settings.logFolder].filter(Boolean);
+    return dirs.some((p) => path === p || path.startsWith(p + '/'));
+  },
+  onCreate(f) {
+    if (!this.settings.askOnCreate || !(f instanceof TFile) || f.extension !== 'md') return;
+    if (!this.ready || Date.now() - this.ready < 3000) return;
+    if (this.selfCreated.size || f.stat.size > 0 || this.isSystemPath(f.path) || dailyDateOf(this.app, f)) return;
+    if (Date.now() - f.stat.ctime > 5000) return;
+    // let Obsidian open the note first, then ask (only if it is still empty)
+    window.setTimeout(async () => {
+      const cur = this.app.vault.getAbstractFileByPath(f.path);
+      if (!(cur instanceof TFile)) return;
+      if ((await this.app.vault.read(cur)).trim()) return;
+      new NewNoteModal(this, { file: cur }).open();
+    }, 350);
+  },
+  needsCategory(f) {
+    if (!(f instanceof TFile) || f.extension !== 'md') return false;
+    if (f.stat.ctime < this.settings.installedAt || this.isSystemPath(f.path) || dailyDateOf(this.app, f)) return false;
+    if (f.path === this.quickPath() || f.path === normalizePath(this.settings.backupPath)) return false;
+    return noteCategory(this.app.metadataCache.getFileCache(f)) === null;
+  },
+  uncategorised() {
+    return this.app.vault.getMarkdownFiles().filter((f) => this.needsCategory(f)).sort((a, b) => b.stat.ctime - a.stat.ctime);
+  },
+  buildStatus() {
+    const el = this.addStatusBarItem();
+    el.addClass('nd-status', 'nt-status', 'mod-clickable');
+    const ic = el.createSpan('nd-status-icon');
+    setIcon(ic, 'tag');
+    const txt = el.createSpan('nd-status-text');
+    tip(el, 'New notes without a category — click to list them');
+    el.addEventListener('click', () => new UncategorisedModal(this, this.uncategorised()).open());
+    const update = () => {
+      const n = this.uncategorised().length;
+      el.toggle(n > 0);
+      txt.setText(`${n} no category`);
     };
-    const off = this.onChange(render);
-    render();
-    return { destroy: off };
-  }
-  taskRow(list, t, i) {
-    const row = list.createDiv('nt-task' + (t.pending ? ' is-pending' : ''));
-    row._t = t; // handlers read the latest task: a kept row may have moved to another line
-    row.style.setProperty('--i', String(Math.min(i, 20)));
-    const box = row.createDiv('nt-check');
-    tip(box, 'Done');
-    const txt = row.createDiv({ cls: 'nt-text', text: t.display || t.raw });
-    if (t.due) {
-      const d = moment(t.due);
-      row.createSpan({ cls: `nt-due is-${t.group}`, text: t.group === 'today' ? 'today' : d.format('D MMM') });
-    } else if (t.carried) row.createSpan({ cls: 'nt-due is-carried', text: `from ${t.carried.format('ddd')}` });
-    const src = row.createSpan({ cls: 'nt-src', text: t.quick ? 'quick' : t.file.basename });
-    tip(src, t.file.path);
-    const edit = row.createDiv('nt-del nt-edit-btn');
-    setIcon(edit, 'pencil');
-    tip(edit, 'Edit');
-    box.addEventListener('click', async () => {
-      if (row.hasClass('is-done') || row._t.pending) return;
-      row.addClass('is-done');
-      try {
-        await this.completeTask(row._t);
-      } catch (e) {
-        console.error('Neon Tasks: could not tick task', e);
-        new Notice('Could not tick the task');
-        row.removeClass('is-done');
-      }
-    });
-    const open = (e) => !row._t.pending && openFile(this.app, row._t.file, e, row._t.line);
-    txt.addEventListener('click', open);
-    src.addEventListener('click', open);
-    edit.addEventListener('click', () => {
-      if (row._t.pending || row.querySelector('.nt-edit')) return;
-      const inp = createEl('input', { cls: 'nd-input nt-edit', attr: { type: 'text' } });
-      inp.value = row._t.raw; // the whole line text, so the 📅 date and tags can be changed too
-      txt.replaceWith(inp);
-      inp.focus();
-      const done = async (save) => {
-        if (!inp.isConnected) return;
-        const v = inp.value.trim();
-        inp.replaceWith(txt);
-        if (save && v && v !== row._t.raw) {
-          txt.setText(taskDisplay(v));
-          try {
-            await this.editTask(row._t, v);
-          } catch (e) {
-            console.error('Neon Tasks: could not edit task', e);
-            new Notice('Could not save the task');
-            txt.setText(row._t.display || row._t.raw);
-          }
-        }
-        this.emit();
-      };
-      inp.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') done(true);
-        else if (e.key === 'Escape') {
-          e.stopPropagation();
-          done(false);
-        }
+    this.register(this.onChange(update));
+    this.app.workspace.onLayoutReady(update);
+  },
+  updateBar() {
+    document.querySelectorAll('.nt-nocat-bar').forEach((el) => el.remove());
+    if (!this.settings.showNoCategoryBar) return;
+    const view = this.app.workspace.getActiveViewOfType(obsidian.MarkdownView);
+    if (!view || !view.file || !this.needsCategory(view.file)) return;
+    const file = view.file;
+    const header = view.containerEl.querySelector('.view-header');
+    const bar = createDiv('nt-nocat-bar');
+    if (header) header.after(bar);
+    else view.containerEl.prepend(bar);
+    icon(bar, 'tag');
+    bar.createSpan({ cls: 'nt-nocat-k', text: 'No category yet' });
+    for (const c of [...CATS, 'untracked']) {
+      const b = bar.createEl('button', { cls: 'nd-pill-btn', text: CAT_LABEL[c] });
+      b.style.setProperty('--pill-accent', c === 'untracked' ? 'var(--nd-muted)' : catColor(c));
+      b.addEventListener('click', async () => {
+        await this.app.fileManager.processFrontMatter(file, (fm) => {
+          fm[c] = true;
+          if (!fm.created) fm.created = moment(file.stat.ctime).format('YYYY-MM-DD');
+          reorderProps(fm);
+        });
+        bar.remove();
       });
-      inp.addEventListener('blur', () => done(true));
-    });
-    return row;
-  }
+    }
+    const x = bar.createDiv('nt-nocat-x');
+    setIcon(x, 'x');
+    tip(x, 'Hide for now');
+    x.addEventListener('click', () => bar.remove());
+  },
 
+  /* fix properties ---------------------------------------------------------- */
+  /** One time: notes still using the old `ops` category get `operations` instead. */
+  async migrateCategories() {
+    if (this.settings.catMigrated) return;
+    const old = Object.keys(CAT_ALIAS);
+    let n = 0;
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      const cache = this.app.metadataCache.getFileCache(f);
+      const fm = (cache && cache.frontmatter) || {};
+      const tags = cache && cache.frontmatter ? fmTags(fm).map((t) => String(t).toLowerCase()) : [];
+      const hit = old.some((o) => fm[o] != null || tags.includes(o) || (typeof fm.category === 'string' && fm.category.toLowerCase() === o));
+      if (hit && (await this.fixProps(f))) n++;
+    }
+    this.settings.catMigrated = true;
+    await this.saveSettings();
+    if (n) new Notice(`✦ Renamed the Ops category to Operations in ${n} note${n === 1 ? '' : 's'}`);
+  },
+  async fixProps(file) {
+    const cache = this.app.metadataCache.getFileCache(file);
+    const ticket = isTicketCache(cache);
+    let changed = false;
+    await this.app.fileManager.processFrontMatter(file, (fm) => {
+      const before = JSON.stringify(fm);
+      // tags: always a clean list
+      if (fm.tags != null) {
+        const tags = [...new Set(fmTags(fm))];
+        if (tags.length) fm.tags = tags;
+        else delete fm.tags;
+      }
+      if (fm.tag != null && fm.tags == null) {
+        const tags = fmTags({ tags: fm.tag });
+        if (tags.length) fm.tags = tags;
+        delete fm.tag;
+      }
+      // old category names (ops -> operations), as property, category value or tag
+      for (const [old, c] of Object.entries(CAT_ALIAS)) {
+        if (fm[old] != null) {
+          if (isTrue(fm[old])) fm[c] = true;
+          delete fm[old];
+        }
+      }
+      if (Array.isArray(fm.tags)) fm.tags = [...new Set(fm.tags.map((t) => (CAT_ALIAS[String(t).toLowerCase()] ? CAT_ALIAS[String(t).toLowerCase()] : t)))];
+      // "category: school" -> school: true
+      if (typeof fm.category === 'string' && CATS.includes(normCat(fm.category.toLowerCase()))) {
+        fm[normCat(fm.category.toLowerCase())] = true;
+        delete fm.category;
+      }
+      for (const c of [...CATS, 'untracked']) {
+        if (fm[c] === 'true' || fm[c] === 'yes') fm[c] = true;
+        if (fm[c] === false || fm[c] === 'false' || fm[c] === 'no') delete fm[c];
+      }
+      if (!fm.created) fm.created = moment(file.stat.ctime).format('YYYY-MM-DD');
+      if (ticket) {
+        if (!fm.type) fm.type = 'ticket';
+        if (!fm.status) fm.status = 'open';
+        if (!fm.priority) fm.priority = 'normal';
+      }
+      for (const [k, v] of Object.entries(fm)) {
+        if (v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length)) delete fm[k];
+      }
+      reorderProps(fm);
+      changed = JSON.stringify(fm) !== before;
+    });
+    return changed;
+  },
+  async fixFolder(folder) {
+    const files = [];
+    const walk = (fd) => fd.children.forEach((c) => (c instanceof TFolder ? walk(c) : c instanceof TFile && c.extension === 'md' && files.push(c)));
+    walk(folder);
+    new ConfirmModal(this.app, {
+      title: `Fix properties in “${folder.path === '/' ? this.app.vault.getName() : folder.name}”?`,
+      text: `${files.length} note${files.length === 1 ? '' : 's'}: adds a created date, turns “category: x” into the checkbox, removes empty properties and puts them in a fixed order. Note text is not touched.`,
+      cta: 'Fix properties',
+      warning: false,
+      onConfirm: async () => {
+        let n = 0;
+        for (const f of files) if (await this.fixProps(f)) n++;
+        new Notice(`✦ Fixed ${n} of ${files.length} notes`);
+      },
+    }).open();
+  },
+  pickFolderToFix() {
+    const plugin = this;
+    class FolderPick extends SuggestModal {
+      getSuggestions(q) {
+        return this.app.vault.getAllLoadedFiles().filter((f) => f instanceof TFolder && f.path.toLowerCase().includes(q.toLowerCase())).slice(0, 200);
+      }
+      renderSuggestion(f, el) {
+        el.setText(f.path === '/' ? '/ (whole vault)' : f.path);
+      }
+      onChooseSuggestion(f) {
+        plugin.fixFolder(f);
+      }
+    }
+    const m = new FolderPick(this.app);
+    m.setPlaceholder('Fix properties in which folder?');
+    m.open();
+  },
+});
+/* @src src/tasks/widget-global.js */
+Object.assign(NeonTasks.prototype, {
   /* global tasks ---------------------------------------------------------- */
   async addGlobal(text) {
     text = String(text || '').trim();
@@ -1076,13 +1008,13 @@ module.exports = class NeonTasks extends Plugin {
     this.settings.globalTasks.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, created: Date.now() });
     await this.globalChanged();
     new Notice('✦ Global task added');
-  }
+  },
   async globalChanged() {
     this.emit();
     await this.saveSettings();
     if (!this._backupSoon) this._backupSoon = debounce(() => this.writeBackup(), 15000, true);
     this._backupSoon();
-  }
+  },
   mountGlobal(card) {
     const body = card.body;
     const list = body.createDiv('nt-list nt-global');
@@ -1227,13 +1159,13 @@ module.exports = class NeonTasks extends Plugin {
     const off = this.onChange(render);
     render();
     return { destroy: off };
-  }
+  },
 
   /* backup ---------------------------------------------------------------- */
   backupFile() {
     const f = this.app.vault.getAbstractFileByPath(normalizePath(this.settings.backupPath));
     return f instanceof TFile ? f : null;
-  }
+  },
   async writeBackup(notify) {
     try {
       const path = normalizePath(this.settings.backupPath);
@@ -1265,10 +1197,10 @@ module.exports = class NeonTasks extends Plugin {
     } catch (e) {
       console.error('Neon Tasks backup', e);
     }
-  }
+  },
   dailyBackup() {
     if (this.settings.lastBackup !== moment().format('YYYY-MM-DD')) this.writeBackup();
-  }
+  },
   async maybeRestore() {
     if (!this.freshData || this.settings.globalTasks.length) return;
     const f = this.backupFile();
@@ -1290,183 +1222,269 @@ module.exports = class NeonTasks extends Plugin {
         new Notice(`✦ Restored ${items.length} global tasks`);
       },
     }).open();
-  }
+  },
 
-  /* new notes ------------------------------------------------------------- */
-  newNote(folder) {
-    new NewNoteModal(this, { folder }).open();
-  }
-  /** Folders the plugins write to themselves (log notes, reviews, backups): never asked about. */
-  isSystemPath(path) {
-    const deck = neonPlugin(this.app, 'neon-deck');
-    const time = neonPlugin(this.app, 'neon-time');
-    const dirs = [...SYSTEM_FOLDERS, deck && deck.settings && deck.settings.reviewFolder, time && time.settings && time.settings.logFolder].filter(Boolean);
-    return dirs.some((p) => path === p || path.startsWith(p + '/'));
-  }
-  onCreate(f) {
-    if (!this.settings.askOnCreate || !(f instanceof TFile) || f.extension !== 'md') return;
-    if (!this.ready || Date.now() - this.ready < 3000) return;
-    if (this.selfCreated.size || f.stat.size > 0 || this.isSystemPath(f.path) || dailyDateOf(this.app, f)) return;
-    if (Date.now() - f.stat.ctime > 5000) return;
-    // let Obsidian open the note first, then ask (only if it is still empty)
-    window.setTimeout(async () => {
-      const cur = this.app.vault.getAbstractFileByPath(f.path);
-      if (!(cur instanceof TFile)) return;
-      if ((await this.app.vault.read(cur)).trim()) return;
-      new NewNoteModal(this, { file: cur }).open();
-    }, 350);
-  }
-  needsCategory(f) {
-    if (!(f instanceof TFile) || f.extension !== 'md') return false;
-    if (f.stat.ctime < this.settings.installedAt || this.isSystemPath(f.path) || dailyDateOf(this.app, f)) return false;
-    if (f.path === this.quickPath() || f.path === normalizePath(this.settings.backupPath)) return false;
-    return noteCategory(this.app.metadataCache.getFileCache(f)) === null;
-  }
-  uncategorised() {
-    return this.app.vault.getMarkdownFiles().filter((f) => this.needsCategory(f)).sort((a, b) => b.stat.ctime - a.stat.ctime);
-  }
-  buildStatus() {
-    const el = this.addStatusBarItem();
-    el.addClass('nd-status', 'nt-status', 'mod-clickable');
-    const ic = el.createSpan('nd-status-icon');
-    setIcon(ic, 'tag');
-    const txt = el.createSpan('nd-status-text');
-    tip(el, 'New notes without a category — click to list them');
-    el.addEventListener('click', () => new UncategorisedModal(this, this.uncategorised()).open());
-    const update = () => {
-      const n = this.uncategorised().length;
-      el.toggle(n > 0);
-      txt.setText(`${n} no category`);
-    };
-    this.register(this.onChange(update));
-    this.app.workspace.onLayoutReady(update);
-  }
-  updateBar() {
-    document.querySelectorAll('.nt-nocat-bar').forEach((el) => el.remove());
-    if (!this.settings.showNoCategoryBar) return;
-    const view = this.app.workspace.getActiveViewOfType(obsidian.MarkdownView);
-    if (!view || !view.file || !this.needsCategory(view.file)) return;
-    const file = view.file;
-    const header = view.containerEl.querySelector('.view-header');
-    const bar = createDiv('nt-nocat-bar');
-    if (header) header.after(bar);
-    else view.containerEl.prepend(bar);
-    icon(bar, 'tag');
-    bar.createSpan({ cls: 'nt-nocat-k', text: 'No category yet' });
-    for (const c of [...CATS, 'untracked']) {
-      const b = bar.createEl('button', { cls: 'nd-pill-btn', text: CAT_LABEL[c] });
-      b.style.setProperty('--pill-accent', c === 'untracked' ? 'var(--nd-muted)' : catColor(c));
-      b.addEventListener('click', async () => {
-        await this.app.fileManager.processFrontMatter(file, (fm) => {
-          fm[c] = true;
-          if (!fm.created) fm.created = moment(file.stat.ctime).format('YYYY-MM-DD');
-          reorderProps(fm);
-        });
-        bar.remove();
-      });
-    }
-    const x = bar.createDiv('nt-nocat-x');
-    setIcon(x, 'x');
-    tip(x, 'Hide for now');
-    x.addEventListener('click', () => bar.remove());
-  }
-
-  /* fix properties ---------------------------------------------------------- */
-  /** One time: notes still using the old `ops` category get `operations` instead. */
-  async migrateCategories() {
-    if (this.settings.catMigrated) return;
-    const old = Object.keys(CAT_ALIAS);
-    let n = 0;
-    for (const f of this.app.vault.getMarkdownFiles()) {
-      const cache = this.app.metadataCache.getFileCache(f);
-      const fm = (cache && cache.frontmatter) || {};
-      const tags = cache && cache.frontmatter ? fmTags(fm).map((t) => String(t).toLowerCase()) : [];
-      const hit = old.some((o) => fm[o] != null || tags.includes(o) || (typeof fm.category === 'string' && fm.category.toLowerCase() === o));
-      if (hit && (await this.fixProps(f))) n++;
-    }
-    this.settings.catMigrated = true;
-    await this.saveSettings();
-    if (n) new Notice(`✦ Renamed the Ops category to Operations in ${n} note${n === 1 ? '' : 's'}`);
-  }
-  async fixProps(file) {
-    const cache = this.app.metadataCache.getFileCache(file);
-    const ticket = isTicketCache(cache);
-    let changed = false;
-    await this.app.fileManager.processFrontMatter(file, (fm) => {
-      const before = JSON.stringify(fm);
-      // tags: always a clean list
-      if (fm.tags != null) {
-        const tags = [...new Set(fmTags(fm))];
-        if (tags.length) fm.tags = tags;
-        else delete fm.tags;
+});
+/* @src src/tasks/widget-tasks.js */
+Object.assign(NeonTasks.prototype, {
+  /* tasks widget --------------------------------------------------------- */
+  mountTasks(card) {
+    const body = card.body;
+    const list = body.createDiv('nt-list');
+    const add = body.createDiv('nt-add');
+    const input = add.createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'Add a task… (Enter → Quick tasks)' } });
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      if (!input.value.trim()) return shake(add);
+      const v = input.value;
+      input.value = '';
+      this.addQuickTask(v);
+    });
+    button(card.actions, { icon: 'calendar-days', cls: 'nd-icon-btn', title: 'Open today’s note', onClick: async () => openFile(this.app, await ensureToday(this.app)) });
+    let token = 0;
+    let first = true; // the first draw shows rows without the "new" animation
+    let count = 0;
+    const render = async () => {
+      const my = ++token;
+      const items = await this.collectTasks();
+      if (my !== token || !list.isConnected) return;
+      if (editingIn(list)) return; // redrawn when the edit ends
+      // quick tasks typed a moment ago that the index hasn't seen yet
+      const quick = this.quickPath();
+      const have = new Set(items.filter((t) => t.quick).map((t) => t.raw));
+      const todayKey = moment().format('YYYY-MM-DD');
+      this.pendingQuick = (this.pendingQuick || []).filter((p) => !have.has(p.text) && Date.now() - p.at < 10000);
+      for (const p of this.pendingQuick) {
+        const file = this.app.vault.getAbstractFileByPath(quick) || { path: quick, basename: 'Quick tasks' };
+        items.push({ file, line: -1, raw: p.text, ...taskGroup(p.text, null, todayKey), carried: null, display: taskDisplay(p.text), quick: true, pending: true });
       }
-      if (fm.tag != null && fm.tags == null) {
-        const tags = fmTags({ tags: fm.tag });
-        if (tags.length) fm.tags = tags;
-        delete fm.tag;
+      this.openCount = items.length;
+      countUp(card.badge, count, items.length, (v) => (Math.round(v) ? String(Math.round(v)) : ''), 300);
+      count = items.length;
+      const old = new Map([...list.children].filter((el) => el.dataset.key && !el.hasClass('is-leaving')).map((el) => [el.dataset.key, el]));
+      const want = [];
+      if (!items.length) {
+        let e = old.get('empty');
+        if (!e) {
+          e = emptyState(list, 'All clear ✦ no open tasks');
+          e.addClass('nt-fade-in');
+          e.dataset.key = 'empty';
+          e.createDiv({ cls: 'nt-empty-hint', text: 'Tasks come from notes tagged “tasks”, today’s daily note and the box below.' });
+        }
+        want.push(e);
       }
-      // old category names (ops -> operations), as property, category value or tag
-      for (const [old, c] of Object.entries(CAT_ALIAS)) {
-        if (fm[old] != null) {
-          if (isTrue(fm[old])) fm[c] = true;
-          delete fm[old];
+      let i = 0;
+      const dup = new Map();
+      for (const [g, label] of [['overdue', 'Overdue'], ['today', 'Today'], ['later', 'Later']]) {
+        const group = items.filter((t) => t.group === g);
+        if (!group.length) continue;
+        const head = old.get(`g:${g}`) || list.createDiv({ cls: `nt-group is-${g}` });
+        head.dataset.key = `g:${g}`;
+        head.setText(`${label} · ${group.length}`);
+        want.push(head);
+        for (const t of group.slice(0, 40)) {
+          const base = `${t.file.path}|${t.raw}`;
+          const n = dup.get(base) || 0;
+          dup.set(base, n + 1);
+          const key = `${base}#${n}`;
+          const sig = `${t.group}|${t.due}|${t.carried ? t.carried.format('YYYY-MM-DD') : ''}|${t.display}|${t.pending ? 1 : 0}`;
+          let row = old.get(key);
+          if (row && row.dataset.sig === sig) row._t = t;
+          else {
+            const fresh = this.taskRow(list, t, i);
+            fresh.dataset.key = key;
+            fresh.dataset.sig = sig;
+            if (row) row.replaceWith(fresh); // same task, changed text: swap in place
+            else if (!first) fresh.addClass('is-new');
+            row = fresh;
+          }
+          i++;
+          want.push(row);
         }
       }
-      if (Array.isArray(fm.tags)) fm.tags = [...new Set(fm.tags.map((t) => (CAT_ALIAS[String(t).toLowerCase()] ? CAT_ALIAS[String(t).toLowerCase()] : t)))];
-      // "category: school" -> school: true
-      if (typeof fm.category === 'string' && CATS.includes(normCat(fm.category.toLowerCase()))) {
-        fm[normCat(fm.category.toLowerCase())] = true;
-        delete fm.category;
+      patchList(list, want);
+      first = false;
+    };
+    const off = this.onChange(render);
+    render();
+    return { destroy: off };
+  },
+  taskRow(list, t, i) {
+    const row = list.createDiv('nt-task' + (t.pending ? ' is-pending' : ''));
+    row._t = t; // handlers read the latest task: a kept row may have moved to another line
+    row.style.setProperty('--i', String(Math.min(i, 20)));
+    const box = row.createDiv('nt-check');
+    tip(box, 'Done');
+    const txt = row.createDiv({ cls: 'nt-text', text: t.display || t.raw });
+    if (t.due) {
+      const d = moment(t.due);
+      row.createSpan({ cls: `nt-due is-${t.group}`, text: t.group === 'today' ? 'today' : d.format('D MMM') });
+    } else if (t.carried) row.createSpan({ cls: 'nt-due is-carried', text: `from ${t.carried.format('ddd')}` });
+    const src = row.createSpan({ cls: 'nt-src', text: t.quick ? 'quick' : t.file.basename });
+    tip(src, t.file.path);
+    const edit = row.createDiv('nt-del nt-edit-btn');
+    setIcon(edit, 'pencil');
+    tip(edit, 'Edit');
+    box.addEventListener('click', async () => {
+      if (row.hasClass('is-done') || row._t.pending) return;
+      row.addClass('is-done');
+      try {
+        await this.completeTask(row._t);
+      } catch (e) {
+        console.error('Neon Tasks: could not tick task', e);
+        new Notice('Could not tick the task');
+        row.removeClass('is-done');
       }
-      for (const c of [...CATS, 'untracked']) {
-        if (fm[c] === 'true' || fm[c] === 'yes') fm[c] = true;
-        if (fm[c] === false || fm[c] === 'false' || fm[c] === 'no') delete fm[c];
-      }
-      if (!fm.created) fm.created = moment(file.stat.ctime).format('YYYY-MM-DD');
-      if (ticket) {
-        if (!fm.type) fm.type = 'ticket';
-        if (!fm.status) fm.status = 'open';
-        if (!fm.priority) fm.priority = 'normal';
-      }
-      for (const [k, v] of Object.entries(fm)) {
-        if (v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length)) delete fm[k];
-      }
-      reorderProps(fm);
-      changed = JSON.stringify(fm) !== before;
     });
-    return changed;
-  }
-  async fixFolder(folder) {
-    const files = [];
-    const walk = (fd) => fd.children.forEach((c) => (c instanceof TFolder ? walk(c) : c instanceof TFile && c.extension === 'md' && files.push(c)));
-    walk(folder);
-    new ConfirmModal(this.app, {
-      title: `Fix properties in “${folder.path === '/' ? this.app.vault.getName() : folder.name}”?`,
-      text: `${files.length} note${files.length === 1 ? '' : 's'}: adds a created date, turns “category: x” into the checkbox, removes empty properties and puts them in a fixed order. Note text is not touched.`,
-      cta: 'Fix properties',
-      warning: false,
-      onConfirm: async () => {
-        let n = 0;
-        for (const f of files) if (await this.fixProps(f)) n++;
-        new Notice(`✦ Fixed ${n} of ${files.length} notes`);
-      },
-    }).open();
-  }
-  pickFolderToFix() {
-    const plugin = this;
-    class FolderPick extends SuggestModal {
-      getSuggestions(q) {
-        return this.app.vault.getAllLoadedFiles().filter((f) => f instanceof TFolder && f.path.toLowerCase().includes(q.toLowerCase())).slice(0, 200);
+    const open = (e) => !row._t.pending && openFile(this.app, row._t.file, e, row._t.line);
+    txt.addEventListener('click', open);
+    src.addEventListener('click', open);
+    edit.addEventListener('click', () => {
+      if (row._t.pending || row.querySelector('.nt-edit')) return;
+      const inp = createEl('input', { cls: 'nd-input nt-edit', attr: { type: 'text' } });
+      inp.value = row._t.raw; // the whole line text, so the 📅 date and tags can be changed too
+      txt.replaceWith(inp);
+      inp.focus();
+      const done = async (save) => {
+        if (!inp.isConnected) return;
+        const v = inp.value.trim();
+        inp.replaceWith(txt);
+        if (save && v && v !== row._t.raw) {
+          txt.setText(taskDisplay(v));
+          try {
+            await this.editTask(row._t, v);
+          } catch (e) {
+            console.error('Neon Tasks: could not edit task', e);
+            new Notice('Could not save the task');
+            txt.setText(row._t.display || row._t.raw);
+          }
+        }
+        this.emit();
+      };
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') done(true);
+        else if (e.key === 'Escape') {
+          e.stopPropagation();
+          done(false);
+        }
+      });
+      inp.addEventListener('blur', () => done(true));
+    });
+    return row;
+  },
+
+});
+/* @src src/tasks/collect.js */
+Object.assign(NeonTasks.prototype, {
+  /* collecting tasks ----------------------------------------------------- */
+  isTaskSource(f, cache) {
+    if (isTicketCache(cache)) return false;
+    return fmTags(cache && cache.frontmatter).includes('tasks');
+  },
+  async collectTasks() {
+    const app = this.app;
+    const today = moment().startOf('day');
+    const todayKey = today.format('YYYY-MM-DD');
+    const sources = new Map();
+    for (const f of app.vault.getMarkdownFiles()) {
+      const cache = app.metadataCache.getFileCache(f);
+      if (!cache || !cache.listItems) continue;
+      if (isTicketCache(cache)) continue;
+      if (this.isTaskSource(f, cache) || f.path === this.quickPath()) {
+        sources.set(f.path, { f, cache, daily: null });
+        continue;
       }
-      renderSuggestion(f, el) {
-        el.setText(f.path === '/' ? '/ (whole vault)' : f.path);
-      }
-      onChooseSuggestion(f) {
-        plugin.fixFolder(f);
+      const d = dailyDateOf(app, f);
+      if (d && !d.isAfter(today) && today.diff(d, 'days') <= this.settings.carryDays) sources.set(f.path, { f, cache, daily: d });
+    }
+    const out = [];
+    for (const { f, cache, daily } of sources.values()) {
+      const lis = cache.listItems.filter((li) => li.task === ' ');
+      if (!lis.length) continue;
+      const lines = (await app.vault.cachedRead(f)).split('\n');
+      for (const li of lis) {
+        const line = (lines[li.position.start.line] || '').replace(/\r$/, '');
+        const m = line.match(TASK_LINE_RE);
+        if (!m || !m[1].trim()) continue;
+        const raw = m[1];
+        const { due, group } = taskGroup(raw, daily, todayKey);
+        out.push({
+          file: f,
+          line: li.position.start.line,
+          raw,
+          due,
+          group,
+          carried: daily && !daily.isSame(today, 'day') ? daily : null,
+          display: taskDisplay(raw),
+          quick: f.path === this.quickPath(),
+        });
       }
     }
-    const m = new FolderPick(this.app);
-    m.setPlaceholder('Fix properties in which folder?');
-    m.open();
-  }
-};
+    out.sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || b.file.stat.mtime - a.file.stat.mtime || a.line - b.line);
+    this.sourcePaths = new Set(sources.keys());
+    return out;
+  },
+  quickPath() {
+    const p = this.settings.quickTasksPath;
+    return normalizePath(p.endsWith('.md') ? p : p + '.md');
+  },
+  async addQuickTask(text) {
+    text = String(text || '').trim();
+    if (!text) return;
+    // shown at once; the real row takes its place once Obsidian has indexed the note
+    const pend = { text, at: Date.now() };
+    (this.pendingQuick = this.pendingQuick || []).push(pend);
+    this.emit();
+    try {
+      await this.writeQuickTask(text);
+    } catch (e) {
+      console.error('Neon Tasks: could not add task', e);
+      new Notice('Could not add the task');
+      this.pendingQuick = this.pendingQuick.filter((x) => x !== pend);
+      this.emit();
+    }
+  },
+  async writeQuickTask(text) {
+    const path = this.quickPath();
+    let f = this.app.vault.getAbstractFileByPath(path);
+    if (!(f instanceof TFile)) {
+      await ensureFolder(this.app, path.split('/').slice(0, -1).join('/'));
+      f = await this.app.vault.create(path, `---\ntags:\n  - tasks\n---\n# Quick tasks\n\nAdded from the dashboard. Stays until ticked.\n\n`);
+    }
+    await this.app.vault.process(f, (d) => d.replace(/\s*$/, '') + `\n- [ ] ${text}\n`);
+  },
+  /** Rewrite one open task line in its note (item 15); the line must still be the task that was shown. */
+  async editTask(t, raw) {
+    let ok = false;
+    await this.app.vault.process(t.file, (data) => {
+      const lines = data.split('\n');
+      const l = lines[t.line];
+      if (l === undefined || !/\[ \]/.test(l) || !l.includes(t.raw)) return data;
+      lines[t.line] = l.replace(t.raw, () => raw);
+      ok = true;
+      return lines.join('\n');
+    });
+    if (!ok) new Notice('That task changed in the meantime — refreshed');
+    return ok;
+  },
+  async completeTask(t) {
+    const stamp = this.settings.stampDone ? ` ✅ ${moment().format('YYYY-MM-DD')}` : '';
+    let ok = false;
+    await this.app.vault.process(t.file, (data) => {
+      const lines = data.split('\n');
+      const l = lines[t.line];
+      // the line must still be this open task (the note may have changed since the list was drawn)
+      if (l === undefined || !/\[ \]/.test(l) || !l.includes(t.raw)) return data;
+      const cr = l.endsWith('\r') ? '\r' : '';
+      const body = cr ? l.slice(0, -1) : l;
+      lines[t.line] = body.replace('[ ]', '[x]') + stamp + cr;
+      ok = true;
+      return lines.join('\n');
+    });
+    if (ok) this.logDone(t.display, t.file.path, t.due);
+    else new Notice('That task changed in the meantime — refreshed');
+  },
+
+});
+/* @src src/tasks/exports.js */
+module.exports = NeonTasks;

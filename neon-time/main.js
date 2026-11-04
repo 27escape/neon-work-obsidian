@@ -7,6 +7,7 @@
  * no shell access. Files are only written when you do something that writes.
  * The shared helpers at the top are copied into every Neon plugin; keep the copies identical.
  */
+/* @src src/shared/shared.js */
 /* ---- shared helpers (same copy in every Neon plugin) ---------------- */
 const obsidian = require('obsidian');
 const {
@@ -402,6 +403,7 @@ function numSetting(setting, obj, key, min, max, save) {
   });
 }
 /* ---- end shared ------------------------------------------------------- */
+/* @src src/time/constants.js */
 
 /* =========================================================================
  * NEON TIME — active time per category, manual entries, overtime and one
@@ -426,6 +428,7 @@ const newId = () => `${Date.now().toString(36)}${(entrySeq++).toString(36)}`;
 const entryMin = (e) => Math.round(e.ms / 60000);
 const cell = (s) => String(s == null ? '' : s).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
 
+/* @src src/time/entry-modal.js */
 /* ---- manual entry / edit -------------------------------------------------- */
 class EntryModal extends Modal {
   /** entry: existing entry to edit (with .day), or a partial one for a new entry */
@@ -509,6 +512,7 @@ class EntryModal extends Modal {
   }
 }
 
+/* @src src/time/wrap-up.js */
 /* ---- wrap up ------------------------------------------------------------ */
 class WrapUpModal extends Modal {
   constructor(plugin) {
@@ -563,6 +567,7 @@ class WrapUpModal extends Modal {
   }
 }
 
+/* @src src/time/time-view.js */
 /* ---- Time tab ------------------------------------------------------------ */
 class TimeView extends ItemView {
   constructor(leaf, plugin) {
@@ -728,6 +733,7 @@ class TimeView extends ItemView {
   }
 }
 
+/* @src src/time/settings.js */
 /* ---- settings ---------------------------------------------------------- */
 class NeonTimeSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
@@ -763,8 +769,9 @@ class NeonTimeSettingTab extends PluginSettingTab {
   }
 }
 
+/* @src src/time/plugin.js */
 /* ---- plugin ------------------------------------------------------------- */
-module.exports = class NeonTime extends Plugin {
+class NeonTime extends Plugin {
   async onload() {
     this.listeners = new Set();
     this.dirty = new Set();
@@ -971,486 +978,28 @@ module.exports = class NeonTime extends Plugin {
     return `Active time · ${fmtMin(Math.round(this.settings.dayHours * 60))} day`;
   }
 
-  /* ---- tracking -------------------------------------------------------- */
-  isLogFile(f) {
-    const folder = normalizePath(this.settings.logFolder || 'Core/Time Log');
-    return !!f && (f.path === folder || f.path.startsWith(folder + '/'));
-  }
-  /** Category a file's time goes to, or null when it must not be logged. */
-  trackCat(file) {
-    if (!(file instanceof TFile) || file.extension !== 'md' || this.isLogFile(file)) return null;
-    const c = fileCategory(this.app, file);
-    if (c === 'untracked') return null;
-    return c || 'other';
-  }
-  touch(e) {
-    this.workSeen();
-    if (!this.settings.tracking || document.hidden) return;
-    const now = Date.now();
-    // cheap throttle: one check every 3 s is plenty for minute-level time
-    if (this.session && now - this.session.last < 3000) return;
-    const view = this.activeFileView();
-    if (!view || !view.file || (e && e.target instanceof Node && !view.containerEl.contains(e.target))) return;
-    const file = view.file;
-    const idle = this.settings.idleMin * 60000;
-    const s = this.session;
-    if (s && s.path === file.path && now - s.last <= idle) {
-      // re-read the category: the note may have been set to untracked or moved category mid-session
-      const cat = this.trackCat(file);
-      if (cat === s.cat) {
-        s.last = now;
-        return;
-      }
-      if (!cat) return this.dropTracking(file.path);
-    }
-    this.closeSession();
-    const cat = this.trackCat(file);
-    if (!cat) return;
-    const fm = (this.app.metadataCache.getFileCache(file) || {}).frontmatter || {};
-    this.session = { path: file.path, name: file.basename, cat, jira: fm.jira ? String(fm.jira) : '', start: now, last: now };
-    this.updateStatus();
-  }
-  /** The focused note's view (markdown, ticket view, …), or null. */
-  activeFileView() {
-    const ws = this.app.workspace;
-    const v = ws.getActiveViewOfType(FileView);
-    if (v && v.file) return v;
-    const leaf = ws.activeLeaf;
-    return leaf && leaf.view && leaf.view.file instanceof TFile ? leaf.view : null;
-  }
-  tick() {
-    this.workIdleCheck();
-    const s = this.session;
-    if (s && Date.now() - s.last > this.settings.idleMin * 60000) this.closeSession();
-    else if (s && dayKey(s.start) !== dayKey(Date.now())) {
-      // past midnight: save the old day's part and keep tracking on the new day
-      this.closeSession();
-      const f = this.app.vault.getAbstractFileByPath(s.path);
-      const t = Math.max(s.last, moment().startOf('day').valueOf());
-      if (!(f instanceof TFile) || this.trackCat(f)) this.session = { ...s, start: t, last: t };
-      this.updateStatus();
-    } else if (s) this.updateStatus();
-  }
-  /** End the running session at its last activity, merging into the previous entry when it's the same note. */
-  closeSession() {
-    const s = this.session;
-    if (!s) return;
-    this.session = null;
-    // the note was set to untracked before the session ended: keep none of it
-    const f = this.app.vault.getAbstractFileByPath(s.path);
-    if (f instanceof TFile && !this.trackCat(f)) {
-      this.pending.delete(s.path);
-      return this.emit();
-    }
-    if (s.last - s.start <= 0) return this.updateStatus();
-    // a session past midnight is split, so each day gets its own part
-    let from = s.start;
-    while (dayKey(from) !== dayKey(s.last)) {
-      const midnight = moment(from).add(1, 'day').startOf('day').valueOf();
-      this.savePiece(s, from, midnight);
-      from = midnight;
-    }
-    this.savePiece(s, from, s.last);
-  }
-  /** Save one day's part of a session: merge into the previous entry, or add up as short bits until they reach a minute. */
-  savePiece(s, start, end) {
-    const ms = end - start;
-    if (ms <= 0) return;
-    const key = dayKey(start);
-    const day = this.day(key);
-    const prev = day.entries[day.entries.length - 1];
-    const idle = this.settings.idleMin * 60000;
-    if (prev && prev.source === 'auto' && prev.path === s.path && prev.cat === s.cat && start - prev.end <= idle) {
-      prev.ms += ms;
-      prev.end = end;
-      this.changed(key);
-      return;
-    }
-    // short sessions on the same note (e.g. between glances at the dashboard) add up;
-    // once they reach a minute they become one entry
-    let pend = this.pending.get(s.path);
-    if (!pend || pend.key !== key) pend = { key, start, end, ms: 0, cat: s.cat, name: s.name, jira: s.jira };
-    pend.cat = s.cat;
-    pend.ms += ms;
-    pend.end = end;
-    if (pend.ms >= 60000) {
-      this.pending.delete(s.path);
-      day.entries.push({ id: newId(), start: pend.start, end: pend.end, ms: pend.ms, cat: s.cat, note: '', path: s.path, jira: s.jira, source: 'auto' });
-      day.entries.sort((a, b) => a.start - b.start);
-      this.addDone({ kind: 'note', ref: s.path, text: s.name }, true, key);
-      this.changed(key);
-    } else {
-      this.pending.set(s.path, pend);
-      this.emit();
-    }
-  }
-
-  /** Save the short bits of work not saved yet as entries (on pause and unload). Returns the day keys touched. */
-  flushPending() {
-    const keys = new Set();
-    for (const [path, pd] of this.pending) {
-      const f = this.app.vault.getAbstractFileByPath(path);
-      if (f instanceof TFile && !this.trackCat(f)) continue;
-      const entries = this.day(pd.key).entries;
-      entries.push({ id: newId(), start: pd.start, end: pd.end, ms: pd.ms, cat: pd.cat, note: '', path, jira: pd.jira, source: 'auto' });
-      entries.sort((a, b) => a.start - b.start);
-      keys.add(pd.key);
-    }
-    this.pending.clear();
-    return keys;
-  }
-  /** Turn automatic tracking on or off. Pausing saves what was tracked so far. */
-  setTracking(on) {
-    this.settings.tracking = on;
-    if (!on) {
-      this.closeSession();
-      for (const k of this.flushPending()) this.dirty.add(k);
-      this.changed(moment().format('YYYY-MM-DD'));
-    } else this.emit();
-    this.saveSettings();
-  }
-  /** Throw away time not saved yet for a note (it was set to untracked). */
-  dropTracking(path) {
-    if (this.session && this.session.path === path) this.session = null;
-    this.pending.delete(path);
-    this.emit();
-  }
-
-  /* ---- data ------------------------------------------------------------- */
-  day(key) {
-    let d = this.days[key];
-    if (!d) d = this.days[key] = { entries: [], done: [], tomorrow: '', wrapped: false };
-    return d;
-  }
-  /** Entries of a day, sorted, with the running session added when live. */
-  entriesOf(key, live) {
-    const d = this.days[key];
-    const out = d ? [...d.entries] : [];
-    if (live) for (const [path, pd] of this.pending) if (pd.key === key) out.push({ start: pd.start, ms: pd.ms, cat: pd.cat, note: '', path, jira: pd.jira, source: 'auto', live: true, pendingPath: path });
-    const s = this.session;
-    if (live && s && dayKey(s.start) === key && s.last - s.start >= 1000) {
-      const prev = out[out.length - 1];
-      const liveMs = s.last - s.start;
-      // the live row continues a saved entry: show them as one; deleting it removes both (savedId)
-      if (prev && prev.source === 'auto' && prev.path === s.path && prev.cat === s.cat && s.start - prev.end <= this.settings.idleMin * 60000)
-        out[out.length - 1] = { ...prev, id: undefined, savedId: prev.id, ms: prev.ms + liveMs, liveMs, live: true, sessionLive: true };
-      else out.push({ start: s.start, ms: liveMs, liveMs, cat: s.cat, note: '', path: s.path, jira: s.jira, source: 'auto', live: true, sessionLive: true });
-    }
-    return out.sort((a, b) => a.start - b.start);
-  }
-  targetMin(m) {
-    const wd = (m || moment()).isoWeekday();
-    return wd <= 5 ? Math.round(this.settings.dayHours * 60) : 0;
-  }
-  /**
-   * Minutes per category for a day. With a started workday the screen shows the work timer and the
-   * tracked time is scaled to add up to it (raw: as logged, for the log notes).
-   */
-  summary(key, live, raw = false) {
-    const by = Object.fromEntries(TIME_CATS.map((k) => [k, 0]));
-    for (const e of this.entriesOf(key, live)) by[TIME_CATS.includes(e.cat) ? e.cat : 'other'] += e.ms / 60000;
-    const f = raw ? 1 : this.workScale(key, live);
-    for (const k of TIME_CATS) by[k] = Math.round(by[k] * f);
-    const worked = raw ? null : this.workMin(key);
-    const total = worked != null ? worked : TIME_CATS.reduce((s, k) => s + by[k], 0);
-    const target = this.targetMin(moment(key, 'YYYY-MM-DD'));
-    return { key, by, total, target, over: Math.max(0, total - target), work: raw ? 'none' : this.workState(key) };
-  }
-
-  /* ---- work timer (item 14): start, pause, resume, end the day ---- */
-  workOf(key) {
-    const d = this.days[key];
-    return d && d.work && d.work.start ? d.work : null;
-  }
-  workState(key) {
-    const w = this.workOf(key);
-    if (!w) return 'none';
-    if (w.end) return 'ended';
-    const b = w.breaks[w.breaks.length - 1];
-    return b && b[1] == null ? 'paused' : 'running';
-  }
-  /** Minutes worked: start to end (or now), minus breaks; null without a started day. */
-  workMin(key, now = Date.now()) {
-    const w = this.workOf(key);
-    if (!w) return null;
-    const end = w.end || now;
-    const off = w.breaks.reduce((n, [a, b]) => n + Math.max(0, Math.min(b == null ? end : b, end) - a), 0);
-    return Math.max(0, Math.round((end - w.start - off) / 60000));
-  }
-  /** Factor that makes the day's tracked entries add up to the worked time (1 without a workday). */
-  workScale(key, live) {
-    const worked = this.workMin(key);
-    if (worked == null) return 1;
-    const tracked = this.entriesOf(key, live).reduce((n, e) => n + e.ms / 60000, 0);
-    return tracked > 0 ? worked / tracked : 1;
-  }
-  /** The Start / Pause / Resume button. */
-  workToggle() {
-    const key = moment().format('YYYY-MM-DD');
-    const now = Date.now();
-    const d = this.day(key);
-    const st = this.workState(key);
-    if (st === 'none') d.work = { start: now, breaks: [], end: null, last: now };
-    else if (st === 'running') d.work.breaks.push([now, null]);
-    else if (st === 'paused') d.work.breaks[d.work.breaks.length - 1][1] = now;
-    else (d.work.breaks.push([d.work.end, now]), (d.work.end = null)); // ended: the gap becomes a break
-    d.work.last = now;
-    this.saveSoon();
-    this.emit();
-  }
-  /** Start / Pause / Resume button for today. */
-  workButton(parent, iconOnly) {
-    const st = this.workState(moment().format('YYYY-MM-DD'));
-    const [ic, text] = { none: ['play', 'Start day'], running: ['pause', 'Pause'], paused: ['play', 'Resume'], ended: ['play', 'Resume day'] }[st];
-    return button(parent, { icon: ic, text: iconOnly ? undefined : text, cls: iconOnly ? 'nd-icon-btn tm-work-btn' : 'tm-work-btn' + (st === 'none' ? ' mod-cta' : ''), title: text, onClick: () => this.workToggle() });
-  }
-  /** End the workday at `at` (Wrap up, or the idle rule with the last activity). */
-  workEnd(key, at = Date.now()) {
-    const w = this.workOf(key);
-    if (!w || w.end) return;
-    const b = w.breaks[w.breaks.length - 1];
-    if (b && b[1] == null) b[1] = Math.max(b[0], at);
-    w.end = Math.max(w.start, at);
-    this.saveSoon();
-    this.emit();
-  }
-  /** Any input in Obsidian: the workday is still going. */
-  workSeen() {
-    const w = this.workOf(moment().format('YYYY-MM-DD'));
-    if (!w || w.end) return;
-    const now = Date.now();
-    if (now - w.last < 30000) return;
-    w.last = now;
-    this.saveSoon();
-  }
-  /** Idle rule: a running day with no input for workIdleH hours ends at the last activity. */
-  workIdleCheck() {
-    const limit = this.settings.workIdleH * 3600000;
-    for (const key of [moment().format('YYYY-MM-DD'), moment().subtract(1, 'day').format('YYYY-MM-DD')]) {
-      const w = this.workOf(key);
-      if (w && !w.end && this.workState(key) === 'running' && Date.now() - w.last > limit) {
-        this.workEnd(key, w.last);
-        new Notice(`⏱ Workday ended at ${moment(w.last).format('HH:mm')} (no activity for ${this.settings.workIdleH} h)`);
-      }
-    }
-  }
-  /** Overtime balance over a range: only days with tracked time count; today counts once it's past the target. */
-  balance(from, to) {
-    const todayKey = moment().format('YYYY-MM-DD');
-    let balance = 0;
-    let total = 0;
-    let over = 0;
-    for (const key of Object.keys(this.days)) {
-      const m = moment(key, 'YYYY-MM-DD');
-      if (m.isBefore(from, 'day') || m.isAfter(to, 'day') || key > todayKey) continue;
-      const s = this.summary(key, key === todayKey);
-      if (!s.total) continue;
-      total += s.total;
-      over += s.over;
-      balance += key === todayKey ? s.over : s.total - s.target;
-    }
-    return { balance, total, over };
-  }
-  addEntry(v, quiet) {
-    const e = { id: newId(), start: v.start, end: v.start + v.ms, ms: v.ms, cat: v.cat, note: v.note || '', path: v.path || '', jira: v.jira || '', source: v.source || 'manual' };
-    const key = dayKey(e.start);
-    const day = this.day(key);
-    day.entries.push(e);
-    day.entries.sort((a, b) => a.start - b.start);
-    this.changed(key);
-    if (!quiet) new Notice(`⏱ ${fmtMin(entryMin(e))} ${CAT_LABEL[e.cat] || 'Other'} logged`);
-  }
-  findEntry(e) {
-    for (const [key, d] of Object.entries(this.days)) {
-      const i = d.entries.findIndex((x) => x.id === e.id);
-      if (i !== -1) return { key, d, i };
-    }
-    return null;
-  }
-  updateEntry(e, v) {
-    const hit = this.findEntry(e);
-    if (!hit) return;
-    const cur = hit.d.entries[hit.i];
-    Object.assign(cur, v, { end: v.start + v.ms, source: cur.source === 'auto' ? 'auto' : cur.source });
-    const key = dayKey(cur.start);
-    if (key !== hit.key) {
-      hit.d.entries.splice(hit.i, 1);
-      this.day(key).entries.push(cur);
-      this.changed(hit.key);
-    }
-    this.day(key).entries.sort((a, b) => a.start - b.start);
-    this.changed(key);
-  }
-  deleteEntry(e) {
-    // live rows: drop the running session and/or the short bits not saved yet
-    if (e.live) {
-      if (e.sessionLive) this.session = null;
-      if (e.pendingPath) this.pending.delete(e.pendingPath);
-      if (!e.id && !e.savedId) {
-        new Notice(`Discarded ${fmtMin((e.liveMs || e.ms) / 60000)} of live time`);
-        return this.emit();
-      }
-    }
-    const hit = this.findEntry({ id: e.id || e.savedId });
-    if (!hit) return;
-    const [gone] = hit.d.entries.splice(hit.i, 1);
-    this.changed(hit.key);
-    let undone = false;
-    const notice = new Notice(createFragment((f) => {
-      f.appendText(`Deleted ${fmtMin(entryMin(gone))} entry · `);
-      const u = f.createEl('a', { text: 'Undo', href: '#' });
-      u.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        // only once, and not if it's back already
-        if (undone || this.findEntry(gone)) return;
-        undone = true;
-        hit.d.entries.push(gone);
-        hit.d.entries.sort((a, b) => a.start - b.start);
-        this.changed(hit.key);
-        notice.hide();
-      });
-    }), 6000);
-  }
-  addDone(item, quiet, key = moment().format('YYYY-MM-DD')) {
-    const d = this.day(key);
-    if (item.kind === 'note' && d.done.some((x) => x.kind === 'note' && x.ref === item.ref)) return;
-    d.done.push({ t: Date.now(), ...item });
-    if (d.done.length > 300) d.done.splice(0, d.done.length - 300);
-    if (!quiet) this.changed(key);
-  }
-  newEntry(partial) {
-    new EntryModal(this, { cat: 'operations', ...partial }, true).open();
-  }
-
-  /* ---- log notes --------------------------------------------------------- */
-  dayNotePath(key) {
-    return normalizePath(`${this.settings.logFolder || 'Core/Time Log'}/${key}.md`);
-  }
-  async openDayNote(key) {
-    await this.writeDay(key, true);
-    const f = this.app.vault.getAbstractFileByPath(this.dayNotePath(key));
-    if (f instanceof TFile) openFile(this.app, f);
-    else new Notice('Nothing logged on this day yet.');
-  }
-  dayNote(key, synced) {
-    const d = this.days[key] || { entries: [], done: [] };
-    const s = this.summary(key, false, true); // files keep the times as logged
-    const m = moment(key, 'YYYY-MM-DD');
-    const lines = ['---', `date: ${key}`, `total_min: ${s.total}`];
-    for (const k of TIME_CATS) lines.push(`${k}_min: ${s.by[k]}`);
-    lines.push(`target_min: ${s.target}`, `overtime_min: ${s.over}`, `synced: ${synced ? 'true' : 'false'}`, '---', '');
-    lines.push(`# Time log · ${m.format('ddd D MMM YYYY')}`, '');
-    const split = TIME_CATS.filter((k) => s.by[k]).map((k) => `${CAT_LABEL[k]} ${fmtMin(s.by[k])}`);
-    lines.push(`**${fmtMin(s.total)}**${s.target ? ` of ${fmtMin(s.target)}` : ' (weekend)'}${s.over ? ` · +${fmtMin(s.over)} overtime` : ''}${split.length ? ' · ' + split.join(' · ') : ''}`, '');
-    lines.push('## Done today');
-    const notes = new Map();
-    for (const e of d.entries) if (e.path && e.source === 'auto') notes.set(e.path, (notes.get(e.path) || 0) + e.ms);
-    const done = [];
-    for (const [path, ms] of notes) done.push(`- Worked on [[${path.replace(/\.md$/, '')}|${cell(path.split('/').pop().replace(/\.md$/, ''))}]] (${fmtMin(ms / 60000)})`);
-    for (const x of d.done.filter((x) => x.kind === 'task')) done.push(`- [x] ${x.text}`);
-    const tickets = new Map();
-    for (const x of d.done.filter((x) => x.kind === 'ticket')) {
-      const t = tickets.get(x.ref) || { text: x.text, changes: [] };
-      if (x.change && !t.changes.includes(x.change)) t.changes.push(x.change);
-      const path = x.path || (/\.md$/.test(x.ref) ? x.ref : '');
-      if (path) t.path = path; // latest location wins
-      tickets.set(x.ref, t);
-    }
-    for (const [ref, t] of tickets) {
-      const name = t.path ? `[[${t.path.replace(/\.md$/, '')}|${cell(t.text || ref)}]]` : t.text || ref;
-      done.push(`- 🎫 ${name}: ${t.changes.join('; ')}`);
-    }
-    lines.push(...(done.length ? done : ['- (nothing yet)']), '');
-    if (d.tomorrow) lines.push('## Tomorrow', d.tomorrow, '');
-    lines.push('## Entries', '| Start | Min | Category | Note | Jira | Source |', '| --- | --- | --- | --- | --- | --- |');
-    for (const e of [...d.entries].sort((a, b) => a.start - b.start)) {
-      const note = e.note || (e.path ? `[[${e.path.split('/').pop().replace(/\.md$/, '')}]]` : '');
-      lines.push(`| ${moment(e.start).format('HH:mm')} | ${entryMin(e)} | ${e.cat} | ${cell(note)} | ${cell(e.jira)} | ${e.source} |`);
-    }
-    return lines.join('\n') + '\n';
-  }
-  /** Write (or update) a day's log note. Keeps `synced: true` unless the entries changed. */
-  async writeDay(key, force) {
-    if (!this.settings.writeNotes && !force) return;
-    const d = this.days[key];
-    const path = this.dayNotePath(key);
-    const f = this.app.vault.getAbstractFileByPath(path);
-    const empty = !d || (!d.entries.length && !d.done.length && !d.tomorrow);
-    // nothing to write for a new day; an existing note is still rewritten so deleted time disappears from it
-    if (empty && !(f instanceof TFile)) return;
-    const table = (t) => (t.split(/\n## Entries\n/)[1] || '').trim();
-    try {
-      if (f instanceof TFile) {
-        await this.app.vault.process(f, (old) => {
-          const wasSynced = /^synced:\s*true\s*$/m.test(old.split(/\n---/)[0] || '');
-          const fresh = this.dayNote(key, false);
-          const next = wasSynced && table(old) === table(fresh) ? this.dayNote(key, true) : fresh;
-          return next === old ? old : next;
-        });
-      } else {
-        await ensureFolder(this.app, this.settings.logFolder);
-        await this.app.vault.create(path, this.dayNote(key, false));
-      }
-    } catch (e) {
-      console.error('Neon Time: could not write log note', e);
-    }
-  }
-  readmeSoon() {
-    if (!this._readme) this._readme = debounce(() => this.ensureReadme(), 2000, true);
-    this._readme();
-  }
-  async ensureReadme() {
-    if (!this.settings.writeNotes) return;
-    const path = normalizePath(`${this.settings.logFolder}/README.md`);
-    const existing = this.app.vault.getAbstractFileByPath(path);
-    const target = Math.round(this.settings.dayHours * 60);
-    const idle = this.settings.idleMin;
-    const text = [
-      '# Time Log — format',
-      '',
-      'Neon Time writes one note per day here, named `YYYY-MM-DD.md`. It never connects to Jira or the network; an AI agent reads these notes and sends them on.',
-      '',
-      '## Properties',
-      '- `date` — the day.',
-      '- `total_min`, `projects_min`, `school_min`, `admin_min`, `operations_min`, `other_min` — active minutes per category (`other` = notes without a category).',
-      `- \`target_min\` — ${target} on weekdays (${fmtMin(target)}), 0 on weekends. \`overtime_min\` — time past the target.`,
-      '- `synced` — set to `true` once the day has been sent to Jira. Neon Time keeps it, unless entries change afterwards, then it goes back to `false`.',
-      '',
-      '## Body',
-      '- **Done today** — notes worked on, tasks ticked and ticket changes.',
-      '- **Tomorrow** — the line written in Wrap up, if any.',
-      '- **Entries** — one row per block of work:',
-      '',
-      '| Start | Min | Category | Note | Jira | Source |',
-      '| --- | --- | --- | --- | --- | --- |',
-      '| 09:12 | 47 | projects | [[API migration]] | PROJ-142 | auto |',
-      '| 10:05 | 30 | operations | CRM ticket 8812 |  | manual |',
-      '',
-      '`Source` is `auto` (counted while you worked in the note), `manual` (added by hand) or `ticket` (logged from a ticket’s + Time).',
-      'The Jira key comes from the note’s `jira` property, or was typed in by hand.',
-      '',
-      `Auto time counts while a note is the focused tab and you type, scroll or click, also while you are briefly in another app; after ${idle} minute${idle === 1 ? '' : 's'} without input in Obsidian it ends at your last activity and the idle time is dropped. Short bits of work on the same note add up and become an entry once they reach a minute; bits still under a minute are saved when tracking is paused or Obsidian closes. Back-to-back sessions on the same note are merged, and a session past midnight is split between the two days. Notes with \`untracked: true\` are never logged.`,
-      '',
-      'These notes are rewritten by Neon Time; edits to them are overwritten (except `synced`). Change entries in the Time tab instead. This README is rewritten too when the Neon Time settings change.',
-      '',
-    ].join('\n');
-    try {
-      if (existing instanceof TFile) {
-        // keep it in step with the settings, as long as it's still the generated README
-        await this.app.vault.process(existing, (old) => (old.startsWith('# Time Log — format') ? text : old));
-      } else if (!existing) {
-        await ensureFolder(this.app, this.settings.logFolder);
-        await this.app.vault.create(path, text);
-      }
-    } catch (e) {
-      console.error('Neon Time: README', e);
-    }
-  }
-
   /* ---- UI --------------------------------------------------------------- */
   async openTab() {
     await activateView(this.app, VIEW_TIME, 'tab');
   }
+  buildStatus() {
+    const el = (this.statusEl = this.addStatusBarItem());
+    el.addClass('nd-status', 'tm-status', 'mod-clickable');
+    setIcon(el.createSpan('nd-status-icon'), 'clock');
+    this.statusTxt = el.createSpan('nd-status-text');
+    el.addEventListener('click', () => this.openTab());
+    this.updateStatus();
+  }
+  updateStatus() {
+    if (!this.statusEl) return;
+    const s = this.summary(moment().format('YYYY-MM-DD'), true);
+    this.statusTxt.setText(this.settings.tracking ? fmtMin(s.total) : `${fmtMin(s.total)} · paused`);
+    this.statusEl.toggleClass('is-running', !!this.session);
+    tip(this.statusEl, this.session ? `Tracking ${this.session.name} · ${CAT_LABEL[this.session.cat]}` : 'Time today · click for the Time tab');
+  }
+}
+/* @src src/time/widget.js */
+Object.assign(NeonTime.prototype, {
   /** SVG donut: categories against the day target, overtime as an accent slice. */
   /** intro: segments draw in one after another and the total counts up (first paint only). */
   donut(parent, sum, size, intro = false) {
@@ -1490,7 +1039,7 @@ module.exports = class NeonTime extends Plugin {
     const l = mid.createDiv({ cls: 'tm-donut-l', text: !sum.target ? 'weekend' : sum.over ? overText : `of ${fmtMin(sum.target)}` });
     if (sum.target && sum.over) l.addClass('is-over');
     return wrap;
-  }
+  },
   legend(el, sum) {
     const w = sum.work !== 'none' && this.workOf(sum.key);
     if (w) {
@@ -1512,7 +1061,7 @@ module.exports = class NeonTime extends Plugin {
       r.createSpan({ cls: 'tm-leg-k', text: 'Overtime' });
       r.createSpan({ cls: 'tm-leg-v', text: fmtMin(sum.over) });
     }
-  }
+  },
   mountWidget(card) {
     const p = this;
     button(card.actions, { icon: 'plus', cls: 'nd-icon-btn', title: 'Add time by hand', onClick: () => p.newEntry({}) });
@@ -1586,20 +1135,495 @@ module.exports = class NeonTime extends Plugin {
         window.clearInterval(iv);
       },
     };
-  }
-  buildStatus() {
-    const el = (this.statusEl = this.addStatusBarItem());
-    el.addClass('nd-status', 'tm-status', 'mod-clickable');
-    setIcon(el.createSpan('nd-status-icon'), 'clock');
-    this.statusTxt = el.createSpan('nd-status-text');
-    el.addEventListener('click', () => this.openTab());
+  },
+});
+/* @src src/time/log-notes.js */
+Object.assign(NeonTime.prototype, {
+  /* ---- log notes --------------------------------------------------------- */
+  dayNotePath(key) {
+    return normalizePath(`${this.settings.logFolder || 'Core/Time Log'}/${key}.md`);
+  },
+  async openDayNote(key) {
+    await this.writeDay(key, true);
+    const f = this.app.vault.getAbstractFileByPath(this.dayNotePath(key));
+    if (f instanceof TFile) openFile(this.app, f);
+    else new Notice('Nothing logged on this day yet.');
+  },
+  dayNote(key, synced) {
+    const d = this.days[key] || { entries: [], done: [] };
+    const s = this.summary(key, false, true); // files keep the times as logged
+    const m = moment(key, 'YYYY-MM-DD');
+    const lines = ['---', `date: ${key}`, `total_min: ${s.total}`];
+    for (const k of TIME_CATS) lines.push(`${k}_min: ${s.by[k]}`);
+    lines.push(`target_min: ${s.target}`, `overtime_min: ${s.over}`, `synced: ${synced ? 'true' : 'false'}`, '---', '');
+    lines.push(`# Time log · ${m.format('ddd D MMM YYYY')}`, '');
+    const split = TIME_CATS.filter((k) => s.by[k]).map((k) => `${CAT_LABEL[k]} ${fmtMin(s.by[k])}`);
+    lines.push(`**${fmtMin(s.total)}**${s.target ? ` of ${fmtMin(s.target)}` : ' (weekend)'}${s.over ? ` · +${fmtMin(s.over)} overtime` : ''}${split.length ? ' · ' + split.join(' · ') : ''}`, '');
+    lines.push('## Done today');
+    const notes = new Map();
+    for (const e of d.entries) if (e.path && e.source === 'auto') notes.set(e.path, (notes.get(e.path) || 0) + e.ms);
+    const done = [];
+    for (const [path, ms] of notes) done.push(`- Worked on [[${path.replace(/\.md$/, '')}|${cell(path.split('/').pop().replace(/\.md$/, ''))}]] (${fmtMin(ms / 60000)})`);
+    for (const x of d.done.filter((x) => x.kind === 'task')) done.push(`- [x] ${x.text}`);
+    const tickets = new Map();
+    for (const x of d.done.filter((x) => x.kind === 'ticket')) {
+      const t = tickets.get(x.ref) || { text: x.text, changes: [] };
+      if (x.change && !t.changes.includes(x.change)) t.changes.push(x.change);
+      const path = x.path || (/\.md$/.test(x.ref) ? x.ref : '');
+      if (path) t.path = path; // latest location wins
+      tickets.set(x.ref, t);
+    }
+    for (const [ref, t] of tickets) {
+      const name = t.path ? `[[${t.path.replace(/\.md$/, '')}|${cell(t.text || ref)}]]` : t.text || ref;
+      done.push(`- 🎫 ${name}: ${t.changes.join('; ')}`);
+    }
+    lines.push(...(done.length ? done : ['- (nothing yet)']), '');
+    if (d.tomorrow) lines.push('## Tomorrow', d.tomorrow, '');
+    lines.push('## Entries', '| Start | Min | Category | Note | Jira | Source |', '| --- | --- | --- | --- | --- | --- |');
+    for (const e of [...d.entries].sort((a, b) => a.start - b.start)) {
+      const note = e.note || (e.path ? `[[${e.path.split('/').pop().replace(/\.md$/, '')}]]` : '');
+      lines.push(`| ${moment(e.start).format('HH:mm')} | ${entryMin(e)} | ${e.cat} | ${cell(note)} | ${cell(e.jira)} | ${e.source} |`);
+    }
+    return lines.join('\n') + '\n';
+  },
+  /** Write (or update) a day's log note. Keeps `synced: true` unless the entries changed. */
+  async writeDay(key, force) {
+    if (!this.settings.writeNotes && !force) return;
+    const d = this.days[key];
+    const path = this.dayNotePath(key);
+    const f = this.app.vault.getAbstractFileByPath(path);
+    const empty = !d || (!d.entries.length && !d.done.length && !d.tomorrow);
+    // nothing to write for a new day; an existing note is still rewritten so deleted time disappears from it
+    if (empty && !(f instanceof TFile)) return;
+    const table = (t) => (t.split(/\n## Entries\n/)[1] || '').trim();
+    try {
+      if (f instanceof TFile) {
+        await this.app.vault.process(f, (old) => {
+          const wasSynced = /^synced:\s*true\s*$/m.test(old.split(/\n---/)[0] || '');
+          const fresh = this.dayNote(key, false);
+          const next = wasSynced && table(old) === table(fresh) ? this.dayNote(key, true) : fresh;
+          return next === old ? old : next;
+        });
+      } else {
+        await ensureFolder(this.app, this.settings.logFolder);
+        await this.app.vault.create(path, this.dayNote(key, false));
+      }
+    } catch (e) {
+      console.error('Neon Time: could not write log note', e);
+    }
+  },
+  readmeSoon() {
+    if (!this._readme) this._readme = debounce(() => this.ensureReadme(), 2000, true);
+    this._readme();
+  },
+  async ensureReadme() {
+    if (!this.settings.writeNotes) return;
+    const path = normalizePath(`${this.settings.logFolder}/README.md`);
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    const target = Math.round(this.settings.dayHours * 60);
+    const idle = this.settings.idleMin;
+    const text = [
+      '# Time Log — format',
+      '',
+      'Neon Time writes one note per day here, named `YYYY-MM-DD.md`. It never connects to Jira or the network; an AI agent reads these notes and sends them on.',
+      '',
+      '## Properties',
+      '- `date` — the day.',
+      '- `total_min`, `projects_min`, `school_min`, `admin_min`, `operations_min`, `other_min` — active minutes per category (`other` = notes without a category).',
+      `- \`target_min\` — ${target} on weekdays (${fmtMin(target)}), 0 on weekends. \`overtime_min\` — time past the target.`,
+      '- `synced` — set to `true` once the day has been sent to Jira. Neon Time keeps it, unless entries change afterwards, then it goes back to `false`.',
+      '',
+      '## Body',
+      '- **Done today** — notes worked on, tasks ticked and ticket changes.',
+      '- **Tomorrow** — the line written in Wrap up, if any.',
+      '- **Entries** — one row per block of work:',
+      '',
+      '| Start | Min | Category | Note | Jira | Source |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| 09:12 | 47 | projects | [[API migration]] | PROJ-142 | auto |',
+      '| 10:05 | 30 | operations | CRM ticket 8812 |  | manual |',
+      '',
+      '`Source` is `auto` (counted while you worked in the note), `manual` (added by hand) or `ticket` (logged from a ticket’s + Time).',
+      'The Jira key comes from the note’s `jira` property, or was typed in by hand.',
+      '',
+      `Auto time counts while a note is the focused tab and you type, scroll or click, also while you are briefly in another app; after ${idle} minute${idle === 1 ? '' : 's'} without input in Obsidian it ends at your last activity and the idle time is dropped. Short bits of work on the same note add up and become an entry once they reach a minute; bits still under a minute are saved when tracking is paused or Obsidian closes. Back-to-back sessions on the same note are merged, and a session past midnight is split between the two days. Notes with \`untracked: true\` are never logged.`,
+      '',
+      'These notes are rewritten by Neon Time; edits to them are overwritten (except `synced`). Change entries in the Time tab instead. This README is rewritten too when the Neon Time settings change.',
+      '',
+    ].join('\n');
+    try {
+      if (existing instanceof TFile) {
+        // keep it in step with the settings, as long as it's still the generated README
+        await this.app.vault.process(existing, (old) => (old.startsWith('# Time Log — format') ? text : old));
+      } else if (!existing) {
+        await ensureFolder(this.app, this.settings.logFolder);
+        await this.app.vault.create(path, text);
+      }
+    } catch (e) {
+      console.error('Neon Time: README', e);
+    }
+  },
+
+});
+/* @src src/time/entries.js */
+Object.assign(NeonTime.prototype, {
+  /* ---- data ------------------------------------------------------------- */
+  day(key) {
+    let d = this.days[key];
+    if (!d) d = this.days[key] = { entries: [], done: [], tomorrow: '', wrapped: false };
+    return d;
+  },
+  /** Entries of a day, sorted, with the running session added when live. */
+  entriesOf(key, live) {
+    const d = this.days[key];
+    const out = d ? [...d.entries] : [];
+    if (live) for (const [path, pd] of this.pending) if (pd.key === key) out.push({ start: pd.start, ms: pd.ms, cat: pd.cat, note: '', path, jira: pd.jira, source: 'auto', live: true, pendingPath: path });
+    const s = this.session;
+    if (live && s && dayKey(s.start) === key && s.last - s.start >= 1000) {
+      const prev = out[out.length - 1];
+      const liveMs = s.last - s.start;
+      // the live row continues a saved entry: show them as one; deleting it removes both (savedId)
+      if (prev && prev.source === 'auto' && prev.path === s.path && prev.cat === s.cat && s.start - prev.end <= this.settings.idleMin * 60000)
+        out[out.length - 1] = { ...prev, id: undefined, savedId: prev.id, ms: prev.ms + liveMs, liveMs, live: true, sessionLive: true };
+      else out.push({ start: s.start, ms: liveMs, liveMs, cat: s.cat, note: '', path: s.path, jira: s.jira, source: 'auto', live: true, sessionLive: true });
+    }
+    return out.sort((a, b) => a.start - b.start);
+  },
+  targetMin(m) {
+    const wd = (m || moment()).isoWeekday();
+    return wd <= 5 ? Math.round(this.settings.dayHours * 60) : 0;
+  },
+  /**
+   * Minutes per category for a day. With a started workday the screen shows the work timer and the
+   * tracked time is scaled to add up to it (raw: as logged, for the log notes).
+   */
+  summary(key, live, raw = false) {
+    const by = Object.fromEntries(TIME_CATS.map((k) => [k, 0]));
+    for (const e of this.entriesOf(key, live)) by[TIME_CATS.includes(e.cat) ? e.cat : 'other'] += e.ms / 60000;
+    const f = raw ? 1 : this.workScale(key, live);
+    for (const k of TIME_CATS) by[k] = Math.round(by[k] * f);
+    const worked = raw ? null : this.workMin(key);
+    const total = worked != null ? worked : TIME_CATS.reduce((s, k) => s + by[k], 0);
+    const target = this.targetMin(moment(key, 'YYYY-MM-DD'));
+    return { key, by, total, target, over: Math.max(0, total - target), work: raw ? 'none' : this.workState(key) };
+  },
+
+  /** Overtime balance over a range: only days with tracked time count; today counts once it's past the target. */
+  balance(from, to) {
+    const todayKey = moment().format('YYYY-MM-DD');
+    let balance = 0;
+    let total = 0;
+    let over = 0;
+    for (const key of Object.keys(this.days)) {
+      const m = moment(key, 'YYYY-MM-DD');
+      if (m.isBefore(from, 'day') || m.isAfter(to, 'day') || key > todayKey) continue;
+      const s = this.summary(key, key === todayKey);
+      if (!s.total) continue;
+      total += s.total;
+      over += s.over;
+      balance += key === todayKey ? s.over : s.total - s.target;
+    }
+    return { balance, total, over };
+  },
+  addEntry(v, quiet) {
+    const e = { id: newId(), start: v.start, end: v.start + v.ms, ms: v.ms, cat: v.cat, note: v.note || '', path: v.path || '', jira: v.jira || '', source: v.source || 'manual' };
+    const key = dayKey(e.start);
+    const day = this.day(key);
+    day.entries.push(e);
+    day.entries.sort((a, b) => a.start - b.start);
+    this.changed(key);
+    if (!quiet) new Notice(`⏱ ${fmtMin(entryMin(e))} ${CAT_LABEL[e.cat] || 'Other'} logged`);
+  },
+  findEntry(e) {
+    for (const [key, d] of Object.entries(this.days)) {
+      const i = d.entries.findIndex((x) => x.id === e.id);
+      if (i !== -1) return { key, d, i };
+    }
+    return null;
+  },
+  updateEntry(e, v) {
+    const hit = this.findEntry(e);
+    if (!hit) return;
+    const cur = hit.d.entries[hit.i];
+    Object.assign(cur, v, { end: v.start + v.ms, source: cur.source === 'auto' ? 'auto' : cur.source });
+    const key = dayKey(cur.start);
+    if (key !== hit.key) {
+      hit.d.entries.splice(hit.i, 1);
+      this.day(key).entries.push(cur);
+      this.changed(hit.key);
+    }
+    this.day(key).entries.sort((a, b) => a.start - b.start);
+    this.changed(key);
+  },
+  deleteEntry(e) {
+    // live rows: drop the running session and/or the short bits not saved yet
+    if (e.live) {
+      if (e.sessionLive) this.session = null;
+      if (e.pendingPath) this.pending.delete(e.pendingPath);
+      if (!e.id && !e.savedId) {
+        new Notice(`Discarded ${fmtMin((e.liveMs || e.ms) / 60000)} of live time`);
+        return this.emit();
+      }
+    }
+    const hit = this.findEntry({ id: e.id || e.savedId });
+    if (!hit) return;
+    const [gone] = hit.d.entries.splice(hit.i, 1);
+    this.changed(hit.key);
+    let undone = false;
+    const notice = new Notice(createFragment((f) => {
+      f.appendText(`Deleted ${fmtMin(entryMin(gone))} entry · `);
+      const u = f.createEl('a', { text: 'Undo', href: '#' });
+      u.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        // only once, and not if it's back already
+        if (undone || this.findEntry(gone)) return;
+        undone = true;
+        hit.d.entries.push(gone);
+        hit.d.entries.sort((a, b) => a.start - b.start);
+        this.changed(hit.key);
+        notice.hide();
+      });
+    }), 6000);
+  },
+  addDone(item, quiet, key = moment().format('YYYY-MM-DD')) {
+    const d = this.day(key);
+    if (item.kind === 'note' && d.done.some((x) => x.kind === 'note' && x.ref === item.ref)) return;
+    d.done.push({ t: Date.now(), ...item });
+    if (d.done.length > 300) d.done.splice(0, d.done.length - 300);
+    if (!quiet) this.changed(key);
+  },
+  newEntry(partial) {
+    new EntryModal(this, { cat: 'operations', ...partial }, true).open();
+  },
+
+});
+/* @src src/time/workday.js */
+Object.assign(NeonTime.prototype, {
+  /* ---- work timer (item 14): start, pause, resume, end the day ---- */
+  workOf(key) {
+    const d = this.days[key];
+    return d && d.work && d.work.start ? d.work : null;
+  },
+  workState(key) {
+    const w = this.workOf(key);
+    if (!w) return 'none';
+    if (w.end) return 'ended';
+    const b = w.breaks[w.breaks.length - 1];
+    return b && b[1] == null ? 'paused' : 'running';
+  },
+  /** Minutes worked: start to end (or now), minus breaks; null without a started day. */
+  workMin(key, now = Date.now()) {
+    const w = this.workOf(key);
+    if (!w) return null;
+    const end = w.end || now;
+    const off = w.breaks.reduce((n, [a, b]) => n + Math.max(0, Math.min(b == null ? end : b, end) - a), 0);
+    return Math.max(0, Math.round((end - w.start - off) / 60000));
+  },
+  /** Factor that makes the day's tracked entries add up to the worked time (1 without a workday). */
+  workScale(key, live) {
+    const worked = this.workMin(key);
+    if (worked == null) return 1;
+    const tracked = this.entriesOf(key, live).reduce((n, e) => n + e.ms / 60000, 0);
+    return tracked > 0 ? worked / tracked : 1;
+  },
+  /** The Start / Pause / Resume button. */
+  workToggle() {
+    const key = moment().format('YYYY-MM-DD');
+    const now = Date.now();
+    const d = this.day(key);
+    const st = this.workState(key);
+    if (st === 'none') d.work = { start: now, breaks: [], end: null, last: now };
+    else if (st === 'running') d.work.breaks.push([now, null]);
+    else if (st === 'paused') d.work.breaks[d.work.breaks.length - 1][1] = now;
+    else (d.work.breaks.push([d.work.end, now]), (d.work.end = null)); // ended: the gap becomes a break
+    d.work.last = now;
+    this.saveSoon();
+    this.emit();
+  },
+  /** Start / Pause / Resume button for today. */
+  workButton(parent, iconOnly) {
+    const st = this.workState(moment().format('YYYY-MM-DD'));
+    const [ic, text] = { none: ['play', 'Start day'], running: ['pause', 'Pause'], paused: ['play', 'Resume'], ended: ['play', 'Resume day'] }[st];
+    return button(parent, { icon: ic, text: iconOnly ? undefined : text, cls: iconOnly ? 'nd-icon-btn tm-work-btn' : 'tm-work-btn' + (st === 'none' ? ' mod-cta' : ''), title: text, onClick: () => this.workToggle() });
+  },
+  /** End the workday at `at` (Wrap up, or the idle rule with the last activity). */
+  workEnd(key, at = Date.now()) {
+    const w = this.workOf(key);
+    if (!w || w.end) return;
+    const b = w.breaks[w.breaks.length - 1];
+    if (b && b[1] == null) b[1] = Math.max(b[0], at);
+    w.end = Math.max(w.start, at);
+    this.saveSoon();
+    this.emit();
+  },
+  /** Any input in Obsidian: the workday is still going. */
+  workSeen() {
+    const w = this.workOf(moment().format('YYYY-MM-DD'));
+    if (!w || w.end) return;
+    const now = Date.now();
+    if (now - w.last < 30000) return;
+    w.last = now;
+    this.saveSoon();
+  },
+  /** Idle rule: a running day with no input for workIdleH hours ends at the last activity. */
+  workIdleCheck() {
+    const limit = this.settings.workIdleH * 3600000;
+    for (const key of [moment().format('YYYY-MM-DD'), moment().subtract(1, 'day').format('YYYY-MM-DD')]) {
+      const w = this.workOf(key);
+      if (w && !w.end && this.workState(key) === 'running' && Date.now() - w.last > limit) {
+        this.workEnd(key, w.last);
+        new Notice(`⏱ Workday ended at ${moment(w.last).format('HH:mm')} (no activity for ${this.settings.workIdleH} h)`);
+      }
+    }
+  },
+});
+/* @src src/time/tracker.js */
+Object.assign(NeonTime.prototype, {
+  /* ---- tracking -------------------------------------------------------- */
+  isLogFile(f) {
+    const folder = normalizePath(this.settings.logFolder || 'Core/Time Log');
+    return !!f && (f.path === folder || f.path.startsWith(folder + '/'));
+  },
+  /** Category a file's time goes to, or null when it must not be logged. */
+  trackCat(file) {
+    if (!(file instanceof TFile) || file.extension !== 'md' || this.isLogFile(file)) return null;
+    const c = fileCategory(this.app, file);
+    if (c === 'untracked') return null;
+    return c || 'other';
+  },
+  touch(e) {
+    this.workSeen();
+    if (!this.settings.tracking || document.hidden) return;
+    const now = Date.now();
+    // cheap throttle: one check every 3 s is plenty for minute-level time
+    if (this.session && now - this.session.last < 3000) return;
+    const view = this.activeFileView();
+    if (!view || !view.file || (e && e.target instanceof Node && !view.containerEl.contains(e.target))) return;
+    const file = view.file;
+    const idle = this.settings.idleMin * 60000;
+    const s = this.session;
+    if (s && s.path === file.path && now - s.last <= idle) {
+      // re-read the category: the note may have been set to untracked or moved category mid-session
+      const cat = this.trackCat(file);
+      if (cat === s.cat) {
+        s.last = now;
+        return;
+      }
+      if (!cat) return this.dropTracking(file.path);
+    }
+    this.closeSession();
+    const cat = this.trackCat(file);
+    if (!cat) return;
+    const fm = (this.app.metadataCache.getFileCache(file) || {}).frontmatter || {};
+    this.session = { path: file.path, name: file.basename, cat, jira: fm.jira ? String(fm.jira) : '', start: now, last: now };
     this.updateStatus();
-  }
-  updateStatus() {
-    if (!this.statusEl) return;
-    const s = this.summary(moment().format('YYYY-MM-DD'), true);
-    this.statusTxt.setText(this.settings.tracking ? fmtMin(s.total) : `${fmtMin(s.total)} · paused`);
-    this.statusEl.toggleClass('is-running', !!this.session);
-    tip(this.statusEl, this.session ? `Tracking ${this.session.name} · ${CAT_LABEL[this.session.cat]}` : 'Time today · click for the Time tab');
-  }
-};
+  },
+  /** The focused note's view (markdown, ticket view, …), or null. */
+  activeFileView() {
+    const ws = this.app.workspace;
+    const v = ws.getActiveViewOfType(FileView);
+    if (v && v.file) return v;
+    const leaf = ws.activeLeaf;
+    return leaf && leaf.view && leaf.view.file instanceof TFile ? leaf.view : null;
+  },
+  tick() {
+    this.workIdleCheck();
+    const s = this.session;
+    if (s && Date.now() - s.last > this.settings.idleMin * 60000) this.closeSession();
+    else if (s && dayKey(s.start) !== dayKey(Date.now())) {
+      // past midnight: save the old day's part and keep tracking on the new day
+      this.closeSession();
+      const f = this.app.vault.getAbstractFileByPath(s.path);
+      const t = Math.max(s.last, moment().startOf('day').valueOf());
+      if (!(f instanceof TFile) || this.trackCat(f)) this.session = { ...s, start: t, last: t };
+      this.updateStatus();
+    } else if (s) this.updateStatus();
+  },
+  /** End the running session at its last activity, merging into the previous entry when it's the same note. */
+  closeSession() {
+    const s = this.session;
+    if (!s) return;
+    this.session = null;
+    // the note was set to untracked before the session ended: keep none of it
+    const f = this.app.vault.getAbstractFileByPath(s.path);
+    if (f instanceof TFile && !this.trackCat(f)) {
+      this.pending.delete(s.path);
+      return this.emit();
+    }
+    if (s.last - s.start <= 0) return this.updateStatus();
+    // a session past midnight is split, so each day gets its own part
+    let from = s.start;
+    while (dayKey(from) !== dayKey(s.last)) {
+      const midnight = moment(from).add(1, 'day').startOf('day').valueOf();
+      this.savePiece(s, from, midnight);
+      from = midnight;
+    }
+    this.savePiece(s, from, s.last);
+  },
+  /** Save one day's part of a session: merge into the previous entry, or add up as short bits until they reach a minute. */
+  savePiece(s, start, end) {
+    const ms = end - start;
+    if (ms <= 0) return;
+    const key = dayKey(start);
+    const day = this.day(key);
+    const prev = day.entries[day.entries.length - 1];
+    const idle = this.settings.idleMin * 60000;
+    if (prev && prev.source === 'auto' && prev.path === s.path && prev.cat === s.cat && start - prev.end <= idle) {
+      prev.ms += ms;
+      prev.end = end;
+      this.changed(key);
+      return;
+    }
+    // short sessions on the same note (e.g. between glances at the dashboard) add up;
+    // once they reach a minute they become one entry
+    let pend = this.pending.get(s.path);
+    if (!pend || pend.key !== key) pend = { key, start, end, ms: 0, cat: s.cat, name: s.name, jira: s.jira };
+    pend.cat = s.cat;
+    pend.ms += ms;
+    pend.end = end;
+    if (pend.ms >= 60000) {
+      this.pending.delete(s.path);
+      day.entries.push({ id: newId(), start: pend.start, end: pend.end, ms: pend.ms, cat: s.cat, note: '', path: s.path, jira: s.jira, source: 'auto' });
+      day.entries.sort((a, b) => a.start - b.start);
+      this.addDone({ kind: 'note', ref: s.path, text: s.name }, true, key);
+      this.changed(key);
+    } else {
+      this.pending.set(s.path, pend);
+      this.emit();
+    }
+  },
+
+  /** Save the short bits of work not saved yet as entries (on pause and unload). Returns the day keys touched. */
+  flushPending() {
+    const keys = new Set();
+    for (const [path, pd] of this.pending) {
+      const f = this.app.vault.getAbstractFileByPath(path);
+      if (f instanceof TFile && !this.trackCat(f)) continue;
+      const entries = this.day(pd.key).entries;
+      entries.push({ id: newId(), start: pd.start, end: pd.end, ms: pd.ms, cat: pd.cat, note: '', path, jira: pd.jira, source: 'auto' });
+      entries.sort((a, b) => a.start - b.start);
+      keys.add(pd.key);
+    }
+    this.pending.clear();
+    return keys;
+  },
+  /** Turn automatic tracking on or off. Pausing saves what was tracked so far. */
+  setTracking(on) {
+    this.settings.tracking = on;
+    if (!on) {
+      this.closeSession();
+      for (const k of this.flushPending()) this.dirty.add(k);
+      this.changed(moment().format('YYYY-MM-DD'));
+    } else this.emit();
+    this.saveSettings();
+  },
+  /** Throw away time not saved yet for a note (it was set to untracked). */
+  dropTracking(path) {
+    if (this.session && this.session.path === path) this.session = null;
+    this.pending.delete(path);
+    this.emit();
+  },
+
+});
+/* @src src/time/exports.js */
+module.exports = NeonTime;
