@@ -10,6 +10,10 @@
 !/neon-time/
 !/neon-write/
 !/neon-research/
+!/src/
+!/tools/
+!/CLAUDE.md
 
 # saved settings and personal time data
 data.json
+dist/
