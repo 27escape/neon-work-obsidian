@@ -160,7 +160,7 @@ function parseDay(v) {
   const m = moment(String(v).trim(), ['YYYY-MM-DD', 'YYYY-MM-DDTHH:mm', 'YYYY-MM-DD HH:mm', 'DD.MM.YYYY', 'D.M.YYYY'], true);
   return m.isValid() ? m : null;
 }
-const isTrue = (v) => v === true || v === 'true' || v === 'yes' || v === 1;
+const isTrue = (v) => v === true || v === 1 || /^(true|yes)$/i.test(v);
 function fmTags(fm) {
   if (!fm) return [];
   const raw = fm.tags != null ? fm.tags : fm.tag;
@@ -182,14 +182,14 @@ function isTicketCache(cache) {
  */
 function noteCategory(cache) {
   const fm = (cache && cache.frontmatter) || {};
-  if (isTrue(fm.untracked)) return 'untracked';
+  const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
+  if (isTrue(fm.untracked) || isTrue(fm.Untracked) || tags.includes('untracked')) return 'untracked';
   for (const c of CATS) if (isTrue(fm[c])) return c;
   for (const [old, c] of Object.entries(CAT_ALIAS)) if (isTrue(fm[old])) return c;
   if (typeof fm.category === 'string') {
     const c = normCat(fm.category.toLowerCase());
     if (CATS.includes(c)) return c;
   }
-  const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
   for (const c of CATS) if (tags.includes(c)) return c;
   if (isTicketCache(cache)) return 'operations';
   return null;
@@ -705,7 +705,7 @@ class TimeView extends ItemView {
     const ec = this.card(root, 'tm-entries', 'Entries', 'list');
     const list = ec.body;
     if (isToday && p.session) ec.actions.createDiv({ cls: 'tm-live', text: `● tracking ${p.session.name}` });
-    const entries = p.entriesOf(key, isToday);
+    const entries = p.entriesOf(key, isToday).reverse(); // newest on top; entriesOf returns a fresh array
     if (!entries.length) emptyState(list, isToday ? 'Nothing tracked yet today. Work in a note and time counts by itself.' : 'Nothing tracked on this day.');
     entries.forEach((e, idx) => {
       const r = list.createDiv('tm-entry' + (e.live ? ' is-live' : '') + (intro ? ' is-intro' : ''));
@@ -726,7 +726,7 @@ class TimeView extends ItemView {
       r.createSpan({ cls: `tm-entry-src s-${e.source}`, text: e.live ? 'live' : e.source });
       const a = r.createDiv('tm-entry-acts');
       if (!e.live) button(a, { icon: 'pencil', cls: 'nd-icon-btn', title: 'Edit', onClick: () => new EntryModal(p, e, false).open() });
-      button(a, { icon: 'trash-2', cls: 'nd-icon-btn', title: e.live ? 'Discard live time' : 'Delete', onClick: () => p.deleteEntry(e) });
+      button(a, { icon: 'trash-2', cls: 'nd-icon-btn', title: e.live && !e.savedId ? 'Discard live time' : 'Delete', onClick: () => p.deleteEntry(e) });
     });
     const day = p.days[key];
     if (day && day.tomorrow) {
@@ -931,7 +931,7 @@ module.exports = class NeonTime extends Plugin {
     const editing = ed && ed.file ? ed.file.path : null;
     const keys = [...this.dirty].filter((k) => this.dayNotePath(k) !== editing);
     for (const k of keys) this.dirty.delete(k);
-    if (this.dirty.size) this._write(); // the open note is written once the user leaves it
+    if (this.dirty.size && this._write) this._write(); // the open note is written once the user leaves it
     for (const k of keys) await this.writeDay(k);
   }
 
@@ -1129,10 +1129,9 @@ module.exports = class NeonTime extends Plugin {
     if (live && s && dayKey(s.start) === key && s.last - s.start >= 1000) {
       const prev = out[out.length - 1];
       const liveMs = s.last - s.start;
-      // the live row continues a saved entry: show them as one, but without the saved id so
-      // "Discard live time" only drops the running part
+      // the live row continues a saved entry: show them as one; deleting it removes both (savedId)
       if (prev && prev.source === 'auto' && prev.path === s.path && prev.cat === s.cat && s.start - prev.end <= this.settings.idleMin * 60000)
-        out[out.length - 1] = { ...prev, id: undefined, ms: prev.ms + liveMs, liveMs, live: true, sessionLive: true };
+        out[out.length - 1] = { ...prev, id: undefined, savedId: prev.id, ms: prev.ms + liveMs, liveMs, live: true, sessionLive: true };
       else out.push({ start: s.start, ms: liveMs, liveMs, cat: s.cat, note: '', path: s.path, jira: s.jira, source: 'auto', live: true, sessionLive: true });
     }
     return out.sort((a, b) => a.start - b.start);
@@ -1201,12 +1200,12 @@ module.exports = class NeonTime extends Plugin {
     if (e.live) {
       if (e.sessionLive) this.session = null;
       if (e.pendingPath) this.pending.delete(e.pendingPath);
-      if (!e.id) {
+      if (!e.id && !e.savedId) {
         new Notice(`Discarded ${fmtMin((e.liveMs || e.ms) / 60000)} of live time`);
         return this.emit();
       }
     }
-    const hit = this.findEntry(e);
+    const hit = this.findEntry({ id: e.id || e.savedId });
     if (!hit) return;
     const [gone] = hit.d.entries.splice(hit.i, 1);
     this.changed(hit.key);
@@ -1465,7 +1464,7 @@ module.exports = class NeonTime extends Plugin {
           button(r, {
             icon: 'trash-2',
             cls: 'nd-icon-btn tm-w-del',
-            title: e.live ? 'Discard live time' : 'Delete entry',
+            title: e.live && !e.savedId ? 'Discard live time' : 'Delete entry',
             onClick: (ev) => {
               ev.stopPropagation();
               p.deleteEntry(e);

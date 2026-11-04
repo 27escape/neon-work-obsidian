@@ -160,7 +160,7 @@ function parseDay(v) {
   const m = moment(String(v).trim(), ['YYYY-MM-DD', 'YYYY-MM-DDTHH:mm', 'YYYY-MM-DD HH:mm', 'DD.MM.YYYY', 'D.M.YYYY'], true);
   return m.isValid() ? m : null;
 }
-const isTrue = (v) => v === true || v === 'true' || v === 'yes' || v === 1;
+const isTrue = (v) => v === true || v === 1 || /^(true|yes)$/i.test(v);
 function fmTags(fm) {
   if (!fm) return [];
   const raw = fm.tags != null ? fm.tags : fm.tag;
@@ -182,14 +182,14 @@ function isTicketCache(cache) {
  */
 function noteCategory(cache) {
   const fm = (cache && cache.frontmatter) || {};
-  if (isTrue(fm.untracked)) return 'untracked';
+  const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
+  if (isTrue(fm.untracked) || isTrue(fm.Untracked) || tags.includes('untracked')) return 'untracked';
   for (const c of CATS) if (isTrue(fm[c])) return c;
   for (const [old, c] of Object.entries(CAT_ALIAS)) if (isTrue(fm[old])) return c;
   if (typeof fm.category === 'string') {
     const c = normCat(fm.category.toLowerCase());
     if (CATS.includes(c)) return c;
   }
-  const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
   for (const c of CATS) if (tags.includes(c)) return c;
   if (isTicketCache(cache)) return 'operations';
   return null;
@@ -571,6 +571,7 @@ class QuizModal extends Modal {
     } finally {
       this.grading = false;
     }
+    if (!this.containerEl.isConnected) return; // closed during the save
     this.done++;
     if (how === 'again') this.queue.push(card); // seen again in this session
     this.next();
@@ -869,7 +870,7 @@ module.exports = class NeonResearch extends Plugin {
     this.registerEvent(this.app.vault.on('create', anyChange));
     this.registerEvent(
       this.app.vault.on('delete', (f) => {
-        this.cardText.delete(f.path);
+        for (const p of [...this.cardText.keys()]) if (p === f.path || p.startsWith(f.path + '/')) this.cardText.delete(p);
         // forget quiz history of deleted notes, and the open state of deleted folders
         for (const id of Object.keys(this.settings.cards)) if (id.startsWith(f.path + '|') || id.startsWith(f.path + '/')) delete this.settings.cards[id];
         this.settings.open = this.settings.open.filter((x) => x !== f.path && !x.startsWith(f.path + '/'));

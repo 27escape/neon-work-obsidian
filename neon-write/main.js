@@ -160,7 +160,7 @@ function parseDay(v) {
   const m = moment(String(v).trim(), ['YYYY-MM-DD', 'YYYY-MM-DDTHH:mm', 'YYYY-MM-DD HH:mm', 'DD.MM.YYYY', 'D.M.YYYY'], true);
   return m.isValid() ? m : null;
 }
-const isTrue = (v) => v === true || v === 'true' || v === 'yes' || v === 1;
+const isTrue = (v) => v === true || v === 1 || /^(true|yes)$/i.test(v);
 function fmTags(fm) {
   if (!fm) return [];
   const raw = fm.tags != null ? fm.tags : fm.tag;
@@ -182,14 +182,14 @@ function isTicketCache(cache) {
  */
 function noteCategory(cache) {
   const fm = (cache && cache.frontmatter) || {};
-  if (isTrue(fm.untracked)) return 'untracked';
+  const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
+  if (isTrue(fm.untracked) || isTrue(fm.Untracked) || tags.includes('untracked')) return 'untracked';
   for (const c of CATS) if (isTrue(fm[c])) return c;
   for (const [old, c] of Object.entries(CAT_ALIAS)) if (isTrue(fm[old])) return c;
   if (typeof fm.category === 'string') {
     const c = normCat(fm.category.toLowerCase());
     if (CATS.includes(c)) return c;
   }
-  const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
   for (const c of CATS) if (tags.includes(c)) return c;
   if (isTicketCache(cache)) return 'operations';
   return null;
@@ -493,9 +493,49 @@ function caretRect(editor) {
   return null;
 }
 /** Wrap the selection in a mark (or remove it when it's already there, inside or just outside the selection). */
+/**
+ * Toggle a symmetric marker (*, **, ~~, ==, `) around line[s..e]. For stars the run length decides
+ * the state (1 italic, 2 bold, 3 both), so Italic never eats half of a bold. Returns the new line and selection.
+ */
+function toggleMark(line, s, e, mark) {
+  while (s < e && line[s] === ' ') s++;
+  while (e > s && line[e - 1] === ' ') e--;
+  const run = (i, step) => {
+    let n = 0;
+    while (line[i + n * step] === '*') n++;
+    return n;
+  };
+  const put = (k, markStr) => {
+    const m = markStr.repeat(k);
+    const out = line.slice(0, s - cut) + m + line.slice(s, e) + m + line.slice(e + cut);
+    return { line: out, s: s - cut + m.length, e: e - cut + m.length };
+  };
+  let cut;
+  if (mark === '*' || mark === '**') {
+    // markers inside the selection count as outside
+    const inner = Math.min(run(s, 1), run(e - 1, -1), Math.floor((e - s) / 2));
+    s += inner;
+    e -= inner;
+    cut = Math.min(run(s - 1, -1), run(e, 1), 3);
+    let bold = cut >= 2, italic = cut % 2 === 1;
+    if (mark === '**') bold = !bold;
+    else italic = !italic;
+    return put((bold ? 2 : 0) + (italic ? 1 : 0), '*');
+  }
+  const n = mark.length;
+  if (e - s >= 2 * n && line.slice(s, s + n) === mark && line.slice(e - n, e) === mark) (s += n), (e -= n);
+  cut = line.slice(s - n, s) === mark && line.slice(e, e + n) === mark ? n : 0;
+  return put(cut ? 0 : 1, mark);
+}
 function toggleWrap(editor, open, close = open) {
   const from = editor.getCursor('from');
   const to = editor.getCursor('to');
+  if (open === close && from.line === to.line) {
+    const r = toggleMark(editor.getLine(from.line), from.ch, to.ch, open);
+    editor.replaceRange(r.line, { line: from.line, ch: 0 }, { line: from.line, ch: editor.getLine(from.line).length });
+    editor.setSelection({ line: from.line, ch: r.s }, { line: from.line, ch: r.e });
+    return;
+  }
   const sel = editor.getSelection();
   const before = from.ch >= open.length ? editor.getRange({ line: from.line, ch: from.ch - open.length }, from) : '';
   const after = editor.getRange(to, { line: to.line, ch: to.ch + close.length });

@@ -1822,7 +1822,7 @@ body.nd-theme-brutal .nd-side-browse .nd-icon-btn.nd-side-add {
   width: 300px;
   flex: none;
   overflow-y: auto;
-  padding: 12px;
+  padding: 12px 12px 44px; /* room for Obsidian's floating status bar over the bottom edge */
   border-left: 1px solid var(--nd-line);
   background: var(--nd-bg2);
   display: flex;

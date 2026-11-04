@@ -160,7 +160,7 @@ function parseDay(v) {
   const m = moment(String(v).trim(), ['YYYY-MM-DD', 'YYYY-MM-DDTHH:mm', 'YYYY-MM-DD HH:mm', 'DD.MM.YYYY', 'D.M.YYYY'], true);
   return m.isValid() ? m : null;
 }
-const isTrue = (v) => v === true || v === 'true' || v === 'yes' || v === 1;
+const isTrue = (v) => v === true || v === 1 || /^(true|yes)$/i.test(v);
 function fmTags(fm) {
   if (!fm) return [];
   const raw = fm.tags != null ? fm.tags : fm.tag;
@@ -182,14 +182,14 @@ function isTicketCache(cache) {
  */
 function noteCategory(cache) {
   const fm = (cache && cache.frontmatter) || {};
-  if (isTrue(fm.untracked)) return 'untracked';
+  const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
+  if (isTrue(fm.untracked) || isTrue(fm.Untracked) || tags.includes('untracked')) return 'untracked';
   for (const c of CATS) if (isTrue(fm[c])) return c;
   for (const [old, c] of Object.entries(CAT_ALIAS)) if (isTrue(fm[old])) return c;
   if (typeof fm.category === 'string') {
     const c = normCat(fm.category.toLowerCase());
     if (CATS.includes(c)) return c;
   }
-  const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
   for (const c of CATS) if (tags.includes(c)) return c;
   if (isTicketCache(cache)) return 'operations';
   return null;
@@ -522,7 +522,7 @@ function findSection(lines, key) {
   }
   return [start, end];
 }
-/** Append `line` to section `key` (created in canonical order when missing). */
+/** Append `line` to section `key` (created in canonical order when missing); log lines go on top. */
 function addToSection(text, key, line) {
   const lines = text.split('\n');
   let sec = findSection(lines, key);
@@ -541,6 +541,13 @@ function addToSection(text, key, line) {
     if (at > 0 && lines[at - 1] !== '') block.unshift('');
     lines.splice(at, 0, ...block);
     return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+  }
+  if (key === 'log') {
+    // newest log line on top, so the note reads like every view
+    let at = sec[0] + 1;
+    while (at < sec[1] && lines[at].trim() === '') at++;
+    lines.splice(at === sec[1] ? sec[0] + 1 : at, 0, line);
+    return lines.join('\n');
   }
   let end = sec[1];
   while (end - 1 > sec[0] && lines[end - 1].trim() === '') end--;
@@ -2470,7 +2477,7 @@ module.exports = class NeonTickets extends Plugin {
       ...(b.time.length ? b.time.map((x) => `- ${x.date}${x.start ? ' ' + x.start : ''} · ${fmtMin(x.min)}${x.note ? ` · ${x.note}` : ''}`) : ['_No time logged._']),
       '',
       '## Log',
-      ...(b.log.length ? b.log.slice().sort((x, y) => (x.when ? x.when.valueOf() : 0) - (y.when ? y.when.valueOf() : 0)).map((x) => `- ${x.when ? x.when.format(x.hasTime ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD') + ' — ' : ''}${x.text}`) : ['_Nothing logged._']),
+      ...(b.log.length ? b.log.slice().sort((x, y) => (y.when ? y.when.valueOf() : 0) - (x.when ? x.when.valueOf() : 0)).map((x) => `- ${x.when ? x.when.format(x.hasTime ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD') + ' — ' : ''}${x.text}`) : ['_Nothing logged._']),
       '',
       `_Exported ${moment().format('D MMM YYYY, HH:mm')} from Neon Tickets._`,
       '',
