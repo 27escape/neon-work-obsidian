@@ -1,7 +1,7 @@
 {
   "id": "neon-tickets",
   "name": "Neon Tickets",
-  "version": "1.6.5",
+  "version": "1.7.0",
   "minAppVersion": "1.5.0",
   "description": "Ticket tracker with a compact ticket view, self-writing log and monthly counter. 100% offline.",
   "author": "yobzz + Claude",

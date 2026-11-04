@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Neon Write — table picker, slash menu, selection toolbar and a faint pattern behind notes.
- * Version 1.6.5 · made by yobzz + Claude.
+ * Version 1.7.0 · made by yobzz + Claude.
  *
  * Everything runs locally: no network requests, no telemetry, no eval,
  * no shell access. It only edits the note you're typing in.
@@ -14,7 +14,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.6.5';
+const ND_VERSION = '1.7.0';
 const CATS = ['projects', 'school', 'admin', 'operations'];
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };

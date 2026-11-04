@@ -20,10 +20,10 @@ Neon Deck is the core. The others plug their cards, capture targets and facts in
 ## Features
 
 ### Dashboard (Neon Deck)
-- Totals, Vault pulse, Quick capture, Recently touched, Activity board, Tasks, Global tasks, Tickets and Time today on one page.
+- Totals, Vault pulse, Recently done / touched, Activity (month and week timeline with a day pop-up), Tasks, Global tasks, Tickets and Time today on one page. The Quick capture card is optional.
 - **One main pane.** A nav list at the top of the left sidebar (Dashboard, Cards, Tickets, Time, Graph) switches what the main pane shows. Notes open in that same pane, and Back / Forward move between them. No pile of pinned tabs.
 - The grid fills the window on any screen size; lists scroll inside their card, and narrow panes stack the cards.
-- Themes (Marathon, Cyberpunk, Brutal, Calm, Paper, Night shift, Phosphor, Blueprint), each in light and dark.
+- Themes (Marathon, Cyberpunk, Calm, Paper, Night shift, Phosphor, Blueprint), each in light and dark, with the same rounded corners and colour only in the accents.
 - A live background pattern (Damascus, Meteorite, Topo, Circuit, Hex mesh, Datastream, Radar) that pauses when Obsidian isn't focused or with *Reduce motion* on.
 - A ticker with live facts, and a Totals card: time worked, days worked, tasks and tickets done, notes created.
 - Quick capture from anywhere with `Ctrl+Shift+Space`: send to Task, Global task, Ticket or Time entry.
@@ -92,7 +92,7 @@ Requires Obsidian 1.5.0 or later.
 
 ## Release notes
 
-Only the latest release notes are kept: [1.6.5](docs/release-notes/1.6.5.md): the Research tab is now a simple topic tree (topics → subtopics → notes) with add / rename / delete, a quiz picker and a cleaner layout. Older notes are in the git history.
+Only the latest release notes are kept: [1.7.0](docs/release-notes/1.7.0.md): Work Time tracker, Research sections (School), Recently done log, Activity timeline, lockable callouts, lime dividers, page breaks, ticket sorting, much faster Tasks, and many fixes. Older notes are in the git history.
 
 ## License
 
