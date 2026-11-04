@@ -433,7 +433,8 @@ const TIME_DEFAULTS = {
   logFolder: 'Core/Time Log',
   writeNotes: true,
   dayHours: 8,
-  idleMin: 2,
+  idleMin: 30,
+  workIdleH: 2, // a started workday ends by itself after this many hours without input
   wrapLead: 30,
   installedAt: 0,
   days: {}, // 'YYYY-MM-DD' -> { entries: [], done: [], tomorrow, wrapped }
@@ -568,6 +569,7 @@ class WrapUpModal extends Modal {
         day.wrapped = true;
         this.close();
         p.closeSession();
+        p.workEnd(key);
         p.changed(key);
         await p.writeDay(key, true);
         new Notice('✦ Day wrapped up. Nice work.');
@@ -653,6 +655,7 @@ class TimeView extends ItemView {
     if (!isToday) button(nav, { text: 'Today', onClick: () => ((this.cursor = moment().startOf('day')), this.render()) });
     const acts = head.createDiv('tm-acts');
     button(acts, { icon: 'plus', text: 'Add time', cls: 'mod-cta', onClick: () => p.newEntry({ start: isToday ? undefined : this.cursor.clone().hour(9).valueOf() }) });
+    if (isToday) p.workButton(acts);
     if (isToday) button(acts, { icon: 'sunset', text: 'Wrap up', onClick: () => new WrapUpModal(p).open() });
     button(acts, { icon: 'file-text', text: 'Log note', onClick: () => p.openDayNote(key) });
 
@@ -706,13 +709,14 @@ class TimeView extends ItemView {
     const list = ec.body;
     if (isToday && p.session) ec.actions.createDiv({ cls: 'tm-live', text: `● tracking ${p.session.name}` });
     const entries = p.entriesOf(key, isToday).reverse(); // newest on top; entriesOf returns a fresh array
+    const scale = p.workScale(key, isToday); // on screen, entries add up to the worked time
     if (!entries.length) emptyState(list, isToday ? 'Nothing tracked yet today. Work in a note and time counts by itself.' : 'Nothing tracked on this day.');
     entries.forEach((e, idx) => {
       const r = list.createDiv('tm-entry' + (e.live ? ' is-live' : '') + (intro ? ' is-intro' : ''));
       r.style.setProperty('--i', String(idx));
       r.style.setProperty('--cat', catColor(e.cat));
       r.createSpan({ cls: 'tm-entry-at', text: moment(e.start).format('HH:mm') });
-      r.createSpan({ cls: 'tm-entry-min', text: fmtMin(entryMin(e)) });
+      r.createSpan({ cls: 'tm-entry-min', text: fmtMin(Math.round(entryMin(e) * scale)) });
       r.createSpan({ cls: 'tm-entry-cat', text: CAT_LABEL[e.cat] || 'Other' });
       const t = r.createSpan({ cls: 'tm-entry-note', text: e.note || (e.path ? e.path.split('/').pop().replace(/\.md$/, '') : '—') });
       if (e.path) {
@@ -761,7 +765,8 @@ class NeonTimeSettingTab extends PluginSettingTab {
       .setName('Track time automatically')
       .setDesc('Counts while a note is the focused tab and you type, scroll or click in it. Category comes from the projects / school / admin / operations checkbox (or tag). untracked: true notes are never logged.')
       .addToggle((t) => t.setValue(s.tracking).onChange((v) => p.setTracking(v)));
-    numSetting(new Setting(containerEl).setName('Idle cutoff (minutes)').setDesc('Time stops after this long without typing, scrolling or clicking.'), s, 'idleMin', 1, 30, () => (save(), p.readmeSoon()));
+    numSetting(new Setting(containerEl).setName('Idle cutoff (minutes)').setDesc('Time keeps counting while you are in another app. After this long without typing, scrolling or clicking in Obsidian it stops at your last activity, and the idle time is dropped.'), s, 'idleMin', 1, 120, () => (save(), p.readmeSoon()));
+    numSetting(new Setting(containerEl).setName('End an idle workday after (hours)').setDesc('A started workday ends by itself at your last activity after this long without input in Obsidian.'), s, 'workIdleH', 1, 12, () => save());
     numSetting(new Setting(containerEl).setName('Workday (hours)').setDesc('Weekday target. Time past it counts as overtime. Weekend time is all overtime.'), s, 'dayHours', 1, 16, () => (save(), p.emit(), p.readmeSoon()));
     numSetting(new Setting(containerEl).setName('Wrap up shows (minutes before the target)'), s, 'wrapLead', 0, 240, save);
     new Setting(containerEl).setName('Log notes').setHeading();
@@ -786,6 +791,12 @@ module.exports = class NeonTime extends Plugin {
     // short bits of work per note (under a minute so far); they add up instead of being dropped
     this.pending = new Map();
     await this.loadSettings();
+    // 1.6.6: tracking keeps going in the background, so the old 2-minute default becomes 30
+    // (idleRule is not in the defaults, so only saved data says it was migrated)
+    if ((this.settings.idleRule || 0) < 2) {
+      if (this.settings.idleMin === 2) this.settings.idleMin = 30;
+      this.settings.idleRule = 2;
+    }
     this.days = this.settings.days;
     // old saved entries: ops -> operations
     for (const d of Object.values(this.days || {})) for (const e of d.entries || []) e.cat = normCat(e.cat);
@@ -812,8 +823,10 @@ module.exports = class NeonTime extends Plugin {
     this.registerDomEvent(document, 'mousedown', touch, true);
     this.registerDomEvent(document, 'wheel', touch, { capture: true, passive: true });
     this.registerDomEvent(document, 'scroll', touch, { capture: true, passive: true });
-    this.registerDomEvent(window, 'blur', () => this.closeSession());
-    this.registerDomEvent(document, 'visibilitychange', () => document.hidden && this.closeSession());
+    // leaving Obsidian keeps the session open: time away counts if you're back within the idle
+    // cutoff, else the session ends at the last activity (checked on return and every 15 s)
+    this.registerDomEvent(window, 'focus', () => this.tick());
+    this.registerDomEvent(document, 'visibilitychange', () => !document.hidden && this.tick());
     // switching tabs ends the session, unless it's still the same note
     this.registerEvent(
       this.app.workspace.on('active-leaf-change', () => {
@@ -984,6 +997,7 @@ module.exports = class NeonTime extends Plugin {
     return c || 'other';
   }
   touch(e) {
+    this.workSeen();
     if (!this.settings.tracking || document.hidden) return;
     const now = Date.now();
     // cheap throttle: one check every 3 s is plenty for minute-level time
@@ -1018,6 +1032,7 @@ module.exports = class NeonTime extends Plugin {
     return leaf && leaf.view && leaf.view.file instanceof TFile ? leaf.view : null;
   }
   tick() {
+    this.workIdleCheck();
     const s = this.session;
     if (s && Date.now() - s.last > this.settings.idleMin * 60000) this.closeSession();
     else if (s && dayKey(s.start) !== dayKey(Date.now())) {
@@ -1140,13 +1155,97 @@ module.exports = class NeonTime extends Plugin {
     const wd = (m || moment()).isoWeekday();
     return wd <= 5 ? Math.round(this.settings.dayHours * 60) : 0;
   }
-  summary(key, live) {
+  /**
+   * Minutes per category for a day. With a started workday the screen shows the work timer and the
+   * tracked time is scaled to add up to it (raw: as logged, for the log notes).
+   */
+  summary(key, live, raw = false) {
     const by = Object.fromEntries(TIME_CATS.map((k) => [k, 0]));
     for (const e of this.entriesOf(key, live)) by[TIME_CATS.includes(e.cat) ? e.cat : 'other'] += e.ms / 60000;
-    for (const k of TIME_CATS) by[k] = Math.round(by[k]);
-    const total = TIME_CATS.reduce((s, k) => s + by[k], 0);
+    const f = raw ? 1 : this.workScale(key, live);
+    for (const k of TIME_CATS) by[k] = Math.round(by[k] * f);
+    const worked = raw ? null : this.workMin(key);
+    const total = worked != null ? worked : TIME_CATS.reduce((s, k) => s + by[k], 0);
     const target = this.targetMin(moment(key, 'YYYY-MM-DD'));
-    return { key, by, total, target, over: Math.max(0, total - target) };
+    return { key, by, total, target, over: Math.max(0, total - target), work: raw ? 'none' : this.workState(key) };
+  }
+
+  /* ---- work timer (item 14): start, pause, resume, end the day ---- */
+  workOf(key) {
+    const d = this.days[key];
+    return d && d.work && d.work.start ? d.work : null;
+  }
+  workState(key) {
+    const w = this.workOf(key);
+    if (!w) return 'none';
+    if (w.end) return 'ended';
+    const b = w.breaks[w.breaks.length - 1];
+    return b && b[1] == null ? 'paused' : 'running';
+  }
+  /** Minutes worked: start to end (or now), minus breaks; null without a started day. */
+  workMin(key, now = Date.now()) {
+    const w = this.workOf(key);
+    if (!w) return null;
+    const end = w.end || now;
+    const off = w.breaks.reduce((n, [a, b]) => n + Math.max(0, Math.min(b == null ? end : b, end) - a), 0);
+    return Math.max(0, Math.round((end - w.start - off) / 60000));
+  }
+  /** Factor that makes the day's tracked entries add up to the worked time (1 without a workday). */
+  workScale(key, live) {
+    const worked = this.workMin(key);
+    if (worked == null) return 1;
+    const tracked = this.entriesOf(key, live).reduce((n, e) => n + e.ms / 60000, 0);
+    return tracked > 0 ? worked / tracked : 1;
+  }
+  /** The Start / Pause / Resume button. */
+  workToggle() {
+    const key = moment().format('YYYY-MM-DD');
+    const now = Date.now();
+    const d = this.day(key);
+    const st = this.workState(key);
+    if (st === 'none') d.work = { start: now, breaks: [], end: null, last: now };
+    else if (st === 'running') d.work.breaks.push([now, null]);
+    else if (st === 'paused') d.work.breaks[d.work.breaks.length - 1][1] = now;
+    else (d.work.breaks.push([d.work.end, now]), (d.work.end = null)); // ended: the gap becomes a break
+    d.work.last = now;
+    this.saveSoon();
+    this.emit();
+  }
+  /** Start / Pause / Resume button for today. */
+  workButton(parent, iconOnly) {
+    const st = this.workState(moment().format('YYYY-MM-DD'));
+    const [ic, text] = { none: ['play', 'Start day'], running: ['pause', 'Pause'], paused: ['play', 'Resume'], ended: ['play', 'Resume day'] }[st];
+    return button(parent, { icon: ic, text: iconOnly ? undefined : text, cls: iconOnly ? 'nd-icon-btn tm-work-btn' : 'tm-work-btn' + (st === 'none' ? ' mod-cta' : ''), title: text, onClick: () => this.workToggle() });
+  }
+  /** End the workday at `at` (Wrap up, or the idle rule with the last activity). */
+  workEnd(key, at = Date.now()) {
+    const w = this.workOf(key);
+    if (!w || w.end) return;
+    const b = w.breaks[w.breaks.length - 1];
+    if (b && b[1] == null) b[1] = Math.max(b[0], at);
+    w.end = Math.max(w.start, at);
+    this.saveSoon();
+    this.emit();
+  }
+  /** Any input in Obsidian: the workday is still going. */
+  workSeen() {
+    const w = this.workOf(moment().format('YYYY-MM-DD'));
+    if (!w || w.end) return;
+    const now = Date.now();
+    if (now - w.last < 30000) return;
+    w.last = now;
+    this.saveSoon();
+  }
+  /** Idle rule: a running day with no input for workIdleH hours ends at the last activity. */
+  workIdleCheck() {
+    const limit = this.settings.workIdleH * 3600000;
+    for (const key of [moment().format('YYYY-MM-DD'), moment().subtract(1, 'day').format('YYYY-MM-DD')]) {
+      const w = this.workOf(key);
+      if (w && !w.end && this.workState(key) === 'running' && Date.now() - w.last > limit) {
+        this.workEnd(key, w.last);
+        new Notice(`⏱ Workday ended at ${moment(w.last).format('HH:mm')} (no activity for ${this.settings.workIdleH} h)`);
+      }
+    }
   }
   /** Overtime balance over a range: only days with tracked time count; today counts once it's past the target. */
   balance(from, to) {
@@ -1248,7 +1347,7 @@ module.exports = class NeonTime extends Plugin {
   }
   dayNote(key, synced) {
     const d = this.days[key] || { entries: [], done: [] };
-    const s = this.summary(key, false);
+    const s = this.summary(key, false, true); // files keep the times as logged
     const m = moment(key, 'YYYY-MM-DD');
     const lines = ['---', `date: ${key}`, `total_min: ${s.total}`];
     for (const k of TIME_CATS) lines.push(`${k}_min: ${s.by[k]}`);
@@ -1343,7 +1442,7 @@ module.exports = class NeonTime extends Plugin {
       '`Source` is `auto` (counted while you worked in the note), `manual` (added by hand) or `ticket` (logged from a ticket’s + Time).',
       'The Jira key comes from the note’s `jira` property, or was typed in by hand.',
       '',
-      `Auto time counts only while a note is the focused tab and you type, scroll or click; it stops after ${idle} minute${idle === 1 ? '' : 's'} idle. Short bits of work on the same note add up and become an entry once they reach a minute; bits still under a minute are saved when tracking is paused or Obsidian closes. Back-to-back sessions on the same note are merged, and a session past midnight is split between the two days. Notes with \`untracked: true\` are never logged.`,
+      `Auto time counts while a note is the focused tab and you type, scroll or click, also while you are briefly in another app; after ${idle} minute${idle === 1 ? '' : 's'} without input in Obsidian it ends at your last activity and the idle time is dropped. Short bits of work on the same note add up and become an entry once they reach a minute; bits still under a minute are saved when tracking is paused or Obsidian closes. Back-to-back sessions on the same note are merged, and a session past midnight is split between the two days. Notes with \`untracked: true\` are never logged.`,
       '',
       'These notes are rewritten by Neon Time; edits to them are overwritten (except `synced`). Change entries in the Time tab instead. This README is rewritten too when the Neon Time settings change.',
       '',
@@ -1406,6 +1505,11 @@ module.exports = class NeonTime extends Plugin {
     return wrap;
   }
   legend(el, sum) {
+    const w = sum.work !== 'none' && this.workOf(sum.key);
+    if (w) {
+      const text = { running: `Working since ${moment(w.start).format('HH:mm')}`, paused: 'On a break', ended: `Day ended ${moment(w.end).format('HH:mm')}` }[sum.work];
+      el.createDiv({ cls: `tm-work is-${sum.work}`, text });
+    }
     for (const k of TIME_CATS) {
       if (!sum.by[k] && k === 'other') continue;
       const r = el.createDiv('tm-leg' + (sum.by[k] ? '' : ' is-zero'));
@@ -1432,10 +1536,15 @@ module.exports = class NeonTime extends Plugin {
     let shown = false;
     let seen = new Set();
     const rowKey = (e) => e.id || `live:${e.pendingPath || e.path}:${e.start}`;
+    let workBtn = null;
     const render = () => {
       if (!body.isConnected) return;
       body.empty();
       const key = moment().format('YYYY-MM-DD');
+      if (workBtn) workBtn.remove();
+      workBtn = p.workButton(card.actions, true);
+      card.actions.prepend(workBtn);
+      const scale = p.workScale(key, true);
       const sum = p.summary(key, true);
       const top = body.createDiv('tm-w-top');
       const intro = !shown;
@@ -1458,7 +1567,7 @@ module.exports = class NeonTime extends Plugin {
         r.style.setProperty('--cat', catColor(e.cat));
         r.createSpan({ cls: 'tm-w-at', text: moment(e.start).format('HH:mm') });
         r.createSpan({ cls: 'tm-w-note', text: e.note || (e.path ? e.path.split('/').pop().replace(/\.md$/, '') : CAT_LABEL[e.cat]) });
-        r.createSpan({ cls: 'tm-w-min', text: fmtMin(entryMin(e)) });
+        r.createSpan({ cls: 'tm-w-min', text: fmtMin(Math.round(entryMin(e) * scale)) });
         if (!e.live) r.addEventListener('click', () => new EntryModal(p, e, false).open());
         {
           button(r, {

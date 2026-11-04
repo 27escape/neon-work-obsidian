@@ -646,3 +646,18 @@ body:not(.nd-themed) .nd-empty {
     transition: none !important;
   }
 }
+
+/* work timer status above the legend */
+.tm-work {
+  font: 600 11px var(--nd-mono, monospace);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nd-go, var(--interactive-accent));
+  margin-bottom: 4px;
+}
+.tm-work.is-paused {
+  color: var(--nd-warn, var(--text-warning));
+}
+.tm-work.is-ended {
+  color: var(--nd-muted, var(--text-muted));
+}
