@@ -451,7 +451,6 @@ const TICKETS_DEFAULTS = {
   defaultCategory: 'operations',
   reminders: true,
   remindDays: 1,
-  desktopNotify: true,
   autoFollowUpDays: 3,
   notified: {},
   migrated: false,
@@ -1917,10 +1916,6 @@ class NeonTicketsSettingTab extends PluginSettingTab {
       .addExtraButton((b) => b.setIcon('bell').setTooltip('Check now').onClick(() => p.checkReminders(true)));
     numSetting(new Setting(containerEl).setName('Remind this many days before due').setDesc('0 = only on the due day.'), s, 'remindDays', 0, 30, save);
     numSetting(new Setting(containerEl).setName('Waiting without a follow-up date: follow up after (days)'), s, 'autoFollowUpDays', 1, 60, save);
-    new Setting(containerEl)
-      .setName('Desktop notifications')
-      .setDesc('Also show a system notification, so you see it when Obsidian is in the background.')
-      .addToggle((t) => t.setValue(s.desktopNotify).onChange((v) => ((s.desktopNotify = v), save())));
     madeWith(containerEl, 'Neon Tickets');
   }
 }
@@ -2046,7 +2041,7 @@ module.exports = class NeonTickets extends Plugin {
       const path = normalizePath(`${this.app.vault.configDir}/plugins/neon-deck/data.json`);
       if (!(await this.app.vault.adapter.exists(path))) return;
       const old = JSON.parse(await this.app.vault.adapter.read(path));
-      const map = { ticketFolder: 'ticketFolder', ticketDefaultDays: 'defaultDays', ticketReminders: 'reminders', ticketRemindDays: 'remindDays', ticketDesktopNotify: 'desktopNotify', ticketNotified: 'notified' };
+      const map = { ticketFolder: 'ticketFolder', ticketDefaultDays: 'defaultDays', ticketReminders: 'reminders', ticketRemindDays: 'remindDays', ticketNotified: 'notified' };
       for (const [a, b] of Object.entries(map)) if (old[a] !== undefined) this.settings[b] = old[a];
     } catch (e) {
       console.warn('Neon Tickets: could not read Neon Deck 1.2 settings', e);
@@ -2758,23 +2753,7 @@ module.exports = class NeonTickets extends Plugin {
       el.addClass('tk-notice');
       el.addEventListener('click', () => this.openTracker());
     }
-    if (this.settings.desktopNotify && typeof window.Notification === 'function') {
-      try {
-        const send = () => {
-          const dn = new window.Notification(`Tickets: ${fresh.length} need${fresh.length === 1 ? 's' : ''} attention`, {
-            body: fresh.slice(0, 4).map((t) => `${ticketDueText(t)} — ${t.id ? t.id + ' ' : ''}${t.title}`).join('\n'),
-          });
-          dn.onclick = () => {
-            window.focus();
-            this.openTracker();
-          };
-        };
-        if (Notification.permission === 'granted') send();
-        else if (Notification.permission !== 'denied') Notification.requestPermission().then((r) => r === 'granted' && send());
-      } catch (_) {
-        /* no desktop notifications (mobile) */
-      }
-    }
+    // reminders stay inside Obsidian: a system notification froze Obsidian's main process for minutes on Linux
   }
   buildStatus() {
     const el = this.addStatusBarItem();
