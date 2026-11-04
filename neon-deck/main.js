@@ -1504,6 +1504,55 @@ class FileListModal extends SuggestModal {
   }
 }
 
+/** Activity: one day in a pop-up — worked time, then tasks, tickets, time entries and notes, each clickable. */
+class ActivityDayModal extends Modal {
+  constructor(plugin, day, x) {
+    super(plugin.app);
+    this.plugin = plugin;
+    this.day = day;
+    this.x = x || { tasks: [], tickets: [], time: [], notes: [], worked: null };
+  }
+  onOpen() {
+    const x = this.x;
+    this.modalEl.addClass('nd-modal', 'nd-root', 'nd-act-pop');
+    this.titleEl.setText(this.day.format('dddd D MMMM'));
+    const c = this.contentEl;
+    const facts = c.createDiv('nd-act-pop-facts');
+    const fact = (v, l) => {
+      const f = facts.createDiv('nd-act-pop-fact');
+      f.createDiv({ cls: 'nd-act-pop-v', text: String(v) });
+      f.createDiv({ cls: 'nd-act-pop-l', text: l });
+    };
+    if (x.worked) fact(fmtMin(x.worked), x.over ? `worked · +${fmtMin(x.over)}` : 'worked');
+    fact(x.tasks.length, 'tasks');
+    fact(x.tickets.length, 'tickets');
+    fact(x.notes.length, 'notes');
+    let i = 0;
+    for (const [kind, label, list] of [['task', 'Tasks done', x.tasks], ['ticket', 'Tickets', x.tickets], ['time', 'Time', x.time], ['note', 'Notes', x.notes]]) {
+      if (!list.length) continue;
+      const sec = c.createDiv('nd-act-pop-sec');
+      sec.createDiv({ cls: 'nd-act-pop-head', text: `${label} · ${list.length}` });
+      for (const r of list.slice().sort((a, b) => a.t - b.t)) {
+        const el = sec.createDiv(`nd-act-item is-${kind}` + (r.open ? ' is-clickable' : ''));
+        el.style.setProperty('--i', String(Math.min(i++, 20)));
+        icon(el, { task: 'check', ticket: 'ticket', time: 'clock', note: 'file-text' }[kind], 'nd-ico');
+        el.createSpan({ cls: 'nd-act-item-text', text: r.text });
+        if (r.extra) el.createSpan({ cls: 'nd-act-pop-extra', text: r.extra });
+        el.createSpan({ cls: 'nd-act-pop-at', text: moment(r.t).format('HH:mm') });
+        if (r.open)
+          el.addEventListener('click', (e) => {
+            this.close();
+            r.open(e);
+          });
+      }
+    }
+    if (!i) c.createDiv({ cls: 'nd-act-none', text: 'Nothing on this day.' });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 /**
  * Quick capture box (Ctrl+Shift+Space). Type, pick a target with Tab /
  * Shift+Tab or Alt+1…9, Enter saves.
@@ -2002,6 +2051,10 @@ class DashboardView extends ItemView {
     const weeks = [];
     for (let w = month.clone().startOf('isoWeek'); w.isBefore(month.clone().endOf('month')); w.add(1, 'week')) weeks.push(w.clone());
     const view = this.actView == null || (this.actView !== 'month' && !weeks[this.actView]) ? 'month' : this.actView;
+    // rise-in only when the month or view changes, not on every data refresh
+    const animKey = `${month.format('YYYY-MM')}|${view}`;
+    b.toggleClass('is-anim', this.actAnimKey !== animKey);
+    this.actAnimKey = animKey;
     const tabs = pills(acts, [['month', 'Month'], ...weeks.map((w, i) => [i, `W${w.isoWeek()}`])], view, (v) => ((this.actView = v), this.renderHeat(d)), 'nd-act-tabs');
     acts.prepend(tabs.el);
     if (view === 'month') this.renderActMonth(b, month, days, weeks);
@@ -2032,12 +2085,13 @@ class DashboardView extends ItemView {
         const x = days.get(k);
         const n = x ? actCount(x) : 0;
         const c = cal.createDiv('nd-act-day' + (m.month() !== month.month() ? ' is-out' : '') + (k === todayKey ? ' is-today' : '') + (n ? ' is-clickable' : ''));
+        c.style.setProperty('--i', String(wi * 7 + i));
         c.style.setProperty('--lvl', String(n ? 0.15 + (0.85 * n) / max : 0));
         c.createSpan({ cls: 'nd-act-num', text: String(m.date()) });
         const dots = c.createDiv('nd-act-dots');
         if (x) for (const [kind, list] of [['task', x.tasks], ['ticket', x.tickets], ['time', x.time], ['note', x.notes]]) if (list.length) dots.createSpan(`nd-act-dot is-${kind}`);
         tip(c, `${m.format('ddd D MMM')} · ${x ? `${x.tasks.length} tasks · ${x.tickets.length} tickets · ${x.time.length} time entries · ${x.notes.length} notes` : 'nothing'}`);
-        if (n) c.addEventListener('click', () => ((this.actView = wi), this.renderHeat(this.lastData)));
+        if (n) c.addEventListener('click', () => new ActivityDayModal(this.plugin, m, x).open());
       }
     });
   }
@@ -2049,7 +2103,9 @@ class DashboardView extends ItemView {
       const k = m.format('YYYY-MM-DD');
       const x = days.get(k);
       const col = wk.createDiv('nd-act-col' + (k === todayKey ? ' is-today' : ''));
-      col.createDiv({ cls: 'nd-act-col-head', text: m.format('ddd D') });
+      col.style.setProperty('--i', String(i));
+      const head = col.createDiv({ cls: 'nd-act-col-head is-clickable', text: m.format('ddd D') });
+      head.addEventListener('click', () => new ActivityDayModal(this.plugin, m, x).open());
       const list = col.createDiv('nd-act-col-list');
       const rows = x ? [...x.tasks, ...x.tickets, ...x.time, ...x.notes].sort((a, b2) => a.t - b2.t) : [];
       if (!rows.length) list.createDiv({ cls: 'nd-act-none', text: '·' });
