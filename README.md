@@ -90,6 +90,15 @@ Requires Obsidian 1.5.0 or later.
 - **Saved data** (`data.json` in each plugin folder) is personal and isn't in this repo.
 - To release a new version, bump `ND_VERSION`, the header comment and `manifest.json` in all six plugins.
 
+## Neon Deck 2 (in progress, branch `restructure`)
+
+2.0 is one plugin instead of six. The former plugins become **modules** you can switch on and off in *Settings → Neon Deck*; each keeps its own settings tab, commands and data. Everything else works as in 1.7.
+
+- **Upgrading from 1.7:** install 2.0 into the `neon-deck` folder, then turn off the old Neon Tasks, Time, Tickets, Research and Write plugins and reload. Their settings and data are copied once (the old files stay). Hotkeys are kept.
+- **Safe mode:** if Neon Deck ever fails while starting, the next start keeps all modules off; turn them back on one by one in settings.
+- **Quick capture** has no default hotkey in 2.0 (community plugin rule); set one in *Settings → Hotkeys* (1.7 users keep Ctrl+Shift+Space).
+- **For developers:** sources in `src/`, built with `node tools/build.mjs --only neon-deck-2` (no dependencies), tests with `node --test test/*.test.mjs`, file map in `MAP.md`.
+
 ## Release notes
 
 Only the latest release notes are kept: [1.7.0](docs/release-notes/1.7.0.md): Work Time tracker, Research sections (School), Recently done log, Activity timeline, lockable callouts, lime dividers, page breaks, ticket sorting, much faster Tasks, and many fixes. Older notes are in the git history.
