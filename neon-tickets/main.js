@@ -28,10 +28,6 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dayKey = (ts) => moment(ts).format('YYYY-MM-DD');
 const prefersReducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-function fmtClock(ms) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
-}
 /** 95 -> "1h 35m", 40 -> "40m", 120 -> "2h" */
 function fmtMin(m) {
   m = Math.round(m || 0);
@@ -132,21 +128,6 @@ function excerptOf(text, max = 160) {
     .replace(/\s+/g, ' ')
     .trim();
   return t.length > max ? t.slice(0, max).replace(/\s+\S*$/, '') + '…' : t;
-}
-/** Insert `line` at the end of the section under the first heading matching re (or append a new section). */
-function insertUnderHeading(text, re, line, newHeading) {
-  const m = re.exec(text);
-  if (!m) {
-    const base = text.replace(/\s*$/, '');
-    return (base ? base + '\n\n' : '') + (newHeading ? newHeading + '\n' : '') + line + '\n';
-  }
-  const after = m.index + m[0].length;
-  const rest = text.slice(after);
-  const next = rest.search(/\n#{1,6} /);
-  const end = next === -1 ? text.length : after + next;
-  const section = text.slice(after, end).replace(/\s*$/, '');
-  const tail = next === -1 ? '' : '\n' + text.slice(end).replace(/^\n+/, '');
-  return text.slice(0, after) + section + '\n' + line + '\n' + tail;
 }
 function applyTemplate(text, m, title) {
   return text
@@ -2595,7 +2576,7 @@ module.exports = class NeonTickets extends Plugin {
     await ensureFolder(this.app, dir);
     const path = normalizePath(`${dir}/${safeName(`${t.id ? t.id + ' ' : ''}${t.title}`) || 'Ticket'} report.md`);
     const existing = this.app.vault.getAbstractFileByPath(path);
-    const report = existing instanceof TFile ? (await this.app.vault.modify(existing, md), existing) : await this.app.vault.create(path, md);
+    const report = existing instanceof TFile ? (await this.app.vault.process(existing, () => md), existing) : await this.app.vault.create(path, md);
     // open the report in reading mode (reusing its tab if it's already open) and hand it to Obsidian's PDF export
     const open = this.app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === report);
     const leaf = open || this.app.workspace.getLeaf('tab');

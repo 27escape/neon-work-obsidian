@@ -28,10 +28,6 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dayKey = (ts) => moment(ts).format('YYYY-MM-DD');
 const prefersReducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-function fmtClock(ms) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
-}
 /** 95 -> "1h 35m", 40 -> "40m", 120 -> "2h" */
 function fmtMin(m) {
   m = Math.round(m || 0);
@@ -132,21 +128,6 @@ function excerptOf(text, max = 160) {
     .replace(/\s+/g, ' ')
     .trim();
   return t.length > max ? t.slice(0, max).replace(/\s+\S*$/, '') + '…' : t;
-}
-/** Insert `line` at the end of the section under the first heading matching re (or append a new section). */
-function insertUnderHeading(text, re, line, newHeading) {
-  const m = re.exec(text);
-  if (!m) {
-    const base = text.replace(/\s*$/, '');
-    return (base ? base + '\n\n' : '') + (newHeading ? newHeading + '\n' : '') + line + '\n';
-  }
-  const after = m.index + m[0].length;
-  const rest = text.slice(after);
-  const next = rest.search(/\n#{1,6} /);
-  const end = next === -1 ? text.length : after + next;
-  const section = text.slice(after, end).replace(/\s*$/, '');
-  const tail = next === -1 ? '' : '\n' + text.slice(end).replace(/^\n+/, '');
-  return text.slice(0, after) + section + '\n' + line + '\n' + tail;
 }
 function applyTemplate(text, m, title) {
   return text
@@ -812,8 +793,7 @@ class SlashSuggest extends EditorSuggest {
   }
   getSuggestions(ctx) {
     const q = ctx.query.toLowerCase();
-    // other Neon plugins (e.g. Neon Research) add their own items through addSlashItem
-    const items = [...SLASH_ITEMS, ...this.plugin.slashExtras.values()];
+    const items = SLASH_ITEMS;
     if (!q) return items;
     return items.filter((i) => i.label.toLowerCase().includes(q) || i.keys.some((k) => k.startsWith(q)));
   }
@@ -953,10 +933,8 @@ class NeonWriteSettingTab extends PluginSettingTab {
 module.exports = class NeonWrite extends Plugin {
   async onload() {
     this.settings = Object.assign({}, NW_DEFAULTS, (await this.loadData()) || {});
-    this.slashExtras = new Map();
     this.registerEditorSuggest(new SlashSuggest(this));
     // tell other Neon plugins they can add slash items now (they also check on their own load)
-    this.app.workspace.onLayoutReady(() => this.app.workspace.trigger('neon-write:ready', this));
     this.addCommand({ id: 'insert-table', name: 'Insert table…', editorCallback: (ed) => this.openTablePicker(ed) });
     this.registerEvent(
       this.app.workspace.on('editor-menu', (menu, editor) => {
@@ -1052,6 +1030,7 @@ module.exports = class NeonWrite extends Plugin {
     this.addSettingTab(new NeonWriteSettingTab(this.app, this));
   }
   onunload() {
+    if (this.picker) this.picker.close(); // its document listeners go with it
     this.unmountNotePattern();
     document.body.removeClass('nw-lifted', 'nw-fonts', 'nw-tables', 'nw-hr', 'nw-hr-anim');
   }
@@ -1116,15 +1095,9 @@ module.exports = class NeonWrite extends Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
   }
-  /** For other Neon plugins: add or remove a slash-menu item ({ id, icon, label, hint, keys, run(editor) }). */
-  addSlashItem(item) {
-    this.slashExtras.set(item.id, item);
-  }
-  removeSlashItem(id) {
-    this.slashExtras.delete(id);
-  }
   openTablePicker(editor) {
-    new TablePicker(editor, caretRect(editor));
+    if (this.picker) this.picker.close();
+    this.picker = new TablePicker(editor, caretRect(editor));
   }
 
   /* images into Core/Images ------------------------------------------------ */

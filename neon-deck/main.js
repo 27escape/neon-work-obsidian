@@ -28,10 +28,6 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dayKey = (ts) => moment(ts).format('YYYY-MM-DD');
 const prefersReducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-function fmtClock(ms) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
-}
 /** 95 -> "1h 35m", 40 -> "40m", 120 -> "2h" */
 function fmtMin(m) {
   m = Math.round(m || 0);
@@ -132,21 +128,6 @@ function excerptOf(text, max = 160) {
     .replace(/\s+/g, ' ')
     .trim();
   return t.length > max ? t.slice(0, max).replace(/\s+\S*$/, '') + '…' : t;
-}
-/** Insert `line` at the end of the section under the first heading matching re (or append a new section). */
-function insertUnderHeading(text, re, line, newHeading) {
-  const m = re.exec(text);
-  if (!m) {
-    const base = text.replace(/\s*$/, '');
-    return (base ? base + '\n\n' : '') + (newHeading ? newHeading + '\n' : '') + line + '\n';
-  }
-  const after = m.index + m[0].length;
-  const rest = text.slice(after);
-  const next = rest.search(/\n#{1,6} /);
-  const end = next === -1 ? text.length : after + next;
-  const section = text.slice(after, end).replace(/\s*$/, '');
-  const tail = next === -1 ? '' : '\n' + text.slice(end).replace(/^\n+/, '');
-  return text.slice(0, after) + section + '\n' + line + '\n' + tail;
 }
 function applyTemplate(text, m, title) {
   return text

@@ -580,7 +580,7 @@ body:not(.nd-themed) .nd-empty {
 /* ---- motion (all of it switches off with reduced motion, see Neon Deck's styles) ---- */
 /* ring: segments draw in one after another, the ring turns into place */
 .tm-donut.is-intro svg {
-  animation: tm-ring-in 0.9s var(--nd-ease, ease) backwards;
+  animation: tm-ring-in 0.45s var(--nd-ease, ease) backwards;
 }
 @keyframes tm-ring-in {
   from {
@@ -589,7 +589,7 @@ body:not(.nd-themed) .nd-empty {
   }
 }
 .tm-donut.is-intro .tm-donut-seg {
-  animation: tm-seg-in 0.8s var(--nd-ease, ease) backwards;
+  animation: tm-seg-in 0.45s var(--nd-ease, ease) backwards;
   animation-delay: calc(150ms + var(--i, 0) * 90ms);
 }
 @keyframes tm-seg-in {

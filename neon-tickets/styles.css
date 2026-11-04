@@ -1033,10 +1033,10 @@
   max-width: none;
 }
 .tk-tracker .tk-island.is-grow {
-  animation: tk-island-grow 700ms ease-out;
+  animation: tk-island-grow 450ms ease-out;
 }
 .tk-tracker .tk-island.is-shrink {
-  animation: tk-island-shrink 700ms ease-out;
+  animation: tk-island-shrink 450ms ease-out;
 }
 @keyframes tk-island-grow {
   30% {
@@ -1206,7 +1206,7 @@ body:not(.nd-themed) .nd-empty {
 }
 /* progress bars fill up when the list animates in */
 .tk-list:not(.is-calm) .tk-progress-fill {
-  animation: tk-fill 0.8s var(--nd-ease, ease) backwards;
+  animation: tk-fill 0.45s var(--nd-ease, ease) backwards;
   animation-delay: calc(200ms + var(--i, 0) * 18ms);
 }
 @keyframes tk-fill {
