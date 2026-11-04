@@ -1,0 +1,7 @@
+[
+  {
+    "date": "2026-11-04",
+    "module": "write",
+    "text": "on Windows, leave a note with a table open for 5+ minutes (also with Obsidian in the background), then click into table cells 20 times in Live Preview and Source; if focus is lost, repeat with Neon Write's note pattern off, then styled tables off, then Neon Write off → every click puts the cursor in the cell and typing works; if not, note which switch made it stop"
+  }
+]
