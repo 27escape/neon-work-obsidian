@@ -428,7 +428,9 @@ function numSetting(setting, obj, key, min, max, save) {
  * ========================================================================= */
 const VIEW_RESEARCH = 'neon-research';
 const NR_DEFAULTS = {
-  root: 'Learning/Core-topics', // the tree shows this folder
+  root: 'Learning/Core-topics', // first root's path, kept for older versions
+  roots: null, // [{ name, path }]: each is its own tree, quiz and history (filled on load)
+  activeRoot: 0, // index of the root shown in the tab
   countAsWork: false, // false: new notes get `untracked: true`, so Neon Time never counts them as work
   linkSuggest: true,
   open: [], // folder paths expanded in the tree
@@ -583,6 +585,55 @@ class QuizModal extends Modal {
 }
 
 /** Quiz me: pick which topic (or all) to quiz, and whether only due cards or all of them. */
+/** Add `question :: answer` cards to a note; stays open to add several. */
+class FlashcardModal extends Modal {
+  constructor(plugin, file) {
+    super(plugin.app);
+    this.plugin = plugin;
+    this.file = file;
+    this.added = 0;
+  }
+  onOpen() {
+    this.modalEl.addClass('nd-modal', 'nr-card-modal');
+    this.titleEl.setText(`Flashcards · ${this.file.basename}`);
+    const c = this.contentEl;
+    const field = (label, ph) => {
+      const w = c.createDiv('nr-card-field');
+      w.createDiv({ cls: 'nr-card-label', text: label });
+      return w.createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: ph } });
+    };
+    const q = field('Question', 'e.g. What does the mitochondrion do?');
+    const a = field('Answer', 'e.g. Makes energy (ATP) for the cell');
+    const foot = c.createDiv('nd-modal-row');
+    const info = foot.createSpan({ cls: 'nr-card-info', text: 'Enter adds the card · Esc closes' });
+    const add = async () => {
+      // one line per card, and " :: " is the separator, so neither may appear inside
+      const clean = (v) => v.replace(/\s+/g, ' ').replace(/\s::\s/g, ' : ').trim();
+      const qv = clean(q.value).replace(/^#+\s*/, '');
+      const av = clean(a.value);
+      if (!qv || !av) return (qv ? a : q).focus();
+      try {
+        await this.plugin.appendCard(this.file, `${qv} :: ${av}`);
+      } catch (e) {
+        console.error('Neon Research: could not add card', e);
+        return new Notice('Could not add the card');
+      }
+      this.added++;
+      info.setText(`✦ ${this.added} card${this.added === 1 ? '' : 's'} added · Enter adds another · Esc closes`);
+      q.value = a.value = '';
+      q.focus();
+    };
+    q.addEventListener('keydown', (e) => e.key === 'Enter' && !e.isComposing && (e.preventDefault(), a.value.trim() ? add() : a.focus()));
+    a.addEventListener('keydown', (e) => e.key === 'Enter' && !e.isComposing && (e.preventDefault(), add()));
+    button(foot, { text: 'Done', onClick: () => this.close() });
+    button(foot, { text: 'Add card', cls: 'mod-cta', onClick: add });
+    window.setTimeout(() => q.focus(), 10);
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 class QuizPickModal extends Modal {
   constructor(plugin) {
     super(plugin.app);
@@ -638,6 +689,15 @@ class QuizPickModal extends Modal {
   }
 }
 
+/** Open (true) or close a folder's children with a short height slide; a closed box is removed. */
+function slide(el, open) {
+  if (prefersReducedMotion()) return open || el.remove();
+  const h = el.scrollHeight;
+  const a = el.animate(open ? [{ height: '0px', opacity: 0 }, { height: `${h}px`, opacity: 1 }] : [{ height: `${h}px`, opacity: 1 }, { height: '0px', opacity: 0 }], { duration: open ? 200 : 160, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+  el.style.overflow = 'hidden';
+  a.onfinish = () => (open ? (el.style.overflow = '') : el.remove());
+}
+
 /* ---- the Research tab: one topic tree ------------------------------------------ */
 class ResearchView extends ItemView {
   constructor(leaf, plugin) {
@@ -667,9 +727,21 @@ class ResearchView extends ItemView {
     this.register(() => this.pattern && this.pattern.destroy());
     this.registerEvent(this.app.workspace.on('neon-deck:core-ready', mount));
     this.registerEvent(this.app.workspace.on('neon-deck:core-unloaded', () => this.pattern && (this.pattern.destroy(), (this.pattern = null))));
-    this.register(this.plugin.onChange(debounce(() => this.render(), 250, true)));
+    const soon = debounce(() => this.render(), 150, true);
+    // f: one note's text changed but not its cards, so only its row's "edited" time moves
+    this.register(this.plugin.onChange((f) => (f ? this.touchRow(f) : soon())));
+    // hidden tabs skip redraws and catch up when shown
+    // checked a frame later: the event fires before the tab is actually shown
+    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.stale && window.requestAnimationFrame(() => this.stale && this.isShown() && this.render())));
     this.first = true;
     this.render();
+  }
+  isShown() {
+    return this.contentEl.isConnected && this.contentEl.offsetParent !== null;
+  }
+  touchRow(f) {
+    const r = this.rows && this.rows.get(f.path);
+    if (r) r.setText(shortAgo(f.stat.mtime));
   }
   async onClose() {
     this.contentEl.empty();
@@ -678,6 +750,9 @@ class ResearchView extends ItemView {
     const p = this.plugin;
     const sc = this.scroller;
     if (!sc) return;
+    if (!this.first && !this.isShown()) return void (this.stale = true);
+    this.stale = false;
+    this.rows = new Map(); // note path -> its "edited" cell
     const top = sc.scrollTop;
     sc.empty();
     const root = sc.createDiv('nr-inner' + (this.first ? ' is-entering' : ''));
@@ -688,7 +763,8 @@ class ResearchView extends ItemView {
     const rootFolder = p.rootFolder();
     const hero = root.createDiv('nd-hero nr-hero');
     const l = hero.createDiv('nr-hero-l');
-    l.createDiv({ cls: 'nd-hero-greet', text: 'Research' });
+    const roots = p.settings.roots;
+    l.createDiv({ cls: 'nd-hero-greet', text: roots[p.settings.activeRoot].name });
     const nTopics = rootFolder ? rootFolder.children.filter((c) => c instanceof TFolder).length : 0;
     const nNotes = p.researchNotes().length;
     l.createDiv({ cls: 'nr-hero-sub', text: `${nTopics} topic${nTopics === 1 ? '' : 's'} · ${nNotes} note${nNotes === 1 ? '' : 's'}` });
@@ -696,6 +772,8 @@ class ResearchView extends ItemView {
     const due = p.dueCards(p.cardsUnder(rootFolder)).length;
     button(acts, { icon: 'graduation-cap', text: due ? `Quiz me (${due})` : 'Quiz me', title: 'Choose a topic to quiz', onClick: () => new QuizPickModal(p).open() });
     button(acts, { icon: 'folder-plus', text: 'Topic', cls: 'mod-cta', title: 'New topic', onClick: () => p.newTopic(rootFolder) });
+    // section switch on its own row under the title (only with more than one section)
+    if (roots.length > 1) pills(hero, roots.map((r, i) => [i, r.name]), p.settings.activeRoot, (i) => p.setActiveRoot(i), 'nr-roots');
 
     // the tree sits in one panel (a "window" for the pattern, like the dashboard cards)
     const panel = root.createDiv('nd-card nr-panel');
@@ -728,8 +806,8 @@ class ResearchView extends ItemView {
     const wrap = parent.createDiv('nr-node');
     const row = wrap.createDiv('nr-row is-folder' + (open ? ' is-open' : ''));
     row.style.setProperty('--depth', String(depth));
-    icon(row, open ? 'chevron-down' : 'chevron-right', 'nd-ico nr-chev');
-    icon(row, open ? 'folder-open' : 'folder', 'nd-ico nr-folder-ico');
+    const chev = icon(row, open ? 'chevron-down' : 'chevron-right', 'nd-ico nr-chev');
+    const fico = icon(row, open ? 'folder-open' : 'folder', 'nd-ico nr-folder-ico');
     row.createSpan({ cls: 'nr-name', text: folder.name });
     // right-hand columns have fixed widths so they line up from row to row
     const n = p.notesUnder(folder).length;
@@ -741,15 +819,28 @@ class ResearchView extends ItemView {
     const acts = row.createDiv('nr-row-acts');
     button(acts, { icon: 'plus', cls: 'nd-icon-btn', title: 'Add a subtopic or a note', onClick: (e) => (e.stopPropagation(), this.addMenu(folder, e)) });
     button(acts, { icon: 'more-horizontal', cls: 'nd-icon-btn', title: 'Rename, quiz, delete', onClick: (e) => (e.stopPropagation(), this.folderMenu(folder, e)) });
-    row.addEventListener('click', () => p.toggleOpen(folder.path));
-    row.addEventListener('contextmenu', (e) => (e.preventDefault(), this.folderMenu(folder, e)));
-    if (open) {
+    const fill = () => {
       const kids = this.childrenOf(folder);
       const box = wrap.createDiv('nr-kids');
       box.style.setProperty('--depth', String(depth)); // its guide line sits under this folder's chevron
       for (const f of kids.folders) this.folderRow(box, f, depth + 1);
       for (const f of kids.notes) this.noteRow(box, f, depth + 1);
-    }
+      return box;
+    };
+    // open/close right here, without redrawing the tree
+    row.addEventListener('click', () => {
+      const now = !p.isOpen(folder.path);
+      p.setOpen(folder.path, now);
+      row.toggleClass('is-open', now);
+      setIcon(chev, now ? 'chevron-down' : 'chevron-right');
+      setIcon(fico, now ? 'folder-open' : 'folder');
+      const old = wrap.querySelector(':scope > .nr-kids');
+      if (old) slide(old, false);
+      if (now) slide(fill(), true);
+      if (this.pattern && this.pattern.kick) this.pattern.kick();
+    });
+    row.addEventListener('contextmenu', (e) => (e.preventDefault(), this.folderMenu(folder, e)));
+    if (open) fill();
   }
   noteRow(parent, file, depth) {
     const p = this.plugin;
@@ -762,6 +853,7 @@ class ResearchView extends ItemView {
     row.createSpan({ cls: 'nr-col nr-c-count', text: cards ? `${cards} card${cards === 1 ? '' : 's'}` : '' });
     row.createSpan('nr-col nr-c-due');
     const when = row.createSpan({ cls: 'nr-col nr-c-when', text: shortAgo(file.stat.mtime) });
+    this.rows.set(file.path, when);
     tip(when, `Edited ${moment(file.stat.mtime).format('D MMM YYYY, HH:mm')}`);
     const acts = row.createDiv('nr-row-acts');
     acts.createSpan('nr-act-space'); // notes have one button: keep its column where folders have two
@@ -810,17 +902,39 @@ class NeonResearchSettingTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.addClass('nd-settings');
     new Setting(containerEl)
-      .setName('Research folder')
-      .setDesc('The Research tab shows this folder as a tree: its folders are topics and subtopics, its notes are notes.')
-      .addText((t) =>
-        t.setValue(s.root).onChange(async (v) => {
-          s.root = normalizePath(v.trim() || NR_DEFAULTS.root);
-          save();
-          await p.refreshCardText(); // quiz cards of the new folder
-          p.emitSoon();
-          p.updateLinkHint();
-        }),
-      );
+      .setName('Sections')
+      .setDesc('Each section is a folder shown as its own tree (folders are topics, notes are notes) with its own quiz and history. Switch between them at the top of the tab.');
+    // only re-read notes once the user stops typing a folder path
+    const rescan = debounce(async () => {
+      s.root = s.roots[0].path;
+      save();
+      await p.refreshCardText();
+      p.emitSoon();
+      p.updateLinkHint();
+    }, 600, true);
+    s.roots.forEach((r, i) => {
+      const row = new Setting(containerEl)
+        .addText((t) => t.setPlaceholder('Name').setValue(r.name).onChange((v) => ((r.name = v.trim() || r.path.split('/').pop()), save(), p.emitSoon())))
+        .addText((t) => t.setPlaceholder('Folder, e.g. Learning/School').setValue(r.path).onChange((v) => ((r.path = normalizePath(v.trim() || r.path)), rescan())));
+      if (s.roots.length > 1)
+        row.addExtraButton((b) =>
+          b.setIcon('trash-2').setTooltip('Remove this section (its notes stay)').onClick(() => {
+            s.roots.splice(i, 1);
+            if (s.activeRoot >= s.roots.length) s.activeRoot = 0;
+            rescan();
+            this.display();
+          }),
+        );
+    });
+    new Setting(containerEl).addButton((b) =>
+      b.setButtonText('Add section').onClick(async () => {
+        const path = `Learning/Section ${s.roots.length + 1}`;
+        s.roots.push({ name: `Section ${s.roots.length + 1}`, path });
+        await ensureFolder(p.app, path);
+        rescan();
+        this.display();
+      }),
+    );
     new Setting(containerEl)
       .setName('Count research as work time')
       .setDesc('Off: new research notes get “untracked: true”, so Neon Time never counts them as work.')
@@ -840,6 +954,13 @@ module.exports = class NeonResearch extends Plugin {
     this.settings = Object.assign({}, NR_DEFAULTS, raw);
     if (!Array.isArray(this.settings.open)) this.settings.open = [];
     if (!this.settings.cards || typeof this.settings.cards !== 'object') this.settings.cards = {};
+    const s = this.settings;
+    if (!Array.isArray(s.roots) || !s.roots.length) s.roots = [{ name: 'Research', path: normalizePath(s.root || NR_DEFAULTS.root) }, { name: 'School', path: 'Learning/School' }];
+    s.roots = s.roots.filter((r) => r && typeof r.path === 'string' && r.path.trim()).map((r) => ({ name: String(r.name || r.path.split('/').pop()), path: normalizePath(r.path) }));
+    if (!s.roots.length) s.roots = [{ name: 'Research', path: NR_DEFAULTS.root }];
+    if (!(s.activeRoot >= 0 && s.activeRoot < s.roots.length)) s.activeRoot = 0;
+    s.root = s.roots[0].path;
+    this.cardCache = new Map(); // path -> { text, cards }: each note is parsed once per change
     this.listeners = new Set();
     this.cardText = new Map();
     this.registerView(VIEW_RESEARCH, (leaf) => new ResearchView(leaf, this));
@@ -847,6 +968,22 @@ module.exports = class NeonResearch extends Plugin {
     this.addCommand({ id: 'open-research', name: 'Open the Research tab', callback: () => this.openTab() });
     this.addCommand({ id: 'new-topic', name: 'New topic', callback: () => this.newTopic(this.rootFolder()) });
     this.addCommand({ id: 'quiz-all', name: 'Quiz me…', callback: () => new QuizPickModal(this).open() });
+    this.addCommand({
+      id: 'add-flashcard',
+      name: 'Add flashcard to this note',
+      checkCallback: (checking) => {
+        const f = this.app.workspace.getActiveFile();
+        if (!f || f.extension !== 'md' || !this.inRoot(f)) return false;
+        if (!checking) new FlashcardModal(this, f).open();
+        return true;
+      },
+    });
+    // a Flashcards button in the header of notes inside a section
+    const syncButtons = () => this.app.workspace.getLeavesOfType('markdown').forEach((l) => this.syncCardButton(l.view));
+    this.registerEvent(this.app.workspace.on('file-open', syncButtons));
+    this.registerEvent(this.app.workspace.on('active-leaf-change', syncButtons));
+    this.app.workspace.onLayoutReady(syncButtons);
+    this.register(() => this.app.workspace.getLeavesOfType('markdown').forEach((l) => l.view.nrCardBtn && (l.view.nrCardBtn.remove(), (l.view.nrCardBtn = null))));
     this.addCommand({ id: 'link-suggestions', name: 'Suggest links in this note', callback: () => this.showLinkSuggestions(true) });
     this.addSettingTab(new NeonResearchSettingTab(this.app, this));
 
@@ -861,16 +998,15 @@ module.exports = class NeonResearch extends Plugin {
     this.registerEvent(
       this.app.metadataCache.on('changed', (f, data) => {
         if (!this.inRoot(f)) return;
-        this.cardText.set(f.path, data);
+        this.noteText(f, data);
         hint();
-        this.emitSoon();
       }),
     );
     const anyChange = (f) => (this.inRoot(f) || f instanceof TFolder) && this.emitSoon();
     this.registerEvent(this.app.vault.on('create', anyChange));
     this.registerEvent(
       this.app.vault.on('delete', (f) => {
-        for (const p of [...this.cardText.keys()]) if (p === f.path || p.startsWith(f.path + '/')) this.cardText.delete(p);
+        for (const p of [...this.cardText.keys()]) if (p === f.path || p.startsWith(f.path + '/')) (this.cardText.delete(p), this.cardCache.delete(p));
         // forget quiz history of deleted notes, and the open state of deleted folders
         for (const id of Object.keys(this.settings.cards)) if (id.startsWith(f.path + '|') || id.startsWith(f.path + '/')) delete this.settings.cards[id];
         this.settings.open = this.settings.open.filter((x) => x !== f.path && !x.startsWith(f.path + '/'));
@@ -904,7 +1040,7 @@ module.exports = class NeonResearch extends Plugin {
     return () => this.listeners.delete(fn);
   }
   emitSoon() {
-    if (!this._emit) this._emit = debounce(() => this.listeners.forEach((fn) => fn()), 200, true);
+    if (!this._emit) this._emit = debounce(() => this.listeners.forEach((fn) => fn()), 120, true);
     this._emit();
   }
   hookDeck() {
@@ -916,15 +1052,26 @@ module.exports = class NeonResearch extends Plugin {
   }
 
   /* ---- the tree ---- */
+  /** Path of the root shown in the tab. */
   get root() {
-    return normalizePath(this.settings.root || NR_DEFAULTS.root);
+    return this.settings.roots[this.settings.activeRoot].path;
   }
-  rootFolder() {
-    const f = this.app.vault.getAbstractFileByPath(this.root);
+  rootFolder(path = this.root) {
+    const f = this.app.vault.getAbstractFileByPath(path);
     return f instanceof TFolder ? f : null;
   }
+  /** The root a file lives in (any root, not only the shown one), or null. */
+  rootOf(f) {
+    return (f && this.settings.roots.find((r) => f.path.startsWith(r.path + '/'))) || null;
+  }
   inRoot(f) {
-    return !!f && f.path.startsWith(this.root + '/');
+    return !!this.rootOf(f);
+  }
+  setActiveRoot(i) {
+    if (i === this.settings.activeRoot || !this.settings.roots[i]) return;
+    this.settings.activeRoot = i;
+    this.saveSoon();
+    this.emitSoon();
   }
   notesUnder(folder) {
     if (!folder) return [];
@@ -938,11 +1085,20 @@ module.exports = class NeonResearch extends Plugin {
     walk(folder);
     return out;
   }
-  researchNotes() {
-    return this.notesUnder(this.rootFolder());
+  researchNotes(path = this.root) {
+    return this.notesUnder(this.rootFolder(path));
+  }
+  allNotes() {
+    return this.settings.roots.flatMap((r) => this.researchNotes(r.path));
   }
   isOpen(path) {
     return this.settings.open.includes(path);
+  }
+  /** Remember a folder's open state without redrawing (the tree updates itself). */
+  setOpen(path, open) {
+    this.settings.open = this.settings.open.filter((x) => x !== path);
+    if (open) this.settings.open.push(path);
+    this.saveSoon();
   }
   toggleOpen(path, force) {
     const open = force != null ? force : !this.isOpen(path);
@@ -1045,14 +1201,20 @@ module.exports = class NeonResearch extends Plugin {
     const text = await this.app.vault.cachedRead(file);
     const mask = plainMask(text);
     const linked = this.app.metadataCache.resolvedLinks[file.path] || {};
+    const r = this.rootOf(file);
+    const targets = (r ? this.researchNotes(r.path) : []).filter((t) => t !== file && !linked[t.path] && t.basename.length >= 4);
+    if (!targets.length) return [];
+    // one pass over the note for all titles (longest first), instead of one regex per research note
+    const byName = new Map();
+    for (const t of targets) if (!byName.has(t.basename.toLowerCase())) byName.set(t.basename.toLowerCase(), t);
+    const names = [...byName.keys()].sort((a, b) => b.length - a.length).map(escRe);
+    const re = new RegExp(`(^|[^\\p{L}\\p{N}])(${names.join('|')})(?=$|[^\\p{L}\\p{N}])`, 'giu');
     const hits = [];
-    for (const t of this.researchNotes()) {
-      if (t === file || linked[t.path] || t.basename.length < 4) continue;
-      const re = new RegExp(`(^|[^\\p{L}\\p{N}])(${escRe(t.basename)})(?=$|[^\\p{L}\\p{N}])`, 'iu');
-      const m = re.exec(mask);
-      if (!m) continue;
+    for (const m of mask.matchAll(re)) {
+      const t = byName.get(m[2].toLowerCase());
+      if (!t || hits.some((h) => h.target === t)) continue;
       const at = m.index + m[1].length;
-      const match = text.slice(at, at + t.basename.length);
+      const match = text.slice(at, at + m[2].length);
       hits.push({ target: t, at, match, before: text.slice(Math.max(0, at - 40), at).replace(/\s+/g, ' '), after: text.slice(at + match.length, at + match.length + 40).replace(/\s+/g, ' ') });
     }
     return hits;
@@ -1092,6 +1254,24 @@ module.exports = class NeonResearch extends Plugin {
     window.setTimeout(() => this.updateLinkHint(), 600);
   }
 
+  syncCardButton(view) {
+    const want = !!(view && view.file && this.inRoot(view.file));
+    if (want && !view.nrCardBtn) view.nrCardBtn = view.addAction('layers', 'Add flashcards', () => view.file && new FlashcardModal(this, view.file).open());
+    else if (!want && view && view.nrCardBtn) (view.nrCardBtn.remove(), (view.nrCardBtn = null));
+  }
+  /** Append one card line to a note: through the editor when it's open (keeps cursor and undo), else in the file. */
+  async appendCard(file, line) {
+    const leaf = this.app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === file && l.view.editor);
+    if (leaf) {
+      const ed = leaf.view.editor;
+      const last = ed.lastLine();
+      const end = { line: last, ch: ed.getLine(last).length };
+      ed.replaceRange((ed.getLine(last).trim() ? '\n' : '') + line + '\n', end);
+      return;
+    }
+    await this.app.vault.process(file, (d) => d.replace(/\s*$/, '') + `\n${line}\n`);
+  }
+
   /* ---- quiz cards ---- */
   parseCards(f, text) {
     const out = [];
@@ -1102,19 +1282,46 @@ module.exports = class NeonResearch extends Plugin {
       // a "::" inside inline code doesn't make a card
       if (!/\s::\s/.test(line.replace(/`[^`]*`/g, (c) => ' '.repeat(c.length)))) continue;
       const m = line.match(CARD_RE);
-      if (m && !/^#/.test(m[1])) out.push({ file: f, q: m[1].trim(), a: m[2].trim(), id: `${f.path}|${m[1].trim()}` });
+      if (!m || /^#/.test(m[1])) continue;
+      const q = m[1].trim();
+      // the same question twice in a note: each keeps its own history
+      const n = out.filter((c) => c.q === q).length;
+      out.push({ file: f, q, a: m[2].trim(), id: `${f.path}|${q}${n ? `#${n + 1}` : ''}` });
     }
     return out;
   }
   cardsIn(file) {
     const text = this.cardText.get(file.path);
-    return text != null ? this.parseCards(file, text) : [];
+    if (text == null) return [];
+    const c = this.cardCache.get(file.path);
+    if (c && c.text === text && c.file === file) return c.cards;
+    const cards = this.parseCards(file, text);
+    this.cardCache.set(file.path, { text, file, cards });
+    return cards;
+  }
+  /** New text of a research note: keep quiz history when a question was edited; redraw only if the cards changed. */
+  noteText(f, text) {
+    const before = this.cardsIn(f).map((c) => c.id);
+    this.cardText.set(f.path, text);
+    const after = this.cardsIn(f).map((c) => c.id);
+    if (before.join('\n') === after.join('\n')) return this.listeners.forEach((fn) => fn(f)); // light update
+    // edited questions: unchanged cards keep their history; changed ones are paired in order
+    const h = this.settings.cards;
+    const gone = before.filter((id) => !after.includes(id));
+    const added = after.filter((id) => !before.includes(id));
+    if (gone.length && gone.length === added.length) {
+      const old = gone.map((id) => h[id]);
+      gone.forEach((id) => delete h[id]);
+      added.forEach((id, i) => old[i] && !h[id] && (h[id] = old[i]));
+      this.saveSoon();
+    }
+    this.emitSoon();
   }
   cardsUnder(folder) {
     return this.notesUnder(folder).flatMap((f) => this.cardsIn(f));
   }
   async refreshCardText() {
-    const notes = this.researchNotes();
+    const notes = this.allNotes();
     const texts = await Promise.all(notes.map((f) => this.app.vault.cachedRead(f).catch(() => '')));
     notes.forEach((f, i) => this.cardText.set(f.path, texts[i]));
   }
@@ -1126,7 +1333,7 @@ module.exports = class NeonResearch extends Plugin {
     });
   }
   async quiz(folder, label, allCards = false) {
-    await this.refreshCardText();
+    // card text is kept current by the 'changed' event; no need to re-read every note here
     const cards = folder ? this.cardsUnder(folder) : [];
     new QuizModal(this, allCards ? cards : this.dueCards(cards), label).open();
   }
