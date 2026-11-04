@@ -457,6 +457,49 @@ function taskDisplay(raw) {
   );
 }
 
+/** Group of a task: by its 📅 date, else Today for a daily note, else Later. */
+function taskGroup(raw, daily, todayKey) {
+  const due = (raw.match(/📅\s*(\d{4}-\d{2}-\d{2})/u) || [])[1] || null;
+  return { due, group: due ? (due < todayKey ? 'overdue' : due === todayKey ? 'today' : 'later') : daily ? 'today' : 'later' };
+}
+/** Quick shake, e.g. Enter on an empty add box. */
+function shake(el) {
+  el.removeClass('is-shake');
+  void el.offsetWidth; // restart the animation
+  el.addClass('is-shake');
+}
+/** True while the user types in an edit field inside `list`: don't touch the list then. */
+const editingIn = (list) => !!(document.activeElement && document.activeElement.matches('.nt-edit') && list.contains(document.activeElement));
+/** Collapse a row out of its list, then remove it. */
+function leaveRow(el) {
+  if (prefersReducedMotion() || !el.hasClass('nt-task')) return el.remove();
+  el.style.height = `${el.offsetHeight}px`;
+  void el.offsetHeight; // start the collapse from the current height
+  el.addClass('is-leaving');
+  window.setTimeout(() => el.remove(), 260);
+}
+/**
+ * Make `list` show `want` (elements, in order) without redrawing: kept rows stay, new ones are
+ * inserted, the rest collapse out, and rows that move glide to their new place.
+ */
+function patchList(list, want) {
+  const keep = new Set(want);
+  const top = new Map([...list.children].map((el) => [el, el.getBoundingClientRect().top]));
+  for (const el of [...list.children]) if (!keep.has(el) && !el.hasClass('is-leaving')) leaveRow(el);
+  let cur = list.firstChild;
+  for (const el of want) {
+    while (cur && cur !== el && cur.hasClass('is-leaving')) cur = cur.nextSibling;
+    if (cur === el) cur = cur.nextSibling;
+    else list.insertBefore(el, cur);
+  }
+  if (prefersReducedMotion()) return;
+  for (const el of want) {
+    const t0 = top.get(el);
+    const dy = t0 == null ? 0 : t0 - el.getBoundingClientRect().top;
+    if (Math.abs(dy) >= 1) el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+  }
+}
+
 class NewNoteModal extends Modal {
   /** opts: { folder, file (existing empty note), name } */
   constructor(plugin, opts = {}) {
@@ -679,7 +722,7 @@ module.exports = class NeonTasks extends Plugin {
     this.addSettingTab(new NeonTasksSettingTab(this.app, this));
     this.buildStatus();
 
-    const changed = debounce(() => this.emit(), 700, true);
+    const changed = debounce(() => this.emit(), 250, true);
     // Only notes that feed the Tasks widget trigger a refresh.
     this.registerEvent(
       this.app.metadataCache.on('changed', (f, _d, cache) => {
@@ -810,10 +853,7 @@ module.exports = class NeonTasks extends Plugin {
         const m = line.match(TASK_LINE_RE);
         if (!m || !m[1].trim()) continue;
         const raw = m[1];
-        const due = (raw.match(/📅\s*(\d{4}-\d{2}-\d{2})/u) || [])[1] || null;
-        let group = 'later';
-        if (due) group = due < todayKey ? 'overdue' : due === todayKey ? 'today' : 'later';
-        else if (daily) group = 'today';
+        const { due, group } = taskGroup(raw, daily, todayKey);
         out.push({
           file: f,
           line: li.position.start.line,
@@ -837,6 +877,20 @@ module.exports = class NeonTasks extends Plugin {
   async addQuickTask(text) {
     text = String(text || '').trim();
     if (!text) return;
+    // shown at once; the real row takes its place once Obsidian has indexed the note
+    const pend = { text, at: Date.now() };
+    (this.pendingQuick = this.pendingQuick || []).push(pend);
+    this.emit();
+    try {
+      await this.writeQuickTask(text);
+    } catch (e) {
+      console.error('Neon Tasks: could not add task', e);
+      new Notice('Could not add the task');
+      this.pendingQuick = this.pendingQuick.filter((x) => x !== pend);
+      this.emit();
+    }
+  }
+  async writeQuickTask(text) {
     const path = this.quickPath();
     let f = this.app.vault.getAbstractFileByPath(path);
     if (!(f instanceof TFile)) {
@@ -844,7 +898,20 @@ module.exports = class NeonTasks extends Plugin {
       f = await this.app.vault.create(path, `---\ntags:\n  - tasks\n---\n# Quick tasks\n\nAdded from the dashboard. Stays until ticked.\n\n`);
     }
     await this.app.vault.process(f, (d) => d.replace(/\s*$/, '') + `\n- [ ] ${text}\n`);
-    new Notice('✦ Task added');
+  }
+  /** Rewrite one open task line in its note (item 15); the line must still be the task that was shown. */
+  async editTask(t, raw) {
+    let ok = false;
+    await this.app.vault.process(t.file, (data) => {
+      const lines = data.split('\n');
+      const l = lines[t.line];
+      if (l === undefined || !/\[ \]/.test(l) || !l.includes(t.raw)) return data;
+      lines[t.line] = l.replace(t.raw, () => raw);
+      ok = true;
+      return lines.join('\n');
+    });
+    if (!ok) new Notice('That task changed in the meantime — refreshed');
+    return ok;
   }
   async completeTask(t) {
     const stamp = this.settings.stampDone ? ` ✅ ${moment().format('YYYY-MM-DD')}` : '';
@@ -870,49 +937,85 @@ module.exports = class NeonTasks extends Plugin {
     const list = body.createDiv('nt-list');
     const add = body.createDiv('nt-add');
     const input = add.createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'Add a task… (Enter → Quick tasks)' } });
-    input.addEventListener('keydown', async (e) => {
-      if (e.key === 'Enter' && !e.isComposing && input.value.trim()) {
-        const v = input.value;
-        input.value = '';
-        await this.addQuickTask(v);
-      }
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      if (!input.value.trim()) return shake(add);
+      const v = input.value;
+      input.value = '';
+      this.addQuickTask(v);
     });
     button(card.actions, { icon: 'calendar-days', cls: 'nd-icon-btn', title: 'Open today’s note', onClick: async () => openFile(this.app, await ensureToday(this.app)) });
     let token = 0;
-    let seen = null; // keys shown last time, so newly added tasks can animate in
+    let first = true; // the first draw shows rows without the "new" animation
+    let count = 0;
     const render = async () => {
       const my = ++token;
       const items = await this.collectTasks();
       if (my !== token || !list.isConnected) return;
+      if (editingIn(list)) return; // redrawn when the edit ends
+      // quick tasks typed a moment ago that the index hasn't seen yet
+      const quick = this.quickPath();
+      const have = new Set(items.filter((t) => t.quick).map((t) => t.raw));
+      const todayKey = moment().format('YYYY-MM-DD');
+      this.pendingQuick = (this.pendingQuick || []).filter((p) => !have.has(p.text) && Date.now() - p.at < 10000);
+      for (const p of this.pendingQuick) {
+        const file = this.app.vault.getAbstractFileByPath(quick) || { path: quick, basename: 'Quick tasks' };
+        items.push({ file, line: -1, raw: p.text, ...taskGroup(p.text, null, todayKey), carried: null, display: taskDisplay(p.text), quick: true, pending: true });
+      }
       this.openCount = items.length;
-      card.badge.setText(items.length ? String(items.length) : '');
-      list.empty();
+      countUp(card.badge, count, items.length, (v) => (Math.round(v) ? String(Math.round(v)) : ''), 300);
+      count = items.length;
+      const old = new Map([...list.children].filter((el) => el.dataset.key && !el.hasClass('is-leaving')).map((el) => [el.dataset.key, el]));
+      const want = [];
       if (!items.length) {
-        const e = emptyState(list, 'All clear ✦ no open tasks');
-        e.createDiv({ cls: 'nt-empty-hint', text: 'Tasks come from notes tagged “tasks”, today’s daily note and the box below.' });
-        return;
+        let e = old.get('empty');
+        if (!e) {
+          e = emptyState(list, 'All clear ✦ no open tasks');
+          e.addClass('nt-fade-in');
+          e.dataset.key = 'empty';
+          e.createDiv({ cls: 'nt-empty-hint', text: 'Tasks come from notes tagged “tasks”, today’s daily note and the box below.' });
+        }
+        want.push(e);
       }
       let i = 0;
-      const now = new Set();
+      const dup = new Map();
       for (const [g, label] of [['overdue', 'Overdue'], ['today', 'Today'], ['later', 'Later']]) {
         const group = items.filter((t) => t.group === g);
         if (!group.length) continue;
-        list.createDiv({ cls: `nt-group is-${g}`, text: `${label} · ${group.length}` });
+        const head = old.get(`g:${g}`) || list.createDiv({ cls: `nt-group is-${g}` });
+        head.dataset.key = `g:${g}`;
+        head.setText(`${label} · ${group.length}`);
+        want.push(head);
         for (const t of group.slice(0, 40)) {
-          const row = this.taskRow(list, t, i++);
-          const key = `${t.file.path}|${t.raw}`;
-          now.add(key);
-          if (seen && !seen.has(key)) row.addClass('is-new');
+          const base = `${t.file.path}|${t.raw}`;
+          const n = dup.get(base) || 0;
+          dup.set(base, n + 1);
+          const key = `${base}#${n}`;
+          const sig = `${t.group}|${t.due}|${t.carried ? t.carried.format('YYYY-MM-DD') : ''}|${t.display}|${t.pending ? 1 : 0}`;
+          let row = old.get(key);
+          if (row && row.dataset.sig === sig) row._t = t;
+          else {
+            const fresh = this.taskRow(list, t, i);
+            fresh.dataset.key = key;
+            fresh.dataset.sig = sig;
+            if (row) row.replaceWith(fresh); // same task, changed text: swap in place
+            else if (!first) fresh.addClass('is-new');
+            row = fresh;
+          }
+          i++;
+          want.push(row);
         }
       }
-      seen = now;
+      patchList(list, want);
+      first = false;
     };
     const off = this.onChange(render);
     render();
     return { destroy: off };
   }
   taskRow(list, t, i) {
-    const row = list.createDiv('nt-task');
+    const row = list.createDiv('nt-task' + (t.pending ? ' is-pending' : ''));
+    row._t = t; // handlers read the latest task: a kept row may have moved to another line
     row.style.setProperty('--i', String(Math.min(i, 20)));
     const box = row.createDiv('nt-check');
     tip(box, 'Done');
@@ -923,13 +1026,54 @@ module.exports = class NeonTasks extends Plugin {
     } else if (t.carried) row.createSpan({ cls: 'nt-due is-carried', text: `from ${t.carried.format('ddd')}` });
     const src = row.createSpan({ cls: 'nt-src', text: t.quick ? 'quick' : t.file.basename });
     tip(src, t.file.path);
+    const edit = row.createDiv('nt-del nt-edit-btn');
+    setIcon(edit, 'pencil');
+    tip(edit, 'Edit');
     box.addEventListener('click', async () => {
-      if (row.hasClass('is-done')) return;
+      if (row.hasClass('is-done') || row._t.pending) return;
       row.addClass('is-done');
-      await this.completeTask(t);
+      try {
+        await this.completeTask(row._t);
+      } catch (e) {
+        console.error('Neon Tasks: could not tick task', e);
+        new Notice('Could not tick the task');
+        row.removeClass('is-done');
+      }
     });
-    txt.addEventListener('click', (e) => openFile(this.app, t.file, e, t.line));
-    src.addEventListener('click', (e) => openFile(this.app, t.file, e, t.line));
+    const open = (e) => !row._t.pending && openFile(this.app, row._t.file, e, row._t.line);
+    txt.addEventListener('click', open);
+    src.addEventListener('click', open);
+    edit.addEventListener('click', () => {
+      if (row._t.pending || row.querySelector('.nt-edit')) return;
+      const inp = createEl('input', { cls: 'nd-input nt-edit', attr: { type: 'text' } });
+      inp.value = row._t.raw; // the whole line text, so the 📅 date and tags can be changed too
+      txt.replaceWith(inp);
+      inp.focus();
+      const done = async (save) => {
+        if (!inp.isConnected) return;
+        const v = inp.value.trim();
+        inp.replaceWith(txt);
+        if (save && v && v !== row._t.raw) {
+          txt.setText(taskDisplay(v));
+          try {
+            await this.editTask(row._t, v);
+          } catch (e) {
+            console.error('Neon Tasks: could not edit task', e);
+            new Notice('Could not save the task');
+            txt.setText(row._t.display || row._t.raw);
+          }
+        }
+        this.emit();
+      };
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') done(true);
+        else if (e.key === 'Escape') {
+          e.stopPropagation();
+          done(false);
+        }
+      });
+      inp.addEventListener('blur', () => done(true));
+    });
     return row;
   }
 
@@ -942,8 +1086,8 @@ module.exports = class NeonTasks extends Plugin {
     new Notice('✦ Global task added');
   }
   async globalChanged() {
-    await this.saveSettings();
     this.emit();
+    await this.saveSettings();
     if (!this._backupSoon) this._backupSoon = debounce(() => this.writeBackup(), 15000, true);
     this._backupSoon();
   }
@@ -952,25 +1096,40 @@ module.exports = class NeonTasks extends Plugin {
     const list = body.createDiv('nt-list nt-global');
     const add = body.createDiv('nt-add');
     const input = add.createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'Add a global task… (Enter)' } });
-    input.addEventListener('keydown', async (e) => {
-      if (e.key === 'Enter' && !e.isComposing && input.value.trim()) {
-        const v = input.value;
-        input.value = '';
-        await this.addGlobal(v);
-      }
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      if (!input.value.trim()) return shake(add);
+      const v = input.value;
+      input.value = '';
+      this.addGlobal(v);
     });
     let dragId = null;
-    let seen = null;
+    let first = true;
+    let count = 0;
     const render = () => {
-      if (!list.isConnected) return;
+      if (!list.isConnected || editingIn(list)) return;
       const items = this.settings.globalTasks;
-      const prev = seen;
-      seen = new Set(items.map((t) => t.id));
-      card.badge.setText(items.length ? String(items.length) : '');
-      list.empty();
-      if (!items.length) emptyState(list, 'Nothing here — add the big things you shouldn’t forget');
+      countUp(card.badge, count, items.length, (v) => (Math.round(v) ? String(Math.round(v)) : ''), 300);
+      count = items.length;
+      const old = new Map([...list.children].filter((el) => el.dataset.key && !el.hasClass('is-leaving')).map((el) => [el.dataset.key, el]));
+      const want = [];
+      if (!items.length) {
+        let e = old.get('empty');
+        if (!e) {
+          e = emptyState(list, 'Nothing here — add the big things you shouldn’t forget');
+          e.addClass('nt-fade-in');
+          e.dataset.key = 'empty';
+        }
+        want.push(e);
+      }
       items.forEach((t, i) => {
-        const row = list.createDiv('nt-task nt-gtask' + (prev && !prev.has(t.id) ? ' is-new' : ''));
+        const prevRow = old.get(t.id);
+        if (prevRow && prevRow.dataset.sig === t.text) return want.push(prevRow);
+        const row = list.createDiv('nt-task nt-gtask' + (!first && !prevRow ? ' is-new' : ''));
+        row.dataset.key = t.id;
+        row.dataset.sig = t.text;
+        if (prevRow) prevRow.replaceWith(row); // edited: swap in place
+        want.push(row);
         row.style.setProperty('--i', String(Math.min(i, 20)));
         row.setAttr('draggable', 'true');
         icon(row, 'grip-vertical', 'nt-grip');
@@ -1017,8 +1176,12 @@ module.exports = class NeonTasks extends Plugin {
             const v = inp.value.trim();
             if (save && v && v !== t.text) {
               t.text = v;
+              inp.blur();
               await this.globalChanged();
-            } else render();
+            } else {
+              inp.replaceWith(txt);
+              render();
+            }
           };
           inp.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') done(true);
@@ -1066,6 +1229,8 @@ module.exports = class NeonTasks extends Plugin {
           await this.globalChanged();
         });
       });
+      patchList(list, want);
+      first = false;
     };
     const off = this.onChange(render);
     render();

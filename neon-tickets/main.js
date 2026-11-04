@@ -1281,8 +1281,12 @@ class TicketCard {
       const box = r.createDiv('tk-box');
       r.createSpan({ cls: 'tk-step-text', text: step.text });
       if (step.done && step.at) r.createSpan({ cls: 'tk-step-at', text: step.at });
-      box.addEventListener('click', () => this.plugin.toggleStep(t, step));
-      r.querySelector('.tk-step-text').addEventListener('click', () => this.plugin.toggleStep(t, step));
+      const tick = () => {
+        this.plugin.toggleStep(t, step);
+        r.toggleClass('is-done', step.done); // show it now; the file write follows
+      };
+      box.addEventListener('click', tick);
+      r.querySelector('.tk-step-text').addEventListener('click', tick);
       const acts = r.createDiv('tk-step-acts');
       button(acts, { icon: 'pencil', cls: 'tk-step-act', title: 'Edit step', onClick: (e) => (e.stopPropagation(), this.editStepInline(r, t, step)) });
       button(acts, {
@@ -2218,23 +2222,46 @@ module.exports = class NeonTickets extends Plugin {
     this.writeQ.set(key, next);
     return next;
   }
-  async toggleStep(t, step) {
+  /**
+   * Tick or untick a step: one queued write flips the box and (for a finished step) adds the log line.
+   * step.done flips at once, so the row can update before the write and a quick second click toggles back.
+   */
+  toggleStep(t, step) {
+    const wasDone = step.done;
+    step.done = !wasDone;
+    if (!this.writeQ) this.writeQ = new Map();
+    const key = t.file.path;
     let ok = false;
-    await this.app.vault.process(t.file, (d) => {
-      const lines = d.split('\n');
-      const fmLen = d.length - stripFrontmatter(d).length;
-      const offset = d.slice(0, fmLen).split('\n').length - 1;
-      const i = step.line + offset;
-      const l = lines[i];
-      if (l === undefined || !l.includes(step.text)) return d;
-      ok = true;
-      if (step.done) lines[i] = l.replace(/\[[^ ]\]/, '[ ]').replace(/\s*✅\s*\d{4}-\d{2}-\d{2}(\s+\d{1,2}:\d{2})?\s*$/u, '');
-      else lines[i] = l.replace('[ ]', '[x]').replace(/\s*$/, '') + ` ✅ ${STAMP()}`;
-      return lines.join('\n');
-    });
-    if (!ok) return new Notice('That step changed in the meantime — refreshed');
-    // only finished steps go in the log; reopening one stays quiet
-    if (!step.done) await this.log(t, `Step done: ${step.text}`);
+    const next = (this.writeQ.get(key) || Promise.resolve())
+      .then(() =>
+        this.app.vault.process(t.file, (d) => {
+          const lines = d.split('\n');
+          const fmLen = d.length - stripFrontmatter(d).length;
+          const offset = d.slice(0, fmLen).split('\n').length - 1;
+          const i = step.line + offset;
+          const l = lines[i];
+          if (l === undefined || !l.includes(step.text)) return d;
+          ok = true;
+          if (wasDone) lines[i] = l.replace(/\[[^ ]\]/, '[ ]').replace(/\s*✅\s*\d{4}-\d{2}-\d{2}(\s+\d{1,2}:\d{2})?\s*$/u, '');
+          else lines[i] = l.replace('[ ]', '[x]').replace(/\s*$/, '') + ` ✅ ${STAMP()}`;
+          const out = lines.join('\n');
+          // only finished steps go in the log; reopening one stays quiet
+          return wasDone ? out : addToSection(out, 'log', `- ${STAMP()} — Step done: ${step.text}`);
+        }),
+      )
+      .then(() => {
+        if (!ok) {
+          step.done = wasDone;
+          new Notice('That step changed in the meantime — refreshed');
+        } else if (!wasDone) this.app.workspace.trigger('neon:ticket-changed', { file: t.file, id: t.id, title: t.title, change: `Step done: ${step.text}` });
+      })
+      .catch((e) => {
+        step.done = wasDone;
+        console.error('Neon Tickets: could not change step', e);
+        new Notice('Could not save the step');
+      });
+    this.writeQ.set(key, next);
+    return next;
   }
   /** Change the line a step lives on. fn gets the line and returns the new line, or null to delete it. No log entry. */
   async changeStepLine(t, step, fn) {

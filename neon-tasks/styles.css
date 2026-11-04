@@ -166,6 +166,7 @@ body.nd-theme-brutal .nt-add .nd-input {
   height: 13px;
 }
 .nt-gtask:hover .nt-grip,
+.nt-task:hover .nt-edit-btn,
 .nt-gtask:hover .nt-del {
   opacity: 1;
 }
@@ -363,8 +364,91 @@ body:not(.nd-themed) .nd-empty {
     background-color: transparent;
   }
 }
+/* rows collapse out when ticked, deleted or moved to another group (height set inline first) */
+.nt-task.is-leaving {
+  height: 0 !important;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  transform: translateX(10px);
+  overflow: hidden;
+  pointer-events: none;
+  transition: height 0.24s var(--nd-ease, ease), padding 0.24s var(--nd-ease, ease), opacity 0.18s ease, transform 0.24s var(--nd-ease, ease);
+}
+/* tick: the box fills with a drawn check mark and a short pulse */
+.nt-task.is-done .nt-check {
+  display: grid;
+  place-items: center;
+  animation: nt-check-pulse 0.32s ease-out;
+}
+.nt-task.is-done .nt-check::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  margin-top: -2px;
+  border: solid var(--nd-bg, var(--background-primary));
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  animation: nt-check-draw 0.22s ease-out both;
+}
+@keyframes nt-check-pulse {
+  50% {
+    transform: scale(1.18);
+  }
+}
+@keyframes nt-check-draw {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+/* a task that is still being written to the note */
+.nt-task.is-pending .nt-check {
+  opacity: 0.5;
+  cursor: default;
+}
+.nt-fade-in {
+  animation: nt-fade 0.3s ease both;
+}
+@keyframes nt-fade {
+  from {
+    opacity: 0;
+  }
+}
+/* Enter on an empty add box */
+.nt-add.is-shake {
+  animation: nt-shake 0.3s ease;
+}
+@keyframes nt-shake {
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+/* global tasks: the dragged row lifts */
+.nt-gtask.is-dragging {
+  opacity: 0.55;
+  transform: scale(0.98);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.nt-edit {
+  animation: nt-fade 0.15s ease both;
+}
 @media (prefers-reduced-motion: reduce) {
-  .nt-task.is-new {
+  .nt-task.is-new,
+  .nt-task.is-done .nt-check,
+  .nt-task.is-done .nt-check::after,
+  .nt-fade-in,
+  .nt-add.is-shake,
+  .nt-edit {
     animation: none;
+  }
+  .nt-task.is-leaving,
+  .nt-gtask.is-dragging {
+    transition: none;
   }
 }
