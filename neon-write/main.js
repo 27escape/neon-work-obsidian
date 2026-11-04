@@ -435,6 +435,8 @@ const NW_DEFAULTS = {
   styledTables: true,
   moveImages: true,
   notePattern: true,
+  limeDividers: true, // --- dividers as a lime dotted line (item 27)
+  dividerDots: true, // the dots near the ends breathe slowly
   patternOpacity: 35, // percent of the dashboard pattern's strength (already faint by design)
 };
 const GRID_COLS = 10;
@@ -551,6 +553,118 @@ function toggleWrap(editor, open, close = open) {
     editor.setSelection({ line: from.line, ch: from.ch + open.length }, { line: end.line, ch: end.ch - close.length });
   }
 }
+/** A --- divider on its own line, with a blank line above so the text above can't turn into a heading. */
+function insertDivider(ed) {
+  const l = ed.getCursor().line;
+  const cur = ed.getLine(l).trim() ? ed.getLine(l) + '\n\n' : ''; // a line with text stays, the divider goes below it
+  const pre = !cur && l > 0 && ed.getLine(l - 1).trim() ? '\n' : '';
+  const post = l + 1 <= ed.lastLine() && !ed.getLine(l + 1).trim() ? '' : '\n'; // no extra blank line when one follows
+  ed.setLine(l, `${pre}${cur}---${post}`);
+  ed.setCursor({ line: l + (pre ? 1 : 0) + (cur ? 2 : 0) + 1, ch: 0 });
+}
+/**
+ * Typing --- under a line of text makes Markdown turn that text into a heading (setext).
+ * After Enter on such a ---, put a blank line above it so it stays a divider (Ctrl+Z undoes it).
+ */
+function keepDivider(ed) {
+  const c = ed.getCursor();
+  const at = c.line - 1; // the --- line, with the cursor on the new empty line below
+  if (at < 1 || ed.getLine(c.line).trim() || ed.getLine(at).trim() !== '---') return;
+  const above = ed.getLine(at - 1);
+  if (!above.trim() || /^\s*(\||---|```|~~~)/.test(above) || inCodeBlock(ed, at)) return;
+  // the closing --- of the frontmatter
+  if (ed.getLine(0).trim() === '---') {
+    let close = -1;
+    for (let i = 1; i < at; i++) if (ed.getLine(i).trim() === '---') (close = i), (i = at);
+    if (close === -1) return;
+  }
+  ed.replaceRange('\n', { line: at, ch: 0 });
+}
+/** Small sub-title: the line becomes #### (any other heading level is replaced); again turns it back into text. */
+function toggleSubtitle(ed) {
+  const l = ed.getCursor('from').line;
+  const text = ed.getLine(l);
+  const m = text.match(/^(#{1,6})\s+/);
+  const body = m ? text.slice(m[0].length) : text;
+  ed.setLine(l, m && m[1] === '####' ? body : `#### ${body}`);
+}
+/** Page break for Export to PDF: the next content starts on a new page (inline style, so it works without the plugin too). */
+function insertPageBreak(ed) {
+  const l = ed.getCursor().line;
+  const cur = ed.getLine(l).trim() ? ed.getLine(l) + '\n\n' : '';
+  const pre = !cur && l > 0 && ed.getLine(l - 1).trim() ? '\n' : '';
+  const post = l + 1 <= ed.lastLine() && !ed.getLine(l + 1).trim() ? '' : '\n\n';
+  ed.setLine(l, `${pre}${cur}<div class="nw-pagebreak" style="break-after: page; page-break-after: always;"></div>${post}`);
+  ed.setCursor({ line: l + (pre ? 1 : 0) + (cur ? 2 : 0) + 2, ch: 0 });
+}
+/* ---- merged table cells (item 36): a cell that is only "<" joins the cell on its left ---- */
+/** Reading view / PDF: apply the merges in one rendered table; a merged first body row becomes a title above the header. */
+function mergeTable(table) {
+  const rows = [...table.querySelectorAll('tr')];
+  for (const tr of rows) {
+    const cells = [...tr.children];
+    // a row with "<" in it: empty cells after the title also join, so a new column keeps the title full width
+    const merging = cells.some((c) => c.textContent.trim() === '<');
+    let keep = null;
+    for (const c of cells) {
+      const t = c.textContent.trim();
+      if (keep && (t === '<' || (merging && !t && keep === cells[0]))) {
+        keep.colSpan += 1;
+        c.remove();
+      } else keep = c;
+    }
+  }
+  const body = table.tBodies[0];
+  const first = body && body.rows[0];
+  const head = table.tHead;
+  if (first && head && first.cells.length === 1 && first.cells[0].colSpan > 1) {
+    first.addClass('nw-title-row');
+    head.prepend(first);
+  }
+}
+/** Line with the table cell at `ch` turned into "<" (or back to empty). */
+function toggleMergeCell(line, ch) {
+  const bars = [...line].map((c, i) => (c === '|' && line[i - 1] !== '\\' ? i : -1)).filter((i) => i >= 0);
+  const k = bars.findIndex((b, i) => b < ch && (bars[i + 1] ?? Infinity) >= ch);
+  if (k < 0 || k >= bars.length - 1 || k === 0) return null; // outside the table, or the first cell (nothing on its left)
+  const cell = line.slice(bars[k] + 1, bars[k + 1]);
+  return line.slice(0, bars[k] + 1) + (cell.trim() === '<' ? '  ' : ' < ') + line.slice(bars[k + 1]);
+}
+/* ---- lockable callouts (item 31): `> [!info|locked]`; the state lives in the note ---- */
+let cmState = null;
+try {
+  cmState = require('@codemirror/state'); // provided by Obsidian at runtime
+} catch (e) {
+  console.error('Neon Write: callout lock needs @codemirror/state', e);
+}
+const lockAnno = cmState ? cmState.Annotation.define() : null; // marks our own lock/unlock edits
+const CALLOUT_HEAD_RE = /^(\s*>\s*\[!)([^\]|]+)(\|[^\]]*)?(\][+-]?)(.*)$/;
+/** Header line with "locked" added to or removed from the callout metadata; null when it isn't a callout header. */
+function toggleLockMeta(text) {
+  const m = text.match(CALLOUT_HEAD_RE);
+  if (!m) return null;
+  const words = (m[3] || '').slice(1).split(/[\s|]+/).filter(Boolean);
+  const next = words.includes('locked') ? words.filter((w) => w !== 'locked') : [...words, 'locked'];
+  return `${m[1]}${m[2]}${next.length ? '|' + next.join(' ') : ''}${m[4]}${m[5]}`;
+}
+const lockCache = new WeakMap(); // doc -> locked ranges (a doc never changes, so its ranges don't either)
+/** [from, to] of every locked callout: its header line and the > lines under it. */
+function lockedRanges(doc) {
+  if (lockCache.has(doc)) return lockCache.get(doc);
+  // shortcut: one pass over the lines per changed doc; fine for notes, upgrade to the syntax tree if huge notes lag
+  const out = [];
+  for (let i = 1; i <= doc.lines; i++) {
+    const l = doc.line(i);
+    const m = l.text.match(CALLOUT_HEAD_RE);
+    if (!m || !/(^|[\s|])locked(\s|$)/.test((m[3] || '').slice(1))) continue;
+    let end = l;
+    while (end.number < doc.lines && /^\s*>/.test(doc.line(end.number + 1).text)) end = doc.line(end.number + 1);
+    out.push([l.from, end.to]);
+    i = end.number;
+  }
+  lockCache.set(doc, out);
+  return out;
+}
 /** Heading on the selection's first line: none -> H1 -> H2 -> H3 -> none. */
 function cycleHeading(editor) {
   const l = editor.getCursor('from').line;
@@ -652,6 +766,7 @@ const SLASH_ITEMS = [
   { id: 'h1', icon: 'heading-1', label: 'Heading 1', hint: '#', keys: ['h1', 'heading', 'title'], run: (ed) => setLinePrefix(ed, '# ') },
   { id: 'h2', icon: 'heading-2', label: 'Heading 2', hint: '##', keys: ['h2', 'heading'], run: (ed) => setLinePrefix(ed, '## ') },
   { id: 'h3', icon: 'heading-3', label: 'Heading 3', hint: '###', keys: ['h3', 'heading'], run: (ed) => setLinePrefix(ed, '### ') },
+  { id: 'sub', icon: 'heading-4', label: 'Sub-title', hint: '####', keys: ['sub', 'subtitle', 'h4'], run: (ed) => toggleSubtitle(ed) },
   { id: 'todo', icon: 'check-square', label: 'Checklist', hint: '- [ ]', keys: ['todo', 'task', 'check'], run: (ed) => setLinePrefix(ed, '- [ ] ') },
   { id: 'bullet', icon: 'list', label: 'Bullet list', hint: '-', keys: ['bullet', 'list', 'ul'], run: (ed) => setLinePrefix(ed, '- ') },
   { id: 'number', icon: 'list-ordered', label: 'Numbered list', hint: '1.', keys: ['number', 'ol', 'list'], run: (ed) => setLinePrefix(ed, '1. ') },
@@ -675,14 +790,9 @@ const SLASH_ITEMS = [
     label: 'Divider',
     hint: '---',
     keys: ['divider', 'line', 'hr'],
-    run: (ed) => {
-      const l = ed.getCursor().line;
-      // a blank line first, or the text above would turn into a heading
-      const pre = l > 0 && ed.getLine(l - 1).trim() ? '\n' : '';
-      ed.setLine(l, `${pre}---\n`);
-      ed.setCursor({ line: l + (pre ? 2 : 1), ch: 0 });
-    },
+    run: (ed) => insertDivider(ed),
   },
+  { id: 'pagebreak', icon: 'file-minus', label: 'Page break', hint: 'PDF: new page', keys: ['pagebreak', 'umbruch', 'page', 'break'], run: (ed) => insertPageBreak(ed) },
   { id: 'link', icon: 'link', label: 'Link to note', hint: '[[', keys: ['link', 'note', 'wiki'], run: (ed) => ed.replaceSelection('[[') },
   { id: 'date', icon: 'calendar', label: 'Today’s date', hint: moment().format('YYYY-MM-DD'), keys: ['date', 'today'], run: (ed) => ed.replaceSelection(moment().format('YYYY-MM-DD')) },
 ];
@@ -734,6 +844,7 @@ const TOOLBAR = [
   { icon: 'link', title: 'Link to note', run: (ed) => toggleWrap(ed, '[[', ']]') },
   { sep: true },
   { icon: 'heading', title: 'Heading (H1 → H2 → H3 → none)', run: (ed) => cycleHeading(ed) },
+  { icon: 'heading-4', title: 'Sub-title (small heading; again to remove)', run: (ed) => toggleSubtitle(ed) },
   { icon: 'message-square-quote', title: 'Callout', run: (ed) => makeCallout(ed) },
 ];
 class SelectionToolbar {
@@ -819,6 +930,14 @@ class NeonWriteSettingTab extends PluginSettingTab {
       .setDesc('Tables in notes get a rounded card, a tinted header and soft row lines in the theme colours.')
       .addToggle((t) => t.setValue(s.styledTables).onChange((v) => ((s.styledTables = v), p.saveSettings(), p.applyLook())));
     new Setting(containerEl)
+      .setName('Lime dividers')
+      .setDesc('A --- line in a note is drawn as a row of lime dots that fade out at both ends. Also keeps --- typed under text a divider instead of a heading.')
+      .addToggle((t) => t.setValue(s.limeDividers).onChange((v) => ((s.limeDividers = v), p.saveSettings(), p.applyLook())));
+    new Setting(containerEl)
+      .setName('Animated divider dots')
+      .setDesc('The dots near the ends of a divider slowly breathe. Off when your system asks for reduced motion.')
+      .addToggle((t) => t.setValue(s.dividerDots).onChange((v) => ((s.dividerDots = v), p.saveSettings(), p.applyLook())));
+    new Setting(containerEl)
       .setName('Pattern behind notes')
       .setDesc('The dashboard pattern, dimmed right down, behind the note you are writing. Needs Neon Deck.')
       .addToggle((t) => t.setValue(s.notePattern).onChange((v) => ((s.notePattern = v), p.saveSettings(), p.mountNotePattern())));
@@ -862,18 +981,137 @@ module.exports = class NeonWrite extends Plugin {
       // registered after startup: Obsidian fires 'create' for every file while it loads the vault
       this.registerEvent(this.app.vault.on('create', (f) => this.onCreate(f)));
     });
+    if (cmState) {
+      // locked callouts: refuse the user's own edits inside them (typing, delete, paste, drag, undo);
+      // background writes from other plugins have no user event and pass, so editor and file never disagree
+      this.registerEditorExtension(
+        cmState.EditorState.transactionFilter.of((tr) => {
+          if (!tr.docChanged || tr.annotation(lockAnno)) return tr;
+          const ev = tr.annotation(cmState.Transaction.userEvent);
+          if (!ev || !/^(input|delete|move|undo|redo)/.test(ev)) return tr;
+          const ranges = lockedRanges(tr.startState.doc);
+          if (!ranges.length) return tr;
+          let hit = false;
+          tr.changes.iterChangedRanges((a, b) => (hit = hit || ranges.some(([f, t]) => a <= t && b >= f)));
+          if (!hit) return tr;
+          this.shakeLocks();
+          return [];
+        }),
+      );
+      this.registerMarkdownPostProcessor((el, ctx) => {
+        for (const c of el.matches('.callout') ? [el] : el.querySelectorAll('.callout')) this.addLock(c, ctx);
+      });
+      this.addCommand({
+        id: 'toggle-callout-lock',
+        name: 'Lock / unlock the callout under the cursor',
+        editorCallback: (ed) => {
+          const doc = ed.cm.state.doc;
+          let n = ed.getCursor().line + 1;
+          while (n > 1 && !CALLOUT_HEAD_RE.test(doc.line(n).text) && /^\s*>/.test(doc.line(n - 1).text)) n--;
+          if (!this.lockLine(ed.cm, doc.line(n))) new Notice('The cursor is not in a callout');
+        },
+      });
+    }
+    this.registerMarkdownPostProcessor((el) => {
+      for (const t of el.querySelectorAll('table')) if (t.textContent.includes('<')) mergeTable(t);
+    });
+    this.addCommand({
+      id: 'table-title-row',
+      name: 'Table: add a title row',
+      editorCallback: (ed) => {
+        let a = ed.getCursor().line;
+        if (!ed.getLine(a).trim().startsWith('|')) return new Notice('Put the cursor in a table first');
+        while (a > 0 && ed.getLine(a - 1).trim().startsWith('|')) a--;
+        const cols = ed.getLine(a).trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/).length;
+        // after the header and the --- row: the first body row, shown above the header as one wide title
+        ed.replaceRange(`| Title |${' < |'.repeat(cols - 1)}\n`, { line: a + 2, ch: 0 });
+        ed.setSelection({ line: a + 2, ch: 2 }, { line: a + 2, ch: 7 });
+      },
+    });
+    this.addCommand({
+      id: 'table-merge-left',
+      name: 'Table: merge cell with the one on its left (again to split)',
+      editorCallback: (ed) => {
+        const c = ed.getCursor();
+        const next = toggleMergeCell(ed.getLine(c.line), c.ch);
+        if (next == null) return new Notice('Put the cursor in a table cell that has a cell on its left');
+        ed.setLine(c.line, next);
+      },
+    });
+    this.addCommand({ id: 'insert-divider', name: 'Insert divider', editorCallback: (ed) => insertDivider(ed) });
+    this.addCommand({ id: 'make-subtitle', name: 'Make sub-title (toggle)', editorCallback: (ed) => toggleSubtitle(ed) });
+    this.addCommand({ id: 'insert-page-break', name: 'Insert page break (PDF)', editorCallback: (ed) => insertPageBreak(ed) });
+    // --- typed under a line of text stays a divider
+    this.registerDomEvent(document, 'keyup', (e) => {
+      if (e.key !== 'Enter' || !this.settings.limeDividers) return;
+      const v = this.app.workspace.getActiveViewOfType(MarkdownView);
+      if (v && v.getMode() === 'source' && v.editor.hasFocus()) keepDivider(v.editor);
+    });
     this.addCommand({ id: 'move-images', name: 'Move existing images to Core/Images', callback: () => this.moveExistingImages() });
     this.applyLook();
     this.addSettingTab(new NeonWriteSettingTab(this.app, this));
   }
   onunload() {
     this.unmountNotePattern();
-    document.body.removeClass('nw-lifted', 'nw-fonts', 'nw-tables');
+    document.body.removeClass('nw-lifted', 'nw-fonts', 'nw-tables', 'nw-hr', 'nw-hr-anim');
+  }
+  /** A small lock at the right of a callout's title; locked = lime. */
+  addLock(c, ctx) {
+    const title = c.querySelector(':scope > .callout-title');
+    if (!title || title.querySelector('.nw-lock')) return;
+    const locked = /(^|[\s|])locked(\s|$)/.test(c.getAttribute('data-callout-metadata') || '');
+    c.toggleClass('is-locked', locked);
+    const b = title.createDiv('nw-lock' + (locked ? ' is-locked' : ''));
+    setIcon(b, locked ? 'lock' : 'lock-open');
+    b.setAttr('aria-label', locked ? 'Locked · click to unlock' : 'Click to lock this block');
+    // mousedown, not click: in Live Preview a click would first open the callout's source
+    b.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const view = this.app.workspace.getLeavesOfType('markdown').map((l) => l.view).find((v) => v.contentEl.contains(c));
+      if (view && view.getMode() === 'source') {
+        const cm = view.editor.cm;
+        this.lockLine(cm, cm.state.doc.lineAt(cm.posAtDOM(c)));
+        return;
+      }
+      const info = ctx.getSectionInfo(c);
+      const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+      if (!info || !(file instanceof TFile)) return;
+      this.app.vault.process(file, (d) => {
+        const lines = d.split('\n');
+        const t = toggleLockMeta(lines[info.lineStart] || '');
+        if (t != null) lines[info.lineStart] = t;
+        return lines.join('\n');
+      });
+    });
+    b.addEventListener('click', (e) => e.stopPropagation());
+  }
+  /** Toggle the lock on a callout header line in an open editor (our own edit, so the lock lets it through). */
+  lockLine(cm, line) {
+    const t = toggleLockMeta(line.text);
+    if (t == null) return false;
+    cm.dispatch({ changes: { from: line.from, to: line.to, insert: t }, annotations: lockAnno.of(true) });
+    return true;
+  }
+  /** A blocked edit: the locks in view give a short shake. */
+  shakeLocks() {
+    // the callout's lock when it's drawn; while its source is shown, the line being edited flashes instead
+    const els = [...document.querySelectorAll('.workspace-leaf.mod-active .nw-lock.is-locked')];
+    // (CodeMirror redraws its own line elements, so the class goes on the scroller around them)
+    const sc = document.querySelector('.workspace-leaf.mod-active .cm-scroller');
+    for (const el of els.length ? els : sc ? [sc] : []) {
+      el.removeClass('is-shake');
+      void el.offsetWidth;
+      el.addClass('is-shake');
+      window.setTimeout(() => el.removeClass('is-shake'), 450);
+    }
   }
   applyLook() {
     document.body.toggleClass('nw-lifted', this.settings.liftedWindow);
     document.body.toggleClass('nw-fonts', this.settings.themeFonts);
     document.body.toggleClass('nw-tables', this.settings.styledTables);
+    document.body.toggleClass('nw-hr', this.settings.limeDividers);
+    document.body.toggleClass('nw-hr-anim', this.settings.limeDividers && this.settings.dividerDots);
   }
   async saveSettings() {
     await this.saveData(this.settings);

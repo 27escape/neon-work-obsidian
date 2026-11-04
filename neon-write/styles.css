@@ -300,3 +300,178 @@ body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-preview-v
 body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered th {
   white-space: nowrap;
 }
+
+/* ---- lime dividers (item 27): a row of dots in --nd-go that fade out at both ends ---- */
+body.nw-hr {
+  --nw-hr-c: var(--nd-go, var(--interactive-accent));
+}
+body.nw-hr :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr {
+  border: none;
+  height: 4px;
+  margin: 1.6em 0;
+  background: radial-gradient(circle, var(--nw-hr-c) 1.4px, transparent 1.9px) 0 50% / 9px 4px repeat-x;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+/* the raw --- while the cursor is on it */
+body.nw-hr .markdown-source-view .cm-hr {
+  color: var(--nw-hr-c);
+}
+/* the fade at the ends slowly breathes, so the end dots come and go (a calm 5 s loop) */
+body.nw-hr-anim :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr {
+  animation: nw-hr-breathe 5s ease-in-out infinite;
+}
+@keyframes nw-hr-breathe {
+  50% {
+    -webkit-mask-size: 118% 100%;
+    mask-size: 118% 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.nw-hr-anim :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr {
+    animation: none;
+  }
+}
+
+/* ---- sub-titles (item 33): #### is a small heading, clearly below H3 ---- */
+body.nd-themed :is(.workspace-leaf-content[data-type='markdown'], .print) {
+  --h4-size: 1.08em;
+  --h4-weight: 650;
+  --h4-letter-spacing: 0.03em;
+  --h5-size: 1em;
+  --h6-size: 0.95em;
+}
+
+/* ---- page break (item 35): visible while writing, a new page in the PDF ---- */
+.nw-pagebreak {
+  display: block;
+  position: relative;
+  height: 0;
+  margin: 1.6em 0;
+  border-top: 1.5px dashed var(--nd-line-strong, var(--background-modifier-border));
+}
+.nw-pagebreak::after {
+  content: 'Page break';
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  font: 600 10px var(--nd-mono, var(--font-monospace));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nd-muted, var(--text-muted));
+}
+@media print {
+  .nw-pagebreak {
+    visibility: hidden;
+    height: 0;
+    margin: 0;
+    border: 0;
+  }
+  .nw-pagebreak::after {
+    content: none;
+  }
+}
+/* PDF export renders the note outside the editor leaf: give it the theme fonts and the title
+   colours, darkened so they read on white paper, and keep the colours in the PDF */
+body.nw-fonts.nd-themed .print {
+  --font-text: var(--nw-text-font, var(--nd-font-ui));
+  --font-monospace: var(--nd-mono);
+  --inline-title-font: var(--nd-font-display);
+  --h1-font: var(--nd-font-display);
+  --h2-font: var(--nd-font-display);
+  --h3-font: var(--nd-font-display);
+  --h4-font: var(--nd-font-ui);
+  --inline-title-color: color-mix(in srgb, var(--nd-accent) 72%, #000);
+  --h1-color: color-mix(in srgb, var(--nd-accent) 72%, #000);
+  --h2-color: color-mix(in srgb, var(--nd-go) 52%, #000);
+  --h3-color: color-mix(in srgb, var(--nd-accent) 72%, #000);
+  --h4-color: color-mix(in srgb, var(--nd-go) 52%, #000);
+  --h5-color: color-mix(in srgb, var(--nd-accent) 72%, #000);
+  --h6-color: color-mix(in srgb, var(--nd-go) 52%, #000);
+  --nw-hr-c: color-mix(in srgb, var(--nd-go) 52%, #000);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ---- lockable callouts (item 31): a small lock at the right of the title ---- */
+.callout-title .nw-lock {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--nd-faint, var(--text-faint));
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity var(--nd-fast, 150ms) ease, color var(--nd-fast, 150ms) ease;
+}
+.callout:hover .nw-lock,
+.nw-lock.is-locked {
+  opacity: 1;
+}
+.nw-lock.is-locked {
+  color: var(--nd-go, var(--interactive-accent));
+}
+.nw-lock:hover {
+  background: color-mix(in srgb, var(--nd-text, var(--text-normal)) 8%, transparent);
+}
+.nw-lock svg {
+  width: 14px;
+  height: 14px;
+}
+.nw-lock.is-shake {
+  animation: nw-lock-shake 0.32s ease;
+}
+@keyframes nw-lock-shake {
+  25% {
+    transform: translateX(-3px) rotate(-8deg);
+  }
+  75% {
+    transform: translateX(3px) rotate(8deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nw-lock.is-shake {
+    animation: none;
+  }
+}
+/* Live Preview puts Obsidian's own "edit block" button in the callout's top-right corner: sit left of it */
+.cm-callout .callout-title .nw-lock {
+  margin-right: 30px;
+}
+/* an edit was refused inside a locked callout whose source is shown */
+.cm-scroller.is-shake .cm-line.cm-active {
+  animation: nw-line-flash 0.4s ease;
+}
+@keyframes nw-line-flash {
+  30% {
+    background-color: color-mix(in srgb, var(--nd-accent, var(--text-error)) 16%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-scroller.is-shake .cm-line.cm-active {
+    animation: none;
+  }
+}
+
+/* ---- merged table cells (item 36): the wide title row above the column headers ---- */
+.markdown-rendered table tr.nw-title-row > * {
+  font: 700 1.25em var(--nd-font-display, var(--font-interface));
+  color: var(--nd-accent, var(--text-accent));
+  text-align: left;
+  background: color-mix(in srgb, var(--nd-accent, var(--text-accent)) 9%, transparent);
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.print table tr.nw-title-row > * {
+  color: color-mix(in srgb, var(--nd-accent, #c8233f) 72%, #000);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
