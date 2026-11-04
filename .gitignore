@@ -13,6 +13,8 @@
 !/src/
 !/tools/
 !/CLAUDE.md
+!/MAP.md
+!/test/
 
 # saved settings and personal time data
 data.json

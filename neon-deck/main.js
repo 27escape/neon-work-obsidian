@@ -378,7 +378,10 @@ function deckApi(app) {
   const p = app.plugins && app.plugins.getPlugin && app.plugins.getPlugin('neon-deck');
   return (p && p.api) || null;
 }
+/** Another Neon module (2.x: a child of the neon-deck plugin; 1.x: its own plugin), or null. */
 function neonPlugin(app, id) {
+  const mother = app.plugins && app.plugins.getPlugin && app.plugins.getPlugin('neon-deck');
+  if (mother && mother.modules) return mother.modules.get(id) || null;
   const p = app.plugins && app.plugins.getPlugin && app.plugins.getPlugin(id);
   return p || null;
 }
@@ -4305,6 +4308,7 @@ class NeonDeck extends Plugin {
   }
 
   loadFonts() {
+    if (this.manifest.fontsInCss) return; // Neon Deck 2: the fonts are inside styles.css
     const dir = this.manifest.dir;
     const url = (f) => this.app.vault.adapter.getResourcePath(normalizePath(`${dir}/fonts/${f}`));
     const face = (family, file) => `@font-face{font-family:"${family}";src:url("${url(file)}") format("truetype");font-weight:100 900;font-style:normal;font-display:swap;}`;

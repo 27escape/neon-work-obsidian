@@ -378,7 +378,10 @@ function deckApi(app) {
   const p = app.plugins && app.plugins.getPlugin && app.plugins.getPlugin('neon-deck');
   return (p && p.api) || null;
 }
+/** Another Neon module (2.x: a child of the neon-deck plugin; 1.x: its own plugin), or null. */
 function neonPlugin(app, id) {
+  const mother = app.plugins && app.plugins.getPlugin && app.plugins.getPlugin('neon-deck');
+  if (mother && mother.modules) return mother.modules.get(id) || null;
   const p = app.plugins && app.plugins.getPlugin && app.plugins.getPlugin(id);
   return p || null;
 }

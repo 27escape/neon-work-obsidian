@@ -18,6 +18,7 @@ class NeonMother extends Plugin {
     if (crashed || this.state.safe) {
       new Notice(crashed ? 'Neon Deck did not finish starting last time: safe mode, modules are off. Turn them on in settings.' : 'Neon Deck safe mode: modules are off.', 0);
     } else for (const m of NEON_MODULES) await this.start(m);
+    this.keepOldHotkeys();
     this.state.starting = false;
     await this.writeState();
   }
@@ -40,7 +41,13 @@ class NeonMother extends Plugin {
     const dir = m.id === 'neon-deck' ? this.manifest.dir : `${this.manifest.dir}/${m.id.replace('neon-', '')}`;
     try {
       await this.adoptData(m.id, dir);
-      const child = new m.cls(this.app, { ...this.manifest, id: m.id, name: m.name, dir });
+      const child = new m.cls(this.app, { ...this.manifest, id: m.id, name: m.name, dir, fontsInCss: true });
+      // no default hotkeys (community rule): remember them; people upgrading from 1.x keep theirs
+      const add = child.addCommand;
+      child.addCommand = (c) => {
+        if (c.hotkeys) (this.defaultKeys = this.defaultKeys || []).push([`${m.id}:${c.id}`, c.hotkeys]), delete c.hotkeys;
+        return add.call(child, c);
+      };
       // a failing start stops only this module
       const load = child.onload;
       child.onload = async () => {
@@ -80,13 +87,26 @@ class NeonMother extends Plugin {
     await this.writeState();
     new Notice(on ? 'Neon Deck: safe mode on. Reload Obsidian (or the plugin) to apply.' : 'Neon Deck: safe mode off. Reload to start the modules.');
   }
+  /** Once, for people coming from 1.x (old plugin data present): keep the hotkeys 1.x set by default. */
+  keepOldHotkeys() {
+    if (this.state.keysKept || !this.defaultKeys) return;
+    this.state.keysKept = true;
+    if (!this.hadOldData) return;
+    const hm = this.app.hotkeyManager;
+    if (!hm || !hm.setHotkeys) return;
+    for (const [id, keys] of this.defaultKeys) if (!hm.getHotkeys(id)) hm.setHotkeys(id, keys);
+    if (hm.save) hm.save();
+  }
   /** First start of a module: copy the settings of the old separate plugin (never move or delete it). */
   async adoptData(id, dir) {
     const fs = this.app.vault.adapter;
     if (!(await fs.exists(dir))) await fs.mkdir(dir);
     if (id === 'neon-deck' || (await fs.exists(`${dir}/data.json`))) return;
     const old = normalizePath(`${this.app.vault.configDir}/plugins/${id}/data.json`);
-    if (await fs.exists(old)) await fs.write(`${dir}/data.json`, await fs.read(old));
+    if (await fs.exists(old)) {
+      await fs.write(`${dir}/data.json`, await fs.read(old));
+      this.hadOldData = true;
+    }
   }
   async readState() {
     try {

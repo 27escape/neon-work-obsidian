@@ -52,13 +52,16 @@ function bundle(target, o) {
   }
   js.push(`const NEON_MODULES = [\n${o.modules.map((m) => `  { id: '${m.id}', name: '${m.name}', desc: '${m.desc}', cls: ${m.cls}Module },`).join('\n')}\n];`);
   js.push(...o.kernel.map(part), 'module.exports = NeonMother;');
-  const css = o.modules.map((m) => `/* @src ${m.plugin}/styles.css */\n${read(`${m.plugin}/styles.css`)}`).join('\n');
+  // fonts inside styles.css: the community installer only downloads main.js, manifest.json and styles.css
+  const fonts = [['Unbounded', 'Unbounded.ttf'], ['Space Grotesk', 'SpaceGrotesk.ttf'], ['JetBrains Mono', 'JetBrainsMono.ttf']]
+    .map(([family, file]) => `@font-face{font-family:"${family}";src:url(data:font/ttf;base64,${fs.readFileSync(`neon-deck/fonts/${file}`).toString('base64')}) format("truetype");font-weight:100 900;font-style:normal;font-display:swap;}`)
+    .join('\n');
+  const css = `/* fonts (SIL Open Font License, see README) */\n${fonts}\n` + o.modules.map((m) => `/* @src ${m.plugin}/styles.css */\n${read(`${m.plugin}/styles.css`)}`).join('\n');
   fs.rmSync(path.join(out, dir), { recursive: true, force: true });
   fs.mkdirSync(path.join(out, dir), { recursive: true });
   fs.writeFileSync(path.join(out, dir, 'main.js'), js.join('\n') + '\n');
   fs.writeFileSync(path.join(out, dir, 'styles.css'), css + '\n');
   fs.writeFileSync(path.join(out, dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
-  fs.cpSync('neon-deck/fonts', path.join(out, dir, 'fonts'), { recursive: true });
   check(path.join(out, dir, 'main.js'));
   console.log(`built ${path.join(out, dir)} (${manifest.version}, ${js.join('\n').split('\n').length} lines)`);
 }

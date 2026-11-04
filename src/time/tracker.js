@@ -42,9 +42,7 @@ Object.assign(NeonTime.prototype, {
   activeFileView() {
     const ws = this.app.workspace;
     const v = ws.getActiveViewOfType(FileView);
-    if (v && v.file) return v;
-    const leaf = ws.activeLeaf;
-    return leaf && leaf.view && leaf.view.file instanceof TFile ? leaf.view : null;
+    return v && v.file instanceof TFile ? v : null;
   },
   tick() {
     this.workIdleCheck();

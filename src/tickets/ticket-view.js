@@ -20,7 +20,7 @@ class TicketView extends FileView {
   async onOpen() {
     this.contentEl.addClass('nd-root', 'tk-view');
     this.card = new TicketCard(this.plugin, this.contentEl, { popup: false, file: () => this.file, raw: (f) => this.plugin.openRaw(f, this.leaf) });
-    this.register(this.card.attachInputs(() => this.app.workspace.activeLeaf === this.leaf && !document.querySelector('.modal-container')));
+    this.register(this.card.attachInputs(() => this.app.workspace.getActiveViewOfType(TicketView) === this && !document.querySelector('.modal-container')));
     this.addAction('file-down', 'Export as PDF', () => this.file && this.plugin.ticketFor(this.file) && this.plugin.exportTicket(this.plugin.ticketFor(this.file)));
     this.card.mountPattern();
     this.register(() => this.card.unmountPattern());

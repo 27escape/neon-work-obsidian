@@ -378,7 +378,10 @@ function deckApi(app) {
   const p = app.plugins && app.plugins.getPlugin && app.plugins.getPlugin('neon-deck');
   return (p && p.api) || null;
 }
+/** Another Neon module (2.x: a child of the neon-deck plugin; 1.x: its own plugin), or null. */
 function neonPlugin(app, id) {
+  const mother = app.plugins && app.plugins.getPlugin && app.plugins.getPlugin('neon-deck');
+  if (mother && mother.modules) return mother.modules.get(id) || null;
   const p = app.plugins && app.plugins.getPlugin && app.plugins.getPlugin(id);
   return p || null;
 }
@@ -1522,9 +1525,7 @@ Object.assign(NeonTime.prototype, {
   activeFileView() {
     const ws = this.app.workspace;
     const v = ws.getActiveViewOfType(FileView);
-    if (v && v.file) return v;
-    const leaf = ws.activeLeaf;
-    return leaf && leaf.view && leaf.view.file instanceof TFile ? leaf.view : null;
+    return v && v.file instanceof TFile ? v : null;
   },
   tick() {
     this.workIdleCheck();
