@@ -135,7 +135,7 @@ class NeonDeck extends Plugin {
       s.sortRule = 1;
     }
     if (!THEMES.includes(s.theme)) s.theme = 'marathon';
-    if (s.pattern === 'circuit') s.pattern = 'shard'; // 2.0.4: Circuit was replaced by Shard
+    if (s.pattern === 'circuit' || s.pattern === 'shard') s.pattern = 'prism'; // 2.0.4: Circuit (and the short-lived Shard) became Prism
     if (s.pattern !== 'auto' && !PATTERNS.includes(s.pattern)) s.pattern = 'auto';
     if (!STRENGTHS.includes(s.patternStrength)) s.patternStrength = 'subtle';
   }

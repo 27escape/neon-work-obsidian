@@ -4,12 +4,12 @@
 /* pattern only shows at card edges and, very faintly, in the gaps.    */
 /* ------------------------------------------------------------------ */
 
-const PATTERNS = ['damascus', 'shard', 'meteorite', 'topo', 'hex', 'datastream', 'radar', 'none'];
+const PATTERNS = ['damascus', 'prism', 'meteorite', 'topo', 'hex', 'datastream', 'radar', 'none'];
 const PATTERN_LABEL = {
-  damascus: 'Damascus', meteorite: 'Meteorite', topo: 'Topo', shard: 'Shard', hex: 'Hex mesh',
+  damascus: 'Damascus', meteorite: 'Meteorite', topo: 'Topo', prism: 'Prism', hex: 'Hex mesh',
   datastream: 'Datastream', radar: 'Radar', none: 'None',
 };
-const PATTERN_MODE = { damascus: 0, meteorite: 1, topo: 2, shard: 3, hex: 4, datastream: 5, radar: 6 };
+const PATTERN_MODE = { damascus: 0, meteorite: 1, topo: 2, prism: 3, hex: 4, datastream: 5, radar: 6 };
 const STRENGTHS = ['off', 'subtle', 'bold'];
 const STRENGTH_LABEL = { off: 'Off', subtle: 'Subtle', bold: 'Bold' };
 // 10% softer than the first 1.3.0 build (Yobz, 2 Nov)
@@ -35,15 +35,37 @@ float damascus(vec2 c,float ph){
   float w=c.y/44.+f*2.6+t*1.3+ph/PI;
   return 1.-smoothstep(.02,.11,abs(fract(w)-.5));
 }
-// triangle wave: a sine with sharp corners
-float tri(float x){return asin(sin(x))*.63662;}
-float shard(vec2 c,float ph){
-  // Damascus with every bend made sharp, plus short zig-zag teeth along each layer
-  float f=tri(c.x/240.+.5*sin(ph))+.8*tri(c.y/190.-c.x/430.+.4*cos(ph))+.45*tri((c.x-c.y)/130.+ph);
-  float t=tri(c.x/115.+f*1.6)*tri(c.y/145.-f);
-  float z=.22*tri(c.x/6.+f*4.)*(.55+.45*tri(c.y/80.+f));
-  float w=c.y/44.+f*2.6+t*1.3+z+ph/PI;
-  return 1.-smoothstep(.03,.14,abs(fract(w)-.5));
+float prism(vec2 c,float ph){
+  // three layers of isometric cubes, near (big, bright, fast) to far; the first cube hit hides the ones behind
+  for(int L=0;L<3;L++){
+    float fl=float(L);
+    float s=150.-45.*fl;
+    // each layer circles once per loop, the near one furthest, so they slide past each other (parallax)
+    vec2 p=c+vec2(cos(ph+fl*2.1),sin(ph+fl*2.1))*(26.-8.*fl)+vec2(0.,fl*37.);
+    vec2 r=vec2(1.,1.7320508)*s;vec2 h=r*.5;
+    vec2 a=mod(p,r)-h;vec2 b=mod(p-h,r)-h;vec2 g=dot(a,a)<dot(b,b)?a:b;vec2 id=floor((p-g)/s*2.+.5);
+    float hs=h21(id+fl*17.3);
+    if(hs<.5+.12*fl)continue;
+    float ir=s*.5*(.55+.4*h21(id+fl*5.1+.7))*(.93+.07*sin(ph+hs*6.2832));
+    float hd=max(abs(g.x),abs(g.x)*.5+abs(g.y)*.8660254);
+    if(hd>ir)continue;
+    // lit top, mid left side, dark right side
+    float ang=atan(-g.y,g.x);
+    float shade=(ang>.5236&&ang<2.618)?.95:(g.x<0.?.6:.32);
+    // thin gaps along the three near edges and the outline give the cube its shape
+    float e=1e9;
+    if(dot(g,vec2(.866,-.5))>0.)e=min(e,abs(g.x*.5+g.y*.866));
+    if(dot(g,vec2(-.866,-.5))>0.)e=min(e,abs(g.x*.5-g.y*.866));
+    if(g.y>0.)e=min(e,abs(g.x));
+    // about a third are wireframes: only the edges, so the layers behind show through
+    if(h21(id+fl*3.7+.2)>.66){
+      float line=max(1.-smoothstep(2.,5.,e),1.-smoothstep(2.,5.,ir-hd));
+      if(line<.05)continue;
+      return line*.9*(1.-.28*fl);
+    }
+    return shade*smoothstep(1.,3.,e)*smoothstep(1.,3.,ir-hd)*(1.-.28*fl);
+  }
+  return 0.;
 }
 float lam(vec2 p,float ang,float per,float wt,float off,float ph){
   float d=p.x*cos(ang)+p.y*sin(ang),q=-p.x*sin(ang)+p.y*cos(ang);
@@ -104,7 +126,7 @@ float field(vec2 c,float ph){
   if(uMode<.5)return damascus(c,ph);
   if(uMode<1.5)return meteorite(c,ph);
   if(uMode<2.5)return topo(c,ph);
-  return shard(c,ph);
+  return prism(c,ph);
 }
 void main(){
   vec2 px=vec2(gl_FragCoord.x,uRes.y-gl_FragCoord.y)/uDpr;
