@@ -8,18 +8,26 @@ Object.assign(NeonDeck.prototype, {
     await this.saveSettings();
     this.app.workspace.trigger('neon-deck:pins-changed');
   },
+  /** A folder was renamed or moved: its pins and icon colours (and those of folders inside it) follow. */
   async renamePins(oldPath, newPath) {
     let hit = false;
-    this.settings.pinnedFolders = this.settings.pinnedFolders.map((p) => {
-      if (p === oldPath || p.startsWith(oldPath + '/')) {
-        hit = true;
-        return newPath + p.slice(oldPath.length);
-      }
-      return p;
-    });
+    const move = (p) => (p === oldPath || p.startsWith(oldPath + '/') ? ((hit = true), newPath + p.slice(oldPath.length)) : p);
+    this.settings.pinnedFolders = this.settings.pinnedFolders.map(move);
+    const cols = this.settings.folderColors;
+    for (const k of Object.keys(cols)) {
+      const nk = move(k);
+      if (nk !== k) ((cols[nk] = cols[k]), delete cols[k]);
+    }
     if (!hit) return;
     await this.saveSettings();
     this.app.workspace.trigger('neon-deck:pins-changed');
+  },
+  /** Icon colour of one folder; null goes back to the category colour. */
+  async setFolderColor(path, color) {
+    if (color && FOLDER_COLOR_RE.test(color)) this.settings.folderColors[path] = color;
+    else delete this.settings.folderColors[path];
+    await this.saveSettings();
+    this.app.workspace.trigger('neon-deck:pins-changed'); // cards views redraw on it
   },
   markSeen(path, quiet) {
     this.settings.seen[path] = Date.now();

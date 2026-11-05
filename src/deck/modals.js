@@ -150,3 +150,37 @@ class QuickCaptureModal extends Modal {
   }
 }
 
+
+/** Folder colour…: swatches, any colour from the picker, or back to the category colour. */
+class FolderColorModal extends Modal {
+  constructor(plugin, folder) {
+    super(plugin.app);
+    this.plugin = plugin;
+    this.folder = folder;
+    this.modalEl.addClass('nd-modal', 'nd-color-modal');
+  }
+  onOpen() {
+    const { contentEl } = this;
+    const cur = this.plugin.settings.folderColors[this.folder.path] || null;
+    this.titleEl.setText(`Folder colour · ${this.folder.name}`);
+    const set = async (c) => {
+      await this.plugin.setFolderColor(this.folder.path, c);
+      this.close();
+    };
+    const grid = contentEl.createDiv('nd-swatches');
+    for (const c of FOLDER_COLORS) {
+      const b = grid.createEl('button', { cls: 'nd-swatch' + (c === cur ? ' is-on' : ''), attr: { type: 'button', 'aria-label': c } });
+      b.style.setProperty('--sw', c);
+      b.addEventListener('click', () => set(c));
+    }
+    const row = contentEl.createDiv('nd-modal-row');
+    const pick = row.createEl('input', { cls: 'nd-color-pick', attr: { type: 'color', 'aria-label': 'Any colour' } });
+    pick.value = cur && cur.startsWith('#') ? cur : '#a855f7';
+    pick.addEventListener('change', () => set(pick.value));
+    row.createSpan({ cls: 'nd-color-hint', text: 'Any colour' });
+    button(row, { icon: 'rotate-ccw', text: 'Automatic (category)', onClick: () => set(null) });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+}

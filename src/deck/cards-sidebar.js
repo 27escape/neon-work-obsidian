@@ -33,7 +33,7 @@ Object.assign(CardsView.prototype, {
         const fd = this.app.vault.getAbstractFileByPath(p);
         const info = this.folderInfo(fd);
         const row = body.createDiv('nd-side-pin' + (p === this.path ? ' is-current' : ''));
-        this.folderIcon(row, info.cat);
+        this.folderIcon(row, info.cat, p);
         row.createSpan({ cls: 'nd-side-name', text: fd.name });
         row.createSpan({ cls: 'nd-side-count', text: String(info.notes.length) });
         tip(row, `${p} · right-click to unpin`);
@@ -61,7 +61,7 @@ Object.assign(CardsView.prototype, {
       const row = body.createDiv('nd-side-row is-folder');
       row.dataset.path = d.path;
       if (info.cat) row.style.setProperty('--row-tint', catColor(info.cat));
-      this.folderIcon(row, info.cat);
+      this.folderIcon(row, info.cat, d.path);
       if (d.name.startsWith('!')) icon(row, 'pin', 'nd-ico nd-side-bang');
       row.createSpan({ cls: 'nd-side-name', text: d.name });
       row.createSpan({ cls: 'nd-side-count', text: String(info.notes.length) });

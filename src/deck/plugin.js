@@ -118,6 +118,8 @@ class NeonDeck extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, raw);
     const s = this.settings;
     if (!Array.isArray(s.pinnedFolders)) s.pinnedFolders = [];
+    if (!s.folderColors || typeof s.folderColors !== 'object') s.folderColors = {};
+    for (const [k, v] of Object.entries(s.folderColors)) if (!FOLDER_COLOR_RE.test(String(v))) delete s.folderColors[k];
     if (!s.seen || typeof s.seen !== 'object') s.seen = {};
     if ((raw.settingsVersion || 0) < 3) {
       // 1.2 -> 1.3: style "intensity" becomes a theme; glass/random are gone

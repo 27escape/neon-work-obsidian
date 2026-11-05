@@ -227,3 +227,37 @@ textarea.nd-input {
   font: 12px var(--nd-mono);
   color: var(--nd-faint);
 }
+
+/* Folder colour… dialog */
+.nd-swatches {
+  display: grid;
+  grid-template-columns: repeat(6, 32px);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+button.nd-swatch {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: var(--sw);
+  box-shadow: none;
+  cursor: pointer;
+}
+button.nd-swatch:hover,
+button.nd-swatch.is-on {
+  border-color: var(--nd-text);
+}
+.nd-color-pick {
+  width: 36px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.nd-color-hint {
+  color: var(--nd-muted);
+  margin-right: auto;
+}

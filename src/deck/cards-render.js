@@ -33,14 +33,15 @@ Object.assign(CardsView.prototype, {
     t.style.setProperty('--tag-accent', catColor(cat));
     return t;
   },
-  folderIcon(parent, cat) {
+  folderIcon(parent, cat, path) {
     const ic = icon(parent, 'folder', 'nd-folder-icon');
-    ic.style.setProperty('--folder-accent', cat ? catColor(cat) : 'var(--nd-muted)');
+    const own = path != null && this.plugin.settings.folderColors[path];
+    ic.style.setProperty('--folder-accent', own || (cat ? catColor(cat) : 'var(--nd-muted)'));
     return ic;
   },
   folderCard(parent, folder, info, i) {
     const card = this.baseCard(parent, 'nd-ci-folder', i, folder.path);
-    this.folderIcon(card, info.cat);
+    this.folderIcon(card, info.cat, folder.path);
     const main = card.createDiv('nd-ci-main');
     const top = main.createDiv('nd-ci-top');
     top.createDiv({ cls: 'nd-ci-title', text: folder.name });
@@ -77,6 +78,7 @@ Object.assign(CardsView.prototype, {
     this.plugin.fileMenu(folder, e, (m) => {
       const pinned = this.plugin.settings.pinnedFolders.includes(folder.path);
       m.addItem((it) => it.setTitle(pinned ? 'Unpin folder' : 'Pin folder').setIcon(pinned ? 'pin-off' : 'pin').onClick(() => this.plugin.togglePin(folder.path)));
+      m.addItem((it) => it.setTitle('Folder colour…').setIcon('palette').onClick(() => new FolderColorModal(this.plugin, folder).open()));
       m.addItem((it) => it.setTitle('Open in new cards tab').setIcon('layout-grid').onClick(() => this.plugin.openCardsAt(folder.path, true)));
       m.addItem((it) => it.setTitle('New note here').setIcon('file-plus').onClick(() => this.plugin.newNote(folder.path)));
       m.addItem((it) => it.setTitle('New folder here').setIcon('folder-plus').onClick(() => this.plugin.newFolder(folder.path)));
