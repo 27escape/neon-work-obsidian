@@ -101,7 +101,7 @@ Object.assign(NeonTasks.prototype, {
       if (row.hasClass('is-done') || row._t.pending) return;
       row.addClass('is-done');
       try {
-        await this.completeTask(row._t);
+        if ((await this.completeTask(row._t)) === false) (row.removeClass('is-done'), this.emit());
       } catch (e) {
         console.error('Neon Tasks: could not tick task', e);
         new Notice('Could not tick the task');
@@ -124,7 +124,7 @@ Object.assign(NeonTasks.prototype, {
         if (save && v && v !== row._t.raw) {
           txt.setText(taskDisplay(v));
           try {
-            await this.editTask(row._t, v);
+            if (!(await this.editTask(row._t, v))) txt.setText(row._t.display || row._t.raw);
           } catch (e) {
             console.error('Neon Tasks: could not edit task', e);
             new Notice('Could not save the task');
@@ -134,7 +134,7 @@ Object.assign(NeonTasks.prototype, {
         this.emit();
       };
       inp.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') done(true);
+        if (e.key === 'Enter' && !e.isComposing) done(true);
         else if (e.key === 'Escape') {
           e.stopPropagation();
           done(false);

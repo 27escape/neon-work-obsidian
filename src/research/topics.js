@@ -86,6 +86,8 @@ Object.assign(NeonResearch.prototype, {
     this.settings.open = this.settings.open.map(move);
     this.saveSoon();
     this.emitSoon();
+    // moved into a section from outside: no card text yet, and a rename fires no 'changed'
+    if (f instanceof TFile && f.extension === 'md' && this.inRoot(f) && !this.cardText.has(f.path)) this.app.vault.cachedRead(f).then((t) => this.noteText(f, t));
   },
 
 });

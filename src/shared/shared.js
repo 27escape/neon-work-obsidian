@@ -391,7 +391,8 @@ function writeNote(app, file, fn) {
   };
   const p = (noteQueue.get(file.path) || Promise.resolve()).catch(() => {}).then(run);
   noteQueue.set(file.path, p);
-  p.finally(() => noteQueue.get(file.path) === p && noteQueue.delete(file.path));
+  const done = () => noteQueue.get(file.path) === p && noteQueue.delete(file.path);
+  p.then(done, done);
   return p;
 }
 

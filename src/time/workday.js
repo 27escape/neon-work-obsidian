@@ -58,12 +58,15 @@ Object.assign(NeonTime.prototype, {
   },
   /** Any input in Obsidian: the workday is still going. */
   workSeen() {
-    const w = this.workOf(moment().format('YYYY-MM-DD'));
-    if (!w || w.end) return;
     const now = Date.now();
-    if (now - w.last < 30000) return;
-    w.last = now;
-    this.saveSoon();
+    // yesterday too: a day started before midnight keeps running
+    for (const key of [moment().format('YYYY-MM-DD'), moment().subtract(1, 'day').format('YYYY-MM-DD')]) {
+      const w = this.workOf(key);
+      // after a long idle (sleep) the tick ends the day at the real last activity first
+      if (!w || w.end || now - w.last < 30000 || now - w.last > this.settings.workIdleH * 3600000) continue;
+      w.last = now;
+      this.saveSoon();
+    }
   },
   /** Idle rule: a running day with no input for workIdleH hours ends at the last activity. */
   workIdleCheck() {

@@ -58,3 +58,16 @@ test('minimal edit for writes into an open editor', () => {
   for (const [a, b] of [['abc', 'abXc'], ['- [ ] a\n- [ ] b', '- [x] a\n- [ ] b'], ['x', ''], ['', 'new'], ['same', 'same'], ['aaa', 'aa']]) assert.equal(apply(a, S.minimalEdit(a, b)), b);
   assert.deepEqual({ ...S.minimalEdit('- [ ] a', '- [x] a') }, { from: 3, to: 4, text: 'x' });
 });
+
+test('workday: input keeps a day from before midnight going, but not after a long idle', () => {
+  const { NeonTime } = load('neon-time', ['NeonTime']);
+  const now = Date.now();
+  const day = (last) => ({ work: { start: 1, last, breaks: [] } });
+  const t = { settings: { workIdleH: 3 }, saveSoon() {}, workOf: NeonTime.prototype.workOf };
+  t.days = { '2025-12-31': day(now - 60000) }; // started yesterday, active a minute ago
+  NeonTime.prototype.workSeen.call(t);
+  assert.ok(t.days['2025-12-31'].work.last >= now);
+  t.days = { '2026-01-01': day(now - 10 * 3600000) }; // laptop slept 10 h
+  NeonTime.prototype.workSeen.call(t);
+  assert.equal(t.days['2026-01-01'].work.last, now - 10 * 3600000);
+});

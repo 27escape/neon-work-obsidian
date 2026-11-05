@@ -106,6 +106,7 @@ Object.assign(NeonTasks.prototype, {
     });
     if (ok) this.logDone(t.display, t.file.path, t.due);
     else new Notice('That task changed in the meantime — refreshed');
+    return ok;
   },
 
 });

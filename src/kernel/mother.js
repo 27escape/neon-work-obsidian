@@ -12,6 +12,7 @@ class NeonMother extends Plugin {
     this.state = Object.assign({ off: {}, starting: false, safe: false }, await this.readState());
     const crashed = this.state.starting; // the last start never finished
     this.state.starting = true;
+    if (crashed) this.state.safe = true; // stays on until turned off in settings
     // coming from 1.x (old plugin data present): keep the hotkeys 1.x set by default, once
     this.upgrading = !this.state.keysKept && (await Promise.all(NEON_MODULES.map((m) => this.app.vault.adapter.exists(`${this.app.vault.configDir}/plugins/${m.id}/data.json`)))).some(Boolean);
     this.state.keysKept = true;
@@ -19,7 +20,7 @@ class NeonMother extends Plugin {
     this.addSettingTab(new NeonModulesTab(this.app, this));
     this.addCommand({ id: 'safe-mode', name: 'Restart in safe mode (modules off)', callback: () => this.setSafe(true) });
     if (crashed || this.state.safe) {
-      new Notice(crashed ? 'Neon Deck did not finish starting last time: safe mode, modules are off. Turn them on in settings.' : 'Neon Deck safe mode: modules are off.', 0);
+      new Notice(crashed ? 'Neon Deck did not finish starting last time: safe mode, modules are off. Turn safe mode off in Settings → Neon Deck modules.' : 'Neon Deck safe mode: modules are off.', 0);
     } else for (const m of NEON_MODULES) await this.start(m);
     // modules finish starting asynchronously: only call the start done once the workspace is ready
     this.app.workspace.onLayoutReady(() => (this.doneTimer = window.setTimeout(() => this.startDone(), 3000)));
@@ -32,7 +33,7 @@ class NeonMother extends Plugin {
   startDone() {
     if (!this.state.starting) return;
     this.state.starting = false;
-    this.writeState();
+    return this.writeState();
   }
   /** Core API for the modules (same object Neon Deck 1.x exposed). */
   get api() {

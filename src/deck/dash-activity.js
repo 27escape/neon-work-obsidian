@@ -24,7 +24,7 @@ Object.assign(DashboardView.prototype, {
       const k = m.format('YYYY-MM-DD');
       if (k !== day) {
         day = k;
-        const label = m.isSame(moment(), 'day') ? 'Today' : m.isSame(moment().subtract(1, 'day'), 'day') ? 'Yesterday' : m.format('dddd');
+        const label = m.isSame(moment(), 'day') ? 'Today' : m.isSame(moment().subtract(1, 'day'), 'day') ? 'Yesterday' : moment().diff(m.clone().startOf('day'), 'days') < 7 ? m.format('dddd') : m.format('ddd D MMM');
         box.createDiv({ cls: 'nd-done-day', text: label });
       }
       const key = `${x.kind}|${x.t}|${x.text}`;

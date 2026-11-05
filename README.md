@@ -113,7 +113,7 @@ Requires Obsidian 1.5.0 or later, desktop.
 
 ## Release notes
 
-Only the latest release notes are kept: [2.0.0](docs/release-notes/2.0.0.md): one plugin instead of six, with module switches, safe mode and a safer way of writing to notes. Older notes are in the git history.
+Only the latest release notes are kept: [2.0.1](docs/release-notes/2.0.1.md): bug fixes for Tasks, Time, Research and safe mode, plus Research sections you can add from the tab. Older notes are in the git history.
 
 ## License
 
