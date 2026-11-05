@@ -352,7 +352,7 @@ class DashboardView extends ItemView {
     b.empty();
     this.renderDoneLog(b);
     const list = b.createDiv('nd-mini-list');
-    const recent = d.md.slice().sort((a, b2) => b2.stat.mtime - a.stat.mtime).slice(0, 8);
+    const recent = d.md.slice().sort((a, b2) => b2.stat.mtime - a.stat.mtime).slice(0, 4); // half the card: done items get the room
     if (!recent.length) emptyState(list, 'No notes yet — create your first one ✦');
     recent.forEach((f, i) => {
       const c = list.createDiv('nd-mini');
