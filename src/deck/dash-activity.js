@@ -78,7 +78,7 @@ Object.assign(DashboardView.prototype, {
     }
     if (!stats.childElementCount) stats.createDiv({ cls: 'nd-act-none', text: 'No stats yet this month' });
     const cal = wrap.createDiv('nd-act-cal');
-    cal.style.gridTemplateRows = `auto repeat(${weeks.length}, minmax(22px, 1fr))`;
+    cal.style.gridTemplateRows = `auto repeat(${weeks.length}, minmax(30px, 1fr))`;
     for (const n of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) cal.createDiv({ cls: 'nd-act-dow', text: n });
     const todayKey = dayKey(Date.now());
     const max = Math.max(1, ...[...days.values()].map(actCount));

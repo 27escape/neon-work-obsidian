@@ -10,7 +10,7 @@ const DASH_LAYOUT = [
   ['recent', 'activity', 'activity', 'time'],
 ];
 /** Smallest grid height: the row minimums in styles.css (120 + 150 + 150 + 140) plus 3 gaps of 14. */
-const DASH_GRID_MIN = 602;
+const DASH_GRID_MIN = 752; // the row minimums in styles-dashboard.css plus 3 gaps; Activity needs 290 for six full weeks
 const SLOT_FALLBACK = { tasks: 'global', global: 'tasks', tickets: 'time', time: 'tickets', capture: 'recent' };
 
 function dashAreas(present) {

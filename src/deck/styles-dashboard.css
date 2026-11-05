@@ -172,7 +172,7 @@
   /* rows share the visible height in these proportions (height set from main.js); lists scroll
      inside their card. Below the minimums the page scrolls instead of squeezing the cards. */
   height: var(--nd-grid-h, 977px);
-  grid-template-rows: minmax(120px, 205fr) minmax(150px, 250fr) minmax(150px, 250fr) minmax(140px, 230fr);
+  grid-template-rows: minmax(120px, 205fr) minmax(150px, 250fr) minmax(150px, 250fr) minmax(290px, 230fr);
   gap: 14px;
 }
 .nd-area-totals { grid-area: totals; }
@@ -490,6 +490,7 @@
 }
 .nd-act-day {
   position: relative;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -520,9 +521,20 @@
   gap: 3px;
 }
 .nd-act-dot {
+  flex: none;
   width: 6px;
   height: 6px;
   border-radius: 50%;
+}
+/* narrow day cells (small screens): smaller dots, so four still fit in a row */
+@container (max-width: 48px) {
+  .nd-act-dots {
+    gap: 2px;
+  }
+  .nd-act-dot {
+    width: 4px;
+    height: 4px;
+  }
 }
 .nd-act-dot.is-task,
 .nd-act-item.is-task .nd-ico {
