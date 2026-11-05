@@ -113,7 +113,7 @@ Requires Obsidian 1.5.0 or later, desktop.
 
 ## Release notes
 
-Only the latest release notes are kept: [2.0.3](docs/release-notes/2.0.3.md): folder colours, a calmer graph, a cleaner Cards look and snappier workday buttons. Older notes are in the git history.
+Only the latest release notes are kept: [2.0.4](docs/release-notes/2.0.4.md): the Prism pattern, a calmer Damascus, plain fading dividers, fully locked callouts, ticket steps that must be done before the ticket, and an Activity calendar that fits smaller screens. Older notes are in the git history.
 
 ## License
 
