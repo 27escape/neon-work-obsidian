@@ -1,161 +1,149 @@
 {
-  "neon-deck": {
-    "header": "src/deck/_header.js",
-    "files": [
-      "src/shared/shared.js",
-      "src/deck/helpers.js",
-      "src/deck/constants.js",
-      "src/deck/text-network.js",
-      "src/deck/force-layout.js",
-      "src/deck/pattern.js",
-      "src/deck/modals.js",
-      "src/deck/dashboard.js",
-      "src/deck/dash-ticker.js",
-      "src/deck/dash-activity.js",
-      "src/deck/cards-view.js",
-      "src/deck/cards-sidebar.js",
-      "src/deck/cards-render.js",
-      "src/deck/graph-view.js",
-      "src/deck/graph-panel.js",
-      "src/deck/graph-draw.js",
-      "src/deck/settings.js",
-      "src/deck/plugin.js",
-      "src/deck/workspace.js",
-      "src/deck/files.js",
-      "src/deck/exports.js"
-    ]
-  },
-  "neon-tasks": {
-    "header": "src/tasks/_header.js",
-    "files": [
-      "src/shared/shared.js",
-      "src/tasks/helpers.js",
-      "src/tasks/settings.js",
-      "src/tasks/plugin.js",
-      "src/tasks/props.js",
-      "src/tasks/widget-global.js",
-      "src/tasks/widget-tasks.js",
-      "src/tasks/collect.js",
-      "src/tasks/exports.js"
-    ]
-  },
-  "neon-time": {
-    "header": "src/time/_header.js",
-    "files": [
-      "src/shared/shared.js",
-      "src/time/constants.js",
-      "src/time/entry-modal.js",
-      "src/time/wrap-up.js",
-      "src/time/time-view.js",
-      "src/time/settings.js",
-      "src/time/plugin.js",
-      "src/time/widget.js",
-      "src/time/log-notes.js",
-      "src/time/entries.js",
-      "src/time/workday.js",
-      "src/time/tracker.js",
-      "src/time/exports.js"
-    ]
-  },
-  "neon-tickets": {
-    "header": "src/tickets/_header.js",
-    "files": [
-      "src/shared/shared.js",
-      "src/tickets/constants.js",
-      "src/tickets/sections.js",
-      "src/tickets/modals.js",
-      "src/tickets/ticket-view.js",
-      "src/tickets/tracker.js",
-      "src/tickets/settings.js",
-      "src/tickets/plugin.js",
-      "src/tickets/widget-reminders.js",
-      "src/tickets/export-templates.js",
-      "src/tickets/filing.js",
-      "src/tickets/actions.js",
-      "src/tickets/model.js",
-      "src/tickets/exports.js"
-    ]
-  },
-  "neon-research": {
-    "header": "src/research/_header.js",
-    "files": [
-      "src/shared/shared.js",
-      "src/research/constants.js",
-      "src/research/link-suggest.js",
-      "src/research/quiz.js",
-      "src/research/tree-view.js",
-      "src/research/settings.js",
-      "src/research/plugin.js",
-      "src/research/exports.js"
-    ]
-  },
-  "neon-write": {
-    "header": "src/write/_header.js",
-    "files": [
-      "src/shared/shared.js",
-      "src/write/constants.js",
-      "src/write/editor-helpers.js",
-      "src/write/table-merge.js",
-      "src/write/callout-lock.js",
-      "src/write/table-picker.js",
-      "src/write/slash-menu.js",
-      "src/write/toolbar.js",
-      "src/write/settings.js",
-      "src/write/plugin.js",
-      "src/write/exports.js"
-    ]
-  },
-  "neon-deck-2": {
-    "bundle": true,
-    "out": "dist/neon-deck",
-    "header": "src/kernel/_header.js",
-    "manifest": "src/kernel/manifest.json",
-    "kernel": [
-      "src/kernel/mother.js"
-    ],
-    "modules": [
-      {
-        "id": "neon-deck",
-        "name": "Neon Deck",
-        "desc": "Dashboard, card explorer, graph, themes",
-        "plugin": "neon-deck",
-        "cls": "NeonDeck"
-      },
-      {
-        "id": "neon-tasks",
-        "name": "Neon Tasks",
-        "desc": "Tasks and global tasks",
-        "plugin": "neon-tasks",
-        "cls": "NeonTasks"
-      },
-      {
-        "id": "neon-time",
-        "name": "Neon Time",
-        "desc": "Time tracking and work day",
-        "plugin": "neon-time",
-        "cls": "NeonTime"
-      },
-      {
-        "id": "neon-tickets",
-        "name": "Neon Tickets",
-        "desc": "Tickets and tracker",
-        "plugin": "neon-tickets",
-        "cls": "NeonTickets"
-      },
-      {
-        "id": "neon-research",
-        "name": "Neon Research",
-        "desc": "Research and school sections, flashcards",
-        "plugin": "neon-research",
-        "cls": "NeonResearch"
-      },
-      {
-        "id": "neon-write",
-        "name": "Neon Write",
-        "desc": "Toolbar, slash menu, tables, dividers, callout locks",
-        "plugin": "neon-write",
-        "cls": "NeonWrite"
-      }
-    ]
-  }
+  "header": "src/kernel/_header.js",
+  "manifest": "src/kernel/manifest.json",
+  "shared": [
+    "src/shared/shared.js"
+  ],
+  "kernel": [
+    "src/kernel/mother.js"
+  ],
+  "modules": [
+    {
+      "id": "neon-deck",
+      "name": "Neon Deck",
+      "desc": "Dashboard, card explorer, graph, themes",
+      "cls": "NeonDeck",
+      "files": [
+        "src/deck/helpers.js",
+        "src/deck/constants.js",
+        "src/deck/text-network.js",
+        "src/deck/force-layout.js",
+        "src/deck/pattern.js",
+        "src/deck/modals.js",
+        "src/deck/dashboard.js",
+        "src/deck/dash-ticker.js",
+        "src/deck/dash-activity.js",
+        "src/deck/cards-view.js",
+        "src/deck/cards-sidebar.js",
+        "src/deck/cards-render.js",
+        "src/deck/graph-view.js",
+        "src/deck/graph-panel.js",
+        "src/deck/graph-draw.js",
+        "src/deck/settings.js",
+        "src/deck/plugin.js",
+        "src/deck/workspace.js",
+        "src/deck/files.js"
+      ],
+      "css": [
+        "src/deck/styles-tokens.css",
+        "src/deck/styles-controls.css",
+        "src/deck/styles-dashboard.css",
+        "src/deck/styles-cards.css",
+        "src/deck/styles-graph-motion.css"
+      ]
+    },
+    {
+      "id": "neon-tasks",
+      "name": "Neon Tasks",
+      "desc": "Tasks and global tasks",
+      "cls": "NeonTasks",
+      "files": [
+        "src/tasks/helpers.js",
+        "src/tasks/settings.js",
+        "src/tasks/plugin.js",
+        "src/tasks/props.js",
+        "src/tasks/widget-global.js",
+        "src/tasks/widget-tasks.js",
+        "src/tasks/collect.js"
+      ],
+      "css": [
+        "src/tasks/styles.css"
+      ]
+    },
+    {
+      "id": "neon-time",
+      "name": "Neon Time",
+      "desc": "Time tracking and work day",
+      "cls": "NeonTime",
+      "files": [
+        "src/time/constants.js",
+        "src/time/entry-modal.js",
+        "src/time/wrap-up.js",
+        "src/time/time-view.js",
+        "src/time/settings.js",
+        "src/time/plugin.js",
+        "src/time/widget.js",
+        "src/time/log-notes.js",
+        "src/time/entries.js",
+        "src/time/workday.js",
+        "src/time/tracker.js"
+      ],
+      "css": [
+        "src/time/styles.css"
+      ]
+    },
+    {
+      "id": "neon-tickets",
+      "name": "Neon Tickets",
+      "desc": "Tickets and tracker",
+      "cls": "NeonTickets",
+      "files": [
+        "src/tickets/constants.js",
+        "src/tickets/sections.js",
+        "src/tickets/modals.js",
+        "src/tickets/ticket-view.js",
+        "src/tickets/tracker.js",
+        "src/tickets/settings.js",
+        "src/tickets/plugin.js",
+        "src/tickets/widget-reminders.js",
+        "src/tickets/export-templates.js",
+        "src/tickets/filing.js",
+        "src/tickets/actions.js",
+        "src/tickets/model.js"
+      ],
+      "css": [
+        "src/tickets/styles-view.css",
+        "src/tickets/styles-tracker.css",
+        "src/tickets/styles-card-popup.css",
+        "src/tickets/styles-extras.css"
+      ]
+    },
+    {
+      "id": "neon-research",
+      "name": "Neon Research",
+      "desc": "Research and school sections, flashcards",
+      "cls": "NeonResearch",
+      "files": [
+        "src/research/constants.js",
+        "src/research/link-suggest.js",
+        "src/research/quiz.js",
+        "src/research/tree-view.js",
+        "src/research/settings.js",
+        "src/research/plugin.js"
+      ],
+      "css": [
+        "src/research/styles.css"
+      ]
+    },
+    {
+      "id": "neon-write",
+      "name": "Neon Write",
+      "desc": "Toolbar, slash menu, tables, dividers, callout locks",
+      "cls": "NeonWrite",
+      "files": [
+        "src/write/constants.js",
+        "src/write/editor-helpers.js",
+        "src/write/table-merge.js",
+        "src/write/callout-lock.js",
+        "src/write/table-picker.js",
+        "src/write/slash-menu.js",
+        "src/write/toolbar.js",
+        "src/write/settings.js",
+        "src/write/plugin.js"
+      ],
+      "css": [
+        "src/write/styles.css"
+      ]
+    }
+  ]
 }

@@ -1,0 +1,614 @@
+/* ---------- 4. dashboard ---------- */
+.nd-pattern-host.view-content {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+}
+.nd-pattern-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+.nd-pattern-canvas.is-hidden {
+  display: none;
+}
+.nd-dash.view-content {
+  background: var(--nd-bg);
+}
+.nd-dash-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  z-index: 1;
+}
+.nd-dash-inner {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px 12px;
+  max-width: 1900px;
+  margin: 0 auto;
+}
+/* cards: lit from the top, solid in the middle; with a pattern on, only the edges let it through */
+.nd-card,
+.nd-hero {
+  position: relative;
+  border: var(--nd-border) solid var(--nd-line);
+  border-radius: var(--nd-radius);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--nd-text) 3%, var(--nd-surface)), var(--nd-surface) 60%);
+  box-shadow: var(--nd-hi), var(--nd-shadow);
+}
+.nd-has-pattern .nd-card,
+.nd-has-pattern .nd-hero {
+  background:
+    radial-gradient(ellipse 100% 100% at 50% 45%, var(--nd-surface) 0%, var(--nd-surface) 55%,
+      color-mix(in srgb, var(--nd-surface) 91%, transparent) 70%,
+      color-mix(in srgb, var(--nd-surface) 60%, transparent) 88%,
+      color-mix(in srgb, var(--nd-surface) 30%, transparent) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--nd-text) 2.5%, transparent), transparent);
+}
+.nd-card::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--nd-accent) 55%, transparent), transparent);
+  pointer-events: none;
+}
+.nd-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 16px;
+}
+.nd-hero-greet {
+  font: 700 11px var(--nd-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nd-on-accent);
+  background: var(--nd-accent);
+  padding: 6px 12px;
+  border-radius: 999px;
+  box-shadow: 0 0 16px -2px color-mix(in srgb, var(--nd-accent) 45%, transparent);
+  white-space: nowrap;
+}
+.nd-hero-date {
+  font: 700 22px var(--nd-font-display);
+  white-space: nowrap;
+}
+.nd-hero-clock {
+  font: 500 13px var(--nd-mono);
+  color: var(--nd-muted);
+  white-space: nowrap;
+}
+.nd-hero-actions,
+.nd-hero-looks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.nd-hero-actions {
+  margin-left: auto;
+}
+.nd-action {
+  border-radius: var(--nd-radius-s);
+  padding: 6px 10px;
+}
+.nd-look-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--nd-radius-s);
+  border: var(--nd-border) solid var(--nd-line);
+  background: var(--nd-bg);
+}
+.nd-look-k {
+  font: 600 10px var(--nd-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nd-faint);
+}
+.nd-look-select select.dropdown {
+  border: 0;
+  box-shadow: none;
+  background-color: transparent;
+  font: 600 12px var(--nd-font-ui);
+  padding: 5px 22px 5px 4px;
+  height: auto;
+  max-width: 130px;
+}
+/* ticker */
+/* ticker: still, one line of facts at a time, swapped every 10 s with a quick fade */
+.nd-ticker {
+  overflow: hidden;
+  white-space: nowrap;
+  font: 600 11px var(--nd-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--nd-muted);
+  padding: 0 4px;
+  min-height: 16px;
+  text-align: center;
+}
+.nd-ticker-line {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: top;
+}
+.nd-ticker-line.is-fresh {
+  animation: nd-ticker-in 0.4s var(--nd-ease) backwards;
+}
+@keyframes nd-ticker-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+.nd-ticker-item b {
+  color: var(--nd-text);
+}
+.nd-ticker-item.is-me {
+  color: var(--nd-accent);
+}
+.nd-ticker-star {
+  color: var(--nd-accent);
+  margin: 0 14px;
+}
+/* grid */
+.nd-dash-grid {
+  flex: none;
+  display: grid;
+  /* rows share the visible height in these proportions (height set from main.js); lists scroll
+     inside their card. Below the minimums the page scrolls instead of squeezing the cards. */
+  height: var(--nd-grid-h, 977px);
+  grid-template-rows: minmax(120px, 205fr) minmax(150px, 250fr) minmax(150px, 250fr) minmax(140px, 230fr);
+  gap: 14px;
+}
+.nd-area-totals { grid-area: totals; }
+.nd-area-pulse { grid-area: pulse; }
+.nd-area-capture { grid-area: capture; }
+.nd-area-recent { grid-area: recent; }
+.nd-area-activity { grid-area: activity; }
+.nd-area-tasks { grid-area: tasks; }
+.nd-area-tickets { grid-area: tickets; }
+.nd-area-global { grid-area: global; }
+.nd-area-time { grid-area: time; }
+.nd-dash-grid.is-narrow {
+  grid-template-areas: none !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: none;
+  grid-auto-rows: minmax(220px, auto);
+  height: auto;
+  min-height: 0;
+}
+.nd-dash-grid.is-narrow > .nd-card {
+  grid-area: auto;
+  max-height: 520px;
+}
+.nd-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px 16px;
+  overflow: hidden;
+}
+.nd-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex: none;
+  min-width: 0;
+}
+.nd-card-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 11px;
+  color: var(--nd-accent);
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--nd-accent) 32%, transparent), color-mix(in srgb, var(--nd-accent) 9%, transparent));
+  border: 1px solid color-mix(in srgb, var(--nd-accent) 35%, transparent);
+  box-shadow: none; /* glows only on hover (item 22) */
+}
+.nd-card-icon svg {
+  width: 15px;
+  height: 15px;
+}
+.nd-card-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.nd-card-title {
+  font: 700 12.5px var(--nd-font-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-card-sub {
+  font: 500 11px var(--nd-mono);
+  color: var(--nd-faint);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-card-badge {
+  font: 700 11px var(--nd-mono);
+  color: var(--nd-accent);
+  background: color-mix(in srgb, var(--nd-accent) 15%, transparent);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.nd-card-badge:empty {
+  display: none;
+}
+.nd-card-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.nd-card-actions .nd-icon-btn {
+  width: 28px;
+  height: 28px;
+  color: var(--nd-accent);
+}
+.nd-card-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.nd-dash-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font: 500 10.5px var(--nd-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--nd-faint);
+  padding: 0 4px;
+}
+/* vault pulse */
+.nd-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+}
+.nd-tile {
+  --tile-accent: var(--nd-text);
+  position: relative;
+  padding: 11px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--nd-line);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--nd-text) 4%, var(--nd-surface2)), var(--nd-surface2));
+  min-width: 0;
+  overflow: hidden;
+  transition: border-color var(--nd-fast) ease, background var(--nd-med) ease;
+}
+.nd-tile.is-clickable {
+  cursor: pointer;
+}
+/* no lift on hover: the card body clips at the tiles' top edge, so a lifted tile lost its top border (item 37) */
+.nd-tile.is-clickable:hover {
+  border-color: var(--nd-line-strong);
+}
+.nd-tile-value {
+  font: 700 21px var(--nd-font-display);
+  color: var(--tile-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-tile-label {
+  font: 600 10.5px var(--nd-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nd-muted);
+}
+.nd-tile-sub {
+  margin-top: 2px;
+  font: 11px var(--nd-mono);
+  color: var(--nd-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* totals card: left column, top two rows. Tiles share the card's height; the first spans both columns.
+   In a short card they keep their natural size and the card body scrolls. */
+.nd-totals {
+  min-height: 100%;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(min-content, 1fr);
+}
+.nd-totals .nd-tile {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.nd-totals .nd-tile:first-child {
+  grid-column: 1 / -1;
+}
+.nd-totals .nd-tile-value {
+  font-size: 24px;
+}
+.nd-totals .nd-tile:first-child .nd-tile-value {
+  font-size: 28px;
+}
+.nd-spark {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  opacity: 0.85;
+}
+.nd-spark polyline {
+  stroke: var(--tile-accent);
+}
+/* capture */
+.nd-capture {
+  flex: 1;
+  min-height: 56px;
+  resize: none;
+}
+.nd-w-capture .nd-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.nd-capture-row .nd-pill-btn {
+  flex: 1;
+  justify-content: center;
+}
+.nd-capture.nd-flash {
+  border-color: var(--nd-go);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nd-go) 25%, transparent);
+}
+/* recent */
+.nd-mini-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nd-mini {
+  --row-accent: var(--nd-accent);
+  padding: 7px 10px;
+  border-left: 2px solid var(--row-accent);
+  border-radius: 0 10px 10px 0;
+  background: var(--nd-surface2);
+  cursor: pointer;
+  min-width: 0;
+  transition: background var(--nd-fast) ease, transform var(--nd-fast) ease;
+}
+.nd-mini:hover {
+  background: color-mix(in srgb, var(--nd-surface2) 85%, var(--nd-text));
+  transform: translateX(2px);
+}
+.nd-mini-title {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-mini-meta {
+  font-size: 12px;
+  color: var(--nd-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* activity: month stats + calendar, or one week as day columns; fills the card and scales with it (item 7) */
+.nd-w-heat .nd-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.nd-w-heat .nd-card-actions {
+  align-items: center;
+}
+.nd-act-month {
+  font: 600 11px var(--nd-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nd-muted);
+  min-width: 70px;
+  text-align: center;
+}
+.nd-act-tabs {
+  gap: 4px;
+  flex-wrap: nowrap;
+  margin-right: 6px;
+}
+.nd-act-tabs .nd-pill-btn {
+  padding: 3px 9px;
+  font-size: 11px;
+}
+.nd-act-monthview {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+  gap: 14px;
+}
+.nd-act-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.nd-act-stat-v {
+  font: 700 16px var(--nd-font-display);
+  color: var(--stat-accent);
+  line-height: 1.15;
+}
+.nd-act-stat-l {
+  font: 500 10.5px var(--nd-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nd-muted);
+}
+.nd-act-cal {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+/* narrow card: stats above the calendar */
+.nd-dash-grid.is-narrow .nd-act-monthview {
+  grid-template-columns: minmax(0, 1fr);
+}
+.nd-act-dow {
+  font: 600 10px var(--nd-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nd-faint);
+  text-align: center;
+  align-self: end;
+}
+.nd-act-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3px 6px;
+  border-radius: var(--nd-radius-s);
+  border: 1px solid var(--nd-line);
+  background: color-mix(in srgb, var(--nd-accent) calc(var(--lvl, 0) * 22%), var(--nd-surface2));
+  min-width: 0;
+}
+.nd-act-day.is-out {
+  opacity: 0.4;
+}
+.nd-act-day.is-today {
+  border-color: var(--nd-go);
+}
+.nd-act-day.is-clickable {
+  cursor: pointer;
+}
+.nd-act-day.is-clickable:hover {
+  border-color: var(--nd-line-strong);
+}
+.nd-act-num {
+  font: 600 11px var(--nd-mono);
+  color: var(--nd-muted);
+}
+.nd-act-dots {
+  display: flex;
+  gap: 3px;
+}
+.nd-act-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.nd-act-dot.is-task,
+.nd-act-item.is-task .nd-ico {
+  background: var(--nd-go);
+  color: var(--nd-go);
+}
+.nd-act-dot.is-ticket,
+.nd-act-item.is-ticket .nd-ico {
+  background: var(--nd-warn);
+  color: var(--nd-warn);
+}
+.nd-act-dot.is-time,
+.nd-act-item.is-time .nd-ico {
+  background: var(--nd-info);
+  color: var(--nd-info);
+}
+.nd-act-dot.is-note,
+.nd-act-item.is-note .nd-ico {
+  background: var(--nd-muted);
+  color: var(--nd-muted);
+}
+.nd-act-item .nd-ico {
+  background: none !important;
+  flex: none;
+}
+.nd-act-item .nd-ico svg {
+  width: 12px;
+  height: 12px;
+}
+.nd-act-week {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  min-height: 0;
+}
+.nd-act-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-radius: var(--nd-radius-s);
+  border: 1px solid var(--nd-line);
+  background: var(--nd-surface2);
+}
+.nd-act-col.is-today {
+  border-color: var(--nd-go);
+}
+.nd-act-col-head {
+  font: 600 10.5px var(--nd-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nd-muted);
+  padding: 6px 8px 4px;
+  border-bottom: 1px solid var(--nd-line);
+}
+.nd-act-col-list {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nd-act-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  min-width: 0;
+}
+.nd-act-item.is-clickable {
+  cursor: pointer;
+}
+.nd-act-item.is-clickable:hover {
+  background: color-mix(in srgb, var(--nd-text) 6%, transparent);
+}
+.nd-act-item-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nd-act-none {
+  color: var(--nd-faint);
+  text-align: center;
+}

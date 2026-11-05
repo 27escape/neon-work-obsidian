@@ -1,0 +1,276 @@
+/* ---- tracker motion (first open, new filter, and only what changed on a refresh) ---- */
+.tk-summary.is-intro .tk-stat {
+  animation: tk-stat-in 0.45s var(--nd-ease, ease) backwards;
+  animation-delay: calc(120ms + var(--i, 0) * 45ms);
+}
+@keyframes tk-stat-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+.tk-stat {
+  transition: transform var(--nd-fast, 150ms) var(--nd-ease, ease), border-color var(--nd-fast, 150ms) ease;
+}
+.tk-stat:hover {
+  transform: translateY(-2px);
+  border-color: var(--nd-line-strong);
+}
+/* group headings slide in with their rows */
+.tk-list:not(.is-calm) .tk-group-head {
+  animation: tk-head-in 0.35s var(--nd-ease, ease) backwards;
+}
+@keyframes tk-head-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+/* a new filter: rows rise in quickly */
+.tk-list.is-refilter .tk-row {
+  animation-duration: 0.28s;
+  animation-delay: calc(var(--i, 0) * 12ms);
+}
+/* progress bars fill up when the list animates in */
+.tk-list:not(.is-calm) .tk-progress-fill {
+  animation: tk-fill 0.45s var(--nd-ease, ease) backwards;
+  animation-delay: calc(200ms + var(--i, 0) * 18ms);
+}
+@keyframes tk-fill {
+  from {
+    width: 0;
+  }
+}
+/* refresh: a ticket that just appeared slides in, one whose status changed pulses */
+.tk-list.is-calm .tk-row.is-new {
+  animation: tk-row-new 0.55s var(--nd-ease, ease) backwards;
+}
+@keyframes tk-row-new {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+    background: color-mix(in srgb, var(--nd-go) 20%, var(--nd-surface));
+  }
+}
+.tk-list.is-calm .tk-row.is-changed {
+  animation: tk-row-flash 0.9s ease-out;
+}
+@keyframes tk-row-flash {
+  from {
+    background: color-mix(in srgb, var(--nd-accent) 22%, var(--nd-surface));
+    border-color: color-mix(in srgb, var(--nd-accent) 60%, var(--nd-line));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tk-summary.is-intro .tk-stat,
+  .tk-list .tk-group-head,
+  .tk-list .tk-row,
+  .tk-list .tk-progress-fill {
+    animation: none !important;
+  }
+  .tk-stat {
+    transition: none;
+  }
+}
+.tk-step.is-pending { opacity: 0.75; }
+
+/* ---- ticket templates ---- */
+.tk-tpl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tk-tpl-head .tk-tpl-new {
+  margin-left: auto;
+}
+.tk-list .tk-row.tk-tpl {
+  border-left-color: var(--nd-info);
+}
+.tk-tpl-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: var(--nd-info);
+  background: color-mix(in srgb, var(--nd-info) 14%, transparent);
+}
+.tk-tpl-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.tk-tpl-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tk-row.tk-tpl .tk-row-main {
+  min-width: 0;
+}
+.tk-tpl-meta {
+  font: 11px var(--nd-mono);
+  color: var(--nd-muted);
+  margin-top: 1px;
+}
+.tk-tpl-steps {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--nd-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tk-tpl-acts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.tk-tpl-acts .nd-icon-btn {
+  opacity: 0.55;
+  transition: opacity var(--nd-fast, 150ms) ease;
+}
+.tk-row.tk-tpl:hover .tk-tpl-acts .nd-icon-btn,
+.tk-tpl-acts .nd-icon-btn:focus-visible {
+  opacity: 1;
+}
+/* editor */
+.tk-tpl-edit-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.tk-tpl-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tk-tpl-step .nd-input {
+  flex: 1;
+  min-width: 0;
+}
+.tk-tpl-step .nd-icon-btn {
+  flex: none;
+  width: 26px;
+  height: 26px;
+}
+.tk-tpl-pick .nd-pill-btn.is-on {
+  background: color-mix(in srgb, var(--nd-info) 22%, transparent);
+  border-color: color-mix(in srgb, var(--nd-info) 60%, transparent);
+  color: var(--nd-text);
+}
+/* long template names don't stretch the picker */
+.tk-tpl-pick .nd-pill-btn {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- screenshots on a ticket ---- */
+.tk-shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+.tk-shot {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--nd-line);
+  border-radius: var(--nd-radius-s, 10px);
+  overflow: hidden;
+  background: var(--nd-surface2);
+  cursor: zoom-in;
+  transition: transform var(--nd-fast, 150ms) var(--nd-ease, ease), border-color var(--nd-fast, 150ms) ease;
+}
+.tk-shot:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--nd-accent) 45%, var(--nd-line));
+}
+.tk-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.tk-shot.is-missing {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  cursor: default;
+}
+.tk-shot .tk-shot-x {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 24px;
+  height: 24px;
+  background: color-mix(in srgb, var(--nd-bg) 75%, transparent);
+  opacity: 0;
+  transition: opacity var(--nd-fast, 150ms) ease;
+}
+.tk-shot:hover .tk-shot-x,
+.tk-shot .tk-shot-x:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .tk-shot .tk-shot-x { opacity: 1; }
+}
+/* dropping image files onto a ticket */
+.tk-host.is-dropping {
+  outline: 2px dashed var(--nd-go);
+  outline-offset: -6px;
+}
+.tk-shot-modal {
+  width: min(92vw, 1400px);
+  max-width: none;
+}
+.tk-shot-modal img {
+  display: block;
+  max-width: 100%;
+  max-height: 78vh;
+  margin: 0 auto;
+  border-radius: var(--nd-radius-s, 10px);
+}
+/* exported report (note view and PDF): screenshots full width, framed */
+.tk-report img {
+  max-width: 100%;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+}
+/* the report reads as a document: no properties box, no file-name title above the real one */
+.tk-report {
+  --metadata-display-reading: none;
+  --metadata-display-editing: none;
+}
+.tk-report .metadata-container,
+.tk-report .inline-title {
+  display: none !important;
+}
+
+/* ---- clear done tickets ---- */
+.tk-clear-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 2px 0 10px;
+}
+.tk-clear-bar .tk-clear-btn:hover {
+  color: var(--text-error);
+  border-color: color-mix(in srgb, var(--text-error) 50%, var(--nd-line));
+}
+.tk-clear-modal .tk-chips {
+  flex-wrap: wrap;
+}
+.tk-clear-extra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 13px;
+}

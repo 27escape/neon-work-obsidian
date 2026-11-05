@@ -1,12 +1,12 @@
 # ✦ Neon Deck
 
-Six small Obsidian plugins that work together as a personal command centre: a dashboard, tasks, tickets and automatic time tracking, in a neon look with live background patterns.
+One Obsidian plugin that works as a personal command centre: a dashboard, tasks, tickets, automatic time tracking, research notes and writing tools, in a neon look with live background patterns.
 
 Everything runs **100% locally**: no network calls, no telemetry, no remote fonts or code, no `eval`. Files are only written when you do something that writes.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
-| Plugin | What it does |
+| Module | What it does |
 |---|---|
 | **Neon Deck** | Dashboard, themes, live patterns, quick capture, card explorer, note graph, weekly review |
 | **Neon Tasks** | Tasks widget, Global tasks, the New note card, Fix properties |
@@ -15,7 +15,7 @@ Everything runs **100% locally**: no network calls, no telemetry, no remote font
 | **Neon Write** | Table picker, slash menu, a toolbar on selected text and a faint pattern behind notes |
 | **Neon Research** | A separate Research tab: a topic tree (topics → subtopics → notes) with quiz cards and link suggestions |
 
-Neon Deck is the core. The others plug their cards, capture targets and facts into its dashboard. Turn any of them off and the rest keeps working; the dashboard gives the free space to the neighbours.
+Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others plug their cards, capture targets and facts into its dashboard. Switch any module off in *Settings → Neon Deck modules* and the rest keeps working; the dashboard gives the free space to the neighbours.
 
 ## Features
 
@@ -73,35 +73,32 @@ Neon Deck is the core. The others plug their cards, capture targets and facts in
 
 ## Install
 
-These plugins aren't in the Community plugins list. Install them by hand:
+Neon Deck isn't in the Community plugins list yet. Install it by hand:
 
-1. Close Obsidian, or be ready to reload it.
-2. Copy the `neon-deck`, `neon-tasks`, `neon-tickets`, `neon-time` and (optionally) `neon-write` and `neon-research` folders into your vault's `.obsidian/plugins/` folder.
-3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable the plugins. Enable **Neon Deck** first, since the others add to its dashboard.
+1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/Yobzs/neon-deck-obsidian/releases/latest).
+2. Put them in your vault's `.obsidian/plugins/neon-deck/` folder (create it if needed).
+3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable **Neon Deck**.
 4. Open the dashboard from the ribbon `▦` icon or `Ctrl+P → Neon Deck: Open dashboard`.
 
-Requires Obsidian 1.5.0 or later.
+Requires Obsidian 1.5.0 or later, desktop.
+
+**Upgrading from 1.x (six plugins):** replace the files in `neon-deck/` as above, turn **off** Neon Tasks, Time, Tickets, Research and Write, and reload. Their settings and data are copied once into Neon Deck (the old files stay), hotkeys are kept. Then you can delete the five old plugin folders.
+
+**Safe mode:** if Neon Deck ever fails while starting, the next start keeps all modules off; turn them back on one by one in *Settings → Neon Deck modules*.
+
+**Quick capture** has no default hotkey for new installs (community plugin rule); set one in *Settings → Hotkeys*.
 
 ## For developers
 
-- **No build step.** Each plugin's `main.js` is the source; edit it and reload Obsidian (`Ctrl+R`).
-- **Shared helpers.** Lines 1–423 of every `main.js` are the same shared helper block (DOM helpers, modals, categories, daily notes, cross-plugin glue). Keep the six copies identical; `ND_VERSION` lives there too.
-- **Plugins talk through Neon Deck's API** (`registerWidget`, `registerCapture`, `registerFacts`, …) and workspace events such as `neon:time-entry` and `neon:task-done`.
-- **Saved data** (`data.json` in each plugin folder) is personal and isn't in this repo.
-- To release a new version, bump `ND_VERSION`, the header comment and `manifest.json` in all six plugins.
-
-## Neon Deck 2 (in progress, branch `restructure`)
-
-2.0 is one plugin instead of six. The former plugins become **modules** you can switch on and off in *Settings → Neon Deck*; each keeps its own settings tab, commands and data. Everything else works as in 1.7.
-
-- **Upgrading from 1.7:** install 2.0 into the `neon-deck` folder, then turn off the old Neon Tasks, Time, Tickets, Research and Write plugins and reload. Their settings and data are copied once (the old files stay). Hotkeys are kept.
-- **Safe mode:** if Neon Deck ever fails while starting, the next start keeps all modules off; turn them back on one by one in settings.
-- **Quick capture** has no default hotkey in 2.0 (community plugin rule); set one in *Settings → Hotkeys* (1.7 users keep Ctrl+Shift+Space).
-- **For developers:** sources in `src/`, built with `node tools/build.mjs --only neon-deck-2` (no dependencies), tests with `node --test test/*.test.mjs`, file map in `MAP.md`.
+- **Sources** are in `src/` (one job per file); `MAP.md` lists every file with its functions, `CLAUDE.md` has the rules.
+- **Build:** `node tools/build.mjs` → `dist/neon-deck/` (no dependencies). Each former plugin is a module: a child `Plugin` run by `src/kernel/mother.js`, so it keeps its own commands, settings tab and data.
+- **Check:** `node --test test/*.test.mjs` (unit tests) and `node tools/check.mjs dist` (local-only, cleanup, timers, writes, CSS…).
+- **Saved data** (`data.json`, `modules.json`) is personal and isn't in this repo.
+- To release: bump `src/kernel/manifest.json` and `versions.json`, build, attach the three files from `dist/neon-deck/` to a GitHub release.
 
 ## Release notes
 
-Only the latest release notes are kept: [1.7.0](docs/release-notes/1.7.0.md): Work Time tracker, Research sections (School), Recently done log, Activity timeline, lockable callouts, lime dividers, page breaks, ticket sorting, much faster Tasks, and many fixes. Older notes are in the git history.
+Only the latest release notes are kept: [2.0.0](docs/release-notes/2.0.0.md): one plugin instead of six, with module switches, safe mode and a safer way of writing to notes. Older notes are in the git history.
 
 ## License
 
@@ -111,4 +108,4 @@ Only the latest release notes are kept: [1.7.0](docs/release-notes/1.7.0.md): Wo
 
 Made by [Yobzs](https://github.com/Yobzs) with Claude.
 
-Bundled fonts (in `neon-deck/fonts/`): JetBrains Mono, Space Grotesk and Unbounded, all under the SIL Open Font License 1.1. See [`neon-deck/fonts/OFL.txt`](neon-deck/fonts/OFL.txt).
+Bundled fonts (in `src/deck/fonts/`, embedded in `styles.css`): JetBrains Mono, Space Grotesk and Unbounded, all under the SIL Open Font License 1.1. See [`src/deck/fonts/OFL.txt`](src/deck/fonts/OFL.txt).

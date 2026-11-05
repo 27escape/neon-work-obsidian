@@ -46,9 +46,9 @@ const rest = L.filter((_, i) => !keep.has(i));
 fs.writeFileSync(file, rest.join('\n'));
 fs.writeFileSync(out, `Object.assign(${cls}.prototype, {\n${moved.join('\n')}\n});\n`);
 const order = JSON.parse(fs.readFileSync('tools/files.json', 'utf8'));
-for (const o of Object.values(order)) {
-  const at = o.files.indexOf(file);
-  if (at >= 0 && !o.files.includes(out)) o.files.splice(at + 1, 0, out);
+for (const m of order.modules) {
+  const at = m.files.indexOf(file);
+  if (at >= 0 && !m.files.includes(out)) m.files.splice(at + 1, 0, out);
 }
 fs.writeFileSync('tools/files.json', JSON.stringify(order, null, 2) + '\n');
 console.log(`${out}: ${moved.length} lines; ${file}: ${rest.length} lines`);

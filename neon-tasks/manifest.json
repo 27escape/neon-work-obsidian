@@ -1,9 +1,0 @@
-{
-  "id": "neon-tasks",
-  "name": "Neon Tasks",
-  "version": "1.7.0",
-  "minAppVersion": "1.5.0",
-  "description": "Tasks widget, Global tasks, the New note card and Fix properties for Neon Deck. 100% offline.",
-  "author": "yobzz + Claude",
-  "isDesktopOnly": false
-}

@@ -191,7 +191,7 @@ for (const m of mods) {
   catch (e) { add('syntax', 'FAIL', `${m}: ${String(e.stderr || e.message).split('\n').slice(0, 3).join(' | ')}`); }
 
   // 3. file size (built files are only reported; source files must stay under the limit)
-  if (lines > MAX_LINES) add('size', 'WARN', `${m}/main.js is ${lines} lines (built file; the source must be split into files under ${MAX_LINES})`);
+  if (lines > MAX_LINES && !BUNDLE) add('size', 'WARN', `${m}/main.js is ${lines} lines (built file; the source must be split into files under ${MAX_LINES})`);
 
   // 4. timers and loops: each must have a matching clear/cleanup
   const count = (re, s = js) => (s.match(re) || []).length;

@@ -1,9 +1,0 @@
-{
-  "id": "neon-research",
-  "name": "Neon Research",
-  "version": "1.7.0",
-  "minAppVersion": "1.5.0",
-  "description": "A topic tree for learning (topics, subtopics, notes) with quiz cards and link suggestions, in its own Research tab. 100% offline.",
-  "author": "yobzz + Claude",
-  "isDesktopOnly": false
-}

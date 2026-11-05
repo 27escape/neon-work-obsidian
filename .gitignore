@@ -1,25 +1,6 @@
-# Only the Neon plugins and the docs go in the repo
-/*
-!/.gitignore
-!/README.md
-!/LICENSE
-!/docs/
-!/neon-deck/
-!/neon-tasks/
-!/neon-tickets/
-!/neon-time/
-!/neon-write/
-!/neon-research/
-!/src/
-!/tools/
-!/CLAUDE.md
-!/MAP.md
-!/manifest.json
-!/versions.json
-!/test/
-
-# saved settings and personal time data
-data.json
+# build output, personal data, local logs
 dist/
-tools/neon-check-log.jsonl
+data.json
 modules.json
+tools/neon-check-log.jsonl
+node_modules/

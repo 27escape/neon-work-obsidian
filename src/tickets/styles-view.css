@@ -1,0 +1,450 @@
+/* NEON TICKETS — uses the --nd-* tokens from Neon Deck */
+.tk-view *,
+.tk-tracker *,
+.tk-form-modal * {
+  box-sizing: border-box;
+}
+.tk-view,
+.tk-tracker {
+  padding: 22px clamp(14px, 3vw, 34px) 40px;
+  overflow: auto;
+}
+.tk-k,
+.tk-sec-k,
+.tk-label,
+.tk-tile-k,
+.tk-group-title,
+.tk-stat-l {
+  font: 600 10.5px var(--nd-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nd-muted);
+}
+.tk-id {
+  flex: none;
+  white-space: nowrap;
+  font: 700 12px var(--nd-mono);
+  letter-spacing: 0.04em;
+  color: var(--nd-go);
+}
+.tk-faint {
+  color: var(--nd-faint);
+  font-size: 12.5px;
+}
+.tk-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 12px;
+  color: var(--nd-faint);
+  text-align: center;
+}
+.tk-box {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border: 1.6px solid var(--nd-muted);
+  border-radius: 4px;
+  transition: background var(--nd-fast) ease, border-color var(--nd-fast) ease;
+}
+.tk-box.is-new {
+  border-style: dashed;
+}
+.tk-plus {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  flex: none;
+  border-radius: 6px;
+  border: var(--nd-border) dashed var(--nd-line-strong);
+  background: transparent;
+  color: var(--nd-muted);
+}
+.tk-plus:hover,
+.tk-plus.is-hot {
+  border-style: solid;
+  border-color: var(--nd-accent);
+  color: var(--nd-accent);
+}
+.tk-plus .nd-ico svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ---- ticket view ---------------------------------------------------- */
+.tk-card {
+  position: relative;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 22px 24px 18px;
+  border: var(--nd-border) solid var(--nd-line);
+  border-top: 3px solid var(--nd-accent);
+  border-radius: var(--nd-radius);
+  background: var(--nd-surface);
+  box-shadow: var(--nd-shadow);
+}
+.tk-card.status-done {
+  border-top-color: var(--nd-go);
+}
+.tk-card.status-waiting {
+  border-top-color: var(--nd-warn);
+}
+.tk-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.tk-jira {
+  font: 600 11px var(--nd-mono);
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--nd-line-strong);
+  color: var(--nd-info);
+}
+.tk-path {
+  font: 11px var(--nd-mono);
+  color: var(--nd-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.tk-corner {
+  margin-left: auto;
+  font: 11px var(--nd-mono);
+  color: var(--nd-faint);
+}
+.tk-title {
+  margin: 8px 0 14px;
+  font: 700 clamp(19px, 2.4vw, 25px) / 1.2 var(--nd-font-display);
+  color: var(--nd-text);
+  overflow-wrap: anywhere;
+}
+.tk-status {
+  margin-bottom: 16px;
+}
+.tk-status .s-open { --pill-accent: var(--nd-info); }
+.tk-status .s-in-progress { --pill-accent: var(--nd-accent); }
+.tk-status .s-waiting { --pill-accent: var(--nd-warn); }
+.tk-status .s-done { --pill-accent: var(--nd-go); }
+.tk-status .s-done.is-on { color: var(--nd-on-go); }
+.tk-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.tk-tile {
+  position: relative;
+  padding: 10px 12px;
+  border: var(--nd-border) solid var(--nd-line);
+  border-radius: var(--nd-radius-s);
+  background: var(--nd-surface2);
+  min-width: 0;
+}
+.tk-tile.is-clickable {
+  cursor: pointer;
+}
+.tk-tile.is-clickable:hover {
+  border-color: var(--nd-line-strong);
+}
+.tk-tile-v {
+  margin-top: 4px;
+  font: 600 13.5px var(--nd-font-ui);
+  color: var(--nd-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 26px;
+}
+.tk-tile-plus {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+.tk-tile.p-urgent .tk-tile-v,
+.tk-tile.p-high .tk-tile-v,
+.tk-tile.is-late .tk-tile-v {
+  color: var(--nd-accent);
+}
+.tk-tile.p-low .tk-tile-v {
+  color: var(--nd-muted);
+}
+.tk-waiting {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  border-radius: var(--nd-radius-s);
+  border-left: 3px solid var(--nd-warn);
+  background: color-mix(in srgb, var(--nd-warn) 9%, transparent);
+  font-size: 13px;
+}
+.tk-waiting .nd-ico svg {
+  width: 14px;
+  height: 14px;
+  color: var(--nd-warn);
+}
+.tk-wait-fu {
+  color: var(--nd-muted);
+}
+.tk-wait-fu.is-due {
+  color: var(--nd-accent);
+  font-weight: 600;
+}
+.tk-sec {
+  padding: 12px 0;
+  border-top: 1px solid var(--nd-line);
+}
+.tk-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.tk-mark {
+  width: 6px;
+  height: 6px;
+  background: var(--nd-accent);
+  transform: rotate(45deg);
+}
+.tk-sec-plus {
+  margin-left: auto;
+}
+.tk-desc {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--nd-text);
+  overflow-wrap: anywhere;
+}
+.tk-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 5px 2px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tk-step:hover {
+  background: color-mix(in srgb, var(--nd-text) 4%, transparent);
+}
+.tk-step .tk-box {
+  margin-top: 2px;
+}
+.tk-step:hover .tk-box {
+  border-color: var(--nd-go);
+}
+.tk-step.is-done .tk-box {
+  background: var(--nd-go);
+  border-color: var(--nd-go);
+}
+.tk-step-text {
+  flex: 1;
+  font-size: 13.5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tk-step.is-done .tk-step-text {
+  color: var(--nd-faint);
+  text-decoration: line-through;
+}
+.tk-step-at {
+  flex: none;
+  font: 11px var(--nd-mono);
+  color: var(--nd-faint);
+}
+.tk-log {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  gap: 10px;
+  padding: 4px 2px 4px 10px;
+  border-left: 2px solid var(--nd-line);
+  font-size: 13px;
+}
+.tk-log.is-latest {
+  border-left-color: var(--nd-accent);
+}
+.tk-log-at {
+  font: 11.5px var(--nd-mono);
+  color: var(--nd-faint);
+  padding-top: 1px;
+}
+.tk-log-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tk-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px;
+}
+.tk-inline input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--nd-accent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--nd-text);
+  font: 13.5px var(--nd-font-ui);
+  box-shadow: none;
+}
+.tk-inline input:focus {
+  outline: none;
+  box-shadow: none;
+}
+.tk-inline-hint {
+  flex: none;
+  font: 11px var(--nd-mono);
+  color: var(--nd-faint);
+}
+.tk-foot {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--nd-line);
+}
+
+/* ---- new ticket form and small modals ------------------------------- */
+.tk-form-modal {
+  width: min(640px, 96vw);
+}
+.tk-form-modal .modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tk-form-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--nd-radius-s);
+  background: var(--nd-accent);
+  color: var(--nd-on-accent);
+}
+.tk-form-icon svg {
+  width: 15px;
+  height: 15px;
+}
+.tk-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tk-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.tk-field {
+  min-width: 0;
+}
+.tk-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.tk-req,
+.tk-opt {
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-weight: 500;
+}
+.tk-req {
+  color: var(--nd-accent);
+}
+.tk-opt {
+  color: var(--nd-faint);
+}
+.tk-ready {
+  font: 11.5px var(--nd-mono);
+  color: var(--nd-faint);
+}
+.tk-ready.is-ok {
+  color: var(--nd-go);
+}
+.tk-date-text {
+  margin: 5px 0 6px;
+  font: 11.5px var(--nd-mono);
+  color: var(--nd-muted);
+}
+.tk-chips .nd-pill-btn {
+  padding: 3px 10px;
+  font-size: 11.5px;
+}
+.tk-field > .nd-input + .tk-chips,
+.tk-field > .tk-chips + .nd-input {
+  margin-top: 6px;
+}
+.tk-seg .nd-pill-btn {
+  padding: 5px 10px;
+}
+.tk-prio .nd-pill-btn:last-child {
+  --pill-accent: var(--nd-accent);
+}
+.tk-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+.tk-step-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 2px;
+  font-size: 13px;
+}
+.tk-step-row > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.tk-step-x {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--nd-faint);
+  cursor: pointer;
+}
+.tk-step-x:hover {
+  color: var(--nd-accent);
+}
+.tk-step-x svg {
+  width: 13px;
+  height: 13px;
+}
+.tk-step-input {
+  border-style: dashed;
+  background: transparent;
+}
+.tk-form-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.tk-keys {
+  margin-right: auto;
+  font: 11.5px var(--nd-mono);
+  color: var(--nd-faint);
+}
+.tk-wait-modal .tk-label,
+.tk-time-modal .tk-label {
+  margin: 12px 0 6px;
+}
+.tk-wait-modal .tk-label:first-child,
+.tk-time-modal .tk-label:first-child {
+  margin-top: 0;
+}

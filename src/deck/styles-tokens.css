@@ -1,0 +1,202 @@
+/* ==========================================================================
+   NEON DECK 1.3.0 — core styles
+   1. Theme tokens (one block per theme, dark + light)
+   2. Obsidian variables, mapped from the tokens
+   3. Shared controls (buttons, pills, inputs, modals)
+   4. Dashboard · 5. Card explorer · 6. Graph · 7. Status bar · 8. Motion
+   Other Neon plugins use the same --nd-* tokens.
+   ========================================================================== */
+
+/* ---------- 1. theme tokens ---------- */
+body {
+  --nd-font-display: "Unbounded", "Space Grotesk", var(--font-interface), sans-serif;
+  --nd-font-ui: "Space Grotesk", var(--font-interface), sans-serif;
+  --nd-mono: "JetBrains Mono", var(--font-monospace), monospace;
+  --nd-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --nd-fast: 150ms;
+  --nd-med: 250ms;
+  --nd-radius: 22px;
+  --nd-radius-s: 12px;
+  --nd-border: 1px;
+  --nd-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.8);
+  --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+/* Marathon: graphite, signal red for structure, acid lime for done / go */
+body.nd-theme-marathon.theme-dark {
+  --nd-bg: #121418; --nd-bg2: #0f1114; --nd-surface: #191c21; --nd-surface2: #20242a;
+  --nd-line: #2b2f37; --nd-line-strong: #3a3f49; --nd-text: #e4e6ea; --nd-muted: #8f95a0; --nd-faint: #656b76;
+  --nd-accent: #e5506a; --nd-on-accent: #121418; --nd-go: #c6e651; --nd-on-go: #121418; --nd-link: #c6e651;
+  --nd-info: #7fb3c9; --nd-warn: #d9c56a; --nd-pattern: #e5506a;
+  --nd-cat-projects: #e5506a; --nd-cat-school: #b9a0d6; --nd-cat-admin: #d9c56a; --nd-cat-operations: #7fb3c9; --nd-cat-other: #5f6570;
+}
+body.nd-theme-marathon.theme-light {
+  --nd-bg: #e8e9eb; --nd-bg2: #dfe1e4; --nd-surface: #f5f6f7; --nd-surface2: #eceef0;
+  --nd-line: #cfd3d8; --nd-line-strong: #b7bcc3; --nd-text: #1b1e23; --nd-muted: #535a64; --nd-faint: #868c95;
+  --nd-accent: #c8233f; --nd-on-accent: #ffffff; --nd-go: #6f8f00; --nd-on-go: #ffffff; --nd-link: #4f6a00;
+  --nd-info: #36688c; --nd-warn: #94770a; --nd-pattern: #c8233f;
+  --nd-cat-projects: #c8233f; --nd-cat-school: #7a5cb0; --nd-cat-admin: #a3820a; --nd-cat-operations: #36688c; --nd-cat-other: #9aa0a8;
+  --nd-shadow: 0 8px 24px -14px rgba(20, 24, 30, 0.35);
+  --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+/* Calm: muted pastels, low contrast */
+body.nd-theme-calm.theme-dark {
+  --nd-bg: #1a1d22; --nd-bg2: #16191d; --nd-surface: #21252b; --nd-surface2: #282d34;
+  --nd-line: #323841; --nd-line-strong: #3f4651; --nd-text: #d6dbe1; --nd-muted: #8e96a1; --nd-faint: #66707b;
+  --nd-accent: #c99aa6; --nd-on-accent: #1a1d22; --nd-go: #a9c08a; --nd-on-go: #1a1d22; --nd-link: #9fbfd0;
+  --nd-info: #8fb1c4; --nd-warn: #d2bf8b; --nd-pattern: #8fb1c4;
+  --nd-cat-projects: #c99aa6; --nd-cat-school: #b1a4cc; --nd-cat-admin: #d2bf8b; --nd-cat-operations: #8fb1c4; --nd-cat-other: #66707b;
+}
+body.nd-theme-calm.theme-light {
+  --nd-bg: #eef0f2; --nd-bg2: #e6e9ec; --nd-surface: #f8f9fa; --nd-surface2: #f0f2f4;
+  --nd-line: #d9dde2; --nd-line-strong: #c3c9d0; --nd-text: #2c3138; --nd-muted: #646c77; --nd-faint: #949ba5;
+  --nd-accent: #a5677a; --nd-on-accent: #ffffff; --nd-go: #5f7f45; --nd-on-go: #ffffff; --nd-link: #3f6f88;
+  --nd-info: #4f7a92; --nd-warn: #8c7531; --nd-pattern: #4f7a92;
+  --nd-cat-projects: #a5677a; --nd-cat-school: #7563a0; --nd-cat-admin: #8c7531; --nd-cat-operations: #4f7a92; --nd-cat-other: #a0a7b0;
+  --nd-shadow: 0 8px 24px -16px rgba(30, 40, 50, 0.3); --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+/* Paper: warm off-white, ink, rust */
+body.nd-theme-paper.theme-light {
+  --nd-bg: #f1ece2; --nd-bg2: #e9e2d5; --nd-surface: #faf6ee; --nd-surface2: #f1eadd;
+  --nd-line: #d9cfbd; --nd-line-strong: #c3b69f; --nd-text: #2b2620; --nd-muted: #6b6155; --nd-faint: #9b9081;
+  --nd-accent: #b0502c; --nd-on-accent: #ffffff; --nd-go: #57742a; --nd-on-go: #ffffff; --nd-link: #9a4424;
+  --nd-info: #3f6a80; --nd-warn: #9a7418; --nd-pattern: #b0502c;
+  --nd-cat-projects: #b0502c; --nd-cat-school: #6f5b98; --nd-cat-admin: #9a7418; --nd-cat-operations: #3f6a80; --nd-cat-other: #a59a89;
+  --nd-shadow: 0 8px 22px -16px rgba(60, 40, 20, 0.35); --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+body.nd-theme-paper.theme-dark {
+  --nd-bg: #1f1c18; --nd-bg2: #1a1814; --nd-surface: #282420; --nd-surface2: #302b26;
+  --nd-line: #3f3830; --nd-line-strong: #51483d; --nd-text: #e8e0d2; --nd-muted: #a89c8a; --nd-faint: #776c5e;
+  --nd-accent: #d27a52; --nd-on-accent: #1f1c18; --nd-go: #a6bf6a; --nd-on-go: #1f1c18; --nd-link: #e0936d;
+  --nd-info: #86aec2; --nd-warn: #d8b25a; --nd-pattern: #d27a52;
+  --nd-cat-projects: #d27a52; --nd-cat-school: #ad9ccf; --nd-cat-admin: #d8b25a; --nd-cat-operations: #86aec2; --nd-cat-other: #776c5e;
+}
+/* Night shift: warm brown-grey with amber, no blue glare */
+body.nd-theme-night.theme-dark {
+  --nd-bg: #1b1714; --nd-bg2: #171310; --nd-surface: #231e1a; --nd-surface2: #2b2520;
+  --nd-line: #3a322b; --nd-line-strong: #4b4138; --nd-text: #e4d6c3; --nd-muted: #a6957d; --nd-faint: #726452;
+  --nd-accent: #e0a04a; --nd-on-accent: #1b1714; --nd-go: #b9c46a; --nd-on-go: #1b1714; --nd-link: #e8b26a;
+  --nd-info: #c99f72; --nd-warn: #e0a04a; --nd-pattern: #e0a04a;
+  --nd-cat-projects: #e0a04a; --nd-cat-school: #c49ab0; --nd-cat-admin: #cdb86e; --nd-cat-operations: #b59a7d; --nd-cat-other: #726452;
+}
+body.nd-theme-night.theme-light {
+  --nd-bg: #efe5d8; --nd-bg2: #e6dbcc; --nd-surface: #f8f0e4; --nd-surface2: #efe5d7;
+  --nd-line: #d8c8b2; --nd-line-strong: #c2ae94; --nd-text: #3a2e22; --nd-muted: #6f5d48; --nd-faint: #9c8a73;
+  --nd-accent: #a86a14; --nd-on-accent: #ffffff; --nd-go: #6a7a1e; --nd-on-go: #ffffff; --nd-link: #8f5a10;
+  --nd-info: #8a6440; --nd-warn: #a86a14; --nd-pattern: #a86a14;
+  --nd-cat-projects: #a86a14; --nd-cat-school: #8c5f7a; --nd-cat-admin: #8f7a24; --nd-cat-operations: #7d6448; --nd-cat-other: #a8977f;
+  --nd-shadow: 0 8px 22px -16px rgba(60, 40, 20, 0.35); --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+/* Phosphor: near-black with terminal-green accents */
+body.nd-theme-phosphor {
+  --nd-font-display: "JetBrains Mono", var(--font-monospace), monospace;
+}
+body.nd-theme-phosphor.theme-dark {
+  --nd-bg: #111413; --nd-bg2: #0d100f; --nd-surface: #171b19; --nd-surface2: #1d221f;
+  --nd-line: #2a302c; --nd-line-strong: #373e39; --nd-text: #e0e6e1; --nd-muted: #9aa49c; --nd-faint: #69736c;
+  --nd-accent: #6fd88a; --nd-on-accent: #111413; --nd-go: #b6ec6c; --nd-on-go: #111413; --nd-link: #8fe6a6;
+  --nd-info: #82b9b3; --nd-warn: #cfc77d; --nd-pattern: #6fd88a;
+  --nd-cat-projects: #7cc795; --nd-cat-school: #a9bcd9; --nd-cat-admin: #cfc77d; --nd-cat-operations: #82b9b3; --nd-cat-other: #69736c;
+}
+body.nd-theme-phosphor.theme-light {
+  --nd-bg: #e9ecea; --nd-bg2: #e0e4e1; --nd-surface: #f5f7f5; --nd-surface2: #edf0ee;
+  --nd-line: #d0d6d1; --nd-line-strong: #b5bdb7; --nd-text: #1c241e; --nd-muted: #4f5a52; --nd-faint: #848d86;
+  --nd-accent: #1f8a43; --nd-on-accent: #ffffff; --nd-go: #4f8a12; --nd-on-go: #ffffff; --nd-link: #1f7a3d;
+  --nd-info: #1d7a73; --nd-warn: #857c12; --nd-pattern: #1f8a43;
+  --nd-cat-projects: #1f8a43; --nd-cat-school: #49679a; --nd-cat-admin: #857c12; --nd-cat-operations: #1d7a73; --nd-cat-other: #8aa292;
+  --nd-shadow: 0 8px 22px -16px rgba(20, 50, 30, 0.3); --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+/* Blueprint: cool grey with sky-blue accents */
+body.nd-theme-blueprint.theme-dark {
+  --nd-bg: #12161c; --nd-bg2: #0e1217; --nd-surface: #181d24; --nd-surface2: #1e242c;
+  --nd-line: #2b323c; --nd-line-strong: #39424e; --nd-text: #e5e9ee; --nd-muted: #9ca6b3; --nd-faint: #6a7482;
+  --nd-accent: #6ec1ff; --nd-on-accent: #12161c; --nd-go: #9fe3a6; --nd-on-go: #12161c; --nd-link: #8fd0ff;
+  --nd-info: #7fb6e0; --nd-warn: #dcc27a; --nd-pattern: #6ec1ff;
+  --nd-cat-projects: #e39a80; --nd-cat-school: #b5a6e0; --nd-cat-admin: #dcc27a; --nd-cat-operations: #7fb6e0; --nd-cat-other: #6a7482;
+}
+body.nd-theme-blueprint.theme-light {
+  --nd-bg: #eaedf1; --nd-bg2: #e1e5ea; --nd-surface: #f6f8fa; --nd-surface2: #edf0f4;
+  --nd-line: #d0d6de; --nd-line-strong: #b4bdc9; --nd-text: #161c25; --nd-muted: #4c5665; --nd-faint: #858e9b;
+  --nd-accent: #1f6fb8; --nd-on-accent: #ffffff; --nd-go: #2f7d3a; --nd-on-go: #ffffff; --nd-link: #1a62a3;
+  --nd-info: #1f6fb8; --nd-warn: #8f6b0a; --nd-pattern: #1f6fb8;
+  --nd-cat-projects: #c2552f; --nd-cat-school: #6a4fb0; --nd-cat-admin: #8f6b0a; --nd-cat-operations: #1f6fb8; --nd-cat-other: #8fa3bc;
+  --nd-shadow: 0 8px 22px -16px rgba(15, 35, 70, 0.35); --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+/* Cyberpunk: blue-black night city, acid yellow, cyan, hot red */
+body.nd-theme-cyberpunk {
+  --nd-font-display: "Space Grotesk", var(--font-interface), sans-serif;
+}
+body.nd-theme-cyberpunk.theme-dark {
+  --nd-bg: #0a0d14; --nd-bg2: #070a10; --nd-surface: #10151f; --nd-surface2: #161d2a;
+  --nd-line: #232c3d; --nd-line-strong: #34405a; --nd-text: #e9ecf2; --nd-muted: #8d97ab; --nd-faint: #5c6679;
+  --nd-accent: #f3e600; --nd-on-accent: #0a0d14; --nd-go: #00e0f0; --nd-on-go: #0a0d14; --nd-link: #00e0f0;
+  --nd-info: #00e0f0; --nd-warn: #ff2a6d; --nd-pattern: #ff2a4f;
+  --nd-cat-projects: #e8688e; --nd-cat-school: #b49ae6; --nd-cat-admin: #dccf5a; --nd-cat-operations: #4fc9d4; --nd-cat-other: #5c6679;
+  --nd-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.85); --nd-hi: inset 0 1px 0 rgba(243, 230, 0, 0.07);
+}
+body.nd-theme-cyberpunk.theme-light {
+  --nd-bg: #ecebe3; --nd-bg2: #e2e1d8; --nd-surface: #f7f6ef; --nd-surface2: #edece4;
+  --nd-line: #cfcdc0; --nd-line-strong: #a9a796; --nd-text: #12151d; --nd-muted: #4c5160; --nd-faint: #868a95;
+  --nd-accent: #8a7d00; --nd-on-accent: #ffffff; --nd-go: #007f8f; --nd-on-go: #ffffff; --nd-link: #006a77;
+  --nd-info: #007f8f; --nd-warn: #c8103e; --nd-pattern: #c8102e;
+  --nd-cat-projects: #c8103e; --nd-cat-school: #6b44b8; --nd-cat-admin: #8a7d00; --nd-cat-operations: #007f8f; --nd-cat-other: #9a9da6;
+  --nd-shadow: 0 8px 22px -16px rgba(18, 21, 29, 0.35); --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+/* graph palette + aliases used by older class names */
+body.nd-themed {
+  --nd-c1: var(--nd-go); --nd-c2: var(--nd-accent); --nd-c3: var(--nd-info); --nd-c4: var(--nd-warn); --nd-c5: var(--nd-text);
+  --nd-c6: var(--nd-cat-school); --nd-c7: var(--nd-cat-admin); --nd-c8: var(--nd-cat-projects); --nd-c9: var(--nd-cat-operations); --nd-c10: var(--nd-muted);
+  --nd-pink: var(--nd-accent); --nd-ink: var(--nd-bg); --nd-sel: color-mix(in srgb, var(--nd-go) 26%, transparent);
+}
+
+/* ---------- 2. Obsidian variables ---------- */
+body.nd-themed {
+  --background-primary: var(--nd-bg);
+  --background-primary-alt: var(--nd-surface);
+  --background-secondary: var(--nd-bg2);
+  --background-secondary-alt: var(--nd-surface);
+  --background-modifier-border: var(--nd-line);
+  --background-modifier-border-hover: var(--nd-line-strong);
+  --background-modifier-border-focus: var(--nd-accent);
+  --background-modifier-hover: color-mix(in srgb, var(--nd-text) 6%, transparent);
+  --background-modifier-active-hover: color-mix(in srgb, var(--nd-accent) 14%, transparent);
+  --background-modifier-form-field: var(--nd-surface2);
+  --titlebar-background: var(--nd-bg2);
+  --titlebar-background-focused: var(--nd-bg2);
+  --tab-container-background: var(--nd-bg2);
+  --ribbon-background: var(--nd-bg2);
+  --status-bar-background: var(--nd-bg2);
+  --text-normal: var(--nd-text);
+  --text-muted: var(--nd-muted);
+  --text-faint: var(--nd-faint);
+  --text-accent: var(--nd-link);
+  --text-accent-hover: var(--nd-text);
+  --text-on-accent: var(--nd-on-accent);
+  --text-selection: var(--nd-sel);
+  --interactive-accent: var(--nd-accent);
+  --interactive-accent-hover: color-mix(in srgb, var(--nd-accent) 85%, var(--nd-text));
+  --interactive-normal: var(--nd-surface2);
+  --interactive-hover: color-mix(in srgb, var(--nd-surface2) 80%, var(--nd-text));
+  --link-color: var(--nd-link);
+  --link-color-hover: var(--nd-text);
+  --link-external-color: var(--nd-info);
+  --link-unresolved-color: var(--nd-muted);
+  --h1-color: var(--nd-text);
+  --h2-color: var(--nd-text);
+  --h3-color: var(--nd-text);
+  --h4-color: var(--nd-muted);
+  --h5-color: var(--nd-muted);
+  --h6-color: var(--nd-faint);
+  --tag-background: color-mix(in srgb, var(--nd-accent) 12%, transparent);
+  --tag-background-hover: color-mix(in srgb, var(--nd-accent) 20%, transparent);
+  --tag-color: var(--nd-accent);
+  --tag-color-hover: var(--nd-text);
+  --checkbox-color: var(--nd-go);
+  --checkbox-color-hover: var(--nd-go);
+  --checkbox-marker-color: var(--nd-on-go);
+  --checkbox-border-color: var(--nd-muted);
+  --blockquote-border-color: var(--nd-accent);
+  --color-accent: var(--nd-accent);
+}
+body.nd-themed .workspace-tab-header.is-active {
+  box-shadow: inset 0 -2px 0 var(--nd-accent);
+}

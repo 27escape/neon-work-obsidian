@@ -1,0 +1,768 @@
+/* ---------- 5. card explorer ---------- */
+.nd-cards.view-content {
+  display: flex;
+  flex-direction: column;
+  background: var(--nd-bg);
+}
+.nd-cards:not(.is-sidebar) {
+  padding: 0;
+}
+.nd-cards-bar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 14px 18px 8px;
+}
+.nd-nav,
+.nd-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.nd-tools {
+  margin-left: auto;
+  /* the toolbar shrinks its filter box before wrapping, so New folder stays in the row next to Note */
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.nd-tools > .nd-search {
+  flex: 0 1 230px;
+  min-width: 120px;
+}
+.nd-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1 1 160px;
+}
+.nd-crumb {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  padding: 4px 6px;
+  font: 600 15px var(--nd-font-ui);
+  color: var(--nd-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: 8px;
+}
+.nd-crumb:hover {
+  color: var(--nd-text);
+}
+.nd-crumb.is-current {
+  color: var(--nd-text);
+}
+.nd-crumb-sep {
+  color: var(--nd-accent);
+}
+.nd-crumb.is-drop,
+.nd-icon-btn.is-drop {
+  outline: 2px dashed var(--nd-go);
+}
+.nd-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: var(--nd-radius-s);
+  border: var(--nd-border) solid var(--nd-line);
+  background: var(--nd-surface2);
+  min-width: 0;
+  flex: 1 1 200px;
+  max-width: 340px;
+  color: var(--nd-faint);
+}
+.nd-search input {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 7px 0;
+  width: 100%;
+  font: 13px var(--nd-font-ui);
+  color: var(--nd-text);
+}
+.nd-search input:focus {
+  box-shadow: none;
+}
+.nd-cat-chips {
+  position: relative;
+  z-index: 2;
+  padding: 2px 18px 6px;
+}
+.nd-pill-btn.chip-revisit {
+  --pill-accent: var(--nd-go);
+}
+.nd-pill-btn.chip-revisit:not(.is-on) {
+  color: var(--nd-go);
+  border-color: color-mix(in srgb, var(--nd-go) 45%, var(--nd-line));
+}
+.nd-pill-btn.chip-all,
+.nd-pill-btn.chip-untracked {
+  --pill-accent: var(--nd-text);
+}
+.nd-cards-scroll {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.nd-cards-body {
+  padding: 0 18px 18px;
+}
+.nd-ci-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 14px;
+}
+.nd-ci-grid.is-folders {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.nd-ci {
+  --ci-accent: var(--nd-line-strong);
+  position: relative;
+  border: var(--nd-border) solid var(--nd-line);
+  border-radius: calc(var(--nd-radius) * 0.75);
+  background: var(--nd-surface);
+  box-shadow: var(--nd-hi), var(--nd-shadow);
+  padding: 12px 14px;
+  cursor: pointer;
+  min-width: 0;
+  transition: transform var(--nd-med) var(--nd-ease), border-color var(--nd-fast) ease, box-shadow var(--nd-fast) ease;
+}
+.nd-has-pattern .nd-ci {
+  background:
+    radial-gradient(ellipse 100% 100% at 50% 45%, var(--nd-surface) 0%, var(--nd-surface) 55%,
+      color-mix(in srgb, var(--nd-surface) 90%, transparent) 72%,
+      color-mix(in srgb, var(--nd-surface) 58%, transparent) 90%,
+      color-mix(in srgb, var(--nd-surface) 32%, transparent) 100%);
+}
+.nd-ci:hover {
+  transform: translateY(-2px);
+  border-color: var(--nd-line-strong);
+}
+.nd-ci.is-active {
+  border-color: var(--nd-go);
+}
+.nd-ci.is-drop {
+  outline: 2px dashed var(--nd-go);
+  outline-offset: 2px;
+}
+.nd-ci.needs-revisit {
+  border-color: color-mix(in srgb, var(--nd-go) 45%, var(--nd-line));
+}
+.nd-ci-folder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.nd-folder-icon {
+  --folder-accent: var(--nd-muted);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  color: var(--folder-accent);
+  background: color-mix(in srgb, var(--folder-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--folder-accent) 35%, transparent);
+}
+.nd-folder-icon svg {
+  width: 19px;
+  height: 19px;
+}
+.nd-ci-main {
+  flex: 1;
+  min-width: 0;
+}
+.nd-ci-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.nd-ci-folder .nd-ci-title {
+  font: 700 14px var(--nd-font-display);
+  flex: 1;
+}
+.nd-ci-title {
+  font-weight: 600;
+  font-size: 15px;
+  margin: 6px 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.nd-ci-folder .nd-ci-title {
+  margin: 0;
+}
+.nd-ci-meta,
+.nd-ci-path {
+  font: 12px var(--nd-mono);
+  color: var(--nd-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-ci-progress {
+  margin-top: 7px;
+  height: 4px;
+  max-width: 230px;
+  border-radius: 99px;
+  background: var(--nd-surface2);
+  overflow: hidden;
+}
+.nd-ci-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--nd-cat-school);
+  transition: width 0.6s var(--nd-ease);
+}
+.nd-cat-tag {
+  --tag-accent: var(--nd-muted);
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font: 600 11px var(--nd-mono);
+  color: var(--tag-accent);
+  background: color-mix(in srgb, var(--tag-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tag-accent) 30%, transparent);
+}
+.nd-ci-folder .nd-cat-tag {
+  background: transparent;
+}
+.nd-cat-tag.is-none,
+.nd-cat-tag.is-ext {
+  color: var(--nd-faint);
+  background: transparent;
+  border-color: var(--nd-line);
+}
+.nd-ci-when {
+  margin-left: auto;
+  font: 12px var(--nd-mono);
+  color: var(--nd-faint);
+  white-space: nowrap;
+}
+.nd-ci-when.is-revisit {
+  color: var(--nd-go);
+}
+.nd-ci-excerpt {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--nd-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.9em;
+}
+.nd-ci-excerpt.is-empty {
+  font-style: italic;
+  color: var(--nd-faint);
+}
+.nd-ci-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.nd-ci-tags {
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+}
+.nd-tag {
+  font: 600 11px var(--nd-mono);
+  color: var(--nd-accent);
+  background: color-mix(in srgb, var(--nd-accent) 12%, transparent);
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.nd-ci-links {
+  margin-left: auto;
+  font: 11px var(--nd-mono);
+  color: var(--nd-faint);
+  white-space: nowrap;
+}
+.nd-ci-cover {
+  margin: -12px -14px 10px;
+  height: 110px;
+  overflow: hidden;
+  border-radius: calc(var(--nd-radius) * 0.75) calc(var(--nd-radius) * 0.75) 0 0;
+}
+.nd-ci-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Cards tab: note cards stay only a little taller than folder cards
+   (one-line excerpt, tighter footer, shorter cover); folders get a touch more room */
+.nd-cards:not(.is-sidebar) .nd-ci-folder {
+  padding-block: 15px;
+}
+.nd-cards:not(.is-sidebar) .nd-ci-excerpt {
+  -webkit-line-clamp: 1;
+  min-height: 1.45em;
+}
+.nd-cards:not(.is-sidebar) .nd-ci-foot {
+  margin-top: 5px;
+}
+.nd-cards:not(.is-sidebar) .nd-ci:not(.nd-ci-folder) .nd-ci-title {
+  margin: 4px 0 2px;
+}
+.nd-cards:not(.is-sidebar) .nd-ci-cover {
+  height: 64px;
+  margin-bottom: 8px;
+}
+.nd-ci.nd-more {
+  display: grid;
+  place-items: center;
+  color: var(--nd-muted);
+  font-weight: 600;
+}
+/* list mode */
+.nd-cards-body.is-list .nd-ci-grid.is-notes {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.nd-cards-body.is-list .nd-ci-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+}
+.nd-cards-body.is-list .nd-ci-note .nd-ci-top {
+  display: contents;
+}
+.nd-cards-body.is-list .nd-ci-note .nd-ci-title {
+  margin: 0;
+  grid-column: 2;
+  grid-row: 1;
+}
+.nd-cards-body.is-list .nd-ci-note .nd-ci-when {
+  grid-column: 4;
+  grid-row: 1;
+}
+.nd-cards-body.is-list .nd-ci-excerpt,
+.nd-cards-body.is-list .nd-ci-cover,
+.nd-cards-body.is-list .nd-ci-path {
+  display: none;
+}
+.nd-cards-body.is-list .nd-ci-foot {
+  margin: 0;
+  grid-column: 3;
+  grid-row: 1;
+}
+.nd-cards-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--nd-muted);
+}
+.nd-cards-empty-art {
+  font: 700 38px var(--nd-font-display);
+  color: var(--nd-accent);
+}
+/* hover preview */
+.nd-preview {
+  position: absolute;
+  z-index: 20;
+  width: 340px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--nd-accent) 60%, var(--nd-line));
+  background: var(--nd-surface);
+  box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.7);
+  animation: nd-pop var(--nd-med) var(--nd-ease);
+}
+.nd-preview-k {
+  font: 600 10.5px var(--nd-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--nd-accent);
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-preview-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--nd-text);
+}
+.nd-preview-links {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--nd-muted);
+}
+.nd-preview-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+/* sidebar */
+.nd-cards.is-sidebar {
+  padding: 8px 8px 0;
+  /* faint dot texture behind the list */
+  background: radial-gradient(circle, color-mix(in srgb, var(--nd-text) 7%, transparent) 1px, transparent 1.6px) 0 0 / 10px 10px, var(--nd-bg2);
+}
+/* sidebar nav: Dashboard, Cards, Tickets, Time, Graph open in the main pane */
+.nd-side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--nd-line);
+}
+/* .nd-side-nav prefix: beats Obsidian's own button:not(.clickable-icon) style */
+.nd-side-nav .nd-side-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  height: auto;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--nd-muted);
+  font: 600 13px var(--nd-font-ui);
+  cursor: pointer;
+  transition: background var(--nd-fast) ease, color var(--nd-fast) ease;
+}
+.nd-side-nav-item .nd-ico svg {
+  width: 16px;
+  height: 16px;
+}
+.nd-side-nav .nd-side-nav-item:hover {
+  background: color-mix(in srgb, var(--nd-text) 6%, transparent);
+  color: var(--nd-text);
+}
+.nd-side-nav .nd-side-nav-item.is-active {
+  background: color-mix(in srgb, var(--nd-accent) 14%, transparent);
+  box-shadow: inset 2px 0 0 var(--nd-accent);
+  color: var(--nd-text);
+}
+.nd-side-nav-item.is-active .nd-ico {
+  color: var(--nd-accent);
+}
+.nd-side-top .nd-search {
+  max-width: none;
+}
+/* rows slide and shift sideways: keep that inside the list instead of over the pane border */
+.nd-cards.is-sidebar .nd-cards-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.nd-side-body {
+  padding: 0 6px 14px 2px;
+  overflow-x: clip;
+}
+.nd-side-body > .nd-section-k:first-child {
+  margin-top: 10px;
+}
+.nd-side-pin {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  margin-bottom: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--nd-line);
+  background: var(--nd-surface);
+  cursor: pointer;
+  transition: border-color var(--nd-fast) ease, transform var(--nd-fast) ease, background-color var(--nd-fast) ease, box-shadow var(--nd-fast) ease;
+}
+.nd-side-pin:hover {
+  border-color: var(--nd-line-strong);
+  transform: translateX(2px);
+}
+.nd-side-pin.is-current {
+  border-color: var(--nd-accent);
+}
+.nd-side-pin .nd-folder-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+}
+.nd-side-pin .nd-folder-icon svg {
+  width: 15px;
+  height: 15px;
+}
+.nd-side-pin .nd-side-name {
+  font: 700 13px var(--nd-font-display);
+}
+.nd-side-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-side-count {
+  flex: none;
+  font: 11px var(--nd-mono);
+  color: var(--nd-faint);
+  max-width: 45%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-side-browse {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  /* room under the New note / New folder buttons so they don't sit on the first row */
+  margin-bottom: 8px;
+}
+.nd-side-browse .nd-section-k {
+  flex: 1;
+  margin: 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-side-browse .nd-icon-btn {
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--nd-muted);
+}
+.nd-side-row {
+  --row-accent: var(--nd-line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 7px 10px;
+  margin-bottom: 5px;
+  border-radius: 12px;
+  border: 1px solid var(--nd-line);
+  border-left: 3px solid var(--row-accent);
+  background: var(--nd-surface);
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: border-color var(--nd-fast) ease, transform var(--nd-fast) ease, background-color var(--nd-fast) ease, box-shadow var(--nd-fast) ease;
+}
+.nd-side-row:hover {
+  border-color: var(--nd-line-strong);
+  border-left-color: var(--row-accent);
+  transform: translateX(3px);
+}
+/* folders: halftone dots in their category colour, like the first Neon version */
+.nd-side-row.is-folder {
+  --row-tint: var(--nd-muted);
+  --row-accent: var(--row-tint);
+  position: relative;
+  isolation: isolate;
+  font-weight: 600;
+  background: var(--nd-surface);
+}
+/* the dots and tint fade out from right to left, so the icon and name sit on plain background */
+.nd-side-row.is-folder::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--row-tint) 38%, transparent) 1.1px, transparent 1.8px) 0 0 / 8px 8px,
+    color-mix(in srgb, var(--row-tint) 9%, transparent);
+  -webkit-mask-image: linear-gradient(to left, #000 0%, rgba(0, 0, 0, 0.6) 30%, transparent 72%);
+  mask-image: linear-gradient(to left, #000 0%, rgba(0, 0, 0, 0.6) 30%, transparent 72%);
+}
+.nd-side-row.is-drop {
+  outline: 2px dashed var(--nd-go);
+}
+.nd-side-row .nd-folder-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+}
+.nd-side-row .nd-folder-icon svg {
+  width: 15px;
+  height: 15px;
+}
+.nd-side-row.needs-revisit .nd-side-count {
+  color: var(--nd-go);
+}
+/* sidebar + cards: folders in shades of the accent (red in Marathon), notes in shades of go (acid lime) */
+.nd-side-pin,
+.nd-side-row.is-folder,
+.nd-ci-folder {
+  --tone-base: var(--nd-accent);
+  --tone: var(--tone-base);
+}
+.nd-side-row.is-note,
+.nd-ci-note {
+  --tone-base: var(--nd-go);
+  --tone: var(--tone-base);
+}
+/* the second shade: blended a little toward the text colour (lighter on dark themes, darker on light) */
+.nd-side-pin.tone-b,
+.nd-side-row.tone-b,
+.nd-ci-grid > .nd-ci:nth-child(even) {
+  --tone: color-mix(in srgb, var(--tone-base) 68%, var(--nd-text));
+}
+
+.nd-side-row.tone-a:not(.is-active),
+.nd-side-row.tone-b:not(.is-active),
+.nd-side-pin.tone-a:not(.is-current),
+.nd-side-pin.tone-b:not(.is-current) {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 12%, var(--nd-surface)), color-mix(in srgb, var(--tone) 4%, var(--nd-surface)));
+  border-color: color-mix(in srgb, var(--tone) 20%, var(--nd-line));
+}
+.nd-side-row.tone-a:not(.is-active):hover,
+.nd-side-row.tone-b:not(.is-active):hover,
+.nd-side-pin.tone-a:not(.is-current):hover,
+.nd-side-pin.tone-b:not(.is-current):hover {
+  border-color: color-mix(in srgb, var(--tone) 38%, var(--nd-line));
+}
+/* folder halftone follows the tone too */
+.nd-side-row.is-folder.tone-a::before,
+.nd-side-row.is-folder.tone-b::before {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--tone) 34%, transparent) 1.1px, transparent 1.8px) 0 0 / 8px 8px,
+    color-mix(in srgb, var(--tone) 7%, transparent);
+}
+/* keep each row's category stripe on the left */
+.nd-side-row.tone-a,
+.nd-side-row.tone-b {
+  border-left-color: var(--row-accent);
+}
+/* the selected note: one even green border all round, glow kept inside the row */
+.nd-side-row.is-active,
+.nd-side-row.is-active:hover {
+  border: 1px solid color-mix(in srgb, var(--nd-go) 70%, transparent);
+  padding-left: 12px;
+  background: color-mix(in srgb, var(--nd-go) 11%, var(--nd-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nd-go) 25%, transparent), inset 0 0 14px -6px color-mix(in srgb, var(--nd-go) 45%, transparent);
+}
+
+/* cards tab: tinted border only, fading softly into the card, over a faint halftone */
+.nd-ci-folder,
+.nd-ci-note {
+  isolation: isolate;
+}
+.nd-ci-folder:not(.is-active):not(.needs-revisit),
+.nd-ci-note:not(.is-active):not(.needs-revisit) {
+  border-color: color-mix(in srgb, var(--tone) 20%, var(--nd-line));
+}
+.nd-ci-folder:not(.is-active):hover,
+.nd-ci-note:not(.is-active):hover {
+  border-color: color-mix(in srgb, var(--tone) 32%, var(--nd-line));
+}
+.nd-ci-folder::before,
+.nd-ci-note::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--tone) 14%, transparent) 1px, transparent 1.6px) 0 0 / 9px 9px,
+    color-mix(in srgb, var(--tone) 4%, transparent);
+  -webkit-mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, #000 100%);
+  mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, #000 100%);
+}
+.nd-ci-note.is-image::before {
+  display: none;
+}
+/* new note / new folder: bigger, in the theme colours */
+.nd-side-browse .nd-icon-btn.nd-side-add {
+  --add-c: var(--nd-accent);
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  border: 1.5px solid color-mix(in srgb, var(--add-c) 45%, transparent);
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--add-c) 28%, transparent), color-mix(in srgb, var(--add-c) 10%, transparent));
+  color: var(--add-c);
+  transition: transform var(--nd-fast) ease, box-shadow var(--nd-fast) ease, background-color var(--nd-fast) ease;
+}
+.nd-side-browse .nd-icon-btn.nd-side-add.is-folder {
+  --add-c: var(--nd-go);
+}
+.nd-side-browse .nd-icon-btn.nd-side-add svg {
+  width: 18px;
+  height: 18px;
+}
+.nd-side-browse .nd-icon-btn.nd-side-add:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--add-c) 30%, transparent);
+  box-shadow: 0 0 14px -2px color-mix(in srgb, var(--add-c) 55%, transparent);
+}
+.nd-side-browse .nd-icon-btn.nd-side-add:active {
+  transform: scale(0.94);
+}
+/* sidebar: rows slide in one after another when you change folder */
+.nd-side-in-fade > *,
+.nd-side-in-fwd > *,
+.nd-side-in-back > * {
+  animation: nd-card-in 0.25s var(--nd-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 18ms);
+}
+.nd-side-in-fwd > * { --from-x: 6px; }
+.nd-side-in-back > * { --from-x: -6px; }
+.nd-side-row:hover,
+.nd-side-pin:hover {
+  box-shadow: 0 4px 14px -10px color-mix(in srgb, var(--row-accent, var(--nd-accent)) 70%, transparent);
+}
+.nd-side-row:active,
+.nd-side-pin:active {
+  transform: translateX(3px) scale(0.985);
+}
+.nd-side-row .nd-folder-icon,
+.nd-side-pin .nd-folder-icon {
+  transition: transform var(--nd-fast) ease;
+}
+.nd-side-row:hover .nd-folder-icon,
+.nd-side-pin:hover .nd-folder-icon {
+  transform: scale(1.08) rotate(-4deg);
+}
+.nd-side-more {
+  padding: 8px 10px;
+  font: 12px var(--nd-mono);
+  color: var(--nd-muted);
+  text-align: center;
+  cursor: pointer;
+  border-radius: 12px;
+}
+.nd-side-more:hover {
+  color: var(--nd-text);
+  background: color-mix(in srgb, var(--nd-text) 4%, transparent);
+}
+/* entry animations */
+.nd-in-fade .nd-ci,
+.nd-in-fwd .nd-ci,
+.nd-in-back .nd-ci {
+  animation: nd-card-in 0.3s var(--nd-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 12ms);
+}
+.nd-in-fwd .nd-ci { --from-x: 14px; }
+.nd-in-back .nd-ci { --from-x: -14px; }
+.nd-ci.is-new {
+  animation: nd-card-in 0.25s var(--nd-ease) backwards;
+}
