@@ -210,6 +210,11 @@ class TicketCard {
       const tick = () => {
         this.plugin.toggleStep(t, step);
         r.toggleClass('is-done', step.done); // show it now; the file write follows
+        r.removeClass('is-pop');
+        if (step.done) {
+          void r.offsetWidth; // reflow, so a quick re-tick replays the pop
+          r.addClass('is-pop');
+        }
       };
       box.addEventListener('click', tick);
       r.querySelector('.tk-step-text').addEventListener('click', tick);
@@ -253,8 +258,12 @@ class TicketCard {
 
     const ls = sec('Log', '', (s) => this.inline(s, 'Write a log line…', (v) => this.plugin.addLog(t, v), false, true), 'Write your own log line');
     const log = b.log.slice().sort((x, y) => (y.when ? y.when.valueOf() : 0) - (x.when ? x.when.valueOf() : 0));
+    // a new top line since the last draw of this ticket slides in (not on first open)
+    const key = log.length ? `${log[0].when ? log[0].when.valueOf() : ''} ${log[0].text}` : '';
+    const fresh = this.logSeen && this.logSeen.path === file.path && this.logSeen.key !== key;
+    this.logSeen = { path: file.path, key };
     log.forEach((e, i) => {
-      const r = ls.createDiv('tk-log' + (i === 0 ? ' is-latest' : ''));
+      const r = ls.createDiv('tk-log' + (i === 0 ? ' is-latest' + (fresh ? ' is-fresh' : '') : ''));
       r.createSpan({ cls: 'tk-log-at', text: e.when ? e.when.format(e.hasTime ? 'DD MMM HH:mm' : 'DD MMM') : '' });
       r.createSpan({ cls: 'tk-log-text', text: e.text });
     });

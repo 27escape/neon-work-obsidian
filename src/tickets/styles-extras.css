@@ -287,3 +287,33 @@
   animation-duration: 0.25s;
   animation-delay: 0s;
 }
+
+/* ticking a step: the box pops, the text eases to faint; a new log line slides in */
+.tk-step .tk-step-text {
+  transition: color var(--nd-fast) ease;
+}
+.tk-step.is-pop .tk-box {
+  animation: tk-pop 0.24s ease-out;
+}
+@keyframes tk-pop {
+  45% {
+    transform: scale(1.28);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--nd-go) 25%, transparent);
+  }
+}
+.tk-log.is-fresh {
+  animation: tk-log-in 0.32s ease-out both;
+}
+@keyframes tk-log-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+    background: color-mix(in srgb, var(--nd-accent) 14%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tk-step.is-pop .tk-box,
+  .tk-log.is-fresh {
+    animation: none;
+  }
+}
