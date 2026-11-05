@@ -26,10 +26,18 @@
     transform: translateX(-8px);
   }
 }
-/* a new filter: rows rise in quickly */
+/* a new filter: rows swap in at once (almost fully visible from the first frame, no stagger) */
 .tk-list.is-refilter .tk-row {
-  animation-duration: 0.28s;
-  animation-delay: calc(var(--i, 0) * 12ms);
+  animation: tk-swap 0.16s var(--nd-ease, ease) both;
+}
+.tk-list.is-refilter .tk-group-head {
+  animation: none;
+}
+@keyframes tk-swap {
+  from {
+    opacity: 0.4;
+    transform: translateY(3px);
+  }
 }
 /* progress bars fill up when the list animates in */
 .tk-list:not(.is-calm) .tk-progress-fill {
@@ -273,4 +281,9 @@
   gap: 6px;
   margin-top: 12px;
   font-size: 13px;
+}
+/* progress bars after a filter switch: fill without the waiting delay */
+.tk-list.is-refilter .tk-progress-fill {
+  animation-duration: 0.25s;
+  animation-delay: 0s;
 }
