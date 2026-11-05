@@ -374,3 +374,56 @@
     stroke-dashoffset: 0;
   }
 }
+
+/* small ticket rows: the done circle draws a checkmark; with open steps it shakes instead */
+.tk-row-check {
+  display: grid;
+  place-items: center;
+  color: var(--nd-bg, var(--background-primary));
+}
+.tk-row-check svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 3.5;
+}
+.tk-row.is-completing .tk-row-check {
+  animation: tk-pop 0.3s ease-out;
+}
+.tk-row.is-completing .tk-row-check svg path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: tk-draw 0.3s 0.05s ease-out forwards;
+}
+.tk-row.is-completing {
+  transition: opacity 0.35s 0.2s ease;
+}
+.tk-row-check.is-shake {
+  animation: tk-shake 0.32s ease;
+  border-color: var(--nd-warn);
+}
+@keyframes tk-shake {
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+.tk-done.is-blocked {
+  opacity: 0.55;
+}
+.tk-all-done {
+  margin-left: auto;
+  font-size: 12px;
+}
+.tk-all-done + .tk-sec-plus {
+  margin-left: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tk-row.is-completing .tk-row-check,
+  .tk-row.is-completing .tk-row-check svg path,
+  .tk-row-check.is-shake {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

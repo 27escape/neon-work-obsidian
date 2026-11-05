@@ -202,6 +202,10 @@ class TicketCard {
 
     const done = b.steps.filter((x) => x.done).length;
     const ss = sec('Next steps', b.steps.length ? `${done} of ${b.steps.length}` : '', (s) => this.inline(s, 'New step…', (v) => this.plugin.addStep(t, v), true), 'Add a step', true);
+    if (done < b.steps.length) {
+      const all = button(ss.querySelector('.tk-sec-head'), { icon: 'check-check', text: 'Complete all', cls: 'tk-all-done', title: 'Tick every open step', onClick: () => this.plugin.completeAllSteps(t) });
+      ss.querySelector('.tk-sec-head').insertBefore(all, ss.querySelector('.tk-sec-plus'));
+    }
     for (const step of b.steps) {
       const r = ss.createDiv('tk-step' + (step.done ? ' is-done' : ''));
       const box = r.createDiv('tk-box');
@@ -281,7 +285,7 @@ class TicketCard {
     button(foot, { text: 'Edit as note', onClick: () => this.host.raw(file) });
     const dest = this.plugin.doneDest(t, moment());
     if (t.status === 'done') button(foot, { icon: 'rotate-ccw', text: 'Reopen', cls: 'tk-reopen', onClick: () => this.plugin.setStatus(t, 'open') });
-    else button(foot, { text: dest ? `Mark done → ${dest}` : 'Mark done', cls: 'mod-cta tk-done', onClick: () => this.finish(t) });
+    else button(foot, { text: dest ? `Mark done → ${dest}` : 'Mark done', cls: 'mod-cta tk-done' + (done < b.steps.length ? ' is-blocked' : ''), title: done < b.steps.length ? 'Finish all steps first' : '', onClick: () => this.finish(t) });
     if (reopen) {
       const sec = root.querySelector(`.tk-sec[data-sec="${reopen.key}"]`);
       if (sec) {
@@ -295,12 +299,14 @@ class TicketCard {
   /** Mark done: a checkmark draws over the card while the status saves, then the ticket closes. */
   async finish(t) {
     if (this.finishing) return;
+    if (await this.plugin.openSteps(t)) return this.plugin.setStatus(t, 'done'); // refuses, with a notice
     this.finishing = true; // no redraw mid-animation (the save and a done-folder move both trigger one)
     const card = this.scroll.querySelector('.tk-card');
     const mark = card.createDiv('tk-done-mark');
     setIcon(mark.createDiv('tk-done-check'), 'check');
     try {
-      await Promise.all([this.plugin.setStatus(t, 'done'), new Promise((r) => window.setTimeout(r, 900))]);
+      const [ok] = await Promise.all([this.plugin.setStatus(t, 'done'), new Promise((r) => window.setTimeout(r, 900))]);
+      if (ok === false) throw new Error('a step was added meanwhile');
     } catch (e) {
       console.error('Neon Tickets: could not mark done', e);
       new Notice('Could not mark the ticket done');

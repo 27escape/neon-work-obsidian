@@ -12,8 +12,20 @@ Object.assign(NeonTickets.prototype, {
     await writeNote(this.app, t.file, (d) => addToSection(d, 'log', `- ${STAMP()} — ${text}`));
     this.app.workspace.trigger('neon:ticket-changed', { file: t.file, id: t.id, title: t.title, change: text });
   },
+  /** How many steps of a ticket are still open (read from the note). */
+  async openSteps(t) {
+    return parseTicketBody(stripFrontmatter(await this.app.vault.cachedRead(t.file))).steps.filter((s) => !s.done).length;
+  },
+  /** Change a ticket's status. Done is refused (false) while steps are open. */
   async setStatus(t, status) {
     if (status === t.status) return;
+    if (status === 'done') {
+      const n = await this.openSteps(t);
+      if (n) {
+        new Notice(`${n} step${n > 1 ? 's' : ''} still open — finish ${n > 1 ? 'them' : 'it'} first`);
+        return false;
+      }
+    }
     if (status === 'waiting') {
       return new WaitingModal(this, t, async ({ who, followUp }) => {
         const wait = { status: 'waiting', waiting_on: who || null, follow_up: followUp || null, waiting_since: moment().format('YYYY-MM-DD') };
@@ -33,6 +45,29 @@ Object.assign(NeonTickets.prototype, {
       new Notice(`✓ ${t.id ? t.id + ' · ' : ''}${t.title} — done`);
       if (this.settings.autoFile) await this.moveDone(t.file, moment());
     } else if (t.status === 'done' && this.settings.autoFile) await this.moveBack(t.file);
+    return true;
+  },
+  /** Tick every open step in one queued write, with one log line. */
+  completeAllSteps(t) {
+    if (!this.writeQ) this.writeQ = new Map();
+    const key = t.file.path;
+    const next = (this.writeQ.get(key) || Promise.resolve())
+      .then(() =>
+        writeNote(this.app, t.file, (d) => {
+          const open = parseTicketBody(stripFrontmatter(d)).steps.filter((s) => !s.done);
+          if (!open.length) return d;
+          const lines = d.split('\n');
+          const offset = d.slice(0, d.length - stripFrontmatter(d).length).split('\n').length - 1;
+          for (const s of open) lines[s.line + offset] = lines[s.line + offset].replace('[ ]', '[x]').replace(/\s*$/, '') + ` ✅ ${STAMP()}`;
+          return addToSection(lines.join('\n'), 'log', `- ${STAMP()} — All steps done (${open.length})`);
+        }),
+      )
+      .catch((e) => {
+        console.error('Neon Tickets: could not complete the steps', e);
+        new Notice('Could not save the steps');
+      });
+    this.writeQ.set(key, next);
+    return next;
   },
   /** Remember a status change for the dashboard's Recently done log (only the statuses chosen in settings). */
   logStatus(t, status) {

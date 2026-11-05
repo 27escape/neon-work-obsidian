@@ -225,10 +225,19 @@ class TicketsView extends ItemView {
     }
     const check = row.createDiv('tk-row-check');
     tip(check, t.status === 'done' ? 'Reopen' : 'Mark done');
-    check.addEventListener('click', (e) => {
+    check.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (t.status !== 'done') row.addClass('is-completing');
-      p.setStatus(t, t.status === 'done' ? 'open' : 'done');
+      if (t.status === 'done') return p.setStatus(t, 'open');
+      if (await p.openSteps(t)) {
+        check.removeClass('is-shake');
+        void check.offsetWidth; // reflow, so a second click shakes again
+        check.addClass('is-shake');
+        return p.setStatus(t, 'done'); // refuses, with a notice
+      }
+      row.addClass('is-completing');
+      setIcon(check, 'check');
+      await new Promise((r) => window.setTimeout(r, 420)); // let the checkmark draw before the list redraws
+      p.setStatus(t, 'done');
     });
     const main = row.createDiv('tk-row-main');
     const top = main.createDiv('tk-row-top');
