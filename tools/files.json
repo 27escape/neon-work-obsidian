@@ -121,6 +121,7 @@
         "src/research/tree-view.js",
         "src/research/settings.js",
         "src/research/plugin.js",
+        "src/research/sections.js",
         "src/research/topics.js",
         "src/research/links.js",
         "src/research/cards.js"

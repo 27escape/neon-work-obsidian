@@ -335,3 +335,12 @@
     animation: none;
   }
 }
+/* + at the end of the section switch */
+.nr-root-add {
+  padding: 5px 9px;
+  border-style: dashed;
+}
+.nr-root-add svg {
+  width: 13px;
+  height: 13px;
+}

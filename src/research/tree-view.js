@@ -72,8 +72,16 @@ class ResearchView extends ItemView {
     const due = p.dueCards(p.cardsUnder(rootFolder)).length;
     button(acts, { icon: 'graduation-cap', text: due ? `Quiz me (${due})` : 'Quiz me', title: 'Choose a topic to quiz', onClick: () => new QuizPickModal(p).open() });
     button(acts, { icon: 'folder-plus', text: 'Topic', cls: 'mod-cta', title: 'New topic', onClick: () => p.newTopic(rootFolder) });
-    // section switch on its own row under the title (only with more than one section)
-    if (roots.length > 1) pills(hero, roots.map((r, i) => [i, r.name]), p.settings.activeRoot, (i) => p.setActiveRoot(i), 'nr-roots');
+    // section switch on its own row under the title: click to switch, right-click to rename/remove, + to add
+    const sw = pills(hero, roots.map((r, i) => [i, r.name]), p.settings.activeRoot, (i) => p.setActiveRoot(i), 'nr-roots');
+    for (const [i, btn] of sw.btns) {
+      tip(btn, roots[i].path);
+      btn.addEventListener('contextmenu', (e) => (e.preventDefault(), p.sectionMenu(i, e)));
+    }
+    const add = sw.el.createEl('button', { cls: 'nd-pill-btn nr-root-add', attr: { type: 'button', 'aria-label': 'Add a section (folder)' } });
+    setIcon(add, 'plus');
+    tip(add, 'Add a section: pick or create a folder');
+    add.addEventListener('click', () => p.pickSection());
 
     // the tree sits in one panel (a "window" for the pattern, like the dashboard cards)
     const panel = root.createDiv('nd-card nr-panel');
