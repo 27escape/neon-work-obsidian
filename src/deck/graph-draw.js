@@ -27,118 +27,79 @@ Object.assign(GraphView.prototype, {
     ctx.clearRect(0, 0, this.cw, this.ch);
     if (!this.nodes.length) return;
     const col = this.colors();
-    const pal = col.pal;
     const cam = this.cam;
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.k, cam.k);
     const focus = this.focusSet();
     ctx.lineCap = 'round';
-    // links: thin and quiet, so the nodes carry the picture; same-cluster links take the cluster colour
-    // dense graphs get fainter links, so a thousand of them read as structure, not haze
-    // (dark lines on a light page read heavier, so light themes go lighter still)
-    const linkA = (col.dark ? 0.24 : 0.14) * clamp(250 / Math.max(1, this.links.length), 0.3, 1);
+    // calm style: links one quiet grey, lit in the accent only around the focus; nodes plain accent dots with a faint glow
+    const linkA = (col.dark ? 0.16 : 0.1) * clamp(250 / Math.max(1, this.links.length), 0.35, 1);
+    ctx.strokeStyle = col.muted;
+    ctx.lineWidth = 0.8 / Math.sqrt(cam.k);
+    ctx.globalAlpha = focus ? 0.03 : linkA;
+    ctx.beginPath();
     for (const l of this.links) {
-      const on = !focus || (focus.has(l.s.i) && focus.has(l.t.i));
-      ctx.globalAlpha = on ? (focus ? 0.75 : linkA) : 0.03;
-      ctx.strokeStyle = l.s.c === l.t.c ? pal[l.s.c % pal.length] : col.muted;
-      ctx.lineWidth = (0.5 + 1.8 * Math.sqrt(l.w / this.maxW)) / Math.sqrt(cam.k);
-      ctx.beginPath();
+      if (focus && focus.has(l.s.i) && focus.has(l.t.i)) continue; // drawn lit below
       ctx.moveTo(l.s.x, l.s.y);
       ctx.lineTo(l.t.x, l.t.y);
+    }
+    ctx.stroke();
+    if (focus) {
+      ctx.strokeStyle = col.hot;
+      ctx.lineWidth = 1.2 / Math.sqrt(cam.k);
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath();
+      for (const l of this.links) {
+        if (!focus.has(l.s.i) || !focus.has(l.t.i)) continue;
+        ctx.moveTo(l.s.x, l.s.y);
+        ctx.lineTo(l.t.x, l.t.y);
+      }
       ctx.stroke();
     }
-    // nodes: a dark core lit from inside by the cluster colour, a crisp ring, a soft glow (dark themes);
-    // light themes get the same shape without the glow
-    const glowK = Math.min(1.6, Math.max(0.6, cam.k));
+    // drawn size: smaller than the hit size n.r, so hubs read as bigger dots, not balloons
+    const dr = (n) => 2.5 + n.r * 0.45;
+    ctx.fillStyle = col.hot;
     for (const n of this.nodes) {
       const on = !focus || focus.has(n.i);
-      ctx.globalAlpha = on ? 1 : 0.1;
-      const c = pal[n.c % pal.length];
-      const hub = n.r > 12;
-      const core = ctx.createRadialGradient(n.x - n.r * 0.3, n.y - n.r * 0.35, n.r * 0.1, n.x, n.y, n.r);
-      core.addColorStop(0, col.a(n.c, col.dark ? 0.55 : 0.35));
-      core.addColorStop(1, col.dark ? col.a(n.c, 0.08) : col.a(n.c, 0.12));
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-      ctx.fillStyle = col.surface;
+      ctx.globalAlpha = on ? 0.9 : 0.12;
       if (col.dark && on) {
-        ctx.shadowColor = col.a(n.c, hub ? 0.75 : 0.5);
-        ctx.shadowBlur = (hub ? 22 : 10) * glowK;
+        ctx.shadowColor = col.hotA(0.35);
+        ctx.shadowBlur = 6;
       }
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, dr(n), 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
-      ctx.fillStyle = core;
-      ctx.fill();
-      ctx.lineWidth = (hub ? 2.2 : 1.6) / Math.sqrt(cam.k);
-      ctx.strokeStyle = c;
+    }
+    // hover / selection: one plain ring
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = col.text;
+    ctx.lineWidth = 1.5 / cam.k;
+    for (const i of [this.selected, this.hover]) {
+      const n = i >= 0 && this.nodes[i];
+      if (!n) continue;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, dr(n) + 3 / cam.k, 0, Math.PI * 2);
       ctx.stroke();
-      if (hub) {
-        // a faint outer orbit marks the hubs
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, n.r + 4, 0, Math.PI * 2);
-        ctx.lineWidth = 1 / cam.k;
-        ctx.strokeStyle = col.a(n.c, 0.35);
-        ctx.stroke();
-      }
-      if (n.kind === 'link' || n.kind === 'tag') {
-        ctx.fillStyle = c;
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, Math.max(1.5, n.r * 0.24), 0, Math.PI * 2);
-        ctx.fill();
-      }
     }
-    // hover / selection: an accent ring with a slow ripple
-    const special = [this.selected, this.hover].filter((i, k, arr) => i >= 0 && arr.indexOf(i) === k);
-    if (special.length) {
-      const still = prefersReducedMotion();
-      const phase = still ? 0 : (performance.now() % 1600) / 1600;
-      ctx.globalAlpha = 1;
-      for (const i of special) {
-        const n = this.nodes[i];
-        if (!n) continue;
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, n.r + 3 / cam.k + 2, 0, Math.PI * 2);
-        ctx.lineWidth = 2 / cam.k;
-        ctx.strokeStyle = col.hot;
-        ctx.shadowColor = col.hotA(0.6);
-        ctx.shadowBlur = col.dark ? 12 : 0;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        if (!still) {
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, n.r + (4 + phase * 12) / cam.k + 2, 0, Math.PI * 2);
-          ctx.lineWidth = 1.5 / cam.k;
-          ctx.strokeStyle = col.hotA(0.55 * (1 - phase));
-          ctx.stroke();
-        }
-      }
-      // keep the ripple moving while something is hovered or selected, but only while the graph is on
-      // screen and Obsidian is focused, and at ~30 fps: a hidden graph tab must cost nothing
-      if (!still && !this.pulseQueued && this.contentEl.offsetParent && document.hasFocus()) {
-        this.pulseQueued = true;
-        window.setTimeout(() => {
-          this.pulseQueued = false;
-          if ((this.selected >= 0 || this.hover >= 0) && this.contentEl.offsetParent) this.requestDraw();
-        }, 33);
-      }
-    }
+    // names: hovered or picked always; hubs and the focus with labels on; everything once zoomed in
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';
     for (const n of this.nodes) {
       const special = n.i === this.hover || n.i === this.selected;
       const on = !focus || focus.has(n.i);
-      if (!this.showLabels && !special) continue;
-      const fs = 9 + n.r * 0.55;
-      if (!special && fs * cam.k < 7 && !(focus && on)) continue;
+      const hub = n.r > 12;
+      if (!special && !(this.showLabels && (hub || (focus && on) || cam.k > 1.4))) continue;
+      const fs = 10 + n.r * 0.25;
+      if (!special && fs * cam.k < 7) continue;
       ctx.globalAlpha = on ? 1 : 0.14;
-      ctx.font = `${n.r > 12 || special ? 700 : 500} ${fs}px ${col.font}`;
+      ctx.font = `${special ? 700 : 500} ${fs}px ${col.font}`;
       ctx.lineWidth = 3.6;
       ctx.strokeStyle = col.bg;
-      const y = n.y + n.r + fs * 0.72;
+      const y = n.y + dr(n) + fs * 0.8;
       ctx.strokeText(n.label, n.x, y);
-      // hubs speak up, small nodes stay quiet
-      ctx.fillStyle = special ? col.hot : n.r > 12 ? col.text : col.muted;
+      ctx.fillStyle = special ? col.text : col.muted;
       ctx.fillText(n.label, n.x, y);
     }
     ctx.globalAlpha = 1;

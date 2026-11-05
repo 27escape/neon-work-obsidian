@@ -23,4 +23,4 @@ One Obsidian plugin (`neon-deck`) made of six modules. This page is the current 
 ## Open
 - **Shared note index:** one cached scan for tasks, tickets, research and deck instead of each module scanning the vault.
 - **Community list:** the license (CC BY-NC-SA 4.0) still needs to be confirmed as acceptable.
-- On hold: CSV ticket import, a calmer graph node style.
+- On hold: CSV ticket import.
