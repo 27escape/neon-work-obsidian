@@ -101,7 +101,7 @@ class NeonWrite extends Plugin {
   onunload() {
     if (this.picker) this.picker.close(); // its document listeners go with it
     this.unmountNotePattern();
-    document.body.removeClass('nw-lifted', 'nw-fonts', 'nw-tables', 'nw-hr', 'nw-hr-anim');
+    document.body.removeClass('nw-lifted', 'nw-fonts', 'nw-tables', 'nw-hr');
   }
   /** A small lock at the right of a callout's title; locked = lime. */
   addLock(c, ctx) {
@@ -133,6 +133,14 @@ class NeonWrite extends Plugin {
       });
     });
     b.addEventListener('click', (e) => e.stopPropagation());
+    // a locked callout in Live Preview: clicks on it don't open its source (links and the lock still work)
+    const guard = (e) => {
+      if (!c.hasClass('is-locked') || !c.closest('.cm-callout') || e.target.closest('a, .nw-lock')) return;
+      if (e.type === 'mousedown') e.preventDefault();
+      e.stopPropagation();
+    };
+    c.addEventListener('mousedown', guard);
+    c.addEventListener('click', guard);
   }
   /** Toggle the lock on a callout header line in an open editor (our own edit, so the lock lets it through). */
   lockLine(cm, line) {
@@ -159,7 +167,6 @@ class NeonWrite extends Plugin {
     document.body.toggleClass('nw-fonts', this.settings.themeFonts);
     document.body.toggleClass('nw-tables', this.settings.styledTables);
     document.body.toggleClass('nw-hr', this.settings.limeDividers);
-    document.body.toggleClass('nw-hr-anim', this.settings.limeDividers && this.settings.dividerDots);
   }
   async saveSettings() {
     await this.saveData(this.settings);

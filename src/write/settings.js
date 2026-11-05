@@ -31,12 +31,8 @@ class NeonWriteSettingTab extends PluginSettingTab {
       .addToggle((t) => t.setValue(s.styledTables).onChange((v) => ((s.styledTables = v), p.saveSettings(), p.applyLook())));
     new Setting(containerEl)
       .setName('Lime dividers')
-      .setDesc('A --- line in a note is drawn as a row of lime dots that fade out at both ends. Also keeps --- typed under text a divider instead of a heading.')
+      .setDesc('A --- line in a note is drawn as a thin lime line that fades out at both ends. Also keeps --- typed under text a divider instead of a heading.')
       .addToggle((t) => t.setValue(s.limeDividers).onChange((v) => ((s.limeDividers = v), p.saveSettings(), p.applyLook())));
-    new Setting(containerEl)
-      .setName('Animated divider dots')
-      .setDesc('The dots near the ends of a divider slowly breathe. Off when your system asks for reduced motion.')
-      .addToggle((t) => t.setValue(s.dividerDots).onChange((v) => ((s.dividerDots = v), p.saveSettings(), p.applyLook())));
     new Setting(containerEl)
       .setName('Pattern behind notes')
       .setDesc('The dashboard pattern, dimmed right down, behind the note you are writing. Needs Neon Deck.')

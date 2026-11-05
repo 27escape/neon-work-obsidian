@@ -301,46 +301,19 @@ body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered 
   white-space: nowrap;
 }
 
-/* ---- lime dividers (item 27): a thin line that dissolves into fading dots at both ends ---- */
+/* ---- lime dividers (item 27): a thin line across the note's text width that fades out at both ends ---- */
 body.nw-hr {
   --nw-hr-c: var(--nd-go, var(--interactive-accent));
-  --nw-hr-dots: linear-gradient(90deg, transparent, black 9%, black 20%, transparent 36%, transparent 64%, black 80%, black 91%, transparent);
 }
 body.nw-hr :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr {
-  position: relative;
   border: none;
-  height: 6px;
+  height: 1.5px;
   margin: 1.6em 0;
-  overflow: visible;
-  /* the line tapers in and out, overlapping the dots so they cross-fade instead of meeting at a joint */
-  background: linear-gradient(90deg, transparent 18%, var(--nw-hr-c) 38%, var(--nw-hr-c) 62%, transparent 82%) center / 100% 1.5px no-repeat;
-}
-body.nw-hr :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle, var(--nw-hr-c) 1.1px, transparent 1.6px) 0 50% / 8px 6px repeat-x;
-  -webkit-mask: var(--nw-hr-dots) center / 100% 100% no-repeat;
-  mask: var(--nw-hr-dots) center / 100% 100% no-repeat;
+  background: linear-gradient(90deg, transparent, var(--nw-hr-c) 30%, var(--nw-hr-c) 70%, transparent);
 }
 /* the raw --- while the cursor is on it */
 body.nw-hr .markdown-source-view .cm-hr {
   color: var(--nw-hr-c);
-}
-/* the dots slowly breathe out and back (a calm 5 s loop) */
-body.nw-hr-anim :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr::before {
-  animation: nw-hr-breathe 5s ease-in-out infinite;
-}
-@keyframes nw-hr-breathe {
-  50% {
-    -webkit-mask-size: 112% 100%;
-    mask-size: 112% 100%;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  body.nw-hr-anim :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr::before {
-    animation: none;
-  }
 }
 
 /* ---- sub-titles (item 33): #### is a small heading, clearly below H3 ---- */
@@ -445,6 +418,13 @@ body.nw-fonts.nd-themed .print {
   .nw-lock.is-shake {
     animation: none;
   }
+}
+/* a locked callout can't be opened for editing: no text cursor, no "edit block" button */
+.cm-callout .callout.is-locked {
+  cursor: default;
+}
+.cm-callout:has(> .callout.is-locked) .edit-block-button {
+  display: none;
 }
 /* Live Preview puts Obsidian's own "edit block" button in the callout's top-right corner: sit left of it */
 .cm-callout .callout-title .nw-lock {

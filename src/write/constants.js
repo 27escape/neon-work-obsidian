@@ -13,7 +13,6 @@ const NW_DEFAULTS = {
   moveImages: true,
   notePattern: true,
   limeDividers: true, // --- dividers as a lime dotted line (item 27)
-  dividerDots: true, // the dots near the ends breathe slowly
   patternOpacity: 35, // percent of the dashboard pattern's strength (already faint by design)
 };
 const GRID_COLS = 10;

@@ -66,7 +66,7 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 - **Table picker:** hover a rows × columns grid (or use the arrows) and click; an empty table lands at the cursor with the cursor in the first cell. Open it from the slash menu, the right-click menu or `Ctrl+P → Neon Write: Insert table…`.
 - **Slash menu:** type `/` at the start of a line or after a space for tables, headings, lists, checklists, quotes, callouts, code blocks, dividers, note links and today's date. Keep typing to filter.
 - **Toolbar on selected text:** bold, italic, strikethrough, highlight, inline code, note link, heading (H1 → H2 → H3 → none), small sub-title (`####`) and callout. Press a button again to undo it.
-- **Lime dividers:** `---` is drawn as a row of lime dots fading at both ends; typed under a line of text it stays a divider instead of turning the text into a heading.
+- **Lime dividers:** `---` is drawn as a thin lime line fading out at both ends; typed under a line of text it stays a divider instead of turning the text into a heading.
 - **Page breaks** for PDF export (`/pagebreak`); headings keep the theme colours in the PDF.
 - **Lockable callouts:** click the lock on a callout (`[!info|locked]` in the note) and it can't be edited by accident.
 - **Merged table titles:** a cell that is only `<` joins the cell on its left; a first row like `| Title | < | < |` shows as one wide title (Reading view and PDF).
