@@ -30,39 +30,58 @@ Object.assign(GraphView.prototype, {
     const cam = this.cam;
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.k, cam.k);
-    const focus = this.focusSet();
+    // the dimming fades in and out (~0.2 s) instead of switching in one frame
+    const now = performance.now();
+    const cur = this.focusSet();
+    if (cur) this.fadeSet = cur;
+    const target = cur ? 1 : 0;
+    // a fade that just starts takes one frame's step, not the idle time since the last draw
+    const dt = this.fadeBusy && this.fadeAt ? Math.min(50, now - this.fadeAt) : 16;
+    this.fadeAt = now;
+    let k = this.fadeK == null || prefersReducedMotion() ? target : this.fadeK + (target - this.fadeK) * Math.min(1, dt / 60);
+    if (Math.abs(target - k) < 0.02) k = target;
+    this.fadeK = k;
+    this.fadeBusy = k !== target;
+    if (!k) this.fadeSet = null;
+    const focus = k ? this.fadeSet : null;
+    const mix = (a, b) => a + (b - a) * k;
     ctx.lineCap = 'round';
     // calm style: links one quiet grey, lit in the accent only around the focus; nodes plain accent dots with a faint glow
     const linkA = (col.dark ? 0.16 : 0.1) * clamp(250 / Math.max(1, this.links.length), 0.35, 1);
     ctx.strokeStyle = col.muted;
     ctx.lineWidth = 0.8 / Math.sqrt(cam.k);
-    ctx.globalAlpha = focus ? 0.03 : linkA;
+    ctx.globalAlpha = mix(linkA, 0.03);
     ctx.beginPath();
     for (const l of this.links) {
-      if (focus && focus.has(l.s.i) && focus.has(l.t.i)) continue; // drawn lit below
+      if (focus && focus.has(l.s.i) && focus.has(l.t.i)) continue; // drawn below, grey then lit
       ctx.moveTo(l.s.x, l.s.y);
       ctx.lineTo(l.t.x, l.t.y);
     }
     ctx.stroke();
     if (focus) {
+      const lit = () => {
+        ctx.beginPath();
+        for (const l of this.links) {
+          if (!focus.has(l.s.i) || !focus.has(l.t.i)) continue;
+          ctx.moveTo(l.s.x, l.s.y);
+          ctx.lineTo(l.t.x, l.t.y);
+        }
+        ctx.stroke();
+      };
+      ctx.globalAlpha = linkA;
+      lit();
       ctx.strokeStyle = col.hot;
       ctx.lineWidth = 1.2 / Math.sqrt(cam.k);
-      ctx.globalAlpha = 0.55;
-      ctx.beginPath();
-      for (const l of this.links) {
-        if (!focus.has(l.s.i) || !focus.has(l.t.i)) continue;
-        ctx.moveTo(l.s.x, l.s.y);
-        ctx.lineTo(l.t.x, l.t.y);
-      }
-      ctx.stroke();
+      ctx.globalAlpha = 0.55 * k;
+      lit();
     }
     // drawn size: smaller than the hit size n.r, so hubs read as bigger dots, not balloons
     const dr = (n) => 2.5 + n.r * 0.45;
     ctx.fillStyle = col.hot;
     for (const n of this.nodes) {
       const on = !focus || focus.has(n.i);
-      ctx.globalAlpha = on ? 0.9 : 0.12;
-      if (col.dark && on) {
+      ctx.globalAlpha = on ? 0.9 : mix(0.9, 0.12);
+      if (col.dark && (on || k < 0.5)) {
         ctx.shadowColor = col.hotA(0.35);
         ctx.shadowBlur = 6;
       }
@@ -93,7 +112,7 @@ Object.assign(GraphView.prototype, {
       if (!special && !(this.showLabels && (hub || (focus && on) || cam.k > 1.4))) continue;
       const fs = 10 + n.r * 0.25;
       if (!special && fs * cam.k < 7) continue;
-      ctx.globalAlpha = on ? 1 : 0.14;
+      ctx.globalAlpha = on ? 1 : mix(1, 0.14);
       ctx.font = `${special ? 700 : 500} ${fs}px ${col.font}`;
       ctx.lineWidth = 3.6;
       ctx.strokeStyle = col.bg;
@@ -130,7 +149,8 @@ Object.assign(GraphView.prototype, {
       }
       if (this.dirty) {
         this.draw();
-        this.dirty = false;
+        this.dirty = !!this.fadeBusy; // keep drawing until the dimming has faded in or out
+        busy = busy || this.fadeBusy;
       }
       if (busy || this.drag) this.raf = requestAnimationFrame(loop);
     };
