@@ -689,11 +689,14 @@
   -webkit-mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, #000 100%);
   mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, #000 100%);
 }
-/* folders: the same dots, fainter */
+/* folders: the same dots, fainter, fading in toward the right edge */
 .nd-ci-folder::before {
   background:
     radial-gradient(circle, color-mix(in srgb, var(--tone) 8%, transparent) 1px, transparent 1.6px) 0 0 / 9px 9px,
     color-mix(in srgb, var(--tone) 2%, transparent);
+  /* only toward the right edge */
+  -webkit-mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, #000 100%);
+  mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, #000 100%);
 }
 /* notes: a soft smooth edge glow in their colour (folders keep the dotted one) */
 .nd-ci-note::before {
