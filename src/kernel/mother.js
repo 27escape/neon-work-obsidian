@@ -129,6 +129,9 @@ class NeonModulesTab extends PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
+    // its own id: the Deck module's settings tab already uses 'neon-deck'
+    this.id = 'neon-deck-modules';
+    this.name = 'Neon Deck modules';
   }
   display() {
     const p = this.plugin;

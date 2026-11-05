@@ -140,19 +140,40 @@ let plugins = path.join(target, '.obsidian', 'plugins');
 if (!fs.existsSync(plugins)) plugins = fs.existsSync(path.join(target, 'neon-deck')) ? target : plugins;
 if (!fs.existsSync(plugins)) { console.error('no plugins folder found under', target); process.exit(2); }
 
+// Neon Deck 2: one plugin folder whose main.js holds every module (sections "/* ==== module <id> ==== */")
+const deckMain = path.join(plugins, 'neon-deck', 'main.js');
+const BUNDLE = fs.existsSync(deckMain) && /^const NEON_MODULES = \[/m.test(fs.readFileSync(deckMain, 'utf8'));
+/** A module's code and CSS: its own plugin folder (1.x) or its section of the bundle (2.x). */
+function readSrc(m) {
+  const id = PLUGIN_ID[m];
+  if (!BUNDLE) {
+    const dir = path.join(plugins, id);
+    const r = (f) => (fs.existsSync(path.join(dir, f)) ? fs.readFileSync(path.join(dir, f), 'utf8') : null);
+    return { js: r('main.js'), css: r('styles.css'), file: path.join(dir, 'main.js') };
+  }
+  const all = fs.readFileSync(deckMain, 'utf8');
+  const i = all.indexOf(`/* ==== module ${id} ==== */`);
+  if (i < 0) return { js: null, css: null, file: deckMain };
+  const j = all.indexOf('/* ==== module ', i + 10);
+  const cssAll = fs.readFileSync(path.join(plugins, 'neon-deck', 'styles.css'), 'utf8');
+  const ci = cssAll.indexOf(`/* @src ${id}/styles.css */`);
+  const cj = ci < 0 ? -1 : cssAll.indexOf('/* @src ', ci + 5);
+  return { js: all.slice(i, j < 0 ? all.indexOf('const NEON_MODULES') : j), css: ci < 0 ? null : cssAll.slice(ci, cj < 0 ? undefined : cj), file: deckMain };
+}
+
 const results = []; // { id, status: PASS|FAIL|WARN, msg }
 const add = (id, status, msg) => results.push({ id, status, msg });
 
 // 1. manifests: versions equal, id matches folder
 const versions = {};
-for (const m of mods) {
+for (const m of BUNDLE ? ['deck'] : mods) {
   const dir = path.join(plugins, PLUGIN_ID[m]);
   if (!fs.existsSync(dir)) { add('manifest', 'FAIL', `${PLUGIN_ID[m]}: folder missing`); continue; }
   const mf = readJson(path.join(dir, 'manifest.json'), null);
   if (!mf) { add('manifest', 'FAIL', `${PLUGIN_ID[m]}: manifest.json missing or invalid`); continue; }
   versions[m] = mf.version;
   if (mf.id !== PLUGIN_ID[m]) add('manifest', 'FAIL', `${PLUGIN_ID[m]}: manifest id is "${mf.id}"`);
-  if (!/^\d+\.\d+\.\d+$/.test(String(mf.version))) add('manifest', 'FAIL', `${PLUGIN_ID[m]}: version "${mf.version}" is not x.y.z`);
+  if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(String(mf.version))) add('manifest', 'FAIL', `${PLUGIN_ID[m]}: version "${mf.version}" is not x.y.z (or x.y.z-beta.n)`);
   for (const k of ['name', 'minAppVersion', 'description', 'author']) if (!mf[k]) add('manifest', 'WARN', `${PLUGIN_ID[m]}: manifest has no ${k}`);
   for (const f of ['main.js', 'styles.css']) if (!fs.existsSync(path.join(dir, f))) add('files', 'FAIL', `${PLUGIN_ID[m]}: ${f} missing`);
 }
@@ -161,10 +182,8 @@ if (vset.size > 1) add('versions', 'FAIL', 'manifest versions differ: ' + Object
 
 for (const m of mods) {
   const dir = path.join(plugins, PLUGIN_ID[m]);
-  const mainJs = path.join(dir, 'main.js');
-  const css = path.join(dir, 'styles.css');
-  if (!fs.existsSync(mainJs)) continue;
-  const js = fs.readFileSync(mainJs, 'utf8');
+  const { js, css: cssSrc, file: mainJs } = readSrc(m);
+  if (js == null) continue;
   const lines = js.split('\n').length;
 
   // 2. syntax
@@ -208,8 +227,8 @@ for (const m of mods) {
   if (/for \(const k of Object\.keys\(this\.settings\)\) if \(!\(k in [A-Z_]+\)\) delete/.test(js)) add('settings', 'WARN', `${m}: onload deletes unknown settings keys (data loss on downgrade/update)`);
 
   // 8. unused CSS classes (class defined in styles.css, never named in main.js or other plugins' JS)
-  if (fs.existsSync(css)) {
-    const cssText = fs.readFileSync(css, 'utf8');
+  if (cssSrc != null) {
+    const cssText = cssSrc;
     const classes = new Set([...cssText.matchAll(/\.([a-z][a-z0-9]*-[a-z0-9_-]+)/gi)].map((x) => x[1]));
     const allJs = mods.map((x) => path.join(plugins, PLUGIN_ID[x], 'main.js')).filter(fs.existsSync).map((f) => fs.readFileSync(f, 'utf8')).join('\n');
     const unused = [...classes].filter((c) => /^(nd|nt|tm|tk|nr|nw)-/.test(c) && !allJs.includes(c) && !/^(is|has|mod|nd-theme|nd-pattern|theme)-?/.test(c) && !/-(dark|light)$/.test(c));
@@ -290,9 +309,8 @@ for (const m of mods) {
 {
   const names = new Map();
   for (const m of mods) {
-    const f = path.join(plugins, PLUGIN_ID[m], 'main.js');
-    if (!fs.existsSync(f)) continue;
-    const js = fs.readFileSync(f, 'utf8');
+    const { js } = readSrc(m);
+    if (js == null) continue;
     for (const x of js.matchAll(/^(?:async )?function ([A-Za-z_$][\w$]*)\(/gm)) names.set(x[1], (names.get(x[1]) || new Set()).add(m));
   }
   const dup = [...names].filter(([, v]) => v.size > 1).map(([k, v]) => `${k}×${v.size}`);
@@ -300,17 +318,21 @@ for (const m of mods) {
   // two plugins registering the same command id or view type
   const seen = new Map();
   for (const m of mods) {
-    const f = path.join(plugins, PLUGIN_ID[m], 'main.js');
-    if (!fs.existsSync(f)) continue;
-    for (const x of fs.readFileSync(f, 'utf8').matchAll(/(?:registerView\(\s*|VIEW_[A-Z_]+\s*=\s*)['"]([^'"]+)['"]/g)) {
+    const { js } = readSrc(m);
+    if (js == null) continue;
+    for (const x of js.matchAll(/(?:registerView\(\s*|VIEW_[A-Z_]+\s*=\s*)['"]([^'"]+)['"]/g)) {
       if (seen.has(x[1]) && seen.get(x[1]) !== m) add('views', 'FAIL', `view type "${x[1]}" defined in ${seen.get(x[1])} and ${m}`);
       seen.set(x[1], m);
     }
   }
 }
 
+if (BUNDLE) {
+  const old = MODULES.filter((m) => m !== 'deck' && fs.existsSync(path.join(plugins, PLUGIN_ID[m], 'main.js')));
+  if (old.length) add('update', 'WARN', `old 1.x plugin folders still in plugins/ (${old.map((m) => PLUGIN_ID[m]).join(', ')}): fine as a way back, delete them once 2.x is settled`);
+}
 // 9c. other plugin files: nothing but main.js, styles.css, manifest.json, data.json, fonts allowed to load code
-for (const m of mods) {
+for (const m of BUNDLE ? ['deck'] : mods) {
   const dir = path.join(plugins, PLUGIN_ID[m]);
   if (!fs.existsSync(dir)) continue;
   for (const f of walk(dir)) {
