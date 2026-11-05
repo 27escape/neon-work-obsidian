@@ -27,18 +27,13 @@ const float PI=3.14159265;
 float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
 float sdRR(vec2 p,vec4 r,float rad){vec2 c=r.xy+r.zw*.5;vec2 q=abs(p-c)-r.zw*.5+rad;return length(max(q,0.))+min(max(q.x,q.y),0.)-rad;}
 float damascus(vec2 c,float ph){
-  // two levels of folding (big slow ones, then smaller ones) so the layers never repeat the same way
-  float wx=c.x+60.*sin(c.y/170.+.3*sin(c.x/410.))+22.*sin(c.y/97.+c.x/530.);
-  float wy=c.y+40.*sin(c.x/230.+.4*sin(c.y/350.))+18.*sin(c.x/131.-c.y/470.);
-  wx+=8.*sin(ph+c.y/300.);wy+=6.*cos(ph+c.x/280.);
-  // a slow zone field: tight straight layers in some places, loose twisted ones in others
-  float zone=.5+.5*sin(wx/520.+.7*sin(wy/610.))*cos(wy/450.-ph*.25);
-  float w=wy+22.*sin(wx/53.+ph)+30.*sin(wx/310.+wy/260.)+(6.+14.*zone)*sin(wx/17.+wy/41.-ph*2.)+5.*sin((wx+wy)/9.+ph)+7.5*ph;
-  float band=sin(w/(5.5+4.*zone));
-  // raindrop rings where the zone peaks
-  float drop=sin(length(mod(vec2(wx,wy),180.)-90.)/6.-ph);
-  band=mix(band,drop,smoothstep(.75,.97,zone)*.65);
-  return pow(max(0.,band),1.2+.8*zone);
+  // folded: one slow smooth field bends the layers (calm like Topo, no fine noise)
+  float f=sin(c.x/240.+.5*sin(ph))+.8*sin(c.y/190.-c.x/430.+.4*cos(ph))+.45*sin((c.x-c.y)/130.+ph);
+  // twisted: the layers curl over themselves in slow loops
+  float t=sin(c.x/115.+f*1.6)*sin(c.y/145.-f);
+  // stacked layers along y; ph/PI drifts exactly 2 layers per loop, so the loop is seamless
+  float w=c.y/44.+f*2.6+t*1.3+ph/PI;
+  return 1.-smoothstep(.02,.11,abs(fract(w)-.5));
 }
 float lam(vec2 p,float ang,float per,float wt,float off,float ph){
   float d=p.x*cos(ang)+p.y*sin(ang),q=-p.x*sin(ang)+p.y*cos(ang);
