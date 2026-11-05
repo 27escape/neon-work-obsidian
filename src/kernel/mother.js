@@ -22,10 +22,17 @@ class NeonMother extends Plugin {
       new Notice(crashed ? 'Neon Deck did not finish starting last time: safe mode, modules are off. Turn them on in settings.' : 'Neon Deck safe mode: modules are off.', 0);
     } else for (const m of NEON_MODULES) await this.start(m);
     // modules finish starting asynchronously: only call the start done once the workspace is ready
-    this.app.workspace.onLayoutReady(() => window.setTimeout(() => {
-      this.state.starting = false;
-      this.writeState();
-    }, 3000));
+    this.app.workspace.onLayoutReady(() => (this.doneTimer = window.setTimeout(() => this.startDone(), 3000)));
+  }
+  onunload() {
+    // a normal unload (quit, reload, switched off) is not a crash, however soon after the start
+    window.clearTimeout(this.doneTimer);
+    this.startDone();
+  }
+  startDone() {
+    if (!this.state.starting) return;
+    this.state.starting = false;
+    this.writeState();
   }
   /** Core API for the modules (same object Neon Deck 1.x exposed). */
   get api() {

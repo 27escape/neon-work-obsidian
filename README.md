@@ -84,6 +84,8 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 - **Link suggestions:** in a research note, the status bar offers to link words that match other research note titles.
 - Research notes are left out of work time by default (`untracked: true`).
 
+![Research tab](docs/screenshots/research.png)
+
 ## Install
 
 Neon Deck isn't in the Community plugins list yet. Install it by hand:

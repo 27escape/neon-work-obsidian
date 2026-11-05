@@ -186,6 +186,7 @@ class NeonTime extends Plugin {
       const s = this.summary(key, key === moment().format('YYYY-MM-DD'));
       return { worked: s.total, target: s.target, over: s.over, entries: this.entriesOf(key, false).map((e) => ({ start: e.start, min: entryMin(e), text: e.note || (e.path ? e.path.split('/').pop().replace(/\.md$/, '') : CAT_LABEL[e.cat] || 'Time') })) };
     });
+    if (api.activityChanged) api.activityChanged(); // the Activity card can now show worked time
     api.registerWeekLine('time', (start, end) => {
       const by = {};
       let over = 0;

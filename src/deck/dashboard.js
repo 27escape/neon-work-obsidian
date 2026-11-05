@@ -97,7 +97,8 @@ class DashboardView extends ItemView {
     this.registerEvent(this.app.workspace.on('neon-deck:slots-changed', () => this.mountSlots()));
     // Task, Ticket, Time… buttons arrive as the other Neon plugins load
     this.registerEvent(this.app.workspace.on('neon-deck:captures-changed', () => this.capRow && this.renderCaptureTargets()));
-    this.registerEvent(this.app.workspace.on('neon-deck:activity-changed', debounce(() => this.lastData && this.renderRecent(this.lastData), 200, true)));
+    // a module offered new activity (ticks, ticket changes) or started late: the log and the Activity calendar both follow
+    this.registerEvent(this.app.workspace.on('neon-deck:activity-changed', debounce(() => this.lastData && (this.renderRecent(this.lastData), this.renderHeat(this.lastData)), 200, true)));
     this.registerEvent(
       this.app.workspace.on(
         'neon-deck:facts-changed',
