@@ -227,13 +227,13 @@
   gap: 10px;
   padding: 5px 2px;
   border-radius: 6px;
-  cursor: pointer;
 }
 .tk-step:hover {
   background: color-mix(in srgb, var(--nd-text) 4%, transparent);
 }
 .tk-step .tk-box {
   margin-top: 2px;
+  cursor: pointer;
 }
 .tk-step:hover .tk-box {
   border-color: var(--nd-go);

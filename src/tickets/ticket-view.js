@@ -217,7 +217,6 @@ class TicketCard {
         }
       };
       box.addEventListener('click', tick);
-      r.querySelector('.tk-step-text').addEventListener('click', tick);
       const acts = r.createDiv('tk-step-acts');
       button(acts, { icon: 'pencil', cls: 'tk-step-act', title: 'Edit step', onClick: (e) => (e.stopPropagation(), this.editStepInline(r, t, step)) });
       button(acts, {
