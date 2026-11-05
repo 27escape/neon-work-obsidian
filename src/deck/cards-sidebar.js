@@ -113,13 +113,24 @@ Object.assign(CardsView.prototype, {
     if (f instanceof TFolder && (dest === f.path || dest.startsWith(f.path + '/'))) return false;
     return true;
   },
+  /** What is being dragged over a folder target: vault items to move, or files from the computer to copy in. */
+  dropItems(e, dest) {
+    if (dest == null) return null;
+    // a card or row of ours, else something from Obsidian's file list (one item or a selection)
+    const d = this.app.dragManager && this.app.dragManager.draggable;
+    const own = this.plugin.dragging ? [this.plugin.dragging] : d ? (d.files || (d.file ? [d.file] : [])) : [];
+    const items = own.filter((f) => (f instanceof TFile || f instanceof TFolder) && this.canMove(f, dest));
+    if (items.length) return { move: items };
+    if (own.length) return null; // vault items that are already there
+    return e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files') ? { copy: true } : null;
+  },
   makeDropTarget(el, getPath) {
     el.addEventListener('dragover', (e) => {
-      const f = this.plugin.dragging;
-      if (!f || !this.canMove(f, getPath())) return;
+      const what = this.dropItems(e, getPath());
+      if (!what) return;
       e.preventDefault();
       e.stopPropagation();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      if (e.dataTransfer) e.dataTransfer.dropEffect = what.copy ? 'copy' : 'move';
       el.addClass('is-drop');
     });
     el.addEventListener('dragleave', (e) => {
@@ -127,13 +138,14 @@ Object.assign(CardsView.prototype, {
     });
     el.addEventListener('drop', async (e) => {
       el.removeClass('is-drop');
-      const f = this.plugin.dragging;
       const dest = getPath();
-      if (!f || !this.canMove(f, dest)) return;
+      const what = this.dropItems(e, dest);
+      if (!what) return;
       e.preventDefault();
       e.stopPropagation();
       this.plugin.dragging = null;
-      await this.plugin.moveTo(f, dest);
+      if (what.copy) return this.plugin.importFiles(e.dataTransfer, dest);
+      for (const f of what.move) await this.plugin.moveTo(f, dest);
     });
   },
 });

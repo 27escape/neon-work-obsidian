@@ -143,6 +143,34 @@ Object.assign(NeonDeck.prototype, {
     await this.app.fileManager.renameFile(f, np);
     new Notice(`Moved “${f.name}” → ${dest === '/' ? 'vault root' : dest}`);
   },
+  /** Files dropped from the computer (PDF, DOCX, images, …): copied into dest; a taken name gets a number, nothing is overwritten. */
+  async importFiles(dt, dest) {
+    const where = dest === '/' ? 'vault root' : dest;
+    const dir = dest === '/' ? '' : dest + '/';
+    const entries = Array.from(dt.items || []).map((it) => it.webkitGetAsEntry && it.webkitGetAsEntry());
+    let n = 0;
+    let skipped = 0;
+    for (const [i, f] of Array.from(dt.files).entries()) {
+      if (entries[i] && entries[i].isDirectory) {
+        skipped++;
+        continue;
+      }
+      const dot = f.name.lastIndexOf('.');
+      const base = dot > 0 ? f.name.slice(0, dot) : f.name;
+      const ext = dot > 0 ? f.name.slice(dot) : '';
+      let np = normalizePath(dir + f.name);
+      for (let k = 1; await this.app.vault.adapter.exists(np); k++) np = normalizePath(`${dir}${base} ${k}${ext}`);
+      try {
+        await this.app.vault.createBinary(np, await f.arrayBuffer());
+        n++;
+      } catch (err) {
+        console.error('Neon Deck: could not add', f.name, err);
+        new Notice(`Could not add “${f.name}”`);
+      }
+    }
+    if (n) new Notice(`Added ${n} file${n === 1 ? '' : 's'} → ${where}`);
+    if (skipped) new Notice(`Folders can't be dropped here (${skipped} skipped); drop the files inside them`);
+  },
 
   /* file creation --------------------------------------------------------- */
   newNote(folder) {
