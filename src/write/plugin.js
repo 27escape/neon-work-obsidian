@@ -45,6 +45,25 @@ class NeonWrite extends Plugin {
           return [];
         }),
       );
+      // the cursor can't land in a locked callout (arrow keys, Home/End, Page Up/Down, clicks): it hops over it
+      this.registerEditorExtension(
+        cmState.EditorState.transactionFilter.of((tr) => {
+          if (!tr.selection || tr.docChanged || !tr.isUserEvent('select')) return tr;
+          const ranges = lockedRanges(tr.newDoc);
+          if (!ranges.length) return tr;
+          const old = tr.startState.selection.main.head;
+          let hit = false;
+          const sel = tr.selection.ranges.map((r) => {
+            const lock = ranges.find(([f, t]) => r.head >= f && r.head <= t);
+            if (!lock) return r;
+            hit = true;
+            let h = r.head >= old ? lock[1] + 1 : lock[0] - 1; // past the callout, in the direction of the move
+            if (h < 0 || h > tr.newDoc.length) h = old; // callout at the very start or end: stay put
+            return cmState.EditorSelection.range(r.empty ? h : r.anchor, h);
+          });
+          return hit ? [tr, { selection: cmState.EditorSelection.create(sel, tr.selection.mainIndex), sequential: true }] : tr;
+        }),
+      );
       this.registerMarkdownPostProcessor((el, ctx) => {
         for (const c of el.matches('.callout') ? [el] : el.querySelectorAll('.callout')) this.addLock(c, ctx);
       });
