@@ -4,12 +4,12 @@
 /* pattern only shows at card edges and, very faintly, in the gaps.    */
 /* ------------------------------------------------------------------ */
 
-const PATTERNS = ['damascus', 'meteorite', 'topo', 'circuit', 'hex', 'datastream', 'radar', 'none'];
+const PATTERNS = ['damascus', 'shard', 'meteorite', 'topo', 'hex', 'datastream', 'radar', 'none'];
 const PATTERN_LABEL = {
-  damascus: 'Damascus', meteorite: 'Meteorite', topo: 'Topo', circuit: 'Circuit', hex: 'Hex mesh',
+  damascus: 'Damascus', meteorite: 'Meteorite', topo: 'Topo', shard: 'Shard', hex: 'Hex mesh',
   datastream: 'Datastream', radar: 'Radar', none: 'None',
 };
-const PATTERN_MODE = { damascus: 0, meteorite: 1, topo: 2, hex: 3, circuit: 4, datastream: 5, radar: 6 };
+const PATTERN_MODE = { damascus: 0, meteorite: 1, topo: 2, shard: 3, hex: 4, datastream: 5, radar: 6 };
 const STRENGTHS = ['off', 'subtle', 'bold'];
 const STRENGTH_LABEL = { off: 'Off', subtle: 'Subtle', bold: 'Bold' };
 // 10% softer than the first 1.3.0 build (Yobz, 2 Nov)
@@ -34,6 +34,16 @@ float damascus(vec2 c,float ph){
   // stacked layers along y; ph/PI drifts exactly 2 layers per loop, so the loop is seamless
   float w=c.y/44.+f*2.6+t*1.3+ph/PI;
   return 1.-smoothstep(.02,.11,abs(fract(w)-.5));
+}
+// triangle wave: a sine with sharp corners
+float tri(float x){return asin(sin(x))*.63662;}
+float shard(vec2 c,float ph){
+  // Damascus with every bend made sharp, plus short zig-zag teeth along each layer
+  float f=tri(c.x/240.+.5*sin(ph))+.8*tri(c.y/190.-c.x/430.+.4*cos(ph))+.45*tri((c.x-c.y)/130.+ph);
+  float t=tri(c.x/115.+f*1.6)*tri(c.y/145.-f);
+  float z=.22*tri(c.x/6.+f*4.)*(.55+.45*tri(c.y/80.+f));
+  float w=c.y/44.+f*2.6+t*1.3+z+ph/PI;
+  return 1.-smoothstep(.03,.14,abs(fract(w)-.5));
 }
 float lam(vec2 p,float ang,float per,float wt,float off,float ph){
   float d=p.x*cos(ang)+p.y*sin(ang),q=-p.x*sin(ang)+p.y*cos(ang);
@@ -73,16 +83,6 @@ float hexmesh(vec2 p,float ph){
   float hs=h21(floor(id/s*7.)+.5);float lit=step(.94,hs)*(.6+.4*sin(ph+hs*40.));
   return max(rim*edge*fade,lit*.8*(1.-rim));
 }
-float circuit(vec2 p,float ph){
-  float s=30.;vec2 cell=floor(p/s);vec2 f=p-cell*s-s*.5;float hs=h21(cell);float hs2=h21(cell+7.31);
-  float v=0.;
-  if(hs<.35)v=1.-smoothstep(.6,1.8,abs(f.y));
-  else if(hs<.7)v=1.-smoothstep(.6,1.8,abs(f.x));
-  else if(hs<.82){v=max(1.-smoothstep(.6,1.8,abs(f.y))*step(0.,f.x),1.-smoothstep(.6,1.8,abs(f.x))*step(0.,f.y));v*=step(-1.5,min(f.x,f.y));}
-  float via=step(.78,hs2)*(1.-smoothstep(1.,2.,abs(length(f)-4.)));
-  float pulse=.55+.45*pow(max(0.,sin(ph-(cell.x+cell.y)*.35)),6.);
-  return max(v*pulse,via);
-}
 float datastream(vec2 p,float ph){
   float row=floor(p.y/12.);float rh=h21(vec2(row,3.1));float dir=rh>.5?1.:-1.;
   float x=p.x+dir*ph/(2.*PI)*16.*8.*(1.+floor(rh*3.));
@@ -103,20 +103,20 @@ float radar(vec2 p,float ph){
 float field(vec2 c,float ph){
   if(uMode<.5)return damascus(c,ph);
   if(uMode<1.5)return meteorite(c,ph);
-  return topo(c,ph);
+  if(uMode<2.5)return topo(c,ph);
+  return shard(c,ph);
 }
 void main(){
   vec2 px=vec2(gl_FragCoord.x,uRes.y-gl_FragCoord.y)/uDpr;
   vec2 p=px+vec2(0.,uOff);
   float ph=uT*2.*PI;float a=0.;
-  if(uMode<2.5){
+  if(uMode<3.5){
     float g=6.;float rowH=g*.866;float r0=floor(p.y/rowH);float best=1e9;vec2 bc=vec2(0.);
     for(int k=0;k<2;k++){float rr=r0+float(k);float off=mod(rr,2.)*g*.5;vec2 cc=vec2(floor((p.x-off)/g+.5)*g+off,rr*rowH);
       float dd=distance(p,cc);if(dd<best){best=dd;bc=cc;}}
     // dots fade in as they grow instead of popping on at a size cutoff (that popping looked like glitches)
     float v=field(bc,ph);float rad=v*g*.44;a=(1.-smoothstep(rad-.6,rad+.6,best))*smoothstep(.15,.7,rad);
-  } else if(uMode<3.5) a=hexmesh(p,ph);
-  else if(uMode<4.5) a=circuit(p,ph);
+  } else if(uMode<4.5) a=hexmesh(p,ph);
   else if(uMode<5.5) a=datastream(p,ph);
   else a=radar(p,ph);
   float inside=0.;

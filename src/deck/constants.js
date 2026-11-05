@@ -18,7 +18,7 @@ const THEME_LABEL = {
   marathon: 'Marathon', cyberpunk: 'Cyberpunk', calm: 'Calm', paper: 'Paper', night: 'Night shift', phosphor: 'Phosphor', blueprint: 'Blueprint',
 };
 const THEME_PATTERN = {
-  marathon: 'damascus', cyberpunk: 'circuit', calm: 'none', paper: 'topo', night: 'circuit', phosphor: 'datastream', blueprint: 'radar',
+  marathon: 'damascus', cyberpunk: 'shard', calm: 'none', paper: 'topo', night: 'shard', phosphor: 'datastream', blueprint: 'radar',
 };
 
 /** Short lines Claude wrote for the ticker; roughly one in ten items. */
