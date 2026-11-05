@@ -23,7 +23,8 @@ class TimeView extends ItemView {
     this.mountPattern();
     this.registerEvent(this.app.workspace.on('neon-deck:core-ready', () => this.mountPattern()));
     this.registerEvent(this.app.workspace.on('neon-deck:core-unloaded', () => this.unmountPattern()));
-    this.register(this.plugin.onChange(debounce(() => this.render(), 300, true)));
+    const soon = debounce(() => this.render(), 300, true);
+    this.register(this.plugin.onChange((now) => (now ? this.render() : soon())));
     this.registerInterval(window.setInterval(() => this.render(), 60 * 1000));
     this.render();
   }

@@ -38,7 +38,7 @@ Object.assign(NeonTime.prototype, {
     else (d.work.breaks.push([d.work.end, now]), (d.work.end = null)); // ended: the gap becomes a break
     d.work.last = now;
     this.saveSoon();
-    this.emit();
+    this.emit(true);
   },
   /** Start / Pause / Resume button for today. */
   workButton(parent, iconOnly) {

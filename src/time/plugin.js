@@ -138,8 +138,9 @@ class NeonTime extends Plugin {
     if (!this._save) this._save = debounce(() => this.saveData(this.settings), 2000, true);
     this._save();
   }
-  emit() {
-    for (const fn of this.listeners) fn();
+  /** now: a click, so views redraw at once instead of after their batching delay. */
+  emit(now) {
+    for (const fn of this.listeners) fn(now);
     this.updateStatus();
     const api = deckApi(this.app);
     if (api) api.factsChanged();

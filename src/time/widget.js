@@ -125,7 +125,8 @@ Object.assign(NeonTime.prototype, {
         button(foot, { icon: 'sunset', text: day && day.wrapped ? 'Update wrap up' : 'Wrap up', cls: day && day.wrapped ? '' : 'mod-cta', onClick: () => new WrapUpModal(p).open() });
       }
     };
-    const off = p.onChange(debounce(render, 300, true));
+    const soon = debounce(render, 300, true);
+    const off = p.onChange((now) => (now ? render() : soon()));
     const iv = window.setInterval(render, 60 * 1000);
     render();
     return {
