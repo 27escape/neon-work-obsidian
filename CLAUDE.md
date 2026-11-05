@@ -6,7 +6,7 @@ Obsidian plugin by Yobzs (one plugin, six modules). Plain JavaScript, no runtime
 If `~/.claude/graphify/neon-deck/` exists, ask it before reading code: `cd ~/.claude/graphify/neon-deck && graphify query "<question>"` (also `graphify explain "<name>"`, `graphify path "A" "B"`), then open only the files it names. After changing code: `~/.claude/graphify/neon-deck/sync.sh && graphify update` from that folder. Hand simple reading/writing to cheaper subagents (haiku/sonnet).
 
 ## Where things are
-- `MAP.md` lists every source file and every function/class/method in it (regenerate: `node tools/map.mjs`). Find code there first, then open only that file.
+- `docs/architecture.md` is the current design (modules, rules, build). `MAP.md` lists every source file and every function/class/method in it (regenerate: `node tools/map.mjs`). Find code there first, then open only that file.
 - `src/shared/shared.js`: helpers used by every module (format, dom, categories, files, cross-module glue). One copy.
 - `src/<module>/`: deck, tasks, time, tickets, research, write. `plugin.js` = the module's Plugin class (lifecycle, settings); other files add methods with `Object.assign(Class.prototype, { ... })`, one job per file.
 - `src/kernel/mother.js`: Neon Deck 2 (one plugin): runs each module as a child Plugin; switches, safe mode, data adoption.

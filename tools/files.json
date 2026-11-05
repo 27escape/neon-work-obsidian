@@ -24,6 +24,7 @@
         "src/deck/dash-ticker.js",
         "src/deck/dash-activity.js",
         "src/deck/cards-view.js",
+        "src/deck/cards-filter.js",
         "src/deck/cards-sidebar.js",
         "src/deck/cards-render.js",
         "src/deck/graph-view.js",
@@ -119,7 +120,10 @@
         "src/research/quiz.js",
         "src/research/tree-view.js",
         "src/research/settings.js",
-        "src/research/plugin.js"
+        "src/research/plugin.js",
+        "src/research/topics.js",
+        "src/research/links.js",
+        "src/research/cards.js"
       ],
       "css": [
         "src/research/styles.css"
