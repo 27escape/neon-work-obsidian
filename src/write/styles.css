@@ -301,7 +301,7 @@ body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered 
   white-space: nowrap;
 }
 
-/* ---- lime dividers (item 27): a row of dots in --nd-go that fade out at both ends ---- */
+/* ---- lime dividers (item 27): a line in --nd-go that breaks into dots fading out at both ends ---- */
 body.nw-hr {
   --nw-hr-c: var(--nd-go, var(--interactive-accent));
 }
@@ -309,7 +309,10 @@ body.nw-hr :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr {
   border: none;
   height: 4px;
   margin: 1.6em 0;
-  background: radial-gradient(circle, var(--nw-hr-c) 1.4px, transparent 1.9px) 0 50% / 9px 4px repeat-x;
+  /* a solid line in the middle (same height as a dot, so it hides the dots under it); dots only show at the ends */
+  background:
+    linear-gradient(var(--nw-hr-c), var(--nw-hr-c)) center / 58% 3px no-repeat,
+    radial-gradient(circle, var(--nw-hr-c) 1.4px, transparent 1.6px) 0 50% / 9px 4px repeat-x;
   -webkit-mask-image: linear-gradient(90deg, transparent, black 20%, black 80%, transparent);
   mask-image: linear-gradient(90deg, transparent, black 20%, black 80%, transparent);
   -webkit-mask-position: center;
