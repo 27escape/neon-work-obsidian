@@ -374,3 +374,23 @@
 .is-calm .tk-mini {
   animation: none;
 }
+
+/* the same for a narrow tab on a wide screen; the status tabs wrap, the due column goes under the title */
+@container (max-width: 560px) {
+  .tk-row-due-date,
+  .tk-inline-hint,
+  .tk-corner {
+    display: none;
+  }
+  .tk-row {
+    flex-wrap: wrap;
+  }
+  .tk-row-main {
+    flex: 1 1 110px;
+  }
+  .tk-tools .nd-seg {
+    flex-wrap: wrap;
+    max-width: 100%;
+    border-radius: var(--nd-radius-s);
+  }
+}

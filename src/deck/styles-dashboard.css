@@ -612,3 +612,20 @@
   color: var(--nd-faint);
   text-align: center;
 }
+
+/* narrow tab: card header buttons go to their own row instead of sticking out */
+@container (max-width: 520px) {
+  .nd-card-head {
+    flex-wrap: wrap;
+  }
+  .nd-card-titles {
+    flex: 1 1 80px; /* titles stay beside the icon; only the buttons wrap */
+  }
+  .nd-card-actions {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .nd-act-tabs {
+    flex-wrap: wrap;
+  }
+}

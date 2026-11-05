@@ -383,6 +383,7 @@
   position: absolute;
   z-index: 20;
   width: 340px;
+  max-width: calc(100vw - 24px);
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--nd-accent) 60%, var(--nd-line));

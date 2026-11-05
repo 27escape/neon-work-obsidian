@@ -3,6 +3,10 @@
   font-family: var(--nd-font-ui);
   color: var(--nd-text);
 }
+/* every Neon tab lays out by its own width (a narrow sidebar fits on any screen); not the ticket popup, sized by its content */
+.workspace-leaf-content[data-type^="neon"]:not(.tk-popup-wrap) > .view-content {
+  container-type: inline-size;
+}
 .nd-ico {
   display: inline-flex;
 }
