@@ -317,3 +317,60 @@
     animation: none;
   }
 }
+
+/* Mark done: the card dims and a checkmark draws itself, then the ticket closes */
+.tk-done-mark {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--nd-bg, var(--background-primary)) 72%, transparent);
+  animation: tk-fade-in 0.18s ease-out both;
+}
+.tk-done-check {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  color: var(--nd-go);
+  background: color-mix(in srgb, var(--nd-go) 14%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--nd-go) 55%, transparent), 0 0 32px -6px var(--nd-go);
+  animation: tk-done-pop 0.38s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+.tk-done-check svg {
+  width: 40px;
+  height: 40px;
+  stroke-width: 3;
+}
+.tk-done-check svg path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: tk-draw 0.34s 0.16s ease-out forwards;
+}
+@keyframes tk-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes tk-done-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+@keyframes tk-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tk-done-mark,
+  .tk-done-check,
+  .tk-done-check svg path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

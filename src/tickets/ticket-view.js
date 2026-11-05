@@ -19,7 +19,7 @@ class TicketView extends FileView {
   }
   async onOpen() {
     this.contentEl.addClass('nd-root', 'tk-view');
-    this.card = new TicketCard(this.plugin, this.contentEl, { popup: false, file: () => this.file, raw: (f) => this.plugin.openRaw(f, this.leaf) });
+    this.card = new TicketCard(this.plugin, this.contentEl, { popup: false, file: () => this.file, raw: (f) => this.plugin.openRaw(f, this.leaf), close: () => this.leaf.detach() });
     this.register(this.card.attachInputs(() => this.app.workspace.getActiveViewOfType(TicketView) === this && !document.querySelector('.modal-container')));
     this.addAction('file-down', 'Export as PDF', () => this.file && this.plugin.ticketFor(this.file) && this.plugin.exportTicket(this.plugin.ticketFor(this.file)));
     this.card.mountPattern();
@@ -89,7 +89,7 @@ class TicketCard {
   }
   async render() {
     const file = this.file;
-    if (!file) return;
+    if (!file || this.finishing) return;
     // editing a step in place: wait until it's saved or cancelled
     const live = this.scroll.querySelector('.tk-inline input:focus');
     if (live && live.closest('.tk-step-edit')) {
@@ -139,7 +139,7 @@ class TicketCard {
     const st = card.createDiv('nd-pills tk-status');
     for (const s of TICKET_STATUS) {
       const btn = st.createEl('button', { cls: `nd-pill-btn s-${s}` + (t.status === s ? ' is-on' : ''), text: TICKET_STATUS_LABEL[s] });
-      btn.addEventListener('click', () => t.status !== s && this.plugin.setStatus(t, s));
+      btn.addEventListener('click', () => t.status !== s && (s === 'done' ? this.finish(t) : this.plugin.setStatus(t, s)));
     }
 
     const tiles = card.createDiv('tk-tiles');
@@ -282,7 +282,7 @@ class TicketCard {
     button(foot, { text: 'Edit as note', onClick: () => this.host.raw(file) });
     const dest = this.plugin.doneDest(t, moment());
     if (t.status === 'done') button(foot, { icon: 'rotate-ccw', text: 'Reopen', cls: 'tk-reopen', onClick: () => this.plugin.setStatus(t, 'open') });
-    else button(foot, { text: dest ? `Mark done → ${dest}` : 'Mark done', cls: 'mod-cta tk-done', onClick: () => this.plugin.setStatus(t, 'done') });
+    else button(foot, { text: dest ? `Mark done → ${dest}` : 'Mark done', cls: 'mod-cta tk-done', onClick: () => this.finish(t) });
     if (reopen) {
       const sec = root.querySelector(`.tk-sec[data-sec="${reopen.key}"]`);
       if (sec) {
@@ -292,6 +292,25 @@ class TicketCard {
     }
     root.scrollTop = scroll;
     this.kickPattern();
+  }
+  /** Mark done: a checkmark draws over the card while the status saves, then the ticket closes. */
+  async finish(t) {
+    if (this.finishing) return;
+    this.finishing = true; // no redraw mid-animation (the save and a done-folder move both trigger one)
+    const card = this.scroll.querySelector('.tk-card');
+    const mark = card.createDiv('tk-done-mark');
+    setIcon(mark.createDiv('tk-done-check'), 'check');
+    try {
+      await Promise.all([this.plugin.setStatus(t, 'done'), new Promise((r) => window.setTimeout(r, 900))]);
+    } catch (e) {
+      console.error('Neon Tickets: could not mark done', e);
+      new Notice('Could not mark the ticket done');
+      this.finishing = false;
+      return this.render(); // the redraw takes the checkmark away
+    }
+    this.finishing = false;
+    if (this.host.close) this.host.close();
+    else this.render();
   }
   /** Edit a step's text in place. Saving does not write to the log. */
   editStepInline(r, t, step) {
