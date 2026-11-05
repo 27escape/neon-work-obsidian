@@ -63,6 +63,19 @@
 .nd-crumb-sep {
   color: var(--nd-accent);
 }
+.nd-crumb.is-home {
+  display: grid;
+  place-items: center;
+}
+.nd-crumb.is-home svg {
+  width: 16px;
+  height: 16px;
+}
+/* a path still too long: the start fades out instead of being cut mid-word */
+.nd-crumbs.is-over {
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 28px);
+  mask-image: linear-gradient(90deg, transparent, black 28px);
+}
 .nd-crumb.is-drop,
 .nd-icon-btn.is-drop {
   outline: 2px dashed var(--nd-go);

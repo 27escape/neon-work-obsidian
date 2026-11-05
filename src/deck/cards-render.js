@@ -10,6 +10,13 @@ Object.assign(CardsView.prototype, {
     };
     const home = mk(this.app.vault.getName(), '/');
     if (folder.path === '/') home.addClass('is-current');
+    else {
+      // inside a folder the vault name is just a home icon, so the path fits
+      home.empty();
+      home.addClass('is-home');
+      setIcon(home, 'home');
+      home.setAttr('aria-label', this.app.vault.getName());
+    }
     let acc = '';
     const parts = folder.path === '/' ? [] : folder.path.split('/');
     parts.forEach((p, i) => {
@@ -19,6 +26,7 @@ Object.assign(CardsView.prototype, {
       if (i === parts.length - 1) b.addClass('is-current');
     });
     c.scrollLeft = c.scrollWidth;
+    c.toggleClass('is-over', c.scrollWidth > c.clientWidth + 1);
   },
 
   baseCard(parent, cls, i, path) {
