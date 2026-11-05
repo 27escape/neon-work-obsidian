@@ -301,43 +301,44 @@ body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered 
   white-space: nowrap;
 }
 
-/* ---- lime dividers (item 27): a line in --nd-go that breaks into dots fading out at both ends ---- */
+/* ---- lime dividers (item 27): a thin line that dissolves into fading dots at both ends ---- */
 body.nw-hr {
   --nw-hr-c: var(--nd-go, var(--interactive-accent));
+  --nw-hr-dots: linear-gradient(90deg, transparent, black 9%, black 20%, transparent 36%, transparent 64%, black 80%, black 91%, transparent);
 }
 body.nw-hr :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr {
+  position: relative;
   border: none;
-  height: 4px;
+  height: 6px;
   margin: 1.6em 0;
-  /* a solid line in the middle (same height as a dot, so it hides the dots under it); dots only show at the ends */
-  background:
-    linear-gradient(var(--nw-hr-c), var(--nw-hr-c)) center / 58% 3px no-repeat,
-    radial-gradient(circle, var(--nw-hr-c) 1.4px, transparent 1.6px) 0 50% / 9px 4px repeat-x;
-  -webkit-mask-image: linear-gradient(90deg, transparent, black 20%, black 80%, transparent);
-  mask-image: linear-gradient(90deg, transparent, black 20%, black 80%, transparent);
-  -webkit-mask-position: center;
-  mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
+  overflow: visible;
+  /* the line tapers in and out, overlapping the dots so they cross-fade instead of meeting at a joint */
+  background: linear-gradient(90deg, transparent 18%, var(--nw-hr-c) 38%, var(--nw-hr-c) 62%, transparent 82%) center / 100% 1.5px no-repeat;
+}
+body.nw-hr :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, var(--nw-hr-c) 1.1px, transparent 1.6px) 0 50% / 8px 6px repeat-x;
+  -webkit-mask: var(--nw-hr-dots) center / 100% 100% no-repeat;
+  mask: var(--nw-hr-dots) center / 100% 100% no-repeat;
 }
 /* the raw --- while the cursor is on it */
 body.nw-hr .markdown-source-view .cm-hr {
   color: var(--nw-hr-c);
 }
-/* the fade at the ends slowly breathes, so the end dots come and go (a calm 5 s loop) */
-body.nw-hr-anim :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr {
+/* the dots slowly breathe out and back (a calm 5 s loop) */
+body.nw-hr-anim :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr::before {
   animation: nw-hr-breathe 5s ease-in-out infinite;
 }
 @keyframes nw-hr-breathe {
   50% {
-    -webkit-mask-size: 118% 100%;
-    mask-size: 118% 100%;
+    -webkit-mask-size: 112% 100%;
+    mask-size: 112% 100%;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  body.nw-hr-anim :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr {
+  body.nw-hr-anim :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr::before {
     animation: none;
   }
 }
