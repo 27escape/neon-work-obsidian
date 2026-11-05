@@ -113,7 +113,7 @@ Requires Obsidian 1.5.0 or later, desktop.
 
 ## Release notes
 
-Only the latest release notes are kept: [2.0.2](docs/release-notes/2.0.2.md): drop files from your computer into Cards, every tab fits narrow widths, and faster section and category switching. Older notes are in the git history.
+Only the latest release notes are kept: [2.0.3](docs/release-notes/2.0.3.md): folder colours, a calmer graph, a cleaner Cards look and snappier workday buttons. Older notes are in the git history.
 
 ## License
 
