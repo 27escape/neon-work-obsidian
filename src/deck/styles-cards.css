@@ -696,8 +696,9 @@
   mask-image: none;
   box-shadow: inset 0 0 12px -4px color-mix(in srgb, var(--tone) 14%, transparent);
 }
-.nd-ci-note.is-image::before {
-  display: none;
+.nd-ci-note.is-image::before,
+.nd-ci-note.is-other::before {
+  display: none; /* PDFs, DOCX, images…: no glow, just the border */
 }
 /* new note / new folder: bigger, in the theme colours */
 .nd-side-browse .nd-icon-btn.nd-side-add {
