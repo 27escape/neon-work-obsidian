@@ -689,8 +689,14 @@
   -webkit-mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, #000 100%);
   mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, #000 100%);
 }
-/* notes: no edge glow, just the border (folders keep their dotted glow) */
+/* notes: a soft smooth edge glow in their colour (folders keep the dotted one) */
 .nd-ci-note::before {
+  background: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+  box-shadow: inset 0 0 12px -4px color-mix(in srgb, var(--tone) 14%, transparent);
+}
+.nd-ci-note.is-image::before {
   display: none;
 }
 /* new note / new folder: bigger, in the theme colours */
