@@ -28,8 +28,8 @@ class ResearchView extends ItemView {
     this.registerEvent(this.app.workspace.on('neon-deck:core-ready', mount));
     this.registerEvent(this.app.workspace.on('neon-deck:core-unloaded', () => this.pattern && (this.pattern.destroy(), (this.pattern = null))));
     const soon = debounce(() => this.render(), 150, true);
-    // f: one note's text changed but not its cards, so only its row's "edited" time moves
-    this.register(this.plugin.onChange((f) => (f ? this.touchRow(f) : soon())));
+    // f: one note's text changed but not its cards, so only its row's "edited" time moves; 'now': a click
+    this.register(this.plugin.onChange((f) => (f === 'now' ? this.render() : f ? this.touchRow(f) : soon())));
     // hidden tabs skip redraws and catch up when shown
     // checked a frame later: the event fires before the tab is actually shown
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.stale && window.requestAnimationFrame(() => this.stale && this.isShown() && this.render())));

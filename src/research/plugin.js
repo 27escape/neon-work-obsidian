@@ -122,7 +122,7 @@ class NeonResearch extends Plugin {
     if (i === this.settings.activeRoot || !this.settings.roots[i]) return;
     this.settings.activeRoot = i;
     this.saveSoon();
-    this.emitSoon();
+    this.listeners.forEach((fn) => fn('now')); // a click: redraw now, skip the batching delays
   }
   notesUnder(folder) {
     if (!folder) return [];
