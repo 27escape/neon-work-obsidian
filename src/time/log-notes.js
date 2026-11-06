@@ -11,7 +11,7 @@ Object.assign(NeonTime.prototype, {
   },
   dayNote(key, synced) {
     const d = this.days[key] || { entries: [], done: [] };
-    const s = this.summary(key, false, true); // files keep the times as logged
+    const s = this.summary(key, false);
     const m = moment(key, 'YYYY-MM-DD');
     const lines = ['---', `date: ${key}`, `total_min: ${s.total}`];
     for (const k of TIME_CATS) lines.push(`${k}_min: ${s.by[k]}`);

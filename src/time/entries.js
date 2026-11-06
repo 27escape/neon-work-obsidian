@@ -25,19 +25,14 @@ Object.assign(NeonTime.prototype, {
     const wd = (m || moment()).isoWeekday();
     return wd <= 5 ? Math.round(this.settings.dayHours * 60) : 0;
   },
-  /**
-   * Minutes per category for a day. With a started workday the screen shows the work timer and the
-   * tracked time is scaled to add up to it (raw: as logged, for the log notes).
-   */
-  summary(key, live, raw = false) {
+  /** Minutes per category for a day, exactly as logged. */
+  summary(key, live) {
     const by = Object.fromEntries(TIME_CATS.map((k) => [k, 0]));
     for (const e of this.entriesOf(key, live)) by[TIME_CATS.includes(e.cat) ? e.cat : 'other'] += e.ms / 60000;
-    const f = raw ? 1 : this.workScale(key, live);
-    for (const k of TIME_CATS) by[k] = Math.round(by[k] * f);
-    const worked = raw ? null : this.workMin(key);
-    const total = worked != null ? worked : TIME_CATS.reduce((s, k) => s + by[k], 0);
+    for (const k of TIME_CATS) by[k] = Math.round(by[k]);
+    const total = TIME_CATS.reduce((s, k) => s + by[k], 0);
     const target = this.targetMin(moment(key, 'YYYY-MM-DD'));
-    return { key, by, total, target, over: Math.max(0, total - target), work: raw ? 'none' : this.workState(key) };
+    return { key, by, total, target, over: Math.max(0, total - target), work: this.workState(key) };
   },
 
   /** Overtime balance over a range: only days with tracked time count; today counts once it's past the target. */

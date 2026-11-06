@@ -42,6 +42,19 @@ test('ticket log lines go on top (item 13)', () => {
   assert.equal(T.addToSection('## Steps\n- [ ] a\n', 'steps', '- [ ] b'), '## Steps\n- [ ] a\n- [ ] b\n');
 });
 
+test('removing a ticket step removes its completion log entry', async () => {
+  const { NeonTickets } = load('neon-tickets', ['NeonTickets']);
+  const text = '## Next steps\n- [x] Ship ✅ 2026-01-01 10:00\n\n## Log\n- 2026-01-01 10:00 — Step done: Ship\n- 2026-01-01 09:00 — Step done: Other\n';
+  let out;
+  const app = {
+    workspace: { getLeavesOfType: () => [] },
+    vault: { process: async (file, fn) => (out = fn(text)) },
+  };
+  const p = Object.assign(Object.create(NeonTickets.prototype), { app });
+  await p.removeStep({ file: { path: 'ticket.md' } }, { line: 1, text: 'Ship' });
+  assert.equal(out, '## Next steps\n\n## Log\n- 2026-01-01 09:00 — Step done: Other\n');
+});
+
 test('task groups by due date', () => {
   assert.deepEqual({ ...K.taskGroup('x 📅 2026-01-01', null, '2026-01-02') }, { due: '2026-01-01', group: 'overdue' });
   assert.deepEqual({ ...K.taskGroup('x', {}, '2026-01-02') }, { due: null, group: 'today' });
@@ -57,6 +70,23 @@ test('minimal edit for writes into an open editor', () => {
   const apply = (a, c) => a.slice(0, c.from) + c.text + a.slice(c.to);
   for (const [a, b] of [['abc', 'abXc'], ['- [ ] a\n- [ ] b', '- [x] a\n- [ ] b'], ['x', ''], ['', 'new'], ['same', 'same'], ['aaa', 'aa']]) assert.equal(apply(a, S.minimalEdit(a, b)), b);
   assert.deepEqual({ ...S.minimalEdit('- [ ] a', '- [x] a') }, { from: 3, to: 4, text: 'x' });
+});
+
+test('manual time stays exact when the workday timer is shorter', () => {
+  const { NeonTime } = load('neon-time', ['NeonTime']);
+  const key = '2026-01-01';
+  const t = {
+    days: { [key]: { entries: [{ start: 1, ms: 120 * 60000, cat: 'operations', source: 'manual' }] } },
+    pending: new Map(),
+    session: null,
+    entriesOf: NeonTime.prototype.entriesOf,
+    targetMin: () => 480,
+    workMin: () => 24,
+    workState: () => 'running',
+  };
+  const sum = NeonTime.prototype.summary.call(t, key, false);
+  assert.equal(sum.total, 120);
+  assert.equal(sum.by.operations, 120);
 });
 
 test('workday: input keeps a day from before midnight going, but not after a long idle', () => {

@@ -126,14 +126,13 @@ class TimeView extends ItemView {
     const list = ec.body;
     if (isToday && p.session) ec.actions.createDiv({ cls: 'tm-live', text: `● tracking ${p.session.name}` });
     const entries = p.entriesOf(key, isToday).reverse(); // newest on top; entriesOf returns a fresh array
-    const scale = p.workScale(key, isToday); // on screen, entries add up to the worked time
     if (!entries.length) emptyState(list, isToday ? 'Nothing tracked yet today. Work in a note and time counts by itself.' : 'Nothing tracked on this day.');
     entries.forEach((e, idx) => {
       const r = list.createDiv('tm-entry' + (e.live ? ' is-live' : '') + (intro ? ' is-intro' : ''));
       r.style.setProperty('--i', String(idx));
       r.style.setProperty('--cat', catColor(e.cat));
       r.createSpan({ cls: 'tm-entry-at', text: moment(e.start).format('HH:mm') });
-      r.createSpan({ cls: 'tm-entry-min', text: fmtMin(Math.round(entryMin(e) * scale)) });
+      r.createSpan({ cls: 'tm-entry-min', text: fmtMin(entryMin(e)) });
       r.createSpan({ cls: 'tm-entry-cat', text: CAT_LABEL[e.cat] || 'Other' });
       const t = r.createSpan({ cls: 'tm-entry-note', text: e.note || (e.path ? e.path.split('/').pop().replace(/\.md$/, '') : '—') });
       if (e.path) {

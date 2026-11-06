@@ -160,7 +160,7 @@ Object.assign(NeonTickets.prototype, {
     this.writeQ.set(key, next);
     return next;
   },
-  /** Change the line a step lives on. fn gets the line and returns the new line, or null to delete it. No log entry. */
+  /** Change a step's line, or delete it and its completion log when fn returns null. */
   async changeStepLine(t, step, fn) {
     let ok = false;
     await writeNote(this.app, t.file, (d) => {
@@ -172,8 +172,14 @@ Object.assign(NeonTickets.prototype, {
       if (l === undefined || !l.includes(step.text)) return d;
       ok = true;
       const nl = fn(l);
-      if (nl === null) lines.splice(i, 1);
-      else lines[i] = nl;
+      if (nl === null) {
+        lines.splice(i, 1);
+        const log = lines.findIndex((x) => {
+          const m = x.match(/^\s*[-*+]\s+\d{4}-\d{2}-\d{2} \d{1,2}:\d{2} — Step done: (.*)$/);
+          return m && m[1] === step.text;
+        });
+        if (log !== -1) lines.splice(log, 1);
+      } else lines[i] = nl;
       return lines.join('\n');
     });
     if (!ok) new Notice('That step changed in the meantime — refreshed');

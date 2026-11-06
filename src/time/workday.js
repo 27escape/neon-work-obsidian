@@ -19,13 +19,6 @@ Object.assign(NeonTime.prototype, {
     const off = w.breaks.reduce((n, [a, b]) => n + Math.max(0, Math.min(b == null ? end : b, end) - a), 0);
     return Math.max(0, Math.round((end - w.start - off) / 60000));
   },
-  /** Factor that makes the day's tracked entries add up to the worked time (1 without a workday). */
-  workScale(key, live) {
-    const worked = this.workMin(key);
-    if (worked == null) return 1;
-    const tracked = this.entriesOf(key, live).reduce((n, e) => n + e.ms / 60000, 0);
-    return tracked > 0 ? worked / tracked : 1;
-  },
   /** The Start / Pause / Resume button. */
   workToggle() {
     const key = moment().format('YYYY-MM-DD');

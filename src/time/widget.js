@@ -79,7 +79,6 @@ Object.assign(NeonTime.prototype, {
       if (workBtn) workBtn.remove();
       workBtn = p.workButton(card.actions, true);
       card.actions.prepend(workBtn);
-      const scale = p.workScale(key, true);
       const sum = p.summary(key, true);
       const top = body.createDiv('tm-w-top');
       const intro = !shown;
@@ -102,7 +101,7 @@ Object.assign(NeonTime.prototype, {
         r.style.setProperty('--cat', catColor(e.cat));
         r.createSpan({ cls: 'tm-w-at', text: moment(e.start).format('HH:mm') });
         r.createSpan({ cls: 'tm-w-note', text: e.note || (e.path ? e.path.split('/').pop().replace(/\.md$/, '') : CAT_LABEL[e.cat]) });
-        r.createSpan({ cls: 'tm-w-min', text: fmtMin(Math.round(entryMin(e) * scale)) });
+        r.createSpan({ cls: 'tm-w-min', text: fmtMin(entryMin(e)) });
         if (!e.live) r.addEventListener('click', () => new EntryModal(p, e, false).open());
         {
           button(r, {
