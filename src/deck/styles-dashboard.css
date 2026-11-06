@@ -331,8 +331,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* totals card: left column, top two rows. Tiles share the card's height; the first spans both columns.
-   In a short card they keep their natural size and the card body scrolls. */
+/* Pulse and Totals fit their actual card, independently of monitor resolution. */
+.nd-w-stats,
+.nd-w-totals {
+  container-type: size;
+}
+.nd-w-stats .nd-tiles {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+/* totals card: left column, top two rows. Tiles share the card's height; the first spans both columns. */
 .nd-totals {
   min-height: 100%;
   gap: 8px;
@@ -353,6 +361,49 @@
 }
 .nd-totals .nd-tile:first-child .nd-tile-value {
   font-size: 28px;
+}
+@container (max-width: 400px) {
+  .nd-w-stats .nd-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (max-height: 180px) {
+  .nd-w-stats .nd-tile {
+    padding: 4px 6px;
+  }
+  .nd-w-stats .nd-tile-value {
+    font-size: 16px;
+    line-height: 1.1;
+  }
+  .nd-w-stats .nd-tile-label {
+    font-size: 8px;
+    line-height: 1.1;
+    letter-spacing: 0.06em;
+  }
+}
+@container (max-height: 320px) {
+  .nd-w-totals .nd-tile {
+    padding: 5px 10px;
+  }
+  .nd-w-totals .nd-tile-value {
+    font-size: 20px;
+    line-height: 1.1;
+  }
+  .nd-w-totals .nd-tile:first-child .nd-tile-value {
+    font-size: 23px;
+  }
+  .nd-w-totals .nd-tile-label {
+    font-size: 9px;
+    line-height: 1.2;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .nd-w-totals .nd-tile-sub {
+    font-size: 10px;
+    line-height: 1.2;
+  }
 }
 .nd-spark {
   position: absolute;

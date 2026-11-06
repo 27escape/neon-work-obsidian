@@ -336,7 +336,7 @@
   margin: 4px 0 2px;
 }
 .nd-cards:not(.is-sidebar) .nd-ci-cover {
-  height: 64px;
+  height: 32px;
   margin-bottom: 8px;
 }
 .nd-ci.nd-more {
