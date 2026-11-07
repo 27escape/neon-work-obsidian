@@ -216,6 +216,12 @@ test('recently done log has no height cap or trailing separator (issue 27)', () 
   assert.match(source, /\.nd-w-recent \.nd-done-log \{[^}]*max-height: none;[^}]*margin-bottom: 0;[^}]*padding-bottom: 0;[^}]*border-bottom: 0;[^}]*\}/);
 });
 
+test('ticket step text is a native button and both controls toggle the step (issue 30)', () => {
+  const source = readFileSync(new URL('../src/tickets/ticket-view.js', import.meta.url), 'utf8');
+  assert.match(source, /const label = r\.createEl\('button', \{ cls: 'tk-step-text', text: step\.text, attr: \{ type: 'button', 'aria-pressed': String\(step\.done\) \} \}\);/);
+  assert.match(source, /box\.addEventListener\('click', tick\);\s*label\.addEventListener\('click', tick\);/);
+});
+
 test('Radar is removed and Blackwall is available without breaking saved settings', async () => {
   const { NeonDeck, PATTERNS, THEME_PATTERN } = load('neon-deck', ['NeonDeck', 'PATTERNS', 'THEME_PATTERN']);
   assert.equal(PATTERNS.includes('radar'), false);
