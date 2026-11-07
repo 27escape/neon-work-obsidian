@@ -67,6 +67,7 @@ Object.assign(NeonTickets.prototype, {
         new Notice('Could not save the steps');
       });
     this.writeQ.set(key, next);
+    next.then(() => this.writeQ.get(key) === next && this.writeQ.delete(key));
     return next;
   },
   /** Remember a status change for the dashboard's Recently done log (only the statuses chosen in settings). */
@@ -117,6 +118,7 @@ Object.assign(NeonTickets.prototype, {
       .then(() => writeNote(this.app, t.file, (d) => addToSection(d, 'steps', `- [ ] ${text}`)))
       .catch((e) => console.error('Neon Tickets: could not add step', e));
     this.writeQ.set(key, next);
+    next.then(() => this.writeQ.get(key) === next && this.writeQ.delete(key));
     return next;
   },
   /**
@@ -158,6 +160,7 @@ Object.assign(NeonTickets.prototype, {
         new Notice('Could not save the step');
       });
     this.writeQ.set(key, next);
+    next.then(() => this.writeQ.get(key) === next && this.writeQ.delete(key));
     return next;
   },
   /** Change a step's line, or delete it and its completion log when fn returns null. */

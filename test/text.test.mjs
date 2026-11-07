@@ -225,7 +225,12 @@ test('ticket step text stays plain text with click and keyboard toggling (issue 
 
 test('Complete all animates open steps from top to bottom before saving', () => {
   const source = readFileSync(new URL('../src/tickets/ticket-view.js', import.meta.url), 'utf8');
-  assert.match(source, /const rows = \[\.\.\.ss\.querySelectorAll\('\.tk-step:not\(\.is-done\)'\)\];[\s\S]*?for \(const r of rows\)[\s\S]*?r\.addClass\('is-done', 'is-pop'\);[\s\S]*?if \(!prefersReducedMotion\(\)\) await new Promise\(\(resolve\) => window\.setTimeout\(resolve, 80\)\);[\s\S]*?await this\.plugin\.completeAllSteps\(t\);/);
+  assert.match(source, /const rows = \[\.\.\.ss\.querySelectorAll\('\.tk-step:not\(\.is-done\)'\)\];[\s\S]*?const delay = prefersReducedMotion\(\) \? 0 : Math\.min\(80, 480 \/ rows\.length\);[\s\S]*?for \(const r of rows\)[\s\S]*?r\.addClass\('is-done', 'is-pop'\);[\s\S]*?if \(delay\) await new Promise\(\(resolve\) => window\.setTimeout\(resolve, delay\)\);[\s\S]*?await this\.plugin\.completeAllSteps\(t\);/);
+});
+
+test('ticket write queues release settled note entries', () => {
+  const source = readFileSync(new URL('../src/tickets/actions.js', import.meta.url), 'utf8');
+  assert.equal((source.match(/next\.then\(\(\) => this\.writeQ\.get\(key\) === next && this\.writeQ\.delete\(key\)\);/g) || []).length, 3);
 });
 
 test('Radar is removed and Blackwall is available without breaking saved settings', async () => {

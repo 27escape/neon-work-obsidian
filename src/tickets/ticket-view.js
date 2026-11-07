@@ -211,10 +211,11 @@ class TicketCard {
         onClick: async () => {
           all.disabled = true;
           const rows = [...ss.querySelectorAll('.tk-step:not(.is-done)')];
+          const delay = prefersReducedMotion() ? 0 : Math.min(80, 480 / rows.length);
           for (const r of rows) {
             r.addClass('is-done', 'is-pop');
             r.querySelector('.tk-step-text').setAttribute('aria-pressed', 'true');
-            if (!prefersReducedMotion()) await new Promise((resolve) => window.setTimeout(resolve, 80));
+            if (delay) await new Promise((resolve) => window.setTimeout(resolve, delay));
           }
           await this.plugin.completeAllSteps(t);
           if (all.isConnected) this.render();
