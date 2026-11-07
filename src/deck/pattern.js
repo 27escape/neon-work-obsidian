@@ -116,17 +116,15 @@ float datastream(vec2 p,float ph){
   return max(max(glyph*(.5+.5*rh),bars*.6),scan);
 }
 float blackwall(vec2 p,float ph){
-  float w=44.;float col=floor(p.x/w);float x=mod(p.x,w);
-  float seed=h21(vec2(col,4.7));
-  float y=p.y+sin(ph+seed*2.*PI)*18.;
-  float row=floor(y/30.);float fy=mod(y,30.);
-  float on=step(.28,h21(vec2(col,row)));
-  float rail=(1.-smoothstep(.5,1.7,min(x,w-x)))*(.25+.75*step(.6,seed));
-  float cut=6.+12.*h21(vec2(row,col+9.));
-  float blocks=on*step(4.,x)*step(x,w-4.)*step(3.,fy)*step(fy,cut);
-  float teeth=on*step(w*.25,x)*step(x,w*.75)*step(19.,fy)*step(fy,22.);
-  float glow=.65+.35*sin(ph+seed*2.*PI);
-  return max(rail*.55,max(blocks,teeth)*glow);
+  float col=floor(p.x/180.);float seed=h21(vec2(col,2.7));
+  float cx=(col+.5)*180.+sin(p.y/110.+ph+seed*2.*PI)*22.;
+  float d=abs(p.x-cx);
+  float core=exp(-d*d/18.)*(.55+.45*sin(p.y/75.+ph+seed*2.*PI));
+  float mist=exp(-d*d/900.)*(.35+.65*h21(floor(p/vec2(7.,11.))));
+  float row=floor(p.y/9.);
+  float tear=step(.82,h21(vec2(row,col)))*exp(-d*d/2400.)*step(2.,mod(p.y,9.));
+  float specks=step(.94,h21(floor(p/6.)))*exp(-d*d/1600.);
+  return min(1.,core+mist*.45+tear*.8+specks*.5);
 }
 float field(vec2 c,float ph){
   if(uMode<.5)return damascus(c,ph);

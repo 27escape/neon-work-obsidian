@@ -23,7 +23,7 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 - Totals, Vault pulse, Recently done (with a Recently touched popup), Activity (month and week timeline with a day pop-up), Tasks, Global tasks, Tickets and Time today on one page. The Quick capture card is optional.
 - **One main pane.** A nav list at the top of the left sidebar (Dashboard, Cards, Tickets, Time, Graph) switches what the main pane shows. Notes open in that same pane, and Back / Forward move between them. No pile of pinned tabs.
 - The grid fills the window on any screen size; lists scroll inside their card, and narrow panes stack the cards.
-- Themes (Marathon, Cyberpunk, Calm, Paper, Night shift, Phosphor, Blueprint, Strawberry kitten), each in light and dark, with the same rounded corners and colour only in the accents. Strawberry kitten is an original cream-and-pink palette with no third-party artwork.
+- Themes (Marathon, Cyberpunk, Calm, Paper, Night shift, Phosphor, Blueprint, Strawberry kitten), each in light and dark, with the same rounded corners and colour only in the accents. Strawberry kitten is an original neutral palette with pink accents and no third-party artwork.
 - A live background pattern (Damascus, Prism, Meteorite, Topo, Hex mesh, Datastream, Blackwall) that pauses when Obsidian isn't focused or with *Reduce motion* on.
 - A ticker with live facts, and a Totals card: time worked, days worked, tasks and tickets done, notes created.
 - Quick capture from anywhere with `Ctrl+Shift+Space`: send to Task, Global task, Ticket or Time entry.
