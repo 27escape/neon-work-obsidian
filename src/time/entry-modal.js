@@ -1,15 +1,15 @@
 /* ---- manual entry / edit -------------------------------------------------- */
 class EntryModal extends Modal {
   /** entry: existing entry to edit (with .day), or a partial one for a new entry */
-  constructor(plugin, entry, isNew) {
+  constructor(plugin, entry, isNew, isBreak = false) {
     super(plugin.app);
-    Object.assign(this, { plugin, entry, isNew });
+    Object.assign(this, { plugin, entry, isNew, isBreak });
   }
   onOpen() {
     const p = this.plugin;
     const e = this.entry;
     this.modalEl.addClass('nd-modal', 'tm-modal');
-    this.titleEl.setText(this.isNew ? 'Add time' : 'Edit time entry');
+    this.titleEl.setText(this.isBreak ? 'Log a break' : this.isNew ? 'Add time' : 'Edit time entry');
     const c = this.contentEl;
     const field = (label, parent = c) => {
       const f = parent.createDiv('tm-field');
@@ -31,12 +31,17 @@ class EntryModal extends Modal {
       const b = quick.createEl('button', { cls: 'nd-pill-btn', text: fmtMin(n), attr: { type: 'button' } });
       b.addEventListener('click', () => (min.value = String(n)));
     }
-    const cat = pills(field('Category'), TIME_CATS.map((k) => [k, CAT_LABEL[k]]), normCat(e.cat) || 'operations', null, 'tm-cats');
-    for (const k of TIME_CATS) cat.btns.get(k).style.setProperty('--pill-accent', catColor(k));
-    const note = field('What did you do?').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'e.g. CRM ticket 8812' } });
-    note.value = e.note || '';
-    const jira = field('Jira key (optional)').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'e.g. OPS-311' } });
-    jira.value = e.jira || '';
+    let cat;
+    let note;
+    let jira;
+    if (!this.isBreak) {
+      cat = pills(field('Category'), TIME_CATS.map((k) => [k, CAT_LABEL[k]]), normCat(e.cat) || 'operations', null, 'tm-cats');
+      for (const k of TIME_CATS) cat.btns.get(k).style.setProperty('--pill-accent', catColor(k));
+      note = field('What did you do?').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'e.g. CRM ticket 8812' } });
+      note.value = e.note || '';
+      jira = field('Jira key (optional)').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'e.g. OPS-311' } });
+      jira.value = e.jira || '';
+    }
 
     const foot = c.createDiv('nd-modal-row');
     if (!this.isNew)
@@ -55,14 +60,21 @@ class EntryModal extends Modal {
       if (!(n > 0 && n <= 960)) return min.addClass('is-invalid');
       const d = moment(date.value, 'YYYY-MM-DD', true);
       if (!d.isValid()) return date.addClass('is-invalid');
+      if (this.isBreak && !time.value) return time.addClass('is-invalid');
       // no start time: place it so it ends now (today) or at 09:00 (other days)
       let s;
-      if (time.value) s = moment(`${date.value} ${time.value}`, 'YYYY-MM-DD HH:mm');
+      if (time.value) s = moment(`${date.value} ${time.value}`, 'YYYY-MM-DD HH:mm', true);
       else if (d.isSame(moment(), 'day')) s = moment().subtract(n, 'minutes');
       else s = d.clone().hour(9);
+      if (!s.isValid()) return time.addClass('is-invalid');
       if (!s.isSame(d, 'day')) s = d.clone().startOf('day');
+      const v = { start: s.valueOf(), ms: n * 60000 };
+      if (this.isBreak) {
+        if (p.addBreak(v)) this.close();
+        return;
+      }
       this.close();
-      const v = { start: s.valueOf(), ms: n * 60000, cat: cat.get() || 'other', note: note.value.trim(), jira: jira.value.trim() };
+      Object.assign(v, { cat: cat.get() || 'other', note: note.value.trim(), jira: jira.value.trim() });
       if (this.isNew) p.addEntry({ ...v, path: e.path || '', source: e.source || 'manual' });
       else p.updateEntry(e, v);
     };
@@ -74,7 +86,7 @@ class EntryModal extends Modal {
         save();
       }
     });
-    window.setTimeout(() => (this.isNew && !e.note ? note : min).focus(), 20);
+    window.setTimeout(() => (this.isNew && !e.note && note ? note : min).focus(), 20);
   }
   onClose() {
     this.contentEl.empty();

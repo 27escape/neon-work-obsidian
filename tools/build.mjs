@@ -19,7 +19,8 @@ js.push(...o.kernel.map(part), 'module.exports = NeonMother;');
 const fonts = [['Unbounded', 'Unbounded.ttf'], ['Space Grotesk', 'SpaceGrotesk.ttf'], ['JetBrains Mono', 'JetBrainsMono.ttf']]
   .map(([family, file]) => `@font-face{font-family:"${family}";src:url(data:font/ttf;base64,${fs.readFileSync(`src/deck/fonts/${file}`).toString('base64')}) format("truetype");font-weight:100 900;font-style:normal;font-display:swap;}`)
   .join('\n');
-const css = [`/* fonts (SIL Open Font License, src/deck/fonts/OFL.txt) */\n${fonts}`, ...o.modules.map((m) => `/* @src ${m.id}/styles.css */\n${m.css.map((f) => `/* @css ${f} */\n${read(f)}`).join('\n')}`)].join('\n');
+const fontLicense = read('src/deck/fonts/OFL.txt');
+const css = [`/*\n${fontLicense}\n*/\n${fonts}`, ...o.modules.map((m) => `/* @src ${m.id}/styles.css */\n${m.css.map((f) => `/* @css ${f} */\n${read(f)}`).join('\n')}`)].join('\n');
 
 const dir = 'dist/neon-deck';
 fs.rmSync(dir, { recursive: true, force: true });

@@ -693,7 +693,7 @@
   }
 }
 
-/* Recently done / touched: the done log fills the card, the 4 touched notes keep their height under it */
+/* Recently done fills the card; touched notes open from the header button. */
 .nd-w-recent .nd-card-body {
   display: flex;
   flex-direction: column;
@@ -701,8 +701,4 @@
 .nd-w-recent .nd-done-log {
   flex: 1 1 auto;
   min-height: 120px;
-  max-height: 464px;
-}
-.nd-w-recent .nd-mini-list {
-  flex: none;
 }

@@ -43,7 +43,7 @@ Object.assign(NeonTime.prototype, {
     const w = sum.work !== 'none' && this.workOf(sum.key);
     if (w) {
       const text = { running: `Working since ${moment(w.start).format('HH:mm')}`, paused: 'On a break', ended: `Day ended ${moment(w.end).format('HH:mm')}` }[sum.work];
-      el.createDiv({ cls: `tm-work is-${sum.work}`, text });
+      el.createDiv({ cls: `tm-work is-${sum.work}`, text: `${text} · timer ${fmtMin(this.workMin(sum.key))}` });
     }
     for (const k of TIME_CATS) {
       if (!sum.by[k] && k === 'other') continue;

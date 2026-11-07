@@ -64,7 +64,8 @@ class DashboardView extends ItemView {
     this.totals = this.place(widget(this.grid, 'nd-w-totals', 'Totals', 'sigma', 'everything tracked so far'), 'totals');
     this.stats = this.place(widget(this.grid, 'nd-w-stats', 'Vault pulse', 'activity'), 'pulse');
     if (this.plugin.settings.showCapture) this.buildCapture(this.grid);
-    this.recent = this.place(widget(this.grid, 'nd-w-recent', 'Recently done / touched', 'history'), 'recent');
+    this.recent = this.place(widget(this.grid, 'nd-w-recent', 'Recently done', 'history'), 'recent');
+    button(this.recent.actions, { icon: 'files', cls: 'nd-icon-btn', title: 'Recently touched files', onClick: () => new FileListModal(this.plugin, (this.lastData?.md || []).slice().sort((a, b) => b.stat.mtime - a.stat.mtime), 'Recently touched files').open() });
     this.heat = this.place(widget(this.grid, 'nd-w-heat', 'Activity', 'flame'), 'activity');
     this.heat.body.addClass('nd-act');
     this.footEl = inner.createDiv('nd-dash-foot');
@@ -347,23 +348,11 @@ class DashboardView extends ItemView {
     tile(d.orphans.length, 'orphans', 'var(--nd-accent)', () => new FileListModal(this.plugin, d.orphans, 'Orphan notes — no links in or out').open(), 'Notes with no links in or out');
     tile(d.editedToday.length, 'edited today', 'var(--nd-go)', () => new FileListModal(this.plugin, d.editedToday, 'Edited today').open(), 'Line: notes edited per day', this.perDay(d.md, (f) => f.stat.mtime));
   }
-  renderRecent(d) {
+  renderRecent() {
     const b = this.recent.body;
     b.empty();
     this.renderDoneLog(b);
-    const list = b.createDiv('nd-mini-list');
-    const recent = d.md.slice().sort((a, b2) => b2.stat.mtime - a.stat.mtime).slice(0, 4); // half the card: done items get the room
-    if (!recent.length) emptyState(list, 'No notes yet — create your first one ✦');
-    recent.forEach((f, i) => {
-      const c = list.createDiv('nd-mini');
-      c.style.setProperty('--i', String(i));
-      const cat = fileCategory(this.app, f);
-      c.style.setProperty('--row-accent', cat && cat !== 'untracked' ? catColor(cat) : 'var(--nd-line-strong)');
-      c.createDiv({ cls: 'nd-mini-title', text: f.basename });
-      const folder = f.parent && f.parent.path !== '/' ? f.parent.path + ' · ' : '';
-      c.createDiv({ cls: 'nd-mini-meta', text: folder + moment(f.stat.mtime).fromNow() });
-      this.plugin.bindFileMouse(c, f, this);
-    });
+    if (!this.plugin.activity.size) emptyState(b, 'Nothing done yet — completed work appears here');
   }
 }
 

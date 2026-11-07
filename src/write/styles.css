@@ -301,7 +301,7 @@ body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered 
   white-space: nowrap;
 }
 
-/* ---- lime dividers (item 27): a thin line across the note's text width that fades out at both ends ---- */
+/* ---- lime dividers (item 27): a thin line that fades out towards the right ---- */
 body.nw-hr {
   --nw-hr-c: var(--nd-go, var(--interactive-accent));
 }
@@ -309,7 +309,7 @@ body.nw-hr :is(.markdown-rendered, .markdown-source-view .cm-line.hr) hr {
   border: none;
   height: 1.5px;
   margin: 1.6em 0;
-  background: linear-gradient(90deg, transparent, var(--nw-hr-c) 30%, var(--nw-hr-c) 70%, transparent);
+  background: linear-gradient(90deg, var(--nw-hr-c), transparent);
 }
 /* the raw --- while the cursor is on it */
 body.nw-hr .markdown-source-view .cm-hr {

@@ -60,39 +60,53 @@ class ResearchView extends ItemView {
       this.first = false;
       window.setTimeout(() => root.removeClass('is-entering'), 900);
     }
+    const research = this.tab === 'research';
     const rootFolder = p.rootFolder();
     const hero = root.createDiv('nd-hero nr-hero');
     const l = hero.createDiv('nr-hero-l');
     const roots = p.settings.roots;
     l.createDiv({ cls: 'nd-hero-greet', text: roots[p.settings.activeRoot].name });
-    const nTopics = rootFolder ? rootFolder.children.filter((c) => c instanceof TFolder).length : 0;
-    const nNotes = p.researchNotes().length;
-    l.createDiv({ cls: 'nr-hero-sub', text: `${nTopics} topic${nTopics === 1 ? '' : 's'} · ${nNotes} note${nNotes === 1 ? '' : 's'}` });
-    const acts = hero.createDiv('nr-acts');
-    const due = p.dueCards(p.cardsUnder(rootFolder)).length;
-    button(acts, { icon: 'graduation-cap', text: due ? `Quiz me (${due})` : 'Quiz me', title: 'Choose a topic to quiz', onClick: () => new QuizPickModal(p).open() });
-    button(acts, { icon: 'folder-plus', text: 'Topic', cls: 'mod-cta', title: 'New topic', onClick: () => p.newTopic(rootFolder) });
-    // section switch on its own row under the title: click to switch, right-click to rename/remove, + to add
-    const sw = pills(hero, roots.map((r, i) => [i, r.name]), p.settings.activeRoot, (i) => p.setActiveRoot(i), 'nr-roots');
-    for (const [i, btn] of sw.btns) {
-      tip(btn, roots[i].path);
-      btn.addEventListener('contextmenu', (e) => (e.preventDefault(), p.sectionMenu(i, e)));
+    if (research) {
+      const remaining = p.settings.researchTopics.filter((t) => !t.done).length;
+      const done = p.settings.researchTopics.length - remaining;
+      l.createDiv({ cls: 'nr-hero-sub', text: `${remaining} to research · ${done} researched` });
+    } else {
+      const nTopics = rootFolder ? rootFolder.children.filter((c) => c instanceof TFolder).length : 0;
+      const nNotes = p.researchNotes().length;
+      l.createDiv({ cls: 'nr-hero-sub', text: `${nTopics} topic${nTopics === 1 ? '' : 's'} · ${nNotes} note${nNotes === 1 ? '' : 's'}` });
+      const acts = hero.createDiv('nr-acts');
+      const due = p.dueCards(p.cardsUnder(rootFolder)).length;
+      button(acts, { icon: 'graduation-cap', text: due ? `Quiz me (${due})` : 'Quiz me', title: 'Choose a topic to quiz', onClick: () => new QuizPickModal(p).open() });
+      button(acts, { icon: 'folder-plus', text: 'Topic', cls: 'mod-cta', title: 'New topic', onClick: () => p.newTopic(rootFolder) });
     }
-    const add = sw.el.createEl('button', { cls: 'nd-pill-btn nr-root-add', attr: { type: 'button', 'aria-label': 'Add a section (folder)' } });
-    setIcon(add, 'plus');
-    tip(add, 'Add a section: pick or create a folder');
-    add.addEventListener('click', () => p.pickSection());
+    pills(root, [['topics', 'Topics'], ['research', 'Research']], research ? 'research' : 'topics', (v) => ((this.tab = v), this.render()), 'nr-view-tabs');
+    if (!research) {
+      // section switch on its own row under the title: click to switch, right-click to rename/remove, + to add
+      const sw = pills(hero, roots.map((r, i) => [i, r.name]), p.settings.activeRoot, (i) => p.setActiveRoot(i), 'nr-roots');
+      for (const [i, btn] of sw.btns) {
+        tip(btn, roots[i].path);
+        btn.addEventListener('contextmenu', (e) => (e.preventDefault(), p.sectionMenu(i, e)));
+      }
+      const add = sw.el.createEl('button', { cls: 'nd-pill-btn nr-root-add', attr: { type: 'button', 'aria-label': 'Add a section (folder)' } });
+      setIcon(add, 'plus');
+      tip(add, 'Add a section: pick or create a folder');
+      add.addEventListener('click', () => p.pickSection());
+    }
 
     // the tree sits in one panel (a "window" for the pattern, like the dashboard cards)
     const panel = root.createDiv('nd-card nr-panel');
-    const kids = rootFolder ? this.childrenOf(rootFolder) : { folders: [], notes: [] };
-    if (!kids.folders.length && !kids.notes.length) {
-      const e = panel.createDiv('nr-empty');
-      button(e, { icon: 'folder-plus', text: 'Add your first topic', cls: 'mod-cta', onClick: () => p.newTopic(rootFolder) });
+    if (research) {
+      this.renderResearchList(panel);
     } else {
-      const tree = panel.createDiv('nr-tree');
-      for (const f of kids.folders) this.folderRow(tree, f, 0);
-      for (const f of kids.notes) this.noteRow(tree, f, 0);
+      const kids = rootFolder ? this.childrenOf(rootFolder) : { folders: [], notes: [] };
+      if (!kids.folders.length && !kids.notes.length) {
+        const e = panel.createDiv('nr-empty');
+        button(e, { icon: 'folder-plus', text: 'Add your first topic', cls: 'mod-cta', onClick: () => p.newTopic(rootFolder) });
+      } else {
+        const tree = panel.createDiv('nr-tree');
+        for (const f of kids.folders) this.folderRow(tree, f, 0);
+        for (const f of kids.notes) this.noteRow(tree, f, 0);
+      }
     }
     madeWith(root.createDiv('nr-foot'), 'Neon Research');
     sc.scrollTop = top;

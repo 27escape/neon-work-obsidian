@@ -206,6 +206,7 @@ class TicketsView extends ItemView {
       const stop = (fn) => (e) => (e.stopPropagation(), fn());
       button(acts, { icon: 'plus', text: 'Use', cls: 'mod-cta', title: 'New ticket from this template', onClick: stop(() => p.newTicket({ template: tpl.id })) });
       button(acts, { icon: 'pencil', cls: 'nd-icon-btn', title: 'Edit template', onClick: stop(() => new TemplateModal(p, tpl).open()) });
+      button(acts, { icon: 'file-down', cls: 'nd-icon-btn', title: 'Export as note / PDF (snapshot)', onClick: stop(() => p.exportTemplate(tpl)) });
       button(acts, { icon: 'copy', cls: 'nd-icon-btn', title: 'Duplicate', onClick: stop(() => p.duplicateTemplate(tpl.id)) });
       button(acts, { icon: 'trash-2', cls: 'nd-icon-btn', title: 'Delete template', onClick: stop(() => new ConfirmModal(this.app, { title: 'Delete template?', text: tpl.name, cta: 'Delete', onConfirm: () => p.deleteTemplate(tpl.id) }).open()) });
       r.addEventListener('click', () => new TemplateModal(p, tpl).open());

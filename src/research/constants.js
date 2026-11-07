@@ -11,6 +11,7 @@ const NR_DEFAULTS = {
   countAsWork: false, // false: new notes get `untracked: true`, so Neon Time never counts them as work
   linkSuggest: true,
   open: [], // folder paths expanded in the tree
+  researchTopics: [], // [{ text, done }]: topics queued in the Research subtab
   cards: {}, // quiz card id -> { due, ivl }
 };
 const DAY = 86400000;

@@ -20,16 +20,16 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 ## Features
 
 ### Dashboard (Neon Deck)
-- Totals, Vault pulse, Recently done / touched, Activity (month and week timeline with a day pop-up), Tasks, Global tasks, Tickets and Time today on one page. The Quick capture card is optional.
+- Totals, Vault pulse, Recently done (with a Recently touched popup), Activity (month and week timeline with a day pop-up), Tasks, Global tasks, Tickets and Time today on one page. The Quick capture card is optional.
 - **One main pane.** A nav list at the top of the left sidebar (Dashboard, Cards, Tickets, Time, Graph) switches what the main pane shows. Notes open in that same pane, and Back / Forward move between them. No pile of pinned tabs.
 - The grid fills the window on any screen size; lists scroll inside their card, and narrow panes stack the cards.
-- Themes (Marathon, Cyberpunk, Calm, Paper, Night shift, Phosphor, Blueprint), each in light and dark, with the same rounded corners and colour only in the accents.
+- Themes (Marathon, Cyberpunk, Calm, Paper, Night shift, Phosphor, Blueprint, Strawberry kitten), each in light and dark, with the same rounded corners and colour only in the accents. Strawberry kitten is an original cream-and-pink palette with no third-party artwork.
 - A live background pattern (Damascus, Prism, Meteorite, Topo, Hex mesh, Datastream, Radar) that pauses when Obsidian isn't focused or with *Reduce motion* on.
 - A ticker with live facts, and a Totals card: time worked, days worked, tasks and tickets done, notes created.
 - Quick capture from anywhere with `Ctrl+Shift+Space`: send to Task, Global task, Ticket or Time entry.
 - Card explorer with category chips and a *Revisit* reminder for notes you haven't opened in a while, plus a local note graph that follows the theme.
 - **Sidebar order:** notes and folders starting with `!` stay on top (with a pin); the rest sort by their `created` property, newest first.
-- **Recently done / touched:** ticked tasks and tickets set to Done or Waiting, grouped by day, above your recently edited notes.
+- **Recently done:** ticked tasks and tickets set to Done or Waiting, grouped by day. The header button opens recently edited notes.
 - **Activity:** a month view (average workday, busiest weekday, streaks, tasks on time, tickets closed) with a calendar, and a view per week; click a day for a pop-up with everything that happened.
 
 ### Tasks (Neon Tasks)
@@ -41,7 +41,7 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 ### Tickets (Neon Tickets)
 - A ticket is a normal note with `type: ticket`. It opens as a pop-up with steps, a log that writes itself, due dates, reminders and a Waiting state with follow-ups.
 - Done tickets file themselves into `Done/YYYY-MM/`; a counter reads like *14 done in November · 11 in October*.
-- **Templates:** a Templates tab in the tracker to add, edit, duplicate and delete ticket blueprints (steps, description, priority, due). Pick one in New ticket and its steps are filled in. Stored locally in the plugin's data.
+- **Templates:** a Templates tab in the tracker to add, edit, duplicate, delete and export ticket blueprints (steps, description, priority, due) as a note/PDF. Pick one in New ticket and its steps are filled in. Stored locally in the plugin's data; exported notes are snapshots and do not sync edits back.
 - **Screenshots and PDF export:** paste, drop or pick screenshots on a ticket (saved in `Core/Images/Tickets/`), and export the whole ticket (steps, screenshots, log, time) as a PDF report.
 - **Clear done tickets:** on the Done tab, clear all done tickets or only those finished before this month (optionally with their screenshots and reports) — they go to the system trash.
 - **Sort and group** the Tickets tab by due date, status, priority, newest, oldest, recently changed, title, ID or Jira key.
@@ -54,7 +54,7 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 - Counts active time only while a note is the focused tab and you type, scroll or click. It stops after a configurable idle time.
 - Category comes from checkbox properties (`projects`, `school`, `admin`, `operations`) or tags. `untracked: true` notes are never logged.
 - A donut against your workday target, overtime as an accent slice, weekly and monthly balance, and entries you can add, edit or delete (with Undo).
-- **Work day:** Start / Pause / Resume in the widget and tab. The clock keeps running while Obsidian is idle or closed; after 2 h without input the day ends at your last activity. On screen, tracked time is scaled to the time worked.
+- **Work day:** Start / Pause / Resume in the widget and tab. The clock keeps running while Obsidian is idle or closed; after 2 h without input the day ends at your last activity. Manual entries add their exact minutes to the day total; **Log break** adjusts only the separate work timer.
 - Keeps counting while you're briefly in another app; after 30 min without input it ends at your last activity and drops the idle time.
 - **Wrap up** at the end of the day, and one Time Log note per day (`Core/Time Log/YYYY-MM-DD.md`) with totals, a Done today list and an entries table, written for an AI agent to send on to Jira. Neon Time itself never connects to Jira or the network.
 
@@ -90,10 +90,12 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 
 Neon Deck isn't in the Community plugins list yet. Install it by hand:
 
-1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/Yobzs/neon-deck-obsidian/releases/latest).
-2. Put them in your vault's `.obsidian/plugins/neon-deck/` folder (create it if needed).
+1. Download `neon-deck.zip` from the [latest release](https://github.com/Yobzs/neon-deck-obsidian/releases/latest) and unzip it.
+2. Drag the resulting **`neon-deck` folder** into your vault's `.obsidian/plugins/` folder (create it if needed).
 3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable **Neon Deck**.
 4. Open the dashboard from the ribbon `▦` icon or `Ctrl+P → Neon Deck: Open dashboard`.
+
+If the ZIP is not attached to an older release, download its three files instead and put them in `.obsidian/plugins/neon-deck/`. Maintainers can add the ZIP to an existing release with **Actions → Package installer**.
 
 Requires Obsidian 1.5.0 or later, desktop.
 
@@ -109,7 +111,7 @@ Requires Obsidian 1.5.0 or later, desktop.
 - **Build:** `node tools/build.mjs` → `dist/neon-deck/` (no dependencies). Each former plugin is a module: a child `Plugin` run by `src/kernel/mother.js`, so it keeps its own commands, settings tab and data.
 - **Check:** `node --test test/*.test.mjs` (unit tests) and `node tools/check.mjs dist` (local-only, cleanup, timers, writes, CSS…).
 - **Saved data** (`data.json`, `modules.json`) is personal and isn't in this repo.
-- To release: bump `src/kernel/manifest.json` and `versions.json`, build, attach the three files from `dist/neon-deck/` to a GitHub release.
+- To release: bump `src/kernel/manifest.json` and `versions.json`, build, attach the three files from `dist/neon-deck/` to a GitHub release. Then run **Actions → Package installer** with the release tag to attach the one-folder ZIP.
 
 ## Release notes
 

@@ -4,6 +4,7 @@ class NeonResearch extends Plugin {
     const raw = (await this.loadData()) || {};
     this.settings = Object.assign({}, NR_DEFAULTS, raw);
     if (!Array.isArray(this.settings.open)) this.settings.open = [];
+    this.settings.researchTopics = normalizeResearchTopics(this.settings.researchTopics);
     if (!this.settings.cards || typeof this.settings.cards !== 'object') this.settings.cards = {};
     const s = this.settings;
     if (!Array.isArray(s.roots) || !s.roots.length) s.roots = [{ name: 'Research', path: normalizePath(s.root || NR_DEFAULTS.root) }, { name: 'School', path: 'Learning/School' }];

@@ -19,6 +19,27 @@ Object.assign(NeonTime.prototype, {
     const off = w.breaks.reduce((n, [a, b]) => n + Math.max(0, Math.min(b == null ? end : b, end) - a), 0);
     return Math.max(0, Math.round((end - w.start - off) / 60000));
   },
+  /** Add a completed break without changing the independently logged work entries. */
+  addBreak({ start, ms }) {
+    const w = this.workOf(dayKey(start));
+    if (!w) {
+      new Notice('Start the workday before logging a break.');
+      return false;
+    }
+    const end = w.end || Date.now();
+    const stop = start + ms;
+    const overlap = w.breaks.some(([a, b]) => start < (b == null ? end : b) && a < stop);
+    if (!Number.isFinite(start) || !Number.isInteger(ms) || ms <= 0 || start < w.start || stop > end || overlap) {
+      new Notice(overlap ? 'That break overlaps an existing break.' : 'Choose a break within the started workday.');
+      return false;
+    }
+    w.breaks.push([start, stop]);
+    w.breaks.sort((a, b) => a[0] - b[0]);
+    this.saveSoon();
+    this.emit(true);
+    new Notice(`Break logged · ${fmtMin(ms / 60000)}`);
+    return true;
+  },
   /** The Start / Pause / Resume button. */
   workToggle() {
     const key = moment().format('YYYY-MM-DD');

@@ -55,6 +55,44 @@ test('removing a ticket step removes its completion log entry', async () => {
   assert.equal(out, '## Next steps\n\n## Log\n- 2026-01-01 09:00 — Step done: Other\n');
 });
 
+test('ticket template export creates missing folders and opens a snapshot for PDF (item 16, bug 2)', async () => {
+  const { NeonTickets } = load('neon-tickets', ['NeonTickets']);
+  const folders = new Set();
+  const files = new Map();
+  const made = [];
+  let opened;
+  let command;
+  const leaf = { openFile: async (file) => (opened = file) };
+  const app = {
+    vault: {
+      getAbstractFileByPath: (path) => files.get(path) || (folders.has(path) ? { path } : null),
+      createFolder: async (path) => (made.push(path), folders.add(path)),
+      create: async (path, text) => {
+        const file = { path };
+        files.set(path, file);
+        file.text = text;
+        return file;
+      },
+    },
+    workspace: {
+      getLeavesOfType: () => [],
+      getLeaf: () => leaf,
+      setActiveLeaf: () => {},
+    },
+    commands: { executeCommandById: (id) => ((command = id), true) },
+  };
+  const p = Object.assign(Object.create(NeonTickets.prototype), { app, settings: { ticketFolder: 'Core/Tickets' } });
+  const note = await p.exportTemplate({ id: 'tpl-test', name: 'Laptop setup', description: 'Prepare the laptop', priority: 'high', dueDays: 2, steps: ['Install tools', 'Test access'] });
+  assert.equal(note.path, 'Core/Tickets/Templates/Laptop setup.md');
+  assert.deepEqual(made, ['Core', 'Core/Tickets', 'Core/Tickets/Templates']);
+  assert.match(note.text, /type: ticket-template-export/);
+  assert.match(note.text, /Changes to this note do not update the template/);
+  assert.match(note.text, /- \[ \] Install tools/);
+  assert.equal(opened, note);
+  await new Promise((resolve) => setTimeout(resolve, 450));
+  assert.equal(command, 'workspace:export-pdf');
+});
+
 test('task groups by due date', () => {
   assert.deepEqual({ ...K.taskGroup('x 📅 2026-01-01', null, '2026-01-02') }, { due: '2026-01-01', group: 'overdue' });
   assert.deepEqual({ ...K.taskGroup('x', {}, '2026-01-02') }, { due: null, group: 'today' });
@@ -100,4 +138,67 @@ test('workday: input keeps a day from before midnight going, but not after a lon
   t.days = { '2026-01-01': day(now - 10 * 3600000) }; // laptop slept 10 h
   NeonTime.prototype.workSeen.call(t);
   assert.equal(t.days['2026-01-01'].work.last, now - 10 * 3600000);
+});
+
+test('manual breaks reduce only the work timer and reject invalid ranges', () => {
+  const { NeonTime } = load('neon-time', ['NeonTime']);
+  const start = Date.now() - 4 * 3600000;
+  const key = '2026-01-01';
+  const t = Object.assign(Object.create(NeonTime.prototype), {
+    days: { [key]: { work: { start, last: Date.now(), breaks: [], end: null } } },
+    saves: 0,
+    saveSoon() { this.saves++; },
+    emit() {},
+  });
+  assert.equal(t.addBreak({ start: start + 3600000, ms: 30 * 60000 }), true);
+  assert.equal(t.workMin(key), 210);
+  assert.equal(t.addBreak({ start: start + 3600000, ms: 15 * 60000 }), false);
+  assert.equal(t.addBreak({ start: start - 60000, ms: 15 * 60000 }), false);
+  assert.equal(t.addBreak({ start, ms: 30 * 60000 }), true);
+  assert.equal(t.workMin(key), 180);
+  assert.equal(t.saves, 2);
+  t.days = {};
+  assert.equal(t.addBreak({ start, ms: 30 * 60000 }), false);
+});
+
+test('research topic data is normalized without malformed or duplicate rows', () => {
+  const { normalizeResearchTopics } = load('neon-research', ['normalizeResearchTopics']);
+  const raw = [
+    { text: '  Quantum   gravity ', done: true },
+    { text: 'quantum gravity', done: false },
+    { text: ' ' },
+    { text: 42 },
+    null,
+    { text: 'x'.repeat(201) },
+  ];
+  assert.deepEqual([...normalizeResearchTopics(raw)].map((x) => ({ ...x })), [{ text: 'Quantum gravity', done: true }]);
+  assert.deepEqual([...normalizeResearchTopics(null)], []);
+});
+
+test('research topics validate additions and save check/remove changes', () => {
+  const { NeonResearch } = load('neon-research', ['NeonResearch']);
+  const p = Object.assign(Object.create(NeonResearch.prototype), {
+    settings: { researchTopics: [] },
+    saves: 0,
+    renders: 0,
+    saveSoon() { this.saves++; },
+    emitSoon() { this.renders++; },
+  });
+  assert.equal(p.addResearchTopic('  '), false);
+  assert.equal(p.addResearchTopic('x'.repeat(201)), false);
+  assert.equal(p.addResearchTopic('  Neural   networks '), true);
+  assert.equal(p.addResearchTopic('neural networks'), false);
+  assert.equal(p.settings.researchTopics.length, 1);
+  assert.equal(p.settings.researchTopics[0].text, 'Neural networks');
+  const topic = p.settings.researchTopics[0];
+  p.toggleResearchTopic(topic);
+  assert.equal(topic.done, true);
+  p.toggleResearchTopic(topic);
+  assert.equal(topic.done, false);
+  p.removeResearchTopic({});
+  assert.equal(p.settings.researchTopics.length, 1);
+  p.removeResearchTopic(topic);
+  assert.equal(p.settings.researchTopics.length, 0);
+  assert.equal(p.saves, 4);
+  assert.equal(p.renders, 4);
 });

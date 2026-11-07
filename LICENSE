@@ -13,8 +13,9 @@ In short (the full legal text below is what counts):
 Versions up to and including 1.5.0 were released under the MIT License; copies
 obtained under those versions keep that license.
 
-The bundled fonts in neon-deck/fonts/ are not covered by this license. They keep
-their own license, the SIL Open Font License 1.1 (see neon-deck/fonts/OFL.txt).
+The bundled fonts in src/deck/fonts/ are not covered by this license. They keep
+their own license, the SIL Open Font License 1.1 (see src/deck/fonts/OFL.txt).
+Their copyright notices and full license are also embedded in the built styles.css.
 
 =======================================================================
 

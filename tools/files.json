@@ -98,6 +98,7 @@
         "src/tickets/plugin.js",
         "src/tickets/widget-reminders.js",
         "src/tickets/export-templates.js",
+        "src/tickets/template-export.js",
         "src/tickets/filing.js",
         "src/tickets/actions.js",
         "src/tickets/model.js"
@@ -123,6 +124,7 @@
         "src/research/plugin.js",
         "src/research/sections.js",
         "src/research/topics.js",
+        "src/research/research-list.js",
         "src/research/links.js",
         "src/research/cards.js"
       ],

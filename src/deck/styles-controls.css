@@ -94,6 +94,21 @@
 .nd-input.is-invalid {
   border-color: var(--nd-accent);
 }
+.nd-themed .nd-input:is([type='date'], [type='datetime-local']) {
+  color-scheme: dark;
+  min-height: 36px;
+  padding-block: 6px;
+}
+.nd-themed.theme-light .nd-input:is([type='date'], [type='datetime-local']) {
+  color-scheme: light;
+}
+.nd-input:is([type='date'], [type='datetime-local'])::-webkit-calendar-picker-indicator {
+  opacity: 0.65;
+  cursor: pointer;
+}
+.nd-input:is([type='date'], [type='datetime-local'])::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
 textarea.nd-input {
   resize: vertical;
   line-height: 1.45;

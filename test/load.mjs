@@ -15,5 +15,5 @@ export function load(id, names) {
     if (r === 'obsidian') return obsidian;
     throw new Error('no ' + r);
   };
-  return vm.runInNewContext(code, { require, module: {}, window: {}, document: {}, console, setTimeout, clearTimeout });
+  return vm.runInNewContext(code, { require, module: {}, window: { setTimeout, clearTimeout }, document: {}, console, setTimeout, clearTimeout });
 }

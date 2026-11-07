@@ -13,12 +13,12 @@ const IMG_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avi
 /** Folder icon colours: theme colours first (they follow the theme), then fixed ones; a picker allows any #rrggbb. */
 const FOLDER_COLORS = ['var(--nd-accent)', 'var(--nd-go)', 'var(--nd-info)', 'var(--nd-warn)', '#e5506a', '#f59e0b', '#84cc16', '#14b8a6', '#3b82f6', '#a855f7', '#ec4899', '#94a3b8'];
 const FOLDER_COLOR_RE = /^(#[0-9a-f]{6}|var\(--nd-[a-z0-9-]+\))$/i;
-const THEMES = ['marathon', 'cyberpunk', 'calm', 'paper', 'night', 'phosphor', 'blueprint'];
+const THEMES = ['marathon', 'cyberpunk', 'calm', 'paper', 'night', 'phosphor', 'blueprint', 'strawberry'];
 const THEME_LABEL = {
-  marathon: 'Marathon', cyberpunk: 'Cyberpunk', calm: 'Calm', paper: 'Paper', night: 'Night shift', phosphor: 'Phosphor', blueprint: 'Blueprint',
+  marathon: 'Marathon', cyberpunk: 'Cyberpunk', calm: 'Calm', paper: 'Paper', night: 'Night shift', phosphor: 'Phosphor', blueprint: 'Blueprint', strawberry: 'Strawberry kitten',
 };
 const THEME_PATTERN = {
-  marathon: 'damascus', cyberpunk: 'prism', calm: 'none', paper: 'topo', night: 'prism', phosphor: 'datastream', blueprint: 'radar',
+  marathon: 'damascus', cyberpunk: 'prism', calm: 'none', paper: 'topo', night: 'prism', phosphor: 'datastream', blueprint: 'radar', strawberry: 'none',
 };
 
 /** Short lines Claude wrote for the ticker; roughly one in ten items. */
