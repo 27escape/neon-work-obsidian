@@ -20,9 +20,9 @@ class EntryModal extends Modal {
     const start = moment(e.start || Date.now());
     const date = field('Date', row).createEl('input', { cls: 'nd-input', attr: { type: 'date' } });
     date.value = start.format('YYYY-MM-DD');
-    const time = field('Start', row).createEl('input', { cls: 'nd-input', attr: { type: 'time' } });
+    const time = field('Start', row).createEl('input', { cls: 'nd-input', attr: { type: 'text' } });
     time.value = e.start ? start.format('HH:mm') : '';
-    time.placeholder = 'optional';
+    time.placeholder = 'HH:mm (optional)';
     const minF = field('Minutes', row);
     const min = minF.createEl('input', { cls: 'nd-input', attr: { type: 'number', min: '1', max: '960' } });
     min.value = e.ms ? String(entryMin(e)) : '30';

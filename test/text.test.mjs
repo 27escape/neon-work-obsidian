@@ -1,6 +1,7 @@
 // Pure text functions: each was a real bug or is easy to break.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { load } from './load.mjs';
 
 const W = load('neon-write', ['toggleMark', 'toggleMergeCell', 'toggleLockMeta']);
@@ -201,4 +202,29 @@ test('research topics validate additions and save check/remove changes', () => {
   assert.equal(p.settings.researchTopics.length, 0);
   assert.equal(p.saves, 4);
   assert.equal(p.renders, 4);
+});
+
+test('time entry start uses optional text with strict HH:mm parsing (issue 25)', () => {
+  const source = readFileSync(new URL('../src/time/entry-modal.js', import.meta.url), 'utf8');
+  assert.match(source, /field\('Start', row\)\.createEl\('input', \{ cls: 'nd-input', attr: \{ type: 'text' \} \}\)/);
+  assert.match(source, /time\.placeholder = 'HH:mm \(optional\)';/);
+  assert.match(source, /moment\(`\$\{date\.value\} \$\{time\.value\}`, 'YYYY-MM-DD HH:mm', true\)/);
+});
+
+test('recently done log has no height cap or trailing separator (issue 27)', () => {
+  const source = readFileSync(new URL('../src/deck/styles-dashboard.css', import.meta.url), 'utf8');
+  assert.match(source, /\.nd-w-recent \.nd-done-log \{[^}]*max-height: none;[^}]*margin-bottom: 0;[^}]*padding-bottom: 0;[^}]*border-bottom: 0;[^}]*\}/);
+});
+
+test('Radar is removed and Blackwall is available without breaking saved settings', async () => {
+  const { NeonDeck, PATTERNS, THEME_PATTERN } = load('neon-deck', ['NeonDeck', 'PATTERNS', 'THEME_PATTERN']);
+  assert.equal(PATTERNS.includes('radar'), false);
+  assert.equal(PATTERNS.includes('blackwall'), true);
+  assert.equal(THEME_PATTERN.blueprint, 'hex');
+  const p = Object.assign(Object.create(NeonDeck.prototype), {
+    loadData: async () => ({ settingsVersion: 3, theme: 'blueprint', pattern: 'radar' }),
+  });
+  await p.loadSettings();
+  assert.equal(p.settings.pattern, 'auto');
+  assert.equal(p.activePattern(), 'hex');
 });

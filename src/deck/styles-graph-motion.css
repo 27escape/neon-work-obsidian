@@ -410,7 +410,7 @@ body.nd-themed .notice {
   height: 12px;
 }
 
-/* Recently done / touched: the log of ticked tasks and tickets on top (about 8 rows, then it scrolls) */
+/* Recently done: the log scrolls when it is not filling a dashboard card */
 .nd-done-log {
   display: flex;
   flex-direction: column;

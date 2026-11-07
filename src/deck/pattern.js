@@ -4,12 +4,12 @@
 /* pattern only shows at card edges and, very faintly, in the gaps.    */
 /* ------------------------------------------------------------------ */
 
-const PATTERNS = ['damascus', 'prism', 'meteorite', 'topo', 'hex', 'datastream', 'radar', 'none'];
+const PATTERNS = ['damascus', 'prism', 'meteorite', 'topo', 'hex', 'datastream', 'blackwall', 'none'];
 const PATTERN_LABEL = {
   damascus: 'Damascus', meteorite: 'Meteorite', topo: 'Topo', prism: 'Prism', hex: 'Hex mesh',
-  datastream: 'Datastream', radar: 'Radar', none: 'None',
+  datastream: 'Datastream', blackwall: 'Blackwall', none: 'None',
 };
-const PATTERN_MODE = { damascus: 0, meteorite: 1, topo: 2, prism: 3, hex: 4, datastream: 5, radar: 6 };
+const PATTERN_MODE = { damascus: 0, meteorite: 1, topo: 2, prism: 3, hex: 4, datastream: 5, blackwall: 6 };
 const STRENGTHS = ['off', 'subtle', 'bold'];
 const STRENGTH_LABEL = { off: 'Off', subtle: 'Subtle', bold: 'Bold' };
 // 10% softer than the first 1.3.0 build (Yobz, 2 Nov)
@@ -115,12 +115,18 @@ float datastream(vec2 p,float ph){
   float scan=step(mod(p.y,4.),1.)*.25;
   return max(max(glyph*(.5+.5*rh),bars*.6),scan);
 }
-float radar(vec2 p,float ph){
-  vec2 c=vec2(uRes.x/uDpr*.78,420.);vec2 d=p-c;float r=length(d);float ang=atan(d.y,d.x);
-  float rings=1.-smoothstep(.8,2.,abs(mod(r,90.)-45.)*1.);
-  float spokes=(1.-smoothstep(.6,1.6,abs(mod(ang+PI,PI/6.)-PI/12.)*r))*step(30.,r);
-  float sw=mod(ph-ang,2.*PI);float sweep=exp(-sw*2.2)*step(r,520.);
-  return max(max(rings*.9,spokes*.45),sweep*.7);
+float blackwall(vec2 p,float ph){
+  float w=44.;float col=floor(p.x/w);float x=mod(p.x,w);
+  float seed=h21(vec2(col,4.7));
+  float y=p.y+sin(ph+seed*2.*PI)*18.;
+  float row=floor(y/30.);float fy=mod(y,30.);
+  float on=step(.28,h21(vec2(col,row)));
+  float rail=(1.-smoothstep(.5,1.7,min(x,w-x)))*(.25+.75*step(.6,seed));
+  float cut=6.+12.*h21(vec2(row,col+9.));
+  float blocks=on*step(4.,x)*step(x,w-4.)*step(3.,fy)*step(fy,cut);
+  float teeth=on*step(w*.25,x)*step(x,w*.75)*step(19.,fy)*step(fy,22.);
+  float glow=.65+.35*sin(ph+seed*2.*PI);
+  return max(rail*.55,max(blocks,teeth)*glow);
 }
 float field(vec2 c,float ph){
   if(uMode<.5)return damascus(c,ph);
@@ -140,7 +146,7 @@ void main(){
     float v=field(bc,ph);float rad=v*g*.44;a=(1.-smoothstep(rad-.6,rad+.6,best))*smoothstep(.15,.7,rad);
   } else if(uMode<4.5) a=hexmesh(p,ph);
   else if(uMode<5.5) a=datastream(p,ph);
-  else a=radar(p,ph);
+  else a=blackwall(p,ph);
   float inside=0.;
   for(int i=0;i<${MAX_RECTS};i++){if(float(i)>=uN)break;float d=sdRR(px,uRects[i],uRad);inside=max(inside,1.-smoothstep(-1.,1.,d));}
   float al=a*mix(uAOut,uAIn,inside);
