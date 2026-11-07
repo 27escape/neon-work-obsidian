@@ -223,6 +223,11 @@ test('ticket step text stays plain text with click and keyboard toggling (issue 
   assert.match(source, /label\.addEventListener\('keydown',[\s\S]*?e\.key !== 'Enter' && e\.key !== ' '[\s\S]*?if \(!e\.repeat\) tick\(\);/);
 });
 
+test('Complete all animates open steps from top to bottom before saving', () => {
+  const source = readFileSync(new URL('../src/tickets/ticket-view.js', import.meta.url), 'utf8');
+  assert.match(source, /const rows = \[\.\.\.ss\.querySelectorAll\('\.tk-step:not\(\.is-done\)'\)\];[\s\S]*?for \(const r of rows\)[\s\S]*?r\.addClass\('is-done', 'is-pop'\);[\s\S]*?if \(!prefersReducedMotion\(\)\) await new Promise\(\(resolve\) => window\.setTimeout\(resolve, 80\)\);[\s\S]*?await this\.plugin\.completeAllSteps\(t\);/);
+});
+
 test('Radar is removed and Blackwall is available without breaking saved settings', async () => {
   const { NeonDeck, PATTERNS, THEME_PATTERN } = load('neon-deck', ['NeonDeck', 'PATTERNS', 'THEME_PATTERN']);
   assert.equal(PATTERNS.includes('radar'), false);

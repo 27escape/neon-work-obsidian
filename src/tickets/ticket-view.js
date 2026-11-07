@@ -203,7 +203,23 @@ class TicketCard {
     const done = b.steps.filter((x) => x.done).length;
     const ss = sec('Next steps', b.steps.length ? `${done} of ${b.steps.length}` : '', (s) => this.inline(s, 'New step…', (v) => this.plugin.addStep(t, v), true), 'Add a step', true);
     if (done < b.steps.length) {
-      const all = button(ss.querySelector('.tk-sec-head'), { icon: 'check-check', text: 'Complete all', cls: 'tk-all-done', title: 'Tick every open step', onClick: () => this.plugin.completeAllSteps(t) });
+      const all = button(ss.querySelector('.tk-sec-head'), {
+        icon: 'check-check',
+        text: 'Complete all',
+        cls: 'tk-all-done',
+        title: 'Tick every open step',
+        onClick: async () => {
+          all.disabled = true;
+          const rows = [...ss.querySelectorAll('.tk-step:not(.is-done)')];
+          for (const r of rows) {
+            r.addClass('is-done', 'is-pop');
+            r.querySelector('.tk-step-text').setAttribute('aria-pressed', 'true');
+            if (!prefersReducedMotion()) await new Promise((resolve) => window.setTimeout(resolve, 80));
+          }
+          await this.plugin.completeAllSteps(t);
+          if (all.isConnected) this.render();
+        },
+      });
       ss.querySelector('.tk-sec-head').insertBefore(all, ss.querySelector('.tk-sec-plus'));
     }
     for (const step of b.steps) {
