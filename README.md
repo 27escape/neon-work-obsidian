@@ -115,7 +115,7 @@ Requires Obsidian 1.5.0 or later, desktop.
 
 ## Release notes
 
-Only the latest release notes are kept: [2.0.5](docs/release-notes/2.0.5.md): exact manual time, manual breaks, a Research checklist, template note/PDF exports, a Recently touched popup, theme refinements, and a one-folder installer. Older notes are in the git history.
+Only the latest release notes are kept: [2.0.7](docs/release-notes/2.0.7.md): plain-text ticket step toggling, restrained popup motion, a top-to-bottom Complete all cascade, and ticket queue cleanup. Older notes are in the git history.
 
 ## License
 
