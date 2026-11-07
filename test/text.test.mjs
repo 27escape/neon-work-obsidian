@@ -216,10 +216,11 @@ test('recently done log has no height cap or trailing separator (issue 27)', () 
   assert.match(source, /\.nd-w-recent \.nd-done-log \{[^}]*max-height: none;[^}]*margin-bottom: 0;[^}]*padding-bottom: 0;[^}]*border-bottom: 0;[^}]*\}/);
 });
 
-test('ticket step text is a native button and both controls toggle the step (issue 30)', () => {
+test('ticket step text stays plain text with click and keyboard toggling (issue 30)', () => {
   const source = readFileSync(new URL('../src/tickets/ticket-view.js', import.meta.url), 'utf8');
-  assert.match(source, /const label = r\.createEl\('button', \{ cls: 'tk-step-text', text: step\.text, attr: \{ type: 'button', 'aria-pressed': String\(step\.done\) \} \}\);/);
+  assert.match(source, /const label = r\.createSpan\(\{ cls: 'tk-step-text', text: step\.text, attr: \{ role: 'button', tabindex: '0', 'aria-pressed': String\(step\.done\) \} \}\);/);
   assert.match(source, /box\.addEventListener\('click', tick\);\s*label\.addEventListener\('click', tick\);/);
+  assert.match(source, /label\.addEventListener\('keydown',[\s\S]*?e\.key !== 'Enter' && e\.key !== ' '[\s\S]*?if \(!e\.repeat\) tick\(\);/);
 });
 
 test('Radar is removed and Blackwall is available without breaking saved settings', async () => {

@@ -209,7 +209,7 @@ class TicketCard {
     for (const step of b.steps) {
       const r = ss.createDiv('tk-step' + (step.done ? ' is-done' : ''));
       const box = r.createDiv('tk-box');
-      const label = r.createEl('button', { cls: 'tk-step-text', text: step.text, attr: { type: 'button', 'aria-pressed': String(step.done) } });
+      const label = r.createSpan({ cls: 'tk-step-text', text: step.text, attr: { role: 'button', tabindex: '0', 'aria-pressed': String(step.done) } });
       if (step.done && step.at) r.createSpan({ cls: 'tk-step-at', text: step.at });
       const tick = () => {
         this.plugin.toggleStep(t, step);
@@ -223,6 +223,12 @@ class TicketCard {
       };
       box.addEventListener('click', tick);
       label.addEventListener('click', tick);
+      label.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (!e.repeat) tick();
+      });
       const acts = r.createDiv('tk-step-acts');
       button(acts, { icon: 'pencil', cls: 'tk-step-act', title: 'Edit step', onClick: (e) => (e.stopPropagation(), this.editStepInline(r, t, step)) });
       button(acts, {

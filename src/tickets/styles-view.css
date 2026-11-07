@@ -244,16 +244,10 @@
 }
 .tk-step-text {
   flex: 1;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
   font-size: 13.5px;
-  text-align: left;
-  cursor: pointer;
   min-width: 0;
   overflow-wrap: anywhere;
+  cursor: pointer;
 }
 .tk-step.is-done .tk-step-text {
   color: var(--nd-faint);

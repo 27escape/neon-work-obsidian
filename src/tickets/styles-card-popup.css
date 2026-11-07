@@ -147,6 +147,12 @@
   .modal.tk-popup {
     animation: tk-pop 160ms ease-out;
   }
+  .tk-popup .tk-tile.is-clickable {
+    transition: border-color var(--nd-fast) ease;
+  }
+  .tk-popup .tk-step {
+    transition: background-color var(--nd-fast) ease;
+  }
 }
 @keyframes tk-pop {
   from {
