@@ -66,15 +66,22 @@ class NeonWrite extends Plugin {
       );
       this.registerMarkdownPostProcessor((el, ctx) => {
         for (const c of el.matches('.callout') ? [el] : el.querySelectorAll('.callout')) this.addLock(c, ctx);
+        for (const m of el.querySelectorAll('.math-block')) this.addMathLock(m, ctx, el);
       });
+      // Live Preview draws math as widgets without post-processing; give each a lock as it appears
+      if (cmView) this.registerEditorExtension(cmView.EditorView.updateListener.of((u) => u.view.contentDOM.querySelectorAll('.math-block').forEach((m) => this.addMathLock(m, null, null, u.view))));
       this.addCommand({
         id: 'toggle-callout-lock',
-        name: 'Lock / unlock the callout under the cursor',
+        name: 'Lock / unlock the callout or math block under the cursor',
         editorCallback: (ed) => {
           const doc = ed.cm.state.doc;
-          let n = ed.getCursor().line + 1;
+          const cur = ed.getCursor().line;
+          let n = cur + 1;
           while (n > 1 && !CALLOUT_HEAD_RE.test(doc.line(n).text) && /^\s*>/.test(doc.line(n - 1).text)) n--;
-          if (!this.lockLine(ed.cm, doc.line(n))) new Notice('The cursor is not in a callout');
+          if (CALLOUT_HEAD_RE.test(doc.line(n).text)) return void this.lockLine(ed.cm, doc.line(n));
+          // a locked block can't hold the cursor, so the line just above or below it counts too
+          const blk = mathBlocks(doc.toString().split('\n')).find(([a, b]) => cur >= a - 1 && cur <= b + 1);
+          if (!blk || !this.lockLine(ed.cm, doc.line(blk[0] + 1))) new Notice('The cursor is not in a callout or math block');
         },
       });
     }
@@ -161,9 +168,40 @@ class NeonWrite extends Plugin {
     c.addEventListener('mousedown', guard);
     c.addEventListener('click', guard);
   }
+  /** Lock button on a rendered math block: reading view (ctx + its section) or a Live Preview widget (cm). */
+  addMathLock(m, ctx, sec, cm) {
+    const info = cm ? null : ctx.getSectionInfo(sec);
+    if (!cm && !info) return;
+    const locked = MATH_LOCKED_RE.test(cm ? cm.state.doc.lineAt(cm.posAtDOM(m)).text : info.text.split('\n')[info.lineStart] || '');
+    let b = m.querySelector(':scope > .nw-lock');
+    // Live Preview keeps the drawn formula when only the "% locked" line changes, so an existing lock re-syncs
+    if (b && b.hasClass('is-locked') === locked) return;
+    if (!b) {
+      b = m.createDiv('nw-lock');
+      b.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (cm) return void this.lockLine(cm, cm.state.doc.lineAt(cm.posAtDOM(m)));
+        const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+        if (!(file instanceof TFile)) return;
+        writeNote(this.app, file, (d) => {
+          const lines = d.split('\n');
+          const t = toggleMathLock(lines[info.lineStart] || '');
+          if (t != null) lines[info.lineStart] = t;
+          return lines.join('\n');
+        });
+      });
+      b.addEventListener('click', (e) => e.stopPropagation());
+    }
+    m.addClass('nw-math-lock');
+    m.toggleClass('is-locked', locked);
+    b.toggleClass('is-locked', locked);
+    setIcon(b, locked ? 'lock' : 'lock-open');
+    b.setAttr('aria-label', locked ? 'Locked · click to unlock' : 'Click to lock this block');
+  }
   /** Toggle the lock on a callout header line in an open editor (our own edit, so the lock lets it through). */
   lockLine(cm, line) {
-    const t = toggleLockMeta(line.text);
+    const t = toggleLockMeta(line.text) ?? toggleMathLock(line.text);
     if (t == null) return false;
     cm.dispatch({ changes: { from: line.from, to: line.to, insert: t }, annotations: lockAnno.of(true) });
     return true;

@@ -459,3 +459,37 @@ body.nw-fonts.nd-themed .print {
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
+
+/* ---- lockable math blocks (issue 34): the same lock in the block's top-right corner ---- */
+.math-block.nw-math-lock {
+  position: relative;
+}
+.nw-math-lock > .nw-lock {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--nd-faint, var(--text-faint));
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--nd-fast, 150ms) ease, color var(--nd-fast, 150ms) ease;
+}
+.nw-math-lock:hover > .nw-lock,
+.nw-math-lock > .nw-lock:focus-visible,
+.nw-math-lock > .nw-lock.is-locked {
+  opacity: 1;
+}
+/* Live Preview puts its "edit block" button top-right: sit left of it, and hide it when locked */
+.cm-embed-block.nw-math-lock > .nw-lock {
+  right: 34px;
+}
+.cm-embed-block.nw-math-lock.is-locked .edit-block-button {
+  display: none;
+}
+.cm-embed-block.nw-math-lock.is-locked {
+  cursor: default;
+}

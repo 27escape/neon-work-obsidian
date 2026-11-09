@@ -54,7 +54,7 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 - Counts active time only while a note is the focused tab and you type, scroll or click. It stops after a configurable idle time.
 - Category comes from checkbox properties (`projects`, `school`, `admin`, `operations`) or tags. `untracked: true` notes are never logged.
 - A donut against your workday target, overtime as an accent slice, weekly and monthly balance, and entries you can add, edit or delete (with Undo).
-- **Work day:** Start / Pause / Resume in the widget and tab. The clock keeps running while Obsidian is idle or closed; after 2 h without input the day ends at your last activity. Manual entries add their exact minutes to the day total; **Log break** adjusts only the separate work timer.
+- **Work day:** Start day in the widget and tab; once started it becomes **End day**, with Pause / Resume beside it. The clock keeps running while Obsidian is idle or closed; after 2 h without input the day ends at your last activity. Manual entries add their exact minutes to the day total; **Log break** adjusts only the separate work timer. The daily log note lists the workday and each break.
 - Keeps counting while you're briefly in another app; after 30 min without input it ends at your last activity and drops the idle time.
 - **Wrap up** at the end of the day, and one Time Log note per day (`Core/Time Log/YYYY-MM-DD.md`) with totals, a Done today list and an entries table, written for an AI agent to send on to Jira. Neon Time itself never connects to Jira or the network.
 
@@ -64,11 +64,11 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 
 ### Writing (Neon Write)
 - **Table picker:** hover a rows × columns grid (or use the arrows) and click; an empty table lands at the cursor with the cursor in the first cell. Open it from the slash menu, the right-click menu or `Ctrl+P → Neon Write: Insert table…`.
-- **Slash menu:** type `/` at the start of a line or after a space for tables, headings, lists, checklists, quotes, callouts, code blocks, dividers, note links and today's date. Keep typing to filter.
+- **Slash menu:** type `/` at the start of a line or after a space for tables, headings, lists, checklists, quotes, callouts, code blocks, dividers, flashcards, note links and today's date. Keep typing to filter.
 - **Toolbar on selected text:** bold, italic, strikethrough, highlight, inline code, note link, heading (H1 → H2 → H3 → none), small sub-title (`####`) and callout. Press a button again to undo it.
 - **Lime dividers:** `---` is drawn as a thin lime line fading out at both ends; typed under a line of text it stays a divider instead of turning the text into a heading.
 - **Page breaks** for PDF export (`/pagebreak`); headings keep the theme colours in the PDF.
-- **Lockable callouts:** click the lock on a callout (`[!info|locked]` in the note) and it can't be edited by accident.
+- **Lockable callouts and math:** click the lock on a callout (`[!info|locked]` in the note) or a `$$` math block (`$$ % locked`) and it can't be edited by accident.
 - **Merged table titles:** a cell that is only `<` joins the cell on its left; a first row like `| Title | < | < |` shows as one wide title (Reading view and PDF).
 - **Lifted writing window:** the note sits on a rounded, raised card that grows with the pane (70% of it, 700–1020px of text).
 - **Theme fonts and colours in notes:** body text, headings and code use the Neon theme's fonts; titles alternate between its primary and secondary colours.

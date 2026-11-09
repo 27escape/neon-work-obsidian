@@ -31,6 +31,14 @@ test('merged table cells (item 36)', () => {
   assert.equal(W.toggleMergeCell('| a | b |', 2), null);
 });
 
+test('math blocks lock with a TeX comment (issue 34)', () => {
+  const { toggleMathLock, mathBlocks } = load('neon-write', ['toggleMathLock', 'mathBlocks']);
+  assert.equal(toggleMathLock('$$'), '$$ % locked');
+  assert.equal(toggleMathLock('$$ % locked'), '$$');
+  assert.equal(toggleMathLock('$$x$$'), null);
+  assert.deepEqual([...mathBlocks(['a', '$$ % locked', 'x^2', '$$', '```', '$$', '```', '$$', 'y', '$$'])].map((b) => [...b]), [[1, 3], [7, 9]]);
+});
+
 test('callout lock metadata (item 31)', () => {
   assert.equal(W.toggleLockMeta('> [!info] Title'), '> [!info|locked] Title');
   assert.equal(W.toggleLockMeta('> [!info|locked] Title'), '> [!info] Title');
