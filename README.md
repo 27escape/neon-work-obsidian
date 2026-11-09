@@ -116,7 +116,7 @@ Requires Obsidian 1.5.0 or later, desktop.
 
 ## Release notes
 
-Only the latest release notes are kept: [2.0.7](docs/release-notes/2.0.7.md): plain-text ticket step toggling, restrained popup motion, a top-to-bottom Complete all cascade, and ticket queue cleanup. Older notes are in the git history.
+Only the latest release notes are kept: [2.0.8](docs/release-notes/2.0.8.md): End day, workday in the log note, fixed Log break, loose start times, /flashcard, lockable math blocks and the Study tab. Older notes are in the git history.
 
 ## License
 
