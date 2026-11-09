@@ -79,7 +79,12 @@ class ResearchView extends ItemView {
       button(acts, { icon: 'graduation-cap', text: due ? `Quiz me (${due})` : 'Quiz me', title: 'Choose a topic to quiz', onClick: () => new QuizPickModal(p).open() });
       button(acts, { icon: 'folder-plus', text: 'Topic', cls: 'mod-cta', title: 'New topic', onClick: () => p.newTopic(rootFolder) });
     }
-    pills(root, [['topics', 'Topics'], ['research', 'Research']], research ? 'research' : 'topics', (v) => ((this.tab = v), this.render()), 'nr-view-tabs');
+    pills(root, [['topics', 'Topics'], ['research', 'Research']], research ? 'research' : 'topics', (v) => {
+      if (v === this.tab || (v === 'topics' && !this.tab)) return;
+      this.switchDir = v === 'research' ? 1 : -1;
+      this.tab = v;
+      this.render();
+    }, 'nr-view-tabs');
     if (!research) {
       // section switch on its own row under the title: click to switch, right-click to rename/remove, + to add
       const sw = pills(hero, roots.map((r, i) => [i, r.name]), p.settings.activeRoot, (i) => p.setActiveRoot(i), 'nr-roots');
@@ -95,6 +100,11 @@ class ResearchView extends ItemView {
 
     // the tree sits in one panel (a "window" for the pattern, like the dashboard cards)
     const panel = root.createDiv('nd-card nr-panel');
+    if (this.switchDir) {
+      panel.addClass('is-switch');
+      panel.style.setProperty('--dir', String(this.switchDir));
+      this.switchDir = 0;
+    }
     if (research) {
       this.renderResearchList(panel);
     } else {

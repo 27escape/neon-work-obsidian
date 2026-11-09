@@ -409,3 +409,70 @@
 @media (hover: none) {
   .nr-research-delete { opacity: 1; }
 }
+
+/* ---- Study tab motion (issues 36, 42) ---- */
+/* switching Topics / Research: the panel slides in from the side you're going to */
+.nr-panel.is-switch {
+  animation: nr-switch 0.3s var(--nd-ease, ease) backwards;
+}
+@keyframes nr-switch {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--dir, 1) * 18px));
+  }
+}
+/* research rows: rise in one after another on open and switch; a new topic slides in */
+.nr-inner.is-entering .nr-research-row,
+.nr-panel.is-switch .nr-research-row {
+  animation: nr-in 0.3s var(--nd-ease, ease) backwards;
+  animation-delay: calc(var(--i, 0) * 28ms + 60ms);
+}
+.nr-research-row.is-new {
+  animation: nr-row-new 0.32s var(--nd-ease, ease) backwards;
+}
+@keyframes nr-row-new {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+    background: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 18%, transparent);
+  }
+}
+/* just ticked or unticked: the box pops, the text settles */
+.nr-research-row.is-flipped input {
+  animation: nr-tick 0.3s var(--nd-ease, ease);
+}
+.nr-research-row.is-flipped .nr-research-name {
+  animation: nr-settle 0.3s ease;
+}
+@keyframes nr-tick {
+  45% {
+    transform: scale(1.25);
+  }
+}
+@keyframes nr-settle {
+  from {
+    opacity: 0.4;
+  }
+}
+/* removed: folds away before the list redraws */
+.nr-research-row.is-leaving {
+  pointer-events: none;
+  animation: nr-leave 0.18s ease forwards;
+}
+@keyframes nr-leave {
+  to {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nr-panel.is-switch,
+  .nr-inner.is-entering .nr-research-row,
+  .nr-panel.is-switch .nr-research-row,
+  .nr-research-row.is-new,
+  .nr-research-row.is-flipped input,
+  .nr-research-row.is-flipped .nr-research-name,
+  .nr-research-row.is-leaving {
+    animation: none;
+  }
+}

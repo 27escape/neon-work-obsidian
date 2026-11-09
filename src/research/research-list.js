@@ -93,14 +93,32 @@ Object.assign(ResearchView.prototype, {
       emptyState(list, 'Nothing queued — add a topic you want to understand');
       return;
     }
-    for (const topic of p.settings.researchTopics) {
-      const row = list.createDiv('nr-research-row' + (topic.done ? ' is-done' : ''));
+    // only rows that weren't there last time slide in; the one just ticked pops
+    const seen = this.researchSeen;
+    this.researchSeen = new Set(p.settings.researchTopics.map((t) => t.text));
+    const flipped = this.researchFlipped;
+    this.researchFlipped = null;
+    p.settings.researchTopics.forEach((topic, i) => {
+      const row = list.createDiv('nr-research-row' + (topic.done ? ' is-done' : '') + (seen && !seen.has(topic.text) ? ' is-new' : '') + (flipped === topic.text ? ' is-flipped' : ''));
+      row.style.setProperty('--i', String(Math.min(i, 10)));
       const label = row.createEl('label', { cls: 'nr-research-topic' });
       const check = label.createEl('input', { attr: { type: 'checkbox' } });
       check.checked = topic.done;
-      check.addEventListener('change', () => p.toggleResearchTopic(topic));
+      check.addEventListener('change', () => {
+        this.researchFlipped = topic.text;
+        p.toggleResearchTopic(topic);
+      });
       label.createSpan({ cls: 'nr-research-name', text: topic.text });
-      button(row, { icon: 'x', cls: 'nd-icon-btn nr-research-delete', title: 'Remove research topic', onClick: () => p.removeResearchTopic(topic) });
-    }
+      button(row, {
+        icon: 'x',
+        cls: 'nd-icon-btn nr-research-delete',
+        title: 'Remove research topic',
+        onClick: () => {
+          if (prefersReducedMotion() || row.hasClass('is-leaving')) return p.removeResearchTopic(topic);
+          row.addClass('is-leaving');
+          window.setTimeout(() => p.removeResearchTopic(topic), 180);
+        },
+      });
+    });
   },
 });
