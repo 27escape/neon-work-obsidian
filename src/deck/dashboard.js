@@ -248,6 +248,14 @@ class DashboardView extends ItemView {
   }
   updateClock() {
     const m = moment();
+    const key = m.format('YYYY-MM-DD');
+    if (this.clockDay && this.clockDay !== key) {
+      // a new day while the dashboard stays open: Activity, the done log and day counts follow (issue 31)
+      if (this.actMonth && this.actMonth.isSame(moment(this.clockDay, 'YYYY-MM-DD'), 'month')) this.actMonth = null;
+      if (this.contentEl.offsetParent) this.renderData();
+      else this.stale = true;
+    }
+    this.clockDay = key;
     const h = m.hour();
     const g = h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
     const name = this.plugin.settings.name;

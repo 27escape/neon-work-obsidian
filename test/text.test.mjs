@@ -256,3 +256,8 @@ test('research add explains duplicates and keeps the box focused (issues 37, 38)
   assert.match(source, /this\.researchFocus = true/);
   assert.match(source, /addEventListener\('paste'/);
 });
+
+test('dashboard redraws when the day changes while it stays open (issue 31)', () => {
+  const source = readFileSync(new URL('../src/deck/dashboard.js', import.meta.url), 'utf8');
+  assert.match(source, /this\.clockDay && this\.clockDay !== key/);
+});
