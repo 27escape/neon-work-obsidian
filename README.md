@@ -51,10 +51,10 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 
 <img src="docs/screenshots/time-widget.png" alt="Time today widget" width="293" align="right">
 
-- Counts active time only while a note is the focused tab and you type, scroll or click. It stops after a configurable idle time.
+- Counts active time only while a note is the focused tab and you type, scroll or click, also in notes moved to their own window. It stops after a configurable idle time.
 - Category comes from checkbox properties (`projects`, `school`, `admin`, `operations`) or tags. `untracked: true` notes are never logged.
 - A donut against your workday target, overtime as an accent slice, weekly and monthly balance, and entries you can add, edit or delete (with Undo).
-- **Work day:** Start day in the widget and tab; once started it becomes **End day**, with Pause / Resume beside it. The clock keeps running while Obsidian is idle or closed; after 2 h without input the day ends at your last activity. Manual entries add their exact minutes to the day total; **Log break** adjusts only the separate work timer. The daily log note lists the workday and each break.
+- **Work day:** Start day in the widget and tab; once started it becomes **End day**, with Pause / Resume beside it. The clock keeps running while Obsidian is idle or closed; after 2 h without input the day ends at your last activity. Start times can be typed loosely (`930`, `9:30`, `9.30`). Manual entries add their exact minutes to the day total; **Log break** adjusts only the separate work timer. The daily log note lists the workday and each break.
 - Keeps counting while you're briefly in another app; after 30 min without input it ends at your last activity and drops the idle time.
 - **Wrap up** at the end of the day, and one Time Log note per day (`Core/Time Log/YYYY-MM-DD.md`) with totals, a Done today list and an entries table, written for an AI agent to send on to Jira. Neon Time itself never connects to Jira or the network.
 
@@ -79,12 +79,13 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 ### Study (Neon Study)
 - **Its own Study tab**, separate from work: one tree of **topics → subtopics → notes**. Topics are folders, so the tree matches Obsidian's own file views.
 - **Sections:** Research, School or any folder you like, each with its own tree, quiz counts and history. Switch at the top of the tab; **+** adds a section (pick a folder or type a new one), right-click renames or removes it.
+- **Research list:** the Research subtab is a checklist of things to look into. Enter adds a topic and keeps the box ready for the next; pasting several lines adds one topic per line.
 - **+** on a topic adds a subtopic or a note; **⋯** (or right-click) renames, quizzes or deletes. Deleting asks first and goes to the system trash. Notes open in the main pane.
 - **Quiz cards:** a line `Question :: Answer` in a note becomes a card; type `/flashcard` in a note to start one, or use the **Flashcards** button in a research note to add them through a small form. "Quiz me" asks all due cards, or one topic's from its ⋯ menu (space shows the answer, 1 / 2 / 3 = again / hard / easy).
 - **Link suggestions:** in a research note, the status bar offers to link words that match other research note titles.
 - Research notes are left out of work time by default (`untracked: true`).
 
-![Study tab](docs/screenshots/research.png)
+![Study tab](docs/screenshots/study.png)
 
 ## Install
 
