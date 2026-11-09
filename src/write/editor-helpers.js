@@ -153,3 +153,10 @@ function insertPageBreak(ed) {
   ed.setLine(l, `${pre}${cur}<div class="nw-pagebreak" style="break-after: page; page-break-after: always;"></div>${post}`);
   ed.setCursor({ line: l + (pre ? 1 : 0) + (cur ? 2 : 0) + 2, ch: 0 });
 }
+/** /flashcard: the line becomes "question :: " with the cursor after it, or " :: " with the cursor before it (issue 40). */
+function insertFlashcard(ed) {
+  const l = ed.getCursor().line;
+  const q = ed.getLine(l).replace(/\s+$/, '');
+  ed.setLine(l, q.trim() ? `${q} :: ` : ' :: ');
+  ed.setCursor({ line: l, ch: q.trim() ? q.length + 4 : 0 });
+}

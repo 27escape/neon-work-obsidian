@@ -261,3 +261,14 @@ test('dashboard redraws when the day changes while it stays open (issue 31)', ()
   const source = readFileSync(new URL('../src/deck/dashboard.js', import.meta.url), 'utf8');
   assert.match(source, /this\.clockDay && this\.clockDay !== key/);
 });
+
+test('/flashcard turns the line into a question :: answer card (issue 40)', () => {
+  const { insertFlashcard } = load('neon-write', ['insertFlashcard']);
+  const ed = (text) => ({ text, cur: null, getCursor: () => ({ line: 0, ch: 0 }), getLine() { return this.text; }, setLine(_, v) { this.text = v; }, setCursor(c) { this.cur = c.ch; } });
+  const a = ed('What is ATP? ');
+  insertFlashcard(a);
+  assert.deepEqual([a.text, a.cur], ['What is ATP? :: ', 16]);
+  const b = ed('');
+  insertFlashcard(b);
+  assert.deepEqual([b.text, b.cur], [' :: ', 0]);
+});
