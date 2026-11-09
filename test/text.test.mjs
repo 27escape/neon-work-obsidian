@@ -249,3 +249,10 @@ test('Radar is removed and Blackwall is available without breaking saved setting
   assert.equal(p.settings.pattern, 'auto');
   assert.equal(p.activePattern(), 'hex');
 });
+
+test('research add explains duplicates and keeps the box focused (issues 37, 38)', () => {
+  const source = readFileSync(new URL('../src/research/research-list.js', import.meta.url), 'utf8');
+  assert.match(source, /is already on the list/);
+  assert.match(source, /this\.researchFocus = true/);
+  assert.match(source, /addEventListener\('paste'/);
+});
