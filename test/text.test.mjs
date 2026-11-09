@@ -148,8 +148,7 @@ test('manual breaks reduce only the work timer and reject invalid ranges', () =>
   const t = Object.assign(Object.create(NeonTime.prototype), {
     days: { [key]: { work: { start, last: Date.now(), breaks: [], end: null } } },
     saves: 0,
-    saveSoon() { this.saves++; },
-    emit() {},
+    changed() { this.saves++; },
   });
   assert.equal(t.addBreak({ start: start + 3600000, ms: 30 * 60000 }), true);
   assert.equal(t.workMin(key), 210);
@@ -160,6 +159,12 @@ test('manual breaks reduce only the work timer and reject invalid ranges', () =>
   assert.equal(t.saves, 2);
   t.days = {};
   assert.equal(t.addBreak({ start, ms: 30 * 60000 }), false);
+});
+
+test('time start field accepts loose clock input (issue 32)', () => {
+  const { parseClock } = load('neon-time', ['parseClock']);
+  for (const [a, b] of [['930', '09:30'], ['0930', '09:30'], ['9:5', '09:05'], ['9.30', '09:30'], ['14', '14:00'], [' 7 ', '07:00'], ['23:59', '23:59']]) assert.equal(parseClock(a), b);
+  for (const x of ['', '24', '9:60', '12345', 'abc', '2400']) assert.equal(parseClock(x), null);
 });
 
 test('research topic data is normalized without malformed or duplicate rows', () => {
@@ -207,8 +212,7 @@ test('research topics validate additions and save check/remove changes', () => {
 test('time entry start uses optional text with strict HH:mm parsing (issue 25)', () => {
   const source = readFileSync(new URL('../src/time/entry-modal.js', import.meta.url), 'utf8');
   assert.match(source, /field\('Start', row\)\.createEl\('input', \{ cls: 'nd-input', attr: \{ type: 'text' \} \}\)/);
-  assert.match(source, /time\.placeholder = 'HH:mm \(optional\)';/);
-  assert.match(source, /moment\(`\$\{date\.value\} \$\{time\.value\}`, 'YYYY-MM-DD HH:mm', true\)/);
+  assert.match(source, /moment\(`\$\{date\.value\} \$\{clock\}`, 'YYYY-MM-DD HH:mm', true\)/);
 });
 
 test('recently done log has no height cap or trailing separator (issue 27)', () => {

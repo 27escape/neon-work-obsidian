@@ -39,6 +39,13 @@ Object.assign(NeonTime.prototype, {
     }
     lines.push(...(done.length ? done : ['- (nothing yet)']), '');
     if (d.tomorrow) lines.push('## Tomorrow', d.tomorrow, '');
+    const w = this.workOf(key);
+    if (w) {
+      const hm = (t) => moment(t).format('HH:mm');
+      lines.push('## Workday', `Started ${hm(w.start)}${w.end ? ` · ended ${hm(w.end)}` : ''} · worked ${fmtMin(this.workMin(key))}`);
+      for (const [a, b] of w.breaks) lines.push(`- Break ${hm(a)}–${b == null ? 'now' : hm(b)}${b == null ? '' : ` (${fmtMin(Math.round((b - a) / 60000))})`}`);
+      lines.push('');
+    }
     lines.push('## Entries', '| Start | Min | Category | Note | Jira | Source |', '| --- | --- | --- | --- | --- | --- |');
     for (const e of [...d.entries].sort((a, b) => a.start - b.start)) {
       const note = e.note || (e.path ? `[[${e.path.split('/').pop().replace(/\.md$/, '')}]]` : '');
@@ -52,7 +59,7 @@ Object.assign(NeonTime.prototype, {
     const d = this.days[key];
     const path = this.dayNotePath(key);
     const f = this.app.vault.getAbstractFileByPath(path);
-    const empty = !d || (!d.entries.length && !d.done.length && !d.tomorrow);
+    const empty = !d || (!d.entries.length && !d.done.length && !d.tomorrow && !this.workOf(key));
     // nothing to write for a new day; an existing note is still rewritten so deleted time disappears from it
     if (empty && !(f instanceof TFile)) return;
     const table = (t) => (t.split(/\n## Entries\n/)[1] || '').trim();
@@ -96,6 +103,7 @@ Object.assign(NeonTime.prototype, {
       '## Body',
       '- **Done today** — notes worked on, tasks ticked and ticket changes.',
       '- **Tomorrow** — the line written in Wrap up, if any.',
+      '- **Workday** — when the work timer started and ended, time worked, and each break.',
       '- **Entries** — one row per block of work:',
       '',
       '| Start | Min | Category | Note | Jira | Source |',

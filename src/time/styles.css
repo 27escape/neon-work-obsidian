@@ -686,3 +686,8 @@ body:not(.nd-themed) .nd-empty {
     gap: 2px 10px;
   }
 }
+
+/* Start/End day + Pause sit in the parent row as if they were its own buttons */
+.tm-work-btns {
+  display: contents;
+}

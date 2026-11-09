@@ -13,12 +13,12 @@ Object.assign(NeonTime.prototype, {
   },
   touch(e) {
     this.workSeen();
-    if (!this.settings.tracking || document.hidden) return;
+    if (!this.settings.tracking || activeDocument.hidden) return;
     const now = Date.now();
     // cheap throttle: one check every 3 s is plenty for minute-level time
     if (this.session && now - this.session.last < 3000) return;
     const view = this.activeFileView();
-    if (!view || !view.file || (e && e.target instanceof Node && !view.containerEl.contains(e.target))) return;
+    if (!view || !view.file || (e && e.target && e.target.nodeType && !view.containerEl.contains(e.target))) return;
     const file = view.file;
     const idle = this.settings.idleMin * 60000;
     const s = this.session;

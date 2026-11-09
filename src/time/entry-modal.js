@@ -1,4 +1,11 @@
 /* ---- manual entry / edit -------------------------------------------------- */
+/** "930", "0930", "9:5", "9.30", "14" -> "09:30", "09:30", "09:05", "09:30", "14:00"; null when it isn't a time. */
+function parseClock(s) {
+  const t = String(s || '').trim();
+  const m = /^(\d{1,2})(?:[:.h ](\d{1,2}))?$/.exec(t) || /^(\d{1,2})(\d{2})$/.exec(t);
+  if (!m || +m[1] > 23 || +(m[2] || 0) > 59) return null;
+  return `${m[1].padStart(2, '0')}:${(m[2] || '0').padStart(2, '0')}`;
+}
 class EntryModal extends Modal {
   /** entry: existing entry to edit (with .day), or a partial one for a new entry */
   constructor(plugin, entry, isNew, isBreak = false) {
@@ -22,7 +29,11 @@ class EntryModal extends Modal {
     date.value = start.format('YYYY-MM-DD');
     const time = field('Start', row).createEl('input', { cls: 'nd-input', attr: { type: 'text' } });
     time.value = e.start ? start.format('HH:mm') : '';
-    time.placeholder = 'HH:mm (optional)';
+    time.placeholder = 'e.g. 930 or 9:30 (optional)';
+    time.addEventListener('blur', () => {
+      const v = parseClock(time.value);
+      if (v) time.value = v;
+    });
     const minF = field('Minutes', row);
     const min = minF.createEl('input', { cls: 'nd-input', attr: { type: 'number', min: '1', max: '960' } });
     min.value = e.ms ? String(entryMin(e)) : '30';
@@ -60,10 +71,11 @@ class EntryModal extends Modal {
       if (!(n > 0 && n <= 960)) return min.addClass('is-invalid');
       const d = moment(date.value, 'YYYY-MM-DD', true);
       if (!d.isValid()) return date.addClass('is-invalid');
-      if (this.isBreak && !time.value) return time.addClass('is-invalid');
       // no start time: place it so it ends now (today) or at 09:00 (other days)
       let s;
-      if (time.value) s = moment(`${date.value} ${time.value}`, 'YYYY-MM-DD HH:mm', true);
+      const clock = time.value.trim() && parseClock(time.value);
+      if (clock === null) return time.addClass('is-invalid');
+      if (clock) s = moment(`${date.value} ${clock}`, 'YYYY-MM-DD HH:mm', true);
       else if (d.isSame(moment(), 'day')) s = moment().subtract(n, 'minutes');
       else s = d.clone().hour(9);
       if (!s.isValid()) return time.addClass('is-invalid');

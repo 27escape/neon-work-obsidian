@@ -35,8 +35,7 @@ Object.assign(NeonTime.prototype, {
     }
     w.breaks.push([start, stop]);
     w.breaks.sort((a, b) => a[0] - b[0]);
-    this.saveSoon();
-    this.emit(true);
+    this.changed(dayKey(start), true);
     new Notice(`Break logged · ${fmtMin(ms / 60000)}`);
     return true;
   },
@@ -51,14 +50,22 @@ Object.assign(NeonTime.prototype, {
     else if (st === 'paused') d.work.breaks[d.work.breaks.length - 1][1] = now;
     else (d.work.breaks.push([d.work.end, now]), (d.work.end = null)); // ended: the gap becomes a break
     d.work.last = now;
-    this.saveSoon();
-    this.emit(true);
+    this.changed(key, true);
   },
-  /** Start / Pause / Resume button for today. */
+  /** Today's workday buttons: Start day, which becomes End day once started, plus Pause / Resume while it runs. */
   workButton(parent, iconOnly) {
-    const st = this.workState(moment().format('YYYY-MM-DD'));
-    const [ic, text] = { none: ['play', 'Start day'], running: ['pause', 'Pause'], paused: ['play', 'Resume'], ended: ['play', 'Resume day'] }[st];
-    return button(parent, { icon: ic, text: iconOnly ? undefined : text, cls: iconOnly ? 'nd-icon-btn tm-work-btn' : 'tm-work-btn' + (st === 'none' ? ' mod-cta' : ''), title: text, onClick: () => this.workToggle() });
+    const key = moment().format('YYYY-MM-DD');
+    const st = this.workState(key);
+    const wrap = parent.createDiv('tm-work-btns');
+    const btn = (ic, text, cta, onClick) => button(wrap, { icon: ic, text: iconOnly ? undefined : text, cls: iconOnly ? 'nd-icon-btn tm-work-btn' : 'tm-work-btn' + (cta ? ' mod-cta' : ''), title: text, onClick });
+    if (st === 'running' || st === 'paused') {
+      btn('square', 'End day', true, () => {
+        this.workEnd(key);
+        new Notice(`Workday ended · ${fmtMin(this.workMin(key))} worked`);
+      });
+      btn(st === 'running' ? 'pause' : 'play', st === 'running' ? 'Pause' : 'Resume', false, () => this.workToggle());
+    } else btn('play', st === 'none' ? 'Start day' : 'Resume day', st === 'none', () => this.workToggle());
+    return wrap;
   },
   /** End the workday at `at` (Wrap up, or the idle rule with the last activity). */
   workEnd(key, at = Date.now()) {
@@ -67,8 +74,7 @@ Object.assign(NeonTime.prototype, {
     const b = w.breaks[w.breaks.length - 1];
     if (b && b[1] == null) b[1] = Math.max(b[0], at);
     w.end = Math.max(w.start, at);
-    this.saveSoon();
-    this.emit();
+    this.changed(key, true);
   },
   /** Any input in Obsidian: the workday is still going. */
   workSeen() {

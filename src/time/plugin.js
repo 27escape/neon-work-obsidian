@@ -34,15 +34,25 @@ class NeonTime extends Plugin {
     this.addSettingTab(new NeonTimeSettingTab(this.app, this));
 
     // activity in the focused note keeps the session alive
+    // every window counts: the main one and notes moved to a new window (popouts)
     const touch = (e) => this.touch(e);
-    this.registerDomEvent(document, 'keydown', touch, true);
-    this.registerDomEvent(document, 'mousedown', touch, true);
-    this.registerDomEvent(document, 'wheel', touch, { capture: true, passive: true });
-    this.registerDomEvent(document, 'scroll', touch, { capture: true, passive: true });
-    // leaving Obsidian keeps the session open: time away counts if you're back within the idle
-    // cutoff, else the session ends at the last activity (checked on return and every 15 s)
-    this.registerDomEvent(window, 'focus', () => this.tick());
-    this.registerDomEvent(document, 'visibilitychange', () => !document.hidden && this.tick());
+    const watched = new WeakSet();
+    const watch = (win) => {
+      if (!win || watched.has(win)) return;
+      watched.add(win);
+      const doc = win.document;
+      this.registerDomEvent(doc, 'keydown', touch, true);
+      this.registerDomEvent(doc, 'mousedown', touch, true);
+      this.registerDomEvent(doc, 'wheel', touch, { capture: true, passive: true });
+      this.registerDomEvent(doc, 'scroll', touch, { capture: true, passive: true });
+      // leaving Obsidian keeps the session open: time away counts if you're back within the idle
+      // cutoff, else the session ends at the last activity (checked on return and every 15 s)
+      this.registerDomEvent(win, 'focus', () => this.tick());
+      this.registerDomEvent(doc, 'visibilitychange', () => !doc.hidden && this.tick());
+    };
+    watch(window);
+    this.registerEvent(this.app.workspace.on('window-open', (_w, win) => watch(win)));
+    this.app.workspace.onLayoutReady(() => this.app.workspace.iterateAllLeaves((l) => watch(l.view.containerEl.win)));
     // switching tabs ends the session, unless it's still the same note
     this.registerEvent(
       this.app.workspace.on('active-leaf-change', () => {
@@ -150,12 +160,12 @@ class NeonTime extends Plugin {
     return () => this.listeners.delete(fn);
   }
   /** Something changed on a day: save, refresh, and rewrite its log note soon. */
-  changed(key) {
+  changed(key, now) {
     this.saveSoon();
     this.dirty.add(key);
     if (!this._write) this._write = debounce(() => this.flush(), 20 * 1000, true);
     this._write();
-    this.emit();
+    this.emit(now);
   }
   async flush() {
     const ed = this.app.workspace.activeEditor;

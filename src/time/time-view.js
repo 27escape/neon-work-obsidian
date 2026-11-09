@@ -72,7 +72,7 @@ class TimeView extends ItemView {
     if (!isToday) button(nav, { text: 'Today', onClick: () => ((this.cursor = moment().startOf('day')), this.render()) });
     const acts = head.createDiv('tm-acts');
     button(acts, { icon: 'plus', text: 'Add time', cls: 'mod-cta', onClick: () => p.newEntry({ start: isToday ? undefined : this.cursor.clone().hour(9).valueOf() }) });
-    if (p.workOf(key)) button(acts, { icon: 'coffee', text: 'Log break', onClick: () => new EntryModal(p, { start: isToday ? Date.now() : this.cursor.clone().hour(12).valueOf() }, true, true).open() });
+    if (p.workOf(key)) button(acts, { icon: 'coffee', text: 'Log break', onClick: () => new EntryModal(p, { start: isToday ? undefined : this.cursor.clone().hour(12).valueOf() }, true, true).open() });
     if (isToday) p.workButton(acts);
     if (isToday) button(acts, { icon: 'sunset', text: 'Wrap up', onClick: () => new WrapUpModal(p).open() });
     button(acts, { icon: 'file-text', text: 'Log note', onClick: () => p.openDayNote(key) });
