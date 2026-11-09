@@ -449,3 +449,11 @@
 .tk-time-modal .tk-label:first-child {
   margin-top: 0;
 }
+
+/* title and description can be selected and copied (issue 33); Obsidian turns selection off in views */
+.tk-title,
+.tk-desc {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
