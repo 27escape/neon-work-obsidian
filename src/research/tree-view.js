@@ -1,4 +1,4 @@
-/* ---- the Research tab: one topic tree ------------------------------------------ */
+/* ---- the Study tab: one topic tree ------------------------------------------ */
 class ResearchView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -9,7 +9,7 @@ class ResearchView extends ItemView {
     return VIEW_RESEARCH;
   }
   getDisplayText() {
-    return 'Research';
+    return 'Study';
   }
   getIcon() {
     return 'library';
@@ -108,7 +108,7 @@ class ResearchView extends ItemView {
         for (const f of kids.notes) this.noteRow(tree, f, 0);
       }
     }
-    madeWith(root.createDiv('nr-foot'), 'Neon Research');
+    madeWith(root.createDiv('nr-foot'), 'Neon Study');
     sc.scrollTop = top;
     if (this.pattern && this.pattern.kick) this.pattern.kick();
   }

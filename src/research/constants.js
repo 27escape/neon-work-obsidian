@@ -1,7 +1,7 @@
 
 /* =========================================================================
  * NEON RESEARCH — one tree: topics (folders) → subtopics (folders) → notes,
- * inside the research folder. Its own Research tab, separate from work.
+ * inside the research folder. Its own Study tab (view type stays neon-research), separate from work.
  * ========================================================================= */
 const VIEW_RESEARCH = 'neon-research';
 const NR_DEFAULTS = {

@@ -47,8 +47,8 @@ class NeonMother extends Plugin {
     if (this.modules.has(m.id) || !this.isOn(m.id)) return;
     // the old separate plugin is still on: never run two copies
     if (m.id !== 'neon-deck' && this.app.plugins.enabledPlugins.has(m.id)) {
-      this.failed.set(m.id, `turn off the old "${m.name}" plugin, then reload`);
-      new Notice(`${m.name} is now part of Neon Deck. Turn off the old ${m.name} plugin in Community plugins, then reload.`, 0);
+      this.failed.set(m.id, `turn off the old "${m.old}" plugin, then reload`);
+      new Notice(`${m.name} is now part of Neon Deck. Turn off the old ${m.old} plugin in Community plugins, then reload.`, 0);
       return;
     }
     const dir = m.id === 'neon-deck' ? this.manifest.dir : `${this.manifest.dir}/${m.id.replace('neon-', '')}`;

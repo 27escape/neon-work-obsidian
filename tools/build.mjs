@@ -12,7 +12,7 @@ const manifest = JSON.parse(fs.readFileSync(o.manifest, 'utf8'));
 
 const js = [read(o.header), ...o.shared.map((f) => part(f).replace(/const ND_VERSION = '[^']*';/, `const ND_VERSION = '${manifest.version}';`))];
 for (const m of o.modules) js.push(`/* ==== module ${m.id} ==== */`, `const ${m.cls}Module = (() => {`, ...m.files.map(part), `return ${m.cls};`, '})();');
-js.push(`const NEON_MODULES = [\n${o.modules.map((m) => `  { id: '${m.id}', name: '${m.name}', desc: '${m.desc}', cls: ${m.cls}Module },`).join('\n')}\n];`);
+js.push(`const NEON_MODULES = [\n${o.modules.map((m) => `  { id: '${m.id}', name: '${m.name}', old: '${m.old || m.name}', desc: '${m.desc}', cls: ${m.cls}Module },`).join('\n')}\n];`);
 js.push(...o.kernel.map(part), 'module.exports = NeonMother;');
 
 // fonts inside styles.css: the community installer only downloads main.js, manifest.json and styles.css

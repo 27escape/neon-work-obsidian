@@ -57,7 +57,7 @@ class QuizModal extends Modal {
     try {
       await this.plugin.gradeCard(card, how);
     } catch (e) {
-      console.error('Neon Research: could not save grade', e);
+      console.error('Neon Study: could not save grade', e);
       new Notice('Could not save this grade');
     } finally {
       this.grading = false;
@@ -104,7 +104,7 @@ class FlashcardModal extends Modal {
       try {
         await this.plugin.appendCard(this.file, `${qv} :: ${av}`);
       } catch (e) {
-        console.error('Neon Research: could not add card', e);
+        console.error('Neon Study: could not add card', e);
         return new Notice('Could not add the card');
       }
       this.added++;

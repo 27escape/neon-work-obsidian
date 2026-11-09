@@ -53,7 +53,7 @@ class NeonResearchSettingTab extends PluginSettingTab {
       .setName('Link suggestions')
       .setDesc('In research notes, the status bar offers to link words that match other research note titles.')
       .addToggle((t) => t.setValue(s.linkSuggest).onChange((v) => ((s.linkSuggest = v), save(), p.updateLinkHint())));
-    madeWith(containerEl, 'Neon Research');
+    madeWith(containerEl, 'Neon Study');
   }
 }
 

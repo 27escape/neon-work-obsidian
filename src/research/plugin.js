@@ -16,8 +16,8 @@ class NeonResearch extends Plugin {
     this.listeners = new Set();
     this.cardText = new Map();
     this.registerView(VIEW_RESEARCH, (leaf) => new ResearchView(leaf, this));
-    this.addRibbonIcon('library', 'Research', () => this.openTab());
-    this.addCommand({ id: 'open-research', name: 'Open the Research tab', callback: () => this.openTab() });
+    this.addRibbonIcon('library', 'Study', () => this.openTab());
+    this.addCommand({ id: 'open-research', name: 'Open the Study tab', callback: () => this.openTab() });
     this.addCommand({ id: 'new-topic', name: 'New topic', callback: () => this.newTopic(this.rootFolder()) });
     this.addCommand({ id: 'quiz-all', name: 'Quiz me…', callback: () => new QuizPickModal(this).open() });
     this.addCommand({
@@ -97,7 +97,7 @@ class NeonResearch extends Plugin {
   }
   hookDeck() {
     const api = deckApi(this.app);
-    if (api) api.registerAction({ id: 'research', icon: 'library', label: 'Research', order: 45, view: VIEW_RESEARCH, run: () => this.openTab() });
+    if (api) api.registerAction({ id: 'research', icon: 'library', label: 'Study', order: 45, view: VIEW_RESEARCH, run: () => this.openTab() });
   }
   openTab() {
     return activateView(this.app, VIEW_RESEARCH, 'tab');

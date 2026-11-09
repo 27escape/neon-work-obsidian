@@ -13,7 +13,7 @@ Everything runs **100% locally**: no network calls, no telemetry, no remote font
 | **Neon Tickets** | Ticket view and pop-up, New ticket form, tracker, reminders, self-writing log, monthly counter |
 | **Neon Time** | Active time per category, manual entries, overtime, daily Time Log notes for an AI agent |
 | **Neon Write** | Table picker, slash menu, a toolbar on selected text and a faint pattern behind notes |
-| **Neon Research** | A separate Research tab: a topic tree (topics → subtopics → notes) with quiz cards and link suggestions |
+| **Neon Study** | A separate Study tab: a topic tree (topics → subtopics → notes) with quiz cards and link suggestions |
 
 Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others plug their cards, capture targets and facts into its dashboard. Switch any module off in *Settings → Neon Deck modules* and the rest keeps working; the dashboard gives the free space to the neighbours.
 
@@ -76,15 +76,15 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 - **Pattern behind notes:** the dashboard's pattern, dimmed right down, behind the note you're writing (needs Neon Deck; strength and on/off in settings).
 - Optional: switch the Write module off and the others behave exactly as before.
 
-### Research (Neon Research)
-- **Its own Research tab**, separate from work: one tree of **topics → subtopics → notes**. Topics are folders, so the tree matches Obsidian's own file views.
+### Study (Neon Study)
+- **Its own Study tab**, separate from work: one tree of **topics → subtopics → notes**. Topics are folders, so the tree matches Obsidian's own file views.
 - **Sections:** Research, School or any folder you like, each with its own tree, quiz counts and history. Switch at the top of the tab; **+** adds a section (pick a folder or type a new one), right-click renames or removes it.
 - **+** on a topic adds a subtopic or a note; **⋯** (or right-click) renames, quizzes or deletes. Deleting asks first and goes to the system trash. Notes open in the main pane.
 - **Quiz cards:** a line `Question :: Answer` in a note becomes a card; type `/flashcard` in a note to start one, or use the **Flashcards** button in a research note to add them through a small form. "Quiz me" asks all due cards, or one topic's from its ⋯ menu (space shows the answer, 1 / 2 / 3 = again / hard / easy).
 - **Link suggestions:** in a research note, the status bar offers to link words that match other research note titles.
 - Research notes are left out of work time by default (`untracked: true`).
 
-![Research tab](docs/screenshots/research.png)
+![Study tab](docs/screenshots/research.png)
 
 ## Install
 
@@ -99,7 +99,7 @@ If the ZIP is not attached to an older release, download its three files instead
 
 Requires Obsidian 1.5.0 or later, desktop.
 
-**Upgrading from 1.x (six plugins):** replace the files in `neon-deck/` as above, turn **off** Neon Tasks, Time, Tickets, Research and Write, and reload. Their settings and data are copied once into Neon Deck (the old files stay), hotkeys are kept. Then you can delete the five old plugin folders.
+**Upgrading from 1.x (six plugins):** replace the files in `neon-deck/` as above, turn **off** Neon Tasks, Time, Tickets, Research (now Study) and Write, and reload. Their settings and data are copied once into Neon Deck (the old files stay), hotkeys are kept. Then you can delete the five old plugin folders.
 
 **Safe mode:** if Neon Deck ever fails while starting, the next start keeps all modules off; turn them back on one by one in *Settings → Neon Deck modules*.
 

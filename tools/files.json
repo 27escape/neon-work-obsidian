@@ -112,8 +112,9 @@
     },
     {
       "id": "neon-research",
-      "name": "Neon Research",
-      "desc": "Research and school sections, flashcards",
+      "name": "Neon Study",
+      "old": "Neon Research",
+      "desc": "Study tab: research and school sections, research list, flashcards",
       "cls": "NeonResearch",
       "files": [
         "src/research/constants.js",
