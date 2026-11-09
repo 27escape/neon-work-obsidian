@@ -691,3 +691,15 @@ body:not(.nd-themed) .nd-empty {
 .tm-work-btns {
   display: contents;
 }
+
+/* Time follows the theme's accent (issue 46): its main buttons and the balance, not the fixed go-green / info-blue */
+.tm-acts .nd-btn.mod-cta,
+.tm-modal .nd-btn.mod-cta {
+  background: var(--nd-accent);
+  border-color: var(--nd-accent);
+  color: var(--nd-on-accent);
+  box-shadow: 0 0 16px -4px color-mix(in srgb, var(--nd-accent) 55%, transparent);
+}
+.tm-bal.is-under .tm-bal-v {
+  color: color-mix(in srgb, var(--nd-accent) 55%, var(--nd-muted));
+}
