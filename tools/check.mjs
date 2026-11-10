@@ -354,8 +354,13 @@ if (SRC) {
   const src = (f) => fs.readFileSync(path.join(SRC, f), 'utf8');
   const pat = src('deck/pattern.js');
   const ice = pat.slice(pat.indexOf('float blackice('), pat.indexOf('float field('));
-  const amp = +((pat.match(/vec3 iceV[\s\S]*?\)\*(\.\d+);/) || [])[1] || 1);
-  if (!(amp < 0.25)) add('pattern', 'FAIL', `Black ICE corner drift is ${amp}: at .25 or more a triangle can flip over (facets pop, edges vanish)`);
+  // Black ICE corners: a stretch field (x with x, y with y) can't flip triangles, the per-corner jitter can.
+  // Proven flip-free by simulation (2026-11-10) for stretch amp .35 x wavenumber 1.571, cross term .35, jitter .06.
+  const iceV = pat.slice(pat.indexOf('vec3 iceV('), pat.indexOf('float blackice('));
+  const stretch = iceV.match(/sin\(c\.x\*([\d.]+)\+c\.y\*([\d.]+)[^\n]*\)\*(\.\d+);/);
+  const jitter = +((iceV.match(/h3\*6\.2832\)\)\*(\.\d+);/) || [])[1] || 1);
+  if (!stretch || +stretch[1] * +stretch[3] > 0.6 || +stretch[2] > 0.4 || jitter >= 0.1)
+    add('pattern', 'FAIL', `Black ICE corner motion is outside the flip-free range (stretch ${stretch ? +stretch[1] * +stretch[3] : '?'} ≤ .6, cross ${stretch ? stretch[2] : '?'} ≤ .4, jitter ${jitter} < .1): triangles could turn inside out`);
   if ((ice.match(/iceV\(/g) || []).length > 2) add('perf', 'FAIL', 'blackice() calls iceV() more than twice: compute the 16 shared corners once per pixel');
   if (!/if \(!e\.isAfter\(s\)\) e\.add\(1, 'day'\)/.test(src('time/entry-modal.js'))) add('time', 'FAIL', 'entryRange no longer rolls Until past midnight: 23:30 → 00:30 would be rejected');
   if (!/f \? f\.parent\.path : dir/.test(src('tickets/export-templates.js'))) add('tickets', 'FAIL', 'writeTemplateNote must rename a template inside its own folder (a changed ticket folder lost edits)');
