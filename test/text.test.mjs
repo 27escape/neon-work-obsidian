@@ -206,10 +206,11 @@ test('research topics validate additions and save check/remove changes', () => {
   const p = Object.assign(Object.create(NeonResearch.prototype), {
     settings: { researchTopics: [] },
     saves: 0,
-    renders: 0,
     saveSoon() { this.saves++; },
-    emitSoon() { this.renders++; },
   });
+  // views hear about research changes at once, tagged 'research' (no debounce: the row shows on the same frame)
+  const heard = [];
+  p.listeners = new Set([(f) => heard.push(f)]);
   assert.equal(p.addResearchTopic('  '), false);
   assert.equal(p.addResearchTopic('x'.repeat(201)), false);
   assert.equal(p.addResearchTopic('  Neural   networks '), true);
@@ -226,7 +227,11 @@ test('research topics validate additions and save check/remove changes', () => {
   p.removeResearchTopic(topic);
   assert.equal(p.settings.researchTopics.length, 0);
   assert.equal(p.saves, 4);
-  assert.equal(p.renders, 4);
+  assert.deepEqual(heard, ['research', 'research', 'research', 'research']);
+  // a pasted list adds quietly and notifies once
+  heard.length = 0;
+  assert.equal(p.addResearchTopic('a', true), true);
+  assert.equal(heard.length, 0);
 });
 
 test('time entries are logged as From / Until instead of minutes', () => {
@@ -276,11 +281,14 @@ test('Radar and Blackwall are removed, Black ICE is available, saved settings fa
   assert.equal(q.settings.pattern, 'auto');
 });
 
-test('research add explains duplicates and keeps the box focused (issues 37, 38)', () => {
+test('research add explains duplicates and keeps the box (issues 37, 38; laggy adding)', () => {
   const source = readFileSync(new URL('../src/research/research-list.js', import.meta.url), 'utf8');
+  const view = readFileSync(new URL('../src/research/tree-view.js', import.meta.url), 'utf8');
   assert.match(source, /is already on the list/);
-  assert.match(source, /this\.researchFocus = true/);
   assert.match(source, /addEventListener\('paste'/);
+  // a research change redraws only the rows, never the whole view (that rebuilt the add box and lagged ~280 ms)
+  assert.match(view, /f === 'research' \? this\.refreshResearch\(\)/);
+  assert.doesNotMatch(source.slice(source.indexOf('researchChanged()'), source.indexOf('addResearchTopic(')), /emitSoon/);
 });
 
 test('dashboard redraws when the day changes while it stays open (issue 31)', () => {

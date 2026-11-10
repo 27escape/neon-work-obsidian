@@ -33,5 +33,10 @@
     "date": "2026-11-10",
     "module": "write",
     "text": "Ctrl+A in a note that ends with a locked callout or math block → Whole note selected; typing over it is blocked by the lock"
+  },
+  {
+    "date": "2026-11-10",
+    "module": "research",
+    "text": "Study → Research: type and Enter 10 topics quickly, paste a 5-line list → Each row appears instantly, the box keeps focus and text typed meanwhile, the count updates"
   }
 ]

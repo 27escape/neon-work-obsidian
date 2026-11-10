@@ -20,31 +20,34 @@ function normalizeResearchTopics(value) {
 }
 
 Object.assign(NeonResearch.prototype, {
-  addResearchTopic(value) {
+  /** Research list changed: tell the views now (no debounce), so a new row shows on the same frame. */
+  researchChanged() {
+    this.saveSoon();
+    this.listeners.forEach((fn) => fn('research'));
+  },
+  addResearchTopic(value, quiet) {
     const text = researchTopicText(value);
     if (!text || text.length > RESEARCH_TOPIC_MAX) return false;
     if (this.settings.researchTopics.some((t) => t.text.toLowerCase() === text.toLowerCase())) return false;
     this.settings.researchTopics.push({ text, done: false });
-    this.saveSoon();
-    this.emitSoon();
+    if (!quiet) this.researchChanged();
     return true;
   },
   toggleResearchTopic(topic) {
     if (!this.settings.researchTopics.includes(topic)) return;
     topic.done = !topic.done;
-    this.saveSoon();
-    this.emitSoon();
+    this.researchChanged();
   },
   removeResearchTopic(topic) {
     const i = this.settings.researchTopics.indexOf(topic);
     if (i < 0) return;
     this.settings.researchTopics.splice(i, 1);
-    this.saveSoon();
-    this.emitSoon();
+    this.researchChanged();
   },
 });
 
 Object.assign(ResearchView.prototype, {
+  /** The research tab: the add box is built once and kept; only the rows below it redraw (issue: laggy adding). */
   renderResearchList(panel) {
     const p = this.plugin;
     const add = panel.createDiv('nr-research-add');
@@ -65,30 +68,42 @@ Object.assign(ResearchView.prototype, {
         return;
       }
       input.value = '';
-      this.researchFocus = true; // the list redraws; keep typing in the new box (issue 37)
-      input.focus();
+      input.focus(); // the box stays, so focus and typing carry on (issue 37)
     };
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' || e.isComposing) return;
       e.preventDefault();
       submit();
     });
-    // pasting several lines adds one topic per line
+    // pasting several lines adds one topic per line, then redraws once
     input.addEventListener('paste', (e) => {
       const lines = (e.clipboardData ? e.clipboardData.getData('text/plain') : '').split(/\r?\n/).filter((l) => l.trim());
       if (lines.length < 2) return;
       e.preventDefault();
-      const skipped = lines.filter((l) => !p.addResearchTopic(l));
+      const skipped = lines.filter((l) => !p.addResearchTopic(l, true));
+      if (skipped.length < lines.length) p.researchChanged();
       new Notice(`Added ${lines.length - skipped.length} topic${lines.length - skipped.length === 1 ? '' : 's'}${skipped.length ? ` · skipped ${skipped.length} (duplicate, empty or too long)` : ''}`);
-      this.researchFocus = true;
     });
     if (this.researchFocus) {
       this.researchFocus = false;
       window.setTimeout(() => input.isConnected && input.focus(), 0);
     }
     button(add, { icon: 'plus', text: 'Add', cls: 'mod-cta', title: 'Add research topic', onClick: submit });
-
-    const list = panel.createDiv('nr-research-list');
+    this.researchList = panel.createDiv('nr-research-list');
+    this.drawResearchRows();
+  },
+  /** Called on every research change: the rows and the "to research" count, nothing else. */
+  refreshResearch() {
+    if (this.tab !== 'research' || !this.researchList || !this.researchList.isConnected) return;
+    const p = this.plugin;
+    const remaining = p.settings.researchTopics.filter((t) => !t.done).length;
+    if (this.researchSub) this.researchSub.setText(`${remaining} to research · ${p.settings.researchTopics.length - remaining} researched`);
+    this.drawResearchRows();
+  },
+  drawResearchRows() {
+    const p = this.plugin;
+    const list = this.researchList;
+    list.empty();
     if (!p.settings.researchTopics.length) {
       emptyState(list, 'Nothing queued — add a topic you want to understand');
       return;
@@ -99,8 +114,10 @@ Object.assign(ResearchView.prototype, {
     const flipped = this.researchFlipped;
     this.researchFlipped = null;
     p.settings.researchTopics.forEach((topic, i) => {
-      const row = list.createDiv('nr-research-row' + (topic.done ? ' is-done' : '') + (seen && !seen.has(topic.text) ? ' is-new' : '') + (flipped === topic.text ? ' is-flipped' : ''));
-      row.style.setProperty('--i', String(Math.min(i, 10)));
+      const fresh = seen && !seen.has(topic.text);
+      const row = list.createDiv('nr-research-row' + (topic.done ? ' is-done' : '') + (fresh ? ' is-new' : '') + (flipped === topic.text ? ' is-flipped' : ''));
+      // a new row appears at once instead of waiting for its place in the stagger
+      row.style.setProperty('--i', String(fresh ? 0 : Math.min(i, 10)));
       const label = row.createEl('label', { cls: 'nr-research-topic' });
       const check = label.createEl('input', { attr: { type: 'checkbox' } });
       check.checked = topic.done;

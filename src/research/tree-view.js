@@ -29,7 +29,8 @@ class ResearchView extends ItemView {
     this.registerEvent(this.app.workspace.on('neon-deck:core-unloaded', () => this.pattern && (this.pattern.destroy(), (this.pattern = null))));
     const soon = debounce(() => this.render(), 150, true);
     // f: one note's text changed but not its cards, so only its row's "edited" time moves; 'now': a click
-    this.register(this.plugin.onChange((f) => (f === 'now' ? this.render() : f ? this.touchRow(f) : soon())));
+    // 'research': the research list changed, so only its rows redraw (the add box keeps focus and text)
+    this.register(this.plugin.onChange((f) => (f === 'now' ? this.render() : f === 'research' ? this.refreshResearch() : f ? this.touchRow(f) : soon())));
     // hidden tabs skip redraws and catch up when shown
     // checked a frame later: the event fires before the tab is actually shown
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.stale && window.requestAnimationFrame(() => this.stale && this.isShown() && this.render())));
@@ -69,7 +70,7 @@ class ResearchView extends ItemView {
     if (research) {
       const remaining = p.settings.researchTopics.filter((t) => !t.done).length;
       const done = p.settings.researchTopics.length - remaining;
-      l.createDiv({ cls: 'nr-hero-sub', text: `${remaining} to research · ${done} researched` });
+      this.researchSub = l.createDiv({ cls: 'nr-hero-sub', text: `${remaining} to research · ${done} researched` });
     } else {
       const nTopics = rootFolder ? rootFolder.children.filter((c) => c instanceof TFolder).length : 0;
       const nNotes = p.researchNotes().length;

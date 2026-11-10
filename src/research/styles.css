@@ -428,12 +428,13 @@
   animation-delay: calc(var(--i, 0) * 28ms + 60ms);
 }
 .nr-research-row.is-new {
-  animation: nr-row-new 0.32s var(--nd-ease, ease) backwards;
+  /* short and already half visible: the row has to feel instant */
+  animation: nr-row-new 0.2s var(--nd-ease, ease) backwards;
 }
 @keyframes nr-row-new {
   from {
-    opacity: 0;
-    transform: translateX(-12px);
+    opacity: 0.45;
+    transform: translateX(-6px);
     background: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 18%, transparent);
   }
 }
