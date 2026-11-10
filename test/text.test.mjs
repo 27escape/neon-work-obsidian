@@ -282,17 +282,19 @@ test('dashboard redraws when the day changes while it stays open (issue 31)', ()
   assert.match(source, /this\.clockDay && this\.clockDay !== key/);
 });
 
-test('/flashcard turns the line into a question :: answer card (issue 40)', () => {
-  const { insertFlashcard } = load('neon-write', ['insertFlashcard']);
-  const ed = (text) => ({ text, cur: null, getCursor: () => ({ line: 0, ch: 0 }), getLine() { return this.text; }, setLine(_, v) { this.text = v; }, setCursor(c) { this.cur = c.ch; } });
-  const a = ed('What is ATP? ');
-  insertFlashcard(a);
-  assert.deepEqual([a.text, a.cur], ['What is ATP? :: ', 16]);
-  const b = ed('');
-  insertFlashcard(b);
-  assert.deepEqual([b.text, b.cur], [' :: ', 0]);
+test('/flashcard popup: card lines, editing an existing card, and where cards go', () => {
+  const { cardLine, splitCard, placeCards } = load('neon-write', ['cardLine', 'splitCard', 'placeCards']);
+  assert.equal(cardLine(' What is  ATP? ', 'Energy :: fuel'), 'What is ATP? :: Energy : fuel');
+  assert.equal(cardLine('## Heading q', 'a'), 'Heading q :: a');
+  assert.equal(cardLine('q', '  '), null);
+  assert.deepEqual([...splitCard('What is ATP? :: Energy')], ['What is ATP?', 'Energy', true]);
+  assert.deepEqual([...splitCard('Just a line')], ['Just a line', '', false]);
+  const cards = [{ line: 'a :: b', fromLine: false }, { line: 'c :: d', fromLine: false }];
+  assert.equal(placeCards('', cards).replace, true); // blank line: cards go there
+  assert.equal(placeCards('Some paragraph', cards).replace, false); // keep the paragraph, cards go below
+  assert.equal(placeCards('Some paragraph', [{ line: 'Some paragraph :: x', fromLine: true }]).replace, true);
+  assert.equal(placeCards('', cards).text, 'a :: b\nc :: d');
 });
-
 test('Study tab motion respects reduced motion (issues 36, 42)', () => {
   const css = readFileSync(new URL('../src/research/styles.css', import.meta.url), 'utf8');
   const tail = css.slice(css.indexOf('Study tab motion'));

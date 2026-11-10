@@ -153,10 +153,19 @@ function insertPageBreak(ed) {
   ed.setLine(l, `${pre}${cur}<div class="nw-pagebreak" style="break-after: page; page-break-after: always;"></div>${post}`);
   ed.setCursor({ line: l + (pre ? 1 : 0) + (cur ? 2 : 0) + 2, ch: 0 });
 }
-/** /flashcard: the line becomes "question :: " with the cursor after it, or " :: " with the cursor before it (issue 40). */
-function insertFlashcard(ed) {
-  const l = ed.getCursor().line;
-  const q = ed.getLine(l).replace(/\s+$/, '');
-  ed.setLine(l, q.trim() ? `${q} :: ` : ' :: ');
-  ed.setCursor({ line: l, ch: q.trim() ? q.length + 4 : 0 });
+/** One flashcard line, or null when a side is empty; " :: " separates the sides, so it can't appear inside one. */
+function cardLine(q, a) {
+  const clean = (v) => String(v || '').replace(/\s+/g, ' ').replace(/\s::\s/g, ' : ').trim();
+  const qv = clean(q).replace(/^#+\s*/, '');
+  const av = clean(a);
+  return qv && av ? `${qv} :: ${av}` : null;
+}
+/** "q :: a" -> [q, a, true]; any other line -> [line, '', false]. */
+function splitCard(line) {
+  const i = String(line).indexOf(' :: ');
+  return i < 0 ? [String(line).trim(), '', false] : [line.slice(0, i).trim(), line.slice(i + 4).trim(), true];
+}
+/** Where /flashcard's cards go: over the cursor line when it's blank or became one of the cards, else below it. */
+function placeCards(orig, cards) {
+  return { replace: !String(orig).trim() || cards.some((k) => k.fromLine), text: cards.map((k) => k.line).join('\n') };
 }

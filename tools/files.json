@@ -144,6 +144,7 @@
         "src/write/table-merge.js",
         "src/write/callout-lock.js",
         "src/write/table-picker.js",
+        "src/write/flashcard-modal.js",
         "src/write/slash-menu.js",
         "src/write/toolbar.js",
         "src/write/settings.js",
