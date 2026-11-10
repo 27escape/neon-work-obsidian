@@ -1,3 +1,5 @@
+/* breaks on the Time wheel: distinct from the categories, muted because they are not work */
+.tm-donut, .tm-legend { --tm-break: color-mix(in srgb, var(--color-blue) 55%, var(--background-secondary)); }
 /* NEON TIME — uses the --nd-* tokens from Neon Deck */
 .tm-view *,
 .tm-modal *,

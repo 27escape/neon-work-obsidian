@@ -8,15 +8,15 @@ Object.assign(NeonTime.prototype, {
     const R = 50;
     const C = 2 * Math.PI * R;
     svg.createSvg('circle', { cls: 'tm-donut-track', attr: { cx: '60', cy: '60', r: String(R) } });
-    const base = Math.max(sum.target || sum.total, sum.total) || 1;
+    // breaks always get room: once the day is full the ring stretches to fit them (issue 52)
+    const base = Math.max(sum.target || sum.total, sum.total + (sum.breaks || 0)) || 1;
     const within = Math.min(sum.total, sum.target || sum.total);
     const scale = sum.total ? within / sum.total : 0;
     const slices = TIME_CATS.filter((k) => sum.by[k]).map((k) => [catColor(k), sum.by[k] * scale]);
     if (sum.untracked) slices.push(['var(--text-faint)', sum.untracked * scale]);
     if (sum.over && sum.target) slices.push(['var(--nd-accent)', sum.over, true]);
-    // breaks fill part of what's left of the ring, after the worked time; they never count as worked
-    const brk = Math.min(sum.breaks || 0, base - sum.total);
-    if (brk > 0) slices.push(['var(--background-modifier-border)', brk, false, true]);
+    // breaks follow the worked time on the ring; they never count as worked
+    if (sum.breaks) slices.push(['var(--tm-break)', sum.breaks, false, true]);
     const gap = slices.length > 1 ? 1.2 : 0;
     let off = 0;
     let i = 0;
@@ -58,7 +58,7 @@ Object.assign(NeonTime.prototype, {
       r.createSpan({ cls: 'tm-leg-k', text: CAT_LABEL[k] });
       r.createSpan({ cls: 'tm-leg-v', text: sum.by[k] ? fmtMin(sum.by[k]) : '—' });
     }
-    for (const [n, label, color] of [[sum.untracked, 'Untracked', 'var(--text-faint)'], [sum.breaks, 'Breaks', 'var(--background-modifier-border)']]) {
+    for (const [n, label, color] of [[sum.untracked, 'Untracked', 'var(--text-faint)'], [sum.breaks, 'Breaks', 'var(--tm-break)']]) {
       if (!n) continue;
       const r = el.createDiv('tm-leg');
       r.style.setProperty('--cat', color);

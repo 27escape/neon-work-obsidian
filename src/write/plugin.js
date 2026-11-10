@@ -200,8 +200,9 @@ class NeonWrite extends Plugin {
           if (e.type === 'mousedown') e.preventDefault();
           e.stopPropagation();
         };
-        m.addEventListener('mousedown', guard);
-        m.addEventListener('click', guard);
+        // capture phase: Obsidian's own handler on the formula would otherwise select the block first
+        m.addEventListener('mousedown', guard, true);
+        m.addEventListener('click', guard, true);
       }
     }
     m.addClass('nw-math-lock');
