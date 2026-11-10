@@ -229,12 +229,14 @@ test('research topics validate additions and save check/remove changes', () => {
   assert.equal(p.renders, 4);
 });
 
-test('time entry start uses optional text with strict HH:mm parsing (issue 25)', () => {
-  const source = readFileSync(new URL('../src/time/entry-modal.js', import.meta.url), 'utf8');
-  assert.match(source, /field\('Start', row\)\.createEl\('input', \{ cls: 'nd-input', attr: \{ type: 'text' \} \}\)/);
-  assert.match(source, /moment\(`\$\{date\.value\} \$\{clock\}`, 'YYYY-MM-DD HH:mm', true\)/);
+test('time entries are logged as From / Until instead of minutes', () => {
+  const { entryRange } = load('neon-time', ['entryRange']);
+  const src = readFileSync(new URL('../src/time/entry-modal.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /field\('Minutes'/);
+  // the test moment stub has no clock maths, so check the rejections it can see
+  assert.deepEqual({ ...entryRange('2026-01-05', 'x', '10:00') }, { bad: 'from' });
+  assert.deepEqual({ ...entryRange('2026-01-05', '9:00', '25') }, { bad: 'until' });
 });
-
 test('recently done log has no height cap or trailing separator (issue 27)', () => {
   const source = readFileSync(new URL('../src/deck/styles-dashboard.css', import.meta.url), 'utf8');
   assert.match(source, /\.nd-w-recent \.nd-done-log \{[^}]*max-height: none;[^}]*margin-bottom: 0;[^}]*padding-bottom: 0;[^}]*border-bottom: 0;[^}]*\}/);
@@ -261,6 +263,7 @@ test('Radar is removed and Blackwall is available without breaking saved setting
   const { NeonDeck, PATTERNS, THEME_PATTERN } = load('neon-deck', ['NeonDeck', 'PATTERNS', 'THEME_PATTERN']);
   assert.equal(PATTERNS.includes('radar'), false);
   assert.equal(PATTERNS.includes('blackwall'), true);
+  assert.equal(PATTERNS.includes('blackice'), true);
   assert.equal(THEME_PATTERN.blueprint, 'hex');
   const p = Object.assign(Object.create(NeonDeck.prototype), {
     loadData: async () => ({ settingsVersion: 3, theme: 'blueprint', pattern: 'radar' }),

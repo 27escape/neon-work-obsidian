@@ -23,8 +23,8 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 - Totals, Vault pulse, Recently done (with a Recently touched popup), Activity (month and week timeline with a day pop-up), Tasks, Global tasks, Tickets and Time today on one page. The Quick capture card is optional.
 - **One main pane.** A nav list at the top of the left sidebar (Dashboard, Cards, Tickets, Time, Graph) switches what the main pane shows. Notes open in that same pane, and Back / Forward move between them. No pile of pinned tabs.
 - The grid fills the window on any screen size; lists scroll inside their card, and narrow panes stack the cards.
-- Themes (Marathon, Cyberpunk, Calm, Paper, Night shift, Phosphor, Blueprint, Strawberry kitten), each in light and dark, with the same rounded corners and colour only in the accents. Strawberry kitten is an original neutral palette with pink accents and no third-party artwork.
-- A live background pattern (Damascus, Prism, Meteorite, Topo, Hex mesh, Datastream, Blackwall) that pauses when Obsidian isn't focused or with *Reduce motion* on.
+- Themes (Marathon, Cyberpunk, Calm, Paper, Night shift, Phosphor, Blueprint, Strawberry kitten, Black ICE), each in light and dark, with the same rounded corners and colour only in the accents. Each theme has its own matching category palette built from its accent, used by the Time wheel and category chips. Strawberry kitten and Black ICE are original palettes with no third-party artwork.
+- A live background pattern (Damascus, Prism, Meteorite, Topo, Hex mesh, Datastream, Blackwall, Black ICE) that pauses when Obsidian isn't focused or with *Reduce motion* on.
 - A ticker with live facts, and a Totals card: time worked, days worked, tasks and tickets done, notes created.
 - Quick capture from anywhere with `Ctrl+Shift+Space`: send to Task, Global task, Ticket or Time entry.
 - Card explorer with category chips and a *Revisit* reminder for notes you haven't opened in a while, plus a local note graph that follows the theme.
@@ -54,7 +54,7 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 - Counts active time only while a note is the focused tab and you type, scroll or click, also in notes moved to their own window. It stops after a configurable idle time.
 - Category comes from checkbox properties (`projects`, `school`, `admin`, `operations`) or tags. `untracked: true` notes are never logged.
 - A donut against your workday target, overtime as an accent slice, weekly and monthly balance, and entries you can add, edit or delete (with Undo).
-- **Work day:** Start day in the widget and tab; once started it becomes **End day**, with Pause / Resume beside it. The clock keeps running while Obsidian is idle or closed; after 2 h without input the day ends at your last activity. Start times can be typed loosely (`930`, `9:30`, `9.30`). Manual entries add their exact minutes to the day total; **Log break** adjusts only the separate work timer. The daily log note lists the workday and each break.
+- **Work day:** Start day in the widget and tab; once started it becomes **End day**, with Pause / Resume beside it. The clock keeps running while Obsidian is idle or closed; after 2 h without input the day ends at your last activity. **Add time** and **Log break** ask *From* and *Until* (typed loosely: `930`, `9:30`, `9.30`; the quick chips count back from Until). The day total is the longer of logged time and the workday timer, the rest shows as Untracked; **Log break** adjusts only the separate work timer. The daily log note lists the workday and each break.
 - Keeps counting while you're briefly in another app; after 30 min without input it ends at your last activity and drops the idle time.
 - **Wrap up** at the end of the day, and one Time Log note per day (`Core/Time Log/YYYY-MM-DD.md`) with totals, a Done today list and an entries table, written for an AI agent to send on to Jira. Neon Time itself never connects to Jira or the network.
 
@@ -81,7 +81,7 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 - **Sections:** Research, School or any folder you like, each with its own tree, quiz counts and history. Switch at the top of the tab; **+** adds a section (pick a folder or type a new one), right-click renames or removes it.
 - **Research list:** the Research subtab is a checklist of things to look into. Enter adds a topic and keeps the box ready for the next; pasting several lines adds one topic per line.
 - **+** on a topic adds a subtopic or a note; **⋯** (or right-click) renames, quizzes or deletes. Deleting asks first and goes to the system trash. Notes open in the main pane.
-- **Quiz cards:** a line `Question :: Answer` in a note becomes a card; type `/flashcard` in a note to start one, or use the **Flashcards** button in a research note to add them through a small form. "Quiz me" asks all due cards, or one topic's from its ⋯ menu (space shows the answer, 1 / 2 / 3 = again / hard / easy).
+- **Quiz cards:** a line `Question :: Answer` in a note becomes a card; type `/flashcard` in a note to open a card editor (live preview, add several, insert at the cursor), or use the **Flashcards** button in a research note to add them through a small form. "Quiz me" asks all due cards, or one topic's from its ⋯ menu (space shows the answer, 1 / 2 / 3 = again / hard / easy).
 - **Link suggestions:** in a research note, the status bar offers to link words that match other research note titles.
 - Research notes are left out of work time by default (`untracked: true`).
 

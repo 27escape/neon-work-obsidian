@@ -6,6 +6,18 @@ function parseClock(s) {
   if (!m || +m[1] > 23 || +(m[2] || 0) > 59) return null;
   return `${m[1].padStart(2, '0')}:${(m[2] || '0').padStart(2, '0')}`;
 }
+/** Date plus From / Until clock text -> { start, ms }, or { bad: 'from' | 'until' } (Until must come after From, max 16 h). */
+function entryRange(date, from, until) {
+  const f = parseClock(from);
+  if (!f) return { bad: 'from' };
+  const u = parseClock(until);
+  if (!u) return { bad: 'until' };
+  const s = moment(`${date} ${f}`, 'YYYY-MM-DD HH:mm', true);
+  const e = moment(`${date} ${u}`, 'YYYY-MM-DD HH:mm', true);
+  if (!s.isValid()) return { bad: 'from' };
+  const n = e.diff(s, 'minutes');
+  return n > 0 && n <= 960 ? { start: s.valueOf(), ms: n * 60000 } : { bad: 'until' };
+}
 class EntryModal extends Modal {
   /** entry: existing entry to edit (with .day), or a partial one for a new entry */
   constructor(plugin, entry, isNew, isBreak = false) {
@@ -24,23 +36,50 @@ class EntryModal extends Modal {
       return f;
     };
     const row = c.createDiv('tm-row');
-    const start = moment(e.start || Date.now());
+    // From / Until: you say when you finished, not how many minutes it took
+    let s0;
+    let s1;
+    if (e.ms) (s0 = moment(e.start)), (s1 = moment(e.start + e.ms));
+    else if (e.start) (s0 = moment(e.start)), (s1 = moment(e.start).add(this.isBreak ? 15 : 30, 'minutes'));
+    else {
+      // today: ends now, or for a break where work stopped (an open pause or End day)
+      const w = this.isBreak && p.workOf(moment().format('YYYY-MM-DD'));
+      const open = w && w.breaks.find((x) => x[1] == null);
+      s1 = moment(w ? Math.min(Date.now(), w.end || Infinity, open ? open[0] : Infinity) : Date.now());
+      s0 = s1.clone().subtract(this.isBreak ? 15 : 30, 'minutes');
+    }
     const date = field('Date', row).createEl('input', { cls: 'nd-input', attr: { type: 'date' } });
-    date.value = start.format('YYYY-MM-DD');
-    const time = field('Start', row).createEl('input', { cls: 'nd-input', attr: { type: 'text' } });
-    time.value = e.start ? start.format('HH:mm') : '';
-    time.placeholder = 'e.g. 930 or 9:30 (optional)';
-    time.addEventListener('blur', () => {
-      const v = parseClock(time.value);
-      if (v) time.value = v;
-    });
-    const minF = field('Minutes', row);
-    const min = minF.createEl('input', { cls: 'nd-input', attr: { type: 'number', min: '1', max: '960' } });
-    min.value = e.ms ? String(entryMin(e)) : '30';
+    date.value = s0.format('YYYY-MM-DD');
+    const clockField = (label, m) => {
+      const el = field(label, row).createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'e.g. 930 or 9:30', 'aria-label': label } });
+      el.value = m.format('HH:mm');
+      el.addEventListener('blur', () => {
+        const v = parseClock(el.value);
+        if (v) el.value = v;
+      });
+      return el;
+    };
+    const from = clockField('From', s0);
+    const until = clockField('Until', s1);
+    const dur = c.createDiv('tm-dur');
+    const showDur = () => {
+      const r = entryRange(date.value, from.value, until.value);
+      for (const el of [from, until]) el.removeClass('is-invalid');
+      dur.setText(r.bad ? (parseClock(from.value) && parseClock(until.value) ? 'Until must be after From' : '') : `= ${fmtMin(r.ms / 60000)}`);
+      dur.toggleClass('is-bad', !!r.bad);
+    };
+    for (const el of [date, from, until]) el.addEventListener('input', showDur);
+    showDur();
+    // quick lengths count back from Until
     const quick = c.createDiv('nd-pills tm-chips');
     for (const n of [15, 30, 45, 60, 90, 120]) {
-      const b = quick.createEl('button', { cls: 'nd-pill-btn', text: fmtMin(n), attr: { type: 'button' } });
-      b.addEventListener('click', () => (min.value = String(n)));
+      const b = quick.createEl('button', { cls: 'nd-pill-btn', text: fmtMin(n), attr: { type: 'button', title: `From = Until − ${fmtMin(n)}` } });
+      b.addEventListener('click', () => {
+        const u = parseClock(until.value);
+        if (!u) return until.addClass('is-invalid');
+        from.value = moment(`${date.value} ${u}`, 'YYYY-MM-DD HH:mm').subtract(n, 'minutes').format('HH:mm');
+        showDur();
+      });
     }
     let cat;
     let note;
@@ -67,25 +106,10 @@ class EntryModal extends Modal {
       });
     button(foot, { text: 'Cancel', onClick: () => this.close() });
     const save = () => {
-      const n = Math.round(Number(min.value));
-      if (!(n > 0 && n <= 960)) return min.addClass('is-invalid');
-      const d = moment(date.value, 'YYYY-MM-DD', true);
-      if (!d.isValid()) return date.addClass('is-invalid');
-      // no start time: place it so it ends now (today) or at 09:00 (other days)
-      let s;
-      const clock = time.value.trim() && parseClock(time.value);
-      if (clock === null) return time.addClass('is-invalid');
-      if (clock) s = moment(`${date.value} ${clock}`, 'YYYY-MM-DD HH:mm', true);
-      else if (d.isSame(moment(), 'day')) {
-        // a break ends where work stopped: an open pause or End day, else now (issue 52)
-        const w = this.isBreak && p.workOf(date.value);
-        const open = w && w.breaks.find((b) => b[1] == null);
-        s = moment(w ? Math.min(Date.now(), w.end || Infinity, open ? open[0] : Infinity) : Date.now()).subtract(n, 'minutes');
-      }
-      else s = d.clone().hour(9);
-      if (!s.isValid()) return time.addClass('is-invalid');
-      if (!s.isSame(d, 'day')) s = d.clone().startOf('day');
-      const v = { start: s.valueOf(), ms: n * 60000 };
+      if (!moment(date.value, 'YYYY-MM-DD', true).isValid()) return date.addClass('is-invalid');
+      const r = entryRange(date.value, from.value, until.value);
+      if (r.bad) return (r.bad === 'from' ? from : until).addClass('is-invalid');
+      const v = { start: r.start, ms: r.ms };
       if (this.isBreak) {
         if (p.addBreak(v)) this.close();
         return;
@@ -103,7 +127,7 @@ class EntryModal extends Modal {
         save();
       }
     });
-    window.setTimeout(() => (this.isNew && !e.note && note ? note : min).focus(), 20);
+    window.setTimeout(() => (this.isNew && !e.note && note ? note : until).focus(), 20);
   }
   onClose() {
     this.contentEl.empty();

@@ -456,6 +456,16 @@
 .tm-field .tm-label {
   margin-bottom: 6px;
 }
+/* "= 1h 30m" under From / Until */
+.tm-dur {
+  margin: -4px 0 8px;
+  min-height: 1.2em;
+  font: 600 12px var(--nd-mono, var(--font-monospace));
+  color: var(--nd-muted, var(--text-muted));
+}
+.tm-dur.is-bad {
+  color: var(--text-error);
+}
 .tm-chips {
   margin: -4px 0 12px;
 }

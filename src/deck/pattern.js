@@ -4,12 +4,12 @@
 /* pattern only shows at card edges and, very faintly, in the gaps.    */
 /* ------------------------------------------------------------------ */
 
-const PATTERNS = ['damascus', 'prism', 'meteorite', 'topo', 'hex', 'datastream', 'blackwall', 'none'];
+const PATTERNS = ['damascus', 'prism', 'meteorite', 'topo', 'hex', 'datastream', 'blackwall', 'blackice', 'none'];
 const PATTERN_LABEL = {
   damascus: 'Damascus', meteorite: 'Meteorite', topo: 'Topo', prism: 'Prism', hex: 'Hex mesh',
-  datastream: 'Datastream', blackwall: 'Blackwall', none: 'None',
+  datastream: 'Datastream', blackwall: 'Blackwall', blackice: 'Black ICE', none: 'None',
 };
-const PATTERN_MODE = { damascus: 0, meteorite: 1, topo: 2, prism: 3, hex: 4, datastream: 5, blackwall: 6 };
+const PATTERN_MODE = { damascus: 0, meteorite: 1, topo: 2, prism: 3, hex: 4, datastream: 5, blackwall: 6, blackice: 7 };
 const STRENGTHS = ['off', 'subtle', 'bold'];
 const STRENGTH_LABEL = { off: 'Off', subtle: 'Subtle', bold: 'Bold' };
 // 10% softer than the first 1.3.0 build (Yobz, 2 Nov)
@@ -126,6 +126,33 @@ float blackwall(vec2 p,float ph){
   float specks=step(.94,h21(floor(p/6.)))*exp(-d*d/1600.);
   return min(1.,core+mist*.45+tear*.8+specks*.5);
 }
+float blackice(vec2 p,float ph){
+  float t=ph/(2.*PI);
+  // rare harsh glitch: a few 14px rows jump sideways for half a second (80 steps per loop, so it still loops)
+  float row=floor(p.y/14.);
+  float gl=step(.985,h21(vec2(row,floor(t*80.))));
+  p.x+=gl*(h21(vec2(row,1.3))-.5)*90.;
+  // skewed lattice of triangular shards; g is the position inside one triangle
+  vec2 q=vec2(p.x+p.y*.45,p.y*1.1)/130.;
+  vec2 id=floor(q);vec2 f=fract(q);
+  float up=step(f.x+f.y,1.);vec2 g=up>.5?f:1.-f;
+  float hs=h21(id+up*7.7);
+  float e=min(min(g.x,g.y),(1.-g.x-g.y)*.707)*130.;
+  // fractures: every shard edge is a thin line, about half of them sharper
+  float edge=(1.-smoothstep(.6,1.8,e))*(.18+.3*step(.5,hs));
+  // about a quarter of the shards are lit facets: a slow breath, a flat gradient, blocky dropouts
+  float facet=step(.72,hs)*(.12+.2*(.5+.5*sin(ph+hs*40.)))*(.4+.6*g.x)*(.55+.45*step(.35,h21(floor(p/vec2(9.,5.)))));
+  // faint circuit grid with missing cells
+  vec2 gm=abs(mod(p,32.)-16.);
+  float grid=step(15.3,max(gm.x,gm.y))*step(.5,h21(floor(p/32.)))*.1;
+  // scan sweep: a line with a trail above it moves down, twice per loop
+  float s=fract(t*2.-p.y/1100.);
+  float v=(edge+facet+grid)*(1.+2.2*exp(-s*14.))+(1.-smoothstep(0.,.004,s))*.35;
+  v+=gl*.5*step(.4,h21(vec2(floor(p.x/22.),row)));
+  // smoky falloff: wide, slowly drifting dim patches
+  v*=.4+.6*smoothstep(-.6,1.,sin(p.x/420.-p.y/360.+.6*sin(ph)));
+  return min(1.,v);
+}
 float field(vec2 c,float ph){
   if(uMode<.5)return damascus(c,ph);
   if(uMode<1.5)return meteorite(c,ph);
@@ -144,7 +171,8 @@ void main(){
     float v=field(bc,ph);float rad=v*g*.44;a=(1.-smoothstep(rad-.6,rad+.6,best))*smoothstep(.15,.7,rad);
   } else if(uMode<4.5) a=hexmesh(p,ph);
   else if(uMode<5.5) a=datastream(p,ph);
-  else a=blackwall(p,ph);
+  else if(uMode<6.5) a=blackwall(p,ph);
+  else a=blackice(p,ph);
   float inside=0.;
   for(int i=0;i<${MAX_RECTS};i++){if(float(i)>=uN)break;float d=sdRR(px,uRects[i],uRad);inside=max(inside,1.-smoothstep(-1.,1.,d));}
   float al=a*mix(uAOut,uAIn,inside);
