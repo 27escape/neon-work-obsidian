@@ -118,7 +118,7 @@ Requires Obsidian 1.5.0 or later, desktop.
 
 ## Release notes
 
-Only the latest release notes are kept: [2.0.8](docs/release-notes/2.0.8.md): End day, workday in the log note, fixed Log break, loose start times, /flashcard, lockable math blocks and the Study tab. Older notes are in the git history.
+Only the latest release notes are kept: [2.0.9](docs/release-notes/2.0.9.md): ticket templates as notes, Save as template, workday time and breaks on the Time wheel, and locked math blocks that stay closed. Older notes are in the git history.
 
 ## License
 
