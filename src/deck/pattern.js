@@ -4,12 +4,12 @@
 /* pattern only shows at card edges and, very faintly, in the gaps.    */
 /* ------------------------------------------------------------------ */
 
-const PATTERNS = ['damascus', 'prism', 'meteorite', 'topo', 'hex', 'datastream', 'blackwall', 'blackice', 'none'];
+const PATTERNS = ['damascus', 'prism', 'meteorite', 'topo', 'hex', 'datastream', 'blackice', 'none'];
 const PATTERN_LABEL = {
   damascus: 'Damascus', meteorite: 'Meteorite', topo: 'Topo', prism: 'Prism', hex: 'Hex mesh',
-  datastream: 'Datastream', blackwall: 'Blackwall', blackice: 'Black ICE', none: 'None',
+  datastream: 'Datastream', blackice: 'Black ICE', none: 'None',
 };
-const PATTERN_MODE = { damascus: 0, meteorite: 1, topo: 2, prism: 3, hex: 4, datastream: 5, blackwall: 6, blackice: 7 };
+const PATTERN_MODE = { damascus: 0, meteorite: 1, topo: 2, prism: 3, hex: 4, datastream: 5, blackice: 6 };
 const STRENGTHS = ['off', 'subtle', 'bold'];
 const STRENGTH_LABEL = { off: 'Off', subtle: 'Subtle', bold: 'Bold' };
 // 10% softer than the first 1.3.0 build (Yobz, 2 Nov)
@@ -115,43 +115,39 @@ float datastream(vec2 p,float ph){
   float scan=step(mod(p.y,4.),1.)*.25;
   return max(max(glyph*(.5+.5*rh),bars*.6),scan);
 }
-float blackwall(vec2 p,float ph){
-  float col=floor(p.x/180.);float seed=h21(vec2(col,2.7));
-  float cx=(col+.5)*180.+sin(p.y/110.+ph+seed*2.*PI)*22.;
-  float d=abs(p.x-cx);
-  float core=exp(-d*d/18.)*(.55+.45*sin(p.y/75.+ph+seed*2.*PI));
-  float mist=exp(-d*d/900.)*(.35+.65*h21(floor(p/vec2(7.,11.))));
-  float row=floor(p.y/9.);
-  float tear=step(.82,h21(vec2(row,col)))*exp(-d*d/2400.)*step(2.,mod(p.y,9.));
-  float specks=step(.94,h21(floor(p/6.)))*exp(-d*d/1600.);
-  return min(1.,core+mist*.45+tear*.8+specks*.5);
+// Black ICE: a low-poly mesh whose corners drift, so the triangles keep stretching and re-forming.
+// Each grid corner moves on its own slow loop; every cell is two triangles sharing its corners.
+vec3 iceV(vec2 c,float ph){
+  float h1=h21(c+.13),h2=h21(c+7.7),h3=h21(c+3.1);
+  // integer speeds keep the whole animation looping with ph
+  vec2 o=vec2(sin(ph*(1.+floor(h1*2.))+h2*6.2832),cos(ph*(1.+floor(h2*2.))+h3*6.2832))*.3;
+  // z: a slowly rising and falling height, for flat shading
+  float z=sin(ph+h3*6.2832)*.5+.5;
+  return vec3((c+.5+o)*140.,z);
 }
 float blackice(vec2 p,float ph){
-  float t=ph/(2.*PI);
-  // rare harsh glitch: a few 14px rows jump sideways for half a second (80 steps per loop, so it still loops)
-  float row=floor(p.y/14.);
-  float gl=step(.985,h21(vec2(row,floor(t*80.))));
-  p.x+=gl*(h21(vec2(row,1.3))-.5)*90.;
-  // skewed lattice of triangular shards; g is the position inside one triangle
-  vec2 q=vec2(p.x+p.y*.45,p.y*1.1)/130.;
-  vec2 id=floor(q);vec2 f=fract(q);
-  float up=step(f.x+f.y,1.);vec2 g=up>.5?f:1.-f;
-  float hs=h21(id+up*7.7);
-  float e=min(min(g.x,g.y),(1.-g.x-g.y)*.707)*130.;
-  // fractures: every shard edge is a thin line, about half of them sharper
-  float edge=(1.-smoothstep(.6,1.8,e))*(.18+.3*step(.5,hs));
-  // about a quarter of the shards are lit facets: a slow breath, a flat gradient, blocky dropouts
-  float facet=step(.72,hs)*(.12+.2*(.5+.5*sin(ph+hs*40.)))*(.4+.6*g.x)*(.55+.45*step(.35,h21(floor(p/vec2(9.,5.)))));
-  // faint circuit grid with missing cells
-  vec2 gm=abs(mod(p,32.)-16.);
-  float grid=step(15.3,max(gm.x,gm.y))*step(.5,h21(floor(p/32.)))*.1;
-  // scan sweep: a line with a trail above it moves down, twice per loop
-  float s=fract(t*2.-p.y/1100.);
-  float v=(edge+facet+grid)*(1.+2.2*exp(-s*14.))+(1.-smoothstep(0.,.004,s))*.35;
-  v+=gl*.5*step(.4,h21(vec2(floor(p.x/22.),row)));
-  // smoky falloff: wide, slowly drifting dim patches
-  v*=.4+.6*smoothstep(-.6,1.,sin(p.x/420.-p.y/360.+.6*sin(ph)));
-  return min(1.,v);
+  vec2 c0=floor(p/140.-.5);
+  float best=0.;
+  for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){
+    vec2 c=c0+vec2(float(i),float(j));
+    vec3 A=iceV(c,ph),B=iceV(c+vec2(1.,0.),ph),C=iceV(c+vec2(1.,1.),ph),D=iceV(c+vec2(0.,1.),ph);
+    for(int k=0;k<2;k++){
+      vec3 P0=A,P1=k==0?B:C,P2=k==0?C:D;
+      vec2 e0=P1.xy-P0.xy,e1=P2.xy-P1.xy,e2=P0.xy-P2.xy;
+      float s0=e0.x*(p.y-P0.y)-e0.y*(p.x-P0.x),s1=e1.x*(p.y-P1.y)-e1.y*(p.x-P1.x),s2=e2.x*(p.y-P2.y)-e2.y*(p.x-P2.x);
+      if(!((s0>=0.&&s1>=0.&&s2>=0.)||(s0<=0.&&s1<=0.&&s2<=0.)))continue;
+      // pixel distance to the nearest edge and corner
+      float de=min(min(abs(s0)/length(e0),abs(s1)/length(e1)),abs(s2)/length(e2));
+      float dv=min(min(distance(p,P0.xy),distance(p,P1.xy)),distance(p,P2.xy));
+      // flat shading: the facet's tilt (from the corner heights) against a fixed light
+      vec3 n=normalize(cross(vec3(e0,(P1.z-P0.z)*60.),vec3(-e2,(P2.z-P0.z)*60.)));
+      float shade=.12+.34*clamp(dot(n,normalize(vec3(-.4,-.6,.7)))*.5+.5,0.,1.);
+      float line=(1.-smoothstep(.6,1.9,de))*.9;
+      float vtx=(1.-smoothstep(1.8,3.4,dv));
+      best=max(shade,max(line,vtx));
+    }
+  }
+  return best;
 }
 float field(vec2 c,float ph){
   if(uMode<.5)return damascus(c,ph);
@@ -171,11 +167,11 @@ void main(){
     float v=field(bc,ph);float rad=v*g*.44;a=(1.-smoothstep(rad-.6,rad+.6,best))*smoothstep(.15,.7,rad);
   } else if(uMode<4.5) a=hexmesh(p,ph);
   else if(uMode<5.5) a=datastream(p,ph);
-  else if(uMode<6.5) a=blackwall(p,ph);
   else a=blackice(p,ph);
   float inside=0.;
   for(int i=0;i<${MAX_RECTS};i++){if(float(i)>=uN)break;float d=sdRR(px,uRects[i],uRad);inside=max(inside,1.-smoothstep(-1.,1.,d));}
-  float al=a*mix(uAOut,uAIn,inside);
+  // Black ICE is mostly thin lines, so it gets more strength between the cards to stand out
+  float al=min(1.,a*mix(uAOut*(uMode>5.5?2.6:1.),uAIn,inside));
   gl_FragColor=vec4(uCol*al,al);
 }`;
 

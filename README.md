@@ -24,7 +24,7 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 - **One main pane.** A nav list at the top of the left sidebar (Dashboard, Cards, Tickets, Time, Graph) switches what the main pane shows. Notes open in that same pane, and Back / Forward move between them. No pile of pinned tabs.
 - The grid fills the window on any screen size; lists scroll inside their card, and narrow panes stack the cards.
 - Themes (Marathon, Cyberpunk, Calm, Paper, Night shift, Phosphor, Blueprint, Strawberry kitten, Black ICE), each in light and dark, with the same rounded corners and colour only in the accents. Each theme has its own matching category palette built from its accent, used by the Time wheel and category chips. Strawberry kitten and Black ICE are original palettes with no third-party artwork.
-- A live background pattern (Damascus, Prism, Meteorite, Topo, Hex mesh, Datastream, Blackwall, Black ICE) that pauses when Obsidian isn't focused or with *Reduce motion* on.
+- A live background pattern (Damascus, Prism, Meteorite, Topo, Hex mesh, Datastream, Black ICE) that pauses when Obsidian isn't focused or with *Reduce motion* on.
 - A ticker with live facts, and a Totals card: time worked, days worked, tasks and tickets done, notes created.
 - Quick capture from anywhere with `Ctrl+Shift+Space`: send to Task, Global task, Ticket or Time entry.
 - Card explorer with category chips and a *Revisit* reminder for notes you haven't opened in a while, plus a local note graph that follows the theme.

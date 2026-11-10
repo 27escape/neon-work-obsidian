@@ -259,10 +259,10 @@ test('ticket write queues release settled note entries', () => {
   assert.equal((source.match(/next\.then\(\(\) => this\.writeQ\.get\(key\) === next && this\.writeQ\.delete\(key\)\);/g) || []).length, 3);
 });
 
-test('Radar is removed and Blackwall is available without breaking saved settings', async () => {
+test('Radar and Blackwall are removed, Black ICE is available, saved settings fall back', async () => {
   const { NeonDeck, PATTERNS, THEME_PATTERN } = load('neon-deck', ['NeonDeck', 'PATTERNS', 'THEME_PATTERN']);
   assert.equal(PATTERNS.includes('radar'), false);
-  assert.equal(PATTERNS.includes('blackwall'), true);
+  assert.equal(PATTERNS.includes('blackwall'), false);
   assert.equal(PATTERNS.includes('blackice'), true);
   assert.equal(THEME_PATTERN.blueprint, 'hex');
   const p = Object.assign(Object.create(NeonDeck.prototype), {
@@ -271,6 +271,9 @@ test('Radar is removed and Blackwall is available without breaking saved setting
   await p.loadSettings();
   assert.equal(p.settings.pattern, 'auto');
   assert.equal(p.activePattern(), 'hex');
+  const q = Object.assign(Object.create(NeonDeck.prototype), { loadData: async () => ({ settingsVersion: 3, theme: 'cyberpunk', pattern: 'blackwall' }) });
+  await q.loadSettings();
+  assert.equal(q.settings.pattern, 'auto');
 });
 
 test('research add explains duplicates and keeps the box focused (issues 37, 38)', () => {
