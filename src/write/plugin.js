@@ -48,7 +48,8 @@ class NeonWrite extends Plugin {
       // the cursor can't land in a locked callout (arrow keys, Home/End, Page Up/Down, clicks): it hops over it
       this.registerEditorExtension(
         cmState.EditorState.transactionFilter.of((tr) => {
-          if (!tr.selection || tr.docChanged || !tr.isUserEvent('select')) return tr;
+          // untagged moves count too: Obsidian's own clicks on rendered widgets set the cursor without a user event (issue 47)
+          if (!tr.selection || tr.docChanged || (tr.annotation(cmState.Transaction.userEvent) && !tr.isUserEvent('select'))) return tr;
           const ranges = lockedRanges(tr.newDoc);
           if (!ranges.length) return tr;
           const old = tr.startState.selection.main.head;
@@ -192,6 +193,16 @@ class NeonWrite extends Plugin {
         });
       });
       b.addEventListener('click', (e) => e.stopPropagation());
+      // a locked formula in Live Preview: clicks on it don't open its source (issue 47, same as locked callouts)
+      if (cm) {
+        const guard = (e) => {
+          if (!m.hasClass('is-locked') || e.target.closest('.nw-lock')) return;
+          if (e.type === 'mousedown') e.preventDefault();
+          e.stopPropagation();
+        };
+        m.addEventListener('mousedown', guard);
+        m.addEventListener('click', guard);
+      }
     }
     m.addClass('nw-math-lock');
     m.toggleClass('is-locked', locked);
