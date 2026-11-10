@@ -86,7 +86,7 @@ body.nd-theme-night.theme-dark {
   --nd-accent: #e0a04a; --nd-on-accent: #1b1714; --nd-go: #b9c46a; --nd-on-go: #1b1714; --nd-link: #e8b26a;
   --nd-info: #c99f72; --nd-warn: #e0a04a; --nd-pattern: #e0a04a;
   --nd-cat-projects: #e0a04a; --nd-cat-school: #cec881; --nd-cat-admin: #cc846b; --nd-cat-operations: #8fb486; --nd-cat-other: #726452;
-  --nd-cat-untracked: #5f564c; --nd-cat-break: #9a7e81; --nd-cat-over: #fea66c;
+  --nd-cat-untracked: #5f564c; --nd-cat-break: #9a7e81; --nd-cat-over: #fea294;
 }
 body.nd-theme-night.theme-light {
   --nd-bg: #efe5d8; --nd-bg2: #e6dbcc; --nd-surface: #f8f0e4; --nd-surface2: #efe5d7;
@@ -107,7 +107,7 @@ body.nd-theme-phosphor.theme-dark {
   --nd-accent: #6fd88a; --nd-on-accent: #111413; --nd-go: #b6ec6c; --nd-on-go: #111413; --nd-link: #8fe6a6;
   --nd-info: #82b9b3; --nd-warn: #cfc77d; --nd-pattern: #6fd88a;
   --nd-cat-projects: #6fd88a; --nd-cat-school: #7bebda; --nd-cat-admin: #a1b15b; --nd-cat-operations: #71c5dd; --nd-cat-other: #69736c;
-  --nd-cat-untracked: #505b52; --nd-cat-break: #8e866e; --nd-cat-over: #9be74f;
+  --nd-cat-untracked: #505b52; --nd-cat-break: #8e866e; --nd-cat-over: #bddf1b;
 }
 body.nd-theme-phosphor.theme-light {
   --nd-bg: #e9ecea; --nd-bg2: #e0e4e1; --nd-surface: #f5f7f5; --nd-surface2: #edf0ee;
@@ -125,7 +125,7 @@ body.nd-theme-blueprint.theme-dark {
   --nd-accent: #6ec1ff; --nd-on-accent: #12161c; --nd-go: #9fe3a6; --nd-on-go: #12161c; --nd-link: #8fd0ff;
   --nd-info: #7fb6e0; --nd-warn: #dcc27a; --nd-pattern: #6ec1ff;
   --nd-cat-projects: #6ec1ff; --nd-cat-school: #c0ccfe; --nd-cat-admin: #53b2c3; --nd-cat-operations: #c0a5d4; --nd-cat-other: #6a7482;
-  --nd-cat-untracked: #4f5a63; --nd-cat-break: #6f8d88; --nd-cat-over: #6ed8ff;
+  --nd-cat-untracked: #4f5a63; --nd-cat-break: #6f8d88; --nd-cat-over: #12e3ed;
 }
 body.nd-theme-blueprint.theme-light {
   --nd-bg: #eaedf1; --nd-bg2: #e1e5ea; --nd-surface: #f6f8fa; --nd-surface2: #edf0f4;
@@ -146,7 +146,7 @@ body.nd-theme-cyberpunk.theme-dark {
   --nd-accent: #f3e600; --nd-on-accent: #0a0d14; --nd-go: #00e0f0; --nd-on-go: #0a0d14; --nd-link: #00e0f0;
   --nd-info: #00e0f0; --nd-warn: #ff2a6d; --nd-pattern: #ff2a4f;
   --nd-cat-projects: #f3e600; --nd-cat-school: #abe894; --nd-cat-admin: #da9936; --nd-cat-operations: #66cdb1; --nd-cat-other: #5c6679;
-  --nd-cat-untracked: #59594c; --nd-cat-break: #998075; --nd-cat-over: #fec504;
+  --nd-cat-untracked: #59594c; --nd-cat-break: #998075; --nd-cat-over: #ffc166;
   --nd-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.85); --nd-hi: inset 0 1px 0 rgba(243, 230, 0, 0.07);
 }
 body.nd-theme-cyberpunk.theme-light {
@@ -165,7 +165,7 @@ body.nd-theme-strawberry.theme-dark {
   --nd-accent: #f09bb3; --nd-on-accent: #121416; --nd-go: #b9d69a; --nd-on-go: #121416; --nd-link: #f3b3c5;
   --nd-info: #a8c8d8; --nd-warn: #e1c48c; --nd-pattern: #f09bb3;
   --nd-cat-projects: #f09bb3; --nd-cat-school: #fcbdae; --nd-cat-admin: #bf90ba; --nd-cat-operations: #ccab86; --nd-cat-other: #6a6e74;
-  --nd-cat-untracked: #625457; --nd-cat-break: #8a8298; --nd-cat-over: #ffa8dc;
+  --nd-cat-untracked: #625457; --nd-cat-break: #8a8298; --nd-cat-over: #ffa2f3;
 }
 body.nd-theme-strawberry.theme-light {
   --nd-bg: #eaedf1; --nd-bg2: #e1e5ea; --nd-surface: #f6f8fa; --nd-surface2: #edf0f4;
@@ -186,7 +186,7 @@ body.nd-theme-blackice.theme-dark {
   --nd-accent: #8be6ff; --nd-on-accent: #0a0b0e; --nd-go: #b4a2ff; --nd-on-go: #0a0b0e; --nd-link: #8be6ff;
   --nd-info: #6cc0e6; --nd-warn: #ff4f72; --nd-pattern: #7d7a8c;
   --nd-cat-projects: #8be6ff; --nd-cat-school: #b4d8fe; --nd-cat-admin: #71b7ae; --nd-cat-operations: #b3b3da; --nd-cat-other: #566475;
-  --nd-cat-untracked: #4c5b5f; --nd-cat-break: #758d7e; --nd-cat-over: #07e9f2;
+  --nd-cat-untracked: #4c5b5f; --nd-cat-break: #758d7e; --nd-cat-over: #13efc9;
   --nd-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.9); --nd-hi: inset 0 1px 0 rgba(139, 230, 255, 0.07);
 }
 body.nd-theme-blackice.theme-light {

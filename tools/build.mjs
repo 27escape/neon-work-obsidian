@@ -16,8 +16,10 @@ js.push(`const NEON_MODULES = [\n${o.modules.map((m) => `  { id: '${m.id}', name
 js.push(...o.kernel.map(part), 'module.exports = NeonMother;');
 
 // fonts inside styles.css: the community installer only downloads main.js, manifest.json and styles.css
-const fonts = [['Unbounded', 'Unbounded.ttf'], ['Space Grotesk', 'SpaceGrotesk.ttf'], ['JetBrains Mono', 'JetBrainsMono.ttf']]
-  .map(([family, file]) => `@font-face{font-family:"${family}";src:url(data:font/ttf;base64,${fs.readFileSync(`src/deck/fonts/${file}`).toString('base64')}) format("truetype");font-weight:100 900;font-style:normal;font-display:swap;}`)
+// WOFF2 made once from the .ttf sources (fonttools): the two UI fonts subset to Latin plus a few symbols, the mono font whole
+//   pyftsubset X.ttf --unicodes="U+0020-017F,U+2010-203A,U+20AC,U+2190-2193,U+2205,U+2212,U+25CF" --layout-features='*' --flavor=woff2
+const fonts = [['Unbounded', 'Unbounded.woff2'], ['Space Grotesk', 'SpaceGrotesk.woff2'], ['JetBrains Mono', 'JetBrainsMono.woff2']]
+  .map(([family, file]) => `@font-face{font-family:"${family}";src:url(data:font/woff2;base64,${fs.readFileSync(`src/deck/fonts/${file}`).toString('base64')}) format("woff2");font-weight:100 900;font-style:normal;font-display:swap;}`)
   .join('\n');
 const fontLicense = read('src/deck/fonts/OFL.txt');
 const css = [`/*\n${fontLicense}\n*/\n${fonts}`, ...o.modules.map((m) => `/* @src ${m.id}/styles.css */\n${m.css.map((f) => `/* @css ${f} */\n${read(f)}`).join('\n')}`)].join('\n');

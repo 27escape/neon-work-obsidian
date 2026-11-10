@@ -102,8 +102,12 @@ Object.assign(NeonTickets.prototype, {
     const dir = this.templateDir();
     const md = templateMarkdown(tpl);
     let f = this.templateFile(tpl);
-    const want = normalizePath(`${dir}/${safeName(tpl.name) || 'Ticket template'}.md`);
-    if (f && f.path !== want && !this.app.vault.getAbstractFileByPath(want)) await this.app.fileManager.renameFile(f, want);
+    // an existing note is renamed where it is (its folder may differ from a changed ticket folder)
+    const want = normalizePath(`${f ? f.parent.path : dir}/${safeName(tpl.name) || 'Ticket template'}.md`);
+    if (f && f.path !== want) {
+      if (this.app.vault.getAbstractFileByPath(want)) new Notice(`A template named “${tpl.name}” already exists; the old name was kept.`);
+      else await this.app.fileManager.renameFile(f, want);
+    }
     if (!f) {
       const old = this.app.vault.getAbstractFileByPath(want);
       if (old instanceof TFile && /^type:\s*ticket-template-export\s*$/m.test(await this.app.vault.read(old))) f = old;
@@ -113,8 +117,13 @@ Object.assign(NeonTickets.prototype, {
     return f;
   },
   async saveTemplate(tpl) {
-    await this.writeTemplateNote(tpl);
-    await this.loadTemplates();
+    const f = await this.writeTemplateNote(tpl);
+    // use what was just saved: an open note is written to its editor first, so the file on disk lags behind;
+    // the folder watcher reloads from disk once Obsidian has saved it
+    const list = (this.templates || []).filter((x) => x.id !== tpl.id);
+    list.push({ ...tpl, steps: [...tpl.steps], name: f.basename, path: f.path });
+    this.templates = list.sort((x, y) => x.name.localeCompare(y.name));
+    this.emitSoon();
   },
   async deleteTemplate(id) {
     const f = this.templateFile((this.templates || []).find((x) => x.id === id));

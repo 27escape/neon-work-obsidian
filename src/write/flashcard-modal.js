@@ -114,8 +114,10 @@ class FlashcardInsertModal extends Modal {
   insert() {
     if (!this.cards.length) return;
     const ed = this.ed;
-    const l = this.line;
-    const { replace, text } = placeCards(this.orig, this.cards);
+    const l = Math.min(this.line, ed.lastLine()); // the note may have got shorter meanwhile
+    const place = placeCards(this.orig, this.cards, l === this.line ? ed.getLine(l) : null);
+    if (!place) return;
+    const { replace, text } = place;
     const end = { line: l, ch: ed.getLine(l).length };
     ed.replaceRange(replace ? text : '\n' + text, replace ? { line: l, ch: 0 } : end, end);
     const last = l + (replace ? 0 : 1) + this.cards.length - 1;

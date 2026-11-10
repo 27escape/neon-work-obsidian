@@ -3,5 +3,35 @@
     "date": "2026-11-04",
     "module": "write",
     "text": "on Windows, leave a note with a table open for 5+ minutes (also with Obsidian in the background), then click into table cells 20 times in Live Preview and Source; if focus is lost, repeat with Neon Write's note pattern off, then styled tables off, then Neon Write off → every click puts the cursor in the cell and typing works; if not, note which switch made it stop"
+  },
+  {
+    "date": "2026-11-10",
+    "module": "tickets",
+    "text": "Change the ticket folder in settings, then edit and save a template → Template list follows the new folder; editing an existing template saves in place, no console error"
+  },
+  {
+    "date": "2026-11-10",
+    "module": "tickets",
+    "text": "Open a template note, edit that template in the popup, create a ticket from it at once → The new ticket has the new steps"
+  },
+  {
+    "date": "2026-11-10",
+    "module": "tickets",
+    "text": "Rename a template to the name of another template → A notice says the name is taken; content is saved, old name kept"
+  },
+  {
+    "date": "2026-11-10",
+    "module": "time",
+    "text": "Add time 23:30 → 00:30; edit only the category of an auto entry → Saved as 1 h on the start day; editing the category keeps the exact start and length"
+  },
+  {
+    "date": "2026-11-10",
+    "module": "deck",
+    "text": "Every theme dark + light: a day with overtime on the Time wheel → Overtime slice is clearly a different colour from Projects"
+  },
+  {
+    "date": "2026-11-10",
+    "module": "write",
+    "text": "Ctrl+A in a note that ends with a locked callout or math block → Whole note selected; typing over it is blocked by the lock"
   }
 ]

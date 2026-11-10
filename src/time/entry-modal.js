@@ -6,7 +6,8 @@ function parseClock(s) {
   if (!m || +m[1] > 23 || +(m[2] || 0) > 59) return null;
   return `${m[1].padStart(2, '0')}:${(m[2] || '0').padStart(2, '0')}`;
 }
-/** Date plus From / Until clock text -> { start, ms }, or { bad: 'from' | 'until' } (Until must come after From, max 16 h). */
+/** Date plus From / Until clock text -> { start, ms }, or { bad: 'from' | 'until' }; Until at or before From means the
+ *  next day (23:30 -> 00:30 is 1 h), max 16 h. */
 function entryRange(date, from, until) {
   const f = parseClock(from);
   if (!f) return { bad: 'from' };
@@ -15,6 +16,7 @@ function entryRange(date, from, until) {
   const s = moment(`${date} ${f}`, 'YYYY-MM-DD HH:mm', true);
   const e = moment(`${date} ${u}`, 'YYYY-MM-DD HH:mm', true);
   if (!s.isValid()) return { bad: 'from' };
+  if (!e.isAfter(s)) e.add(1, 'day'); // crosses midnight (moment keeps the clock time across DST)
   const n = e.diff(s, 'minutes');
   return n > 0 && n <= 960 ? { start: s.valueOf(), ms: n * 60000 } : { bad: 'until' };
 }
@@ -65,10 +67,12 @@ class EntryModal extends Modal {
     const showDur = () => {
       const r = entryRange(date.value, from.value, until.value);
       for (const el of [from, until]) el.removeClass('is-invalid');
-      dur.setText(r.bad ? (parseClock(from.value) && parseClock(until.value) ? 'Until must be after From' : '') : `= ${fmtMin(r.ms / 60000)}`);
+      dur.setText(r.bad ? (parseClock(from.value) && parseClock(until.value) ? 'Over 16 h — check From and Until' : '') : `= ${fmtMin(r.ms / 60000)}`);
       dur.toggleClass('is-bad', !!r.bad);
     };
     for (const el of [date, from, until]) el.addEventListener('input', showDur);
+    const shown = () => [date.value, from.value, until.value].join('|');
+    const initial = shown(); // an edit that leaves the times alone keeps the exact start and length
     showDur();
     // quick lengths count back from Until
     const quick = c.createDiv('nd-pills tm-chips');
@@ -109,7 +113,7 @@ class EntryModal extends Modal {
       if (!moment(date.value, 'YYYY-MM-DD', true).isValid()) return date.addClass('is-invalid');
       const r = entryRange(date.value, from.value, until.value);
       if (r.bad) return (r.bad === 'from' ? from : until).addClass('is-invalid');
-      const v = { start: r.start, ms: r.ms };
+      const v = e.ms && shown() === initial ? { start: e.start, ms: e.ms } : { start: r.start, ms: r.ms };
       if (this.isBreak) {
         if (p.addBreak(v)) this.close();
         return;

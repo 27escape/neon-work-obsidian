@@ -342,6 +342,26 @@ for (const m of BUNDLE ? ['deck'] : mods) {
   }
 }
 
+// 10b. regressions: each guards a bug that was fixed (the source repo sits next to dist/)
+const SRC = [path.join(target, 'src'), path.join(target, '..', 'src')].find((d) => fs.existsSync(path.join(d, 'deck', 'pattern.js')));
+const deckCss = path.join(plugins, PLUGIN_ID.deck, 'styles.css');
+if (fs.existsSync(deckCss)) {
+  const css = fs.readFileSync(deckCss, 'utf8');
+  if (/data:font\/ttf/.test(css)) add('size', 'FAIL', 'styles.css embeds TTF fonts again: use the WOFF2 files (2026-11-10, 1.6 MB → 0.4 MB)');
+  if (css.length > 500_000) add('size', 'FAIL', `styles.css is ${(css.length / 1e3).toFixed(0)} KB (fonts are WOFF2 now; target under 500 KB)`);
+}
+if (SRC) {
+  const src = (f) => fs.readFileSync(path.join(SRC, f), 'utf8');
+  const pat = src('deck/pattern.js');
+  const ice = pat.slice(pat.indexOf('float blackice('), pat.indexOf('float field('));
+  const amp = +((pat.match(/vec3 iceV[\s\S]*?\)\*(\.\d+);/) || [])[1] || 1);
+  if (!(amp < 0.25)) add('pattern', 'FAIL', `Black ICE corner drift is ${amp}: at .25 or more a triangle can flip over (facets pop, edges vanish)`);
+  if ((ice.match(/iceV\(/g) || []).length > 2) add('perf', 'FAIL', 'blackice() calls iceV() more than twice: compute the 16 shared corners once per pixel');
+  if (!/if \(!e\.isAfter\(s\)\) e\.add\(1, 'day'\)/.test(src('time/entry-modal.js'))) add('time', 'FAIL', 'entryRange no longer rolls Until past midnight: 23:30 → 00:30 would be rejected');
+  if (!/f \? f\.parent\.path : dir/.test(src('tickets/export-templates.js'))) add('tickets', 'FAIL', 'writeTemplateNote must rename a template inside its own folder (a changed ticket folder lost edits)');
+  if (!/now === orig/.test(src('write/editor-helpers.js'))) add('write', 'FAIL', 'placeCards must not overwrite a cursor line that changed while the flashcard popup was open');
+}
+
 // 10. vault hygiene: stuff that should not ship (not in the source repo, which is never shipped as a vault)
 const repoMode = fs.existsSync(path.join(target, 'tools', 'files.json'));
 const all = repoMode ? [] : walk(path.resolve(target));

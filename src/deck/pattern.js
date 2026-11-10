@@ -119,18 +119,19 @@ float datastream(vec2 p,float ph){
 // Each grid corner moves on its own slow loop; every cell is two triangles sharing its corners.
 vec3 iceV(vec2 c,float ph){
   float h1=h21(c+.13),h2=h21(c+7.7),h3=h21(c+3.1);
-  // integer speeds keep the whole animation looping with ph
-  vec2 o=vec2(sin(ph*(1.+floor(h1*2.))+h2*6.2832),cos(ph*(1.+floor(h2*2.))+h3*6.2832))*.3;
+  // integer speeds keep the whole animation looping with ph; drift stays under .25 of a cell so no triangle flips
+  vec2 o=vec2(sin(ph*(1.+floor(h1*2.))+h2*6.2832),cos(ph*(1.+floor(h2*2.))+h3*6.2832))*.24;
   // z: a slowly rising and falling height, for flat shading
   float z=sin(ph+h3*6.2832)*.5+.5;
   return vec3((c+.5+o)*140.,z);
 }
 float blackice(vec2 p,float ph){
   vec2 c0=floor(p/140.-.5);
-  float best=0.;
-  for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){
-    vec2 c=c0+vec2(float(i),float(j));
-    vec3 A=iceV(c,ph),B=iceV(c+vec2(1.,0.),ph),C=iceV(c+vec2(1.,1.),ph),D=iceV(c+vec2(0.,1.),ph);
+  // the 4x4 corners around this pixel, computed once (the 3x3 cells below share them)
+  vec3 V[16];
+  for(int j=0;j<4;j++)for(int i=0;i<4;i++)V[j*4+i]=iceV(c0+vec2(float(i-1),float(j-1)),ph);
+  for(int j=0;j<3;j++)for(int i=0;i<3;i++){
+    vec3 A=V[j*4+i],B=V[j*4+i+1],C=V[j*4+i+5],D=V[j*4+i+4];
     for(int k=0;k<2;k++){
       vec3 P0=A,P1=k==0?B:C,P2=k==0?C:D;
       vec2 e0=P1.xy-P0.xy,e1=P2.xy-P1.xy,e2=P0.xy-P2.xy;
@@ -144,10 +145,10 @@ float blackice(vec2 p,float ph){
       float shade=.12+.34*clamp(dot(n,normalize(vec3(-.4,-.6,.7)))*.5+.5,0.,1.);
       float line=(1.-smoothstep(.6,1.9,de))*.9;
       float vtx=(1.-smoothstep(1.8,3.4,dv));
-      best=max(shade,max(line,vtx));
+      return max(shade,max(line,vtx)); // a pixel lies in one triangle: done
     }
   }
-  return best;
+  return 0.;
 }
 float field(vec2 c,float ph){
   if(uMode<.5)return damascus(c,ph);

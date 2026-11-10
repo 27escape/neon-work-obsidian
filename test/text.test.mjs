@@ -300,6 +300,13 @@ test('/flashcard popup: card lines, editing an existing card, and where cards go
   assert.equal(placeCards('Some paragraph', cards).replace, false); // keep the paragraph, cards go below
   assert.equal(placeCards('Some paragraph', [{ line: 'Some paragraph :: x', fromLine: true }]).replace, true);
   assert.equal(placeCards('', cards).text, 'a :: b\nc :: d');
+  // Esc on an unchanged card line: nothing to do (no rewrite, no undo step)
+  assert.equal(placeCards('    - q :: a', [{ line: '- q :: a', fromLine: true }]), null);
+  // an indented card keeps its indent when edited
+  assert.equal(placeCards('    q :: a', [{ line: 'q :: b', fromLine: true }]).text, '    q :: b');
+  // the cursor line changed while the popup was open: cards go below, the line is kept
+  assert.equal(placeCards('', cards, 'typed meanwhile').replace, false);
+  assert.equal(placeCards('', cards, null).replace, false);
 });
 test('Study tab motion respects reduced motion (issues 36, 42)', () => {
   const css = readFileSync(new URL('../src/research/styles.css', import.meta.url), 'utf8');

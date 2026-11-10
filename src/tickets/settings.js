@@ -8,13 +8,15 @@ class NeonTicketsSettingTab extends PluginSettingTab {
     const p = this.plugin;
     const s = p.settings;
     const save = () => p.saveSettings();
+    // templates live in <ticket folder>/Templates: reload the list once typing stops
+    const reloadTpl = debounce(() => p.loadTemplates(), 600, true);
     containerEl.empty();
     containerEl.addClass('nd-settings');
     new Setting(containerEl).setName('Tickets').setHeading();
     new Setting(containerEl)
       .setName('Ticket folder')
       .setDesc('Where new tickets go. Any note with “type: ticket” or the #ticket tag counts as a ticket, wherever it lives.')
-      .addText((t) => t.setValue(s.ticketFolder).onChange((v) => ((s.ticketFolder = v.trim() || 'Core/Tickets'), save())));
+      .addText((t) => t.setValue(s.ticketFolder).onChange((v) => ((s.ticketFolder = v.trim() || 'Core/Tickets'), save(), reloadTpl())));
     new Setting(containerEl)
       .setName('File done tickets')
       .setDesc('Done tickets move to <ticket folder>/Done/YYYY-MM/, and back when reopened. Links keep working.')

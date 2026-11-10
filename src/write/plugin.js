@@ -59,7 +59,8 @@ class NeonWrite extends Plugin {
             if (!lock) return r;
             hit = true;
             let h = r.head >= old ? lock[1] + 1 : lock[0] - 1; // past the callout, in the direction of the move
-            if (h < 0 || h > tr.newDoc.length) h = old; // callout at the very start or end: stay put
+            // callout at the very start or end: a cursor stays put, a selection (Ctrl+A) still reaches the edge
+            if (h < 0 || h > tr.newDoc.length) h = r.empty ? old : Math.max(0, Math.min(h, tr.newDoc.length));
             return cmState.EditorSelection.range(r.empty ? h : r.anchor, h);
           });
           return hit ? [tr, { selection: cmState.EditorSelection.create(sel, tr.selection.mainIndex), sequential: true }] : tr;

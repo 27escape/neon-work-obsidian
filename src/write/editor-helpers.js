@@ -165,7 +165,14 @@ function splitCard(line) {
   const i = String(line).indexOf(' :: ');
   return i < 0 ? [String(line).trim(), '', false] : [line.slice(0, i).trim(), line.slice(i + 4).trim(), true];
 }
-/** Where /flashcard's cards go: over the cursor line when it's blank or became one of the cards, else below it. */
-function placeCards(orig, cards) {
-  return { replace: !String(orig).trim() || cards.some((k) => k.fromLine), text: cards.map((k) => k.line).join('\n') };
+/** Where /flashcard's cards go: over the cursor line when it's blank or became one of the cards, else below it.
+ *  now: the line's text at insert time. null = nothing to do (the line's own card came back unchanged). */
+function placeCards(orig, cards, now = orig) {
+  orig = String(orig);
+  const [oq, oa] = splitCard(orig);
+  if (cards.length === 1 && cards[0].fromLine && cards[0].line === cardLine(oq, oa)) return null;
+  const indent = orig.match(/^\s*/)[0]; // an indented card line keeps its indent
+  // the line changed while the popup was open (sync, another plugin): never overwrite it
+  const replace = now === orig && (!orig.trim() || cards.some((k) => k.fromLine));
+  return { replace, text: cards.map((k) => indent + k.line).join('\n') };
 }
