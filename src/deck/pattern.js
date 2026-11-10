@@ -119,14 +119,11 @@ float datastream(vec2 p,float ph){
 // Each grid corner moves on its own slow loop; every cell is two triangles sharing its corners.
 vec3 iceV(vec2 c,float ph){
   float h1=h21(c+.13),h2=h21(c+7.7),h3=h21(c+3.1);
-  // breathing field: x moves with x and y with y, so regions stretch and squeeze (triangles grow and shrink
-  // from about .16x to 2.6x) - pure stretch can't turn a triangle inside out; speed 2 keeps it looping with ph
-  vec2 f=vec2(sin(c.x*1.571+c.y*.35+ph*2.),sin(c.y*1.571-c.x*.35+ph*2.+1.7))*.35;
-  // plus a small jitter per corner (kept under .1: jitter is what could flip a triangle)
-  vec2 o=vec2(sin(ph*(1.+floor(h1*2.))+h2*6.2832),cos(ph*(1.+floor(h2*2.))+h3*6.2832))*.06;
+  // integer speeds keep the whole animation looping with ph; drift stays under .25 of a cell so no triangle flips
+  vec2 o=vec2(sin(ph*(1.+floor(h1*2.))+h2*6.2832),cos(ph*(1.+floor(h2*2.))+h3*6.2832))*.24;
   // z: a slowly rising and falling height, for flat shading
   float z=sin(ph+h3*6.2832)*.5+.5;
-  return vec3((c+.5+f+o)*140.,z);
+  return vec3((c+.5+o)*140.,z);
 }
 float blackice(vec2 p,float ph){
   vec2 c0=floor(p/140.-.5);
