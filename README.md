@@ -118,7 +118,7 @@ Requires Obsidian 1.5.0 or later, desktop.
 
 ## Release notes
 
-Only the latest release notes are kept: [2.0.9](docs/release-notes/2.0.9.md): ticket templates as notes, Save as template, workday time and breaks on the Time wheel, and locked math blocks that stay closed. Older notes are in the git history.
+Only the latest release notes are kept: [2.1.0](docs/release-notes/2.1.0.md): Black ICE theme and pattern, flashcard editor, From / Until time logging, matching colours per theme, smaller download. Older notes are in the git history.
 
 ## License
 
