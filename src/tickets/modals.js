@@ -22,7 +22,7 @@ class NewTicketModal extends Modal {
     };
     const row = () => c.createDiv('tk-row');
     // template picker (only when there are templates): fills in steps, description, priority and due
-    const tpls = p.settings.templates || [];
+    const tpls = p.templates || [];
     let tplPick = null;
     if (tpls.length) tplPick = pills(field(c, 'Template', 'optional'), [['', 'None'], ...tpls.map((x) => [x.id, x.name])], '', (v) => applyTemplate(v), 'tk-chips tk-tpl-pick');
     const r1 = row();
@@ -191,10 +191,10 @@ const newTemplateId = () => `tpl-${Date.now().toString(36)}${Math.random().toStr
 
 /** Add or edit a ticket template: a name and a list of steps, plus optional description, priority and due date. */
 class TemplateModal extends Modal {
-  constructor(plugin, tpl) {
+  constructor(plugin, tpl, isNew = !tpl) {
     super(plugin.app);
     this.plugin = plugin;
-    this.isNew = !tpl;
+    this.isNew = isNew;
     this.tpl = tpl ? { ...tpl, steps: [...tpl.steps] } : { id: newTemplateId(), name: '', steps: [], description: '', priority: 'normal', dueDays: null };
   }
   onOpen() {
@@ -454,6 +454,7 @@ function ticketMenu(plugin, t, m) {
   m.addItem((i) => i.setTitle('Open').setIcon('ticket').onClick(() => plugin.showTicket(t.file)));
   m.addItem((i) => i.setTitle('Open in new tab').setIcon('file-plus-2').onClick(() => plugin.openTicket(t.file, true)));
   m.addItem((i) => i.setTitle('Edit as note').setIcon('file-text').onClick(() => plugin.openRaw(t.file)));
+  m.addItem((i) => i.setTitle('Save as template…').setIcon('layout-template').onClick(() => plugin.templateFromTicket(t)));
   m.addSeparator();
   if (t.status === 'done') m.addItem((i) => i.setTitle('Reopen').setIcon('rotate-ccw').onClick(() => plugin.setStatus(t, 'open')));
   else m.addItem((i) => i.setTitle('Mark done').setIcon('check').onClick(() => plugin.setStatus(t, 'done')));

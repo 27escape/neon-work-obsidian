@@ -174,11 +174,11 @@ class TicketsView extends ItemView {
       for (const t of group) this.renderRow(sec, t, idx++);
     }
   }
-  /** Templates tab: the ticket blueprints, kept in Neon Tickets' own data. */
+  /** Templates tab: the template notes in <ticket folder>/Templates. */
   renderTemplates() {
     const p = this.plugin;
     const el = this.listEl;
-    const list = p.settings.templates;
+    const list = p.templates || [];
     const q = this.query;
     const shown = q ? list.filter((x) => `${x.name} ${x.steps.join(' ')}`.toLowerCase().includes(q)) : list;
     el.empty();
@@ -188,7 +188,7 @@ class TicketsView extends ItemView {
     head.createSpan({ cls: 'tk-group-count', text: String(list.length).padStart(2, '0') });
     button(head, { icon: 'plus', text: 'New template', cls: 'mod-cta tk-tpl-new', onClick: () => new TemplateModal(p).open() });
     if (!shown.length) {
-      el.createDiv({ cls: 'tk-empty', text: list.length ? 'No template matches the filter.' : 'No templates yet. A template is a ready-made ticket: pick it in New ticket and its steps (plus an optional description, priority and due date) are filled in.' });
+      el.createDiv({ cls: 'tk-empty', text: list.length ? 'No template matches the filter.' : `No templates yet. A template is a ready-made ticket: pick it in New ticket and its steps (plus an optional description, priority and due date) are filled in. Templates are notes in ${p.templateDir()}; right-click a ticket to save it as one.` });
       return;
     }
     shown.forEach((tpl, i) => {
@@ -206,7 +206,7 @@ class TicketsView extends ItemView {
       const stop = (fn) => (e) => (e.stopPropagation(), fn());
       button(acts, { icon: 'plus', text: 'Use', cls: 'mod-cta', title: 'New ticket from this template', onClick: stop(() => p.newTicket({ template: tpl.id })) });
       button(acts, { icon: 'pencil', cls: 'nd-icon-btn', title: 'Edit template', onClick: stop(() => new TemplateModal(p, tpl).open()) });
-      button(acts, { icon: 'file-down', cls: 'nd-icon-btn', title: 'Export as note / PDF (snapshot)', onClick: stop(() => p.exportTemplate(tpl)) });
+      button(acts, { icon: 'file-down', cls: 'nd-icon-btn', title: 'Open note / export PDF', onClick: stop(() => p.exportTemplate(tpl)) });
       button(acts, { icon: 'copy', cls: 'nd-icon-btn', title: 'Duplicate', onClick: stop(() => p.duplicateTemplate(tpl.id)) });
       button(acts, { icon: 'trash-2', cls: 'nd-icon-btn', title: 'Delete template', onClick: stop(() => new ConfirmModal(this.app, { title: 'Delete template?', text: tpl.name, cta: 'Delete', onConfirm: () => p.deleteTemplate(tpl.id) }).open()) });
       r.addEventListener('click', () => new TemplateModal(p, tpl).open());

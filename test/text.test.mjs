@@ -64,44 +64,55 @@ test('removing a ticket step removes its completion log entry', async () => {
   assert.equal(out, '## Next steps\n\n## Log\n- 2026-01-01 09:00 — Step done: Other\n');
 });
 
-test('ticket template export creates missing folders and opens a snapshot for PDF (item 16, bug 2)', async () => {
-  const { NeonTickets } = load('neon-tickets', ['NeonTickets']);
-  const folders = new Set();
-  const files = new Map();
-  const made = [];
-  let opened;
-  let command;
-  const leaf = { openFile: async (file) => (opened = file) };
-  const app = {
-    vault: {
-      getAbstractFileByPath: (path) => files.get(path) || (folders.has(path) ? { path } : null),
-      createFolder: async (path) => (made.push(path), folders.add(path)),
-      create: async (path, text) => {
-        const file = { path };
-        files.set(path, file);
-        file.text = text;
-        return file;
-      },
-    },
-    workspace: {
-      getLeavesOfType: () => [],
-      getLeaf: () => leaf,
-      setActiveLeaf: () => {},
-    },
-    commands: { executeCommandById: (id) => ((command = id), true) },
-  };
-  const p = Object.assign(Object.create(NeonTickets.prototype), { app, settings: { ticketFolder: 'Core/Tickets' } });
-  const note = await p.exportTemplate({ id: 'tpl-test', name: 'Laptop setup', description: 'Prepare the laptop', priority: 'high', dueDays: 2, steps: ['Install tools', 'Test access'] });
-  assert.equal(note.path, 'Core/Tickets/Templates/Laptop setup.md');
-  assert.deepEqual(made, ['Core', 'Core/Tickets', 'Core/Tickets/Templates']);
-  assert.match(note.text, /type: ticket-template-export/);
-  assert.match(note.text, /Changes to this note do not update the template/);
-  assert.match(note.text, /- \[ \] Install tools/);
-  assert.equal(opened, note);
-  await new Promise((resolve) => setTimeout(resolve, 450));
-  assert.equal(command, 'workspace:export-pdf');
+test('ticket templates are notes: format round-trips and parses hand edits (issues 49, 51)', () => {
+  const { templateMarkdown, parseTemplateNote } = load('neon-tickets', ['templateMarkdown', 'parseTemplateNote']);
+  const tpl = { id: 'tpl-1', name: 'Laptop setup', description: 'Prepare the laptop\n- for the new hire', priority: 'high', dueDays: 2, steps: ['Install tools', 'Test access'] };
+  const back = parseTemplateNote('Laptop setup', templateMarkdown(tpl));
+  assert.deepEqual({ ...back, steps: [...back.steps] }, tpl);
+  const none = parseTemplateNote('X', templateMarkdown({ ...tpl, dueDays: null, priority: 'normal', description: '' }));
+  assert.equal(none.dueDays, null);
+  assert.equal(none.description, '');
+  // hand-written note: quoted type, unknown priority, extra sections and ticked steps
+  const hand = parseTemplateNote('Mine', '---\ntype: "ticket-template"\npriority: whenever\n---\n# Mine\n## Steps\n- [x] One\n- [ ] Two\n## Notes\nfree text\n');
+  assert.deepEqual([...hand.steps], ['One', 'Two']);
+  assert.equal(hand.priority, 'normal');
+  assert.equal(hand.id, '');
+  // old export snapshots and ordinary notes are not templates
+  assert.equal(parseTemplateNote('Old', '---\ntype: ticket-template-export\n---\n'), null);
+  assert.equal(parseTemplateNote('Note', 'just text'), null);
 });
 
+test('ticket templates move from plugin data into notes once, and the folder is made in a fresh vault', async () => {
+  const { NeonTickets, TFile } = load('neon-tickets', ['NeonTickets', 'TFile']);
+  const files = new Map();
+  const folders = new Set();
+  const mk = (path, text) => Object.assign(Object.create(TFile.prototype), { path, basename: path.split('/').pop().replace(/\.md$/, ''), text });
+  const app = {
+    vault: {
+      getAbstractFileByPath: (p) => files.get(p) || (folders.has(p) ? { path: p } : null),
+      createFolder: async (p) => folders.add(p),
+      create: async (p, text) => (files.set(p, mk(p, text)), files.get(p)),
+      getMarkdownFiles: () => [...files.values()],
+      cachedRead: async (f) => f.text,
+      read: async (f) => f.text,
+      modify: async (f, text) => (f.text = text),
+      process: async (f, fn) => (f.text = fn(f.text)),
+    },
+    workspace: { getActiveViewOfType: () => null, iterateAllLeaves: () => {} },
+  };
+  const old = [{ id: 'a', name: 'Onboarding', steps: ['Account'], description: '', priority: 'normal', dueDays: null }];
+  let saves = 0;
+  const p = Object.assign(Object.create(NeonTickets.prototype), { app, settings: { ticketFolder: 'Core/Tickets', templates: old, templatesMigrated: false }, saveSettings: async () => saves++, emitSoon() {} });
+  await p.initTemplates();
+  assert.ok(folders.has('Core/Tickets/Templates'));
+  assert.deepEqual(JSON.parse(JSON.stringify(p.templates.map((t) => [t.id, t.name, t.path]))), [['a', 'Onboarding', 'Core/Tickets/Templates/Onboarding.md']]);
+  assert.equal(p.settings.templates, old); // backup kept
+  // a template deleted as a note doesn't come back on the next start
+  files.clear();
+  await p.initTemplates();
+  assert.equal(p.templates.length, 0);
+  assert.equal(saves, 1);
+});
 test('task groups by due date', () => {
   assert.deepEqual({ ...K.taskGroup('x 📅 2026-01-01', null, '2026-01-02') }, { due: '2026-01-01', group: 'overdue' });
   assert.deepEqual({ ...K.taskGroup('x', {}, '2026-01-02') }, { due: null, group: 'today' });

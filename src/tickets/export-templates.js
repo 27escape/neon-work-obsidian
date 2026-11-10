@@ -64,28 +64,81 @@ Object.assign(NeonTickets.prototype, {
     return report;
   },
 
-  /* ---- ticket templates (local: stored in this plugin's data) ---- */
-  async saveTemplate(tpl) {
-    const list = this.settings.templates;
-    const i = list.findIndex((x) => x.id === tpl.id);
-    if (i === -1) list.push(tpl);
-    else list[i] = tpl;
-    await this.saveSettings();
+  /* ---- ticket templates: one note each in <ticket folder>/Templates; the note is the template (issues 49, 51) ---- */
+  templateDir() {
+    return normalizePath(`${this.ticketRoot()}/Templates`);
+  },
+  templateFile(tpl) {
+    const f = tpl && tpl.path && this.app.vault.getAbstractFileByPath(tpl.path);
+    return f instanceof TFile ? f : null;
+  },
+  /** Read every template note in the folder into this.templates (sorted by name). */
+  async loadTemplates() {
+    const dir = this.templateDir() + '/';
+    const out = [];
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      if (!f.path.startsWith(dir)) continue;
+      const tpl = parseTemplateNote(f.basename, await this.app.vault.cachedRead(f));
+      if (tpl) out.push({ ...tpl, id: tpl.id || f.path, path: f.path });
+    }
+    this.templates = out.sort((x, y) => x.name.localeCompare(y.name));
     this.emitSoon();
+    return this.templates;
+  },
+  /** Startup: make the folder (fresh vault), move templates from plugin data into notes once, then read them. */
+  async initTemplates() {
+    await ensureFolder(this.app, this.templateDir());
+    if (!this.settings.templatesMigrated) {
+      const have = new Set((await this.loadTemplates()).map((t) => t.id));
+      for (const t of this.settings.templates) if (!have.has(t.id)) await this.writeTemplateNote(t);
+      // settings.templates stays as it was, as a backup
+      this.settings.templatesMigrated = true;
+      await this.saveSettings();
+    }
+    await this.loadTemplates();
+  },
+  /** Write a template's note: its own note, or a new one (an old export snapshot with that name is replaced). */
+  async writeTemplateNote(tpl) {
+    const dir = this.templateDir();
+    const md = templateMarkdown(tpl);
+    let f = this.templateFile(tpl);
+    const want = normalizePath(`${dir}/${safeName(tpl.name) || 'Ticket template'}.md`);
+    if (f && f.path !== want && !this.app.vault.getAbstractFileByPath(want)) await this.app.fileManager.renameFile(f, want);
+    if (!f) {
+      const old = this.app.vault.getAbstractFileByPath(want);
+      if (old instanceof TFile && /^type:\s*ticket-template-export\s*$/m.test(await this.app.vault.read(old))) f = old;
+    }
+    if (f) await writeNote(this.app, f, () => md);
+    else f = await createUnique(this.app, dir, safeName(tpl.name) || 'Ticket template', md);
+    return f;
+  },
+  async saveTemplate(tpl) {
+    await this.writeTemplateNote(tpl);
+    await this.loadTemplates();
   },
   async deleteTemplate(id) {
-    this.settings.templates = this.settings.templates.filter((x) => x.id !== id);
-    await this.saveSettings();
-    this.emitSoon();
+    const f = this.templateFile((this.templates || []).find((x) => x.id === id));
+    if (f) await this.app.fileManager.trashFile(f);
+    await this.loadTemplates();
   },
   async duplicateTemplate(id) {
-    const tpl = this.settings.templates.find((x) => x.id === id);
-    if (!tpl) return;
-    const copy = { ...tpl, steps: [...tpl.steps], id: newTemplateId(), name: `${tpl.name} copy` };
-    const list = this.settings.templates;
-    list.splice(list.indexOf(tpl) + 1, 0, copy);
-    await this.saveSettings();
-    this.emitSoon();
+    const tpl = (this.templates || []).find((x) => x.id === id);
+    if (tpl) await this.saveTemplate({ ...tpl, steps: [...tpl.steps], id: newTemplateId(), name: `${tpl.name} copy`, path: '' });
+  },
+  /** A ticket's steps, description and priority as a new template, opened for editing first (issue 50). */
+  async templateFromTicket(t) {
+    const text = await this.app.vault.read(t.file);
+    const lines = stripFrontmatter(text).split('\n');
+    const d = findSection(lines, 'description');
+    const dueDays = t.due && t.created ? Math.max(0, t.due.clone().startOf('day').diff(t.created.clone().startOf('day'), 'days')) : null;
+    new TemplateModal(this, {
+      id: newTemplateId(),
+      name: t.title.replace(/^.*? · /, ''),
+      steps: parseTicketBody(lines.join('\n')).steps.map((s) => s.text),
+      description: d ? lines.slice(d[0] + 1, d[1]).join('\n').trim() : '',
+      priority: t.priority || 'normal',
+      dueDays,
+    }, true).open();
   },
   async createTicket({ title, id, description, priority, category, due, remind, steps, jira }) {
     const q = (v) => JSON.stringify(String(v || ''));

@@ -90,3 +90,44 @@ function parseTicketBody(text) {
   return out;
 }
 
+
+/** Note text for a ticket template. */
+function templateMarkdown(tpl) {
+  return [
+    '---',
+    'type: ticket-template',
+    'untracked: true',
+    `template: ${JSON.stringify(String(tpl.id))}`,
+    `priority: ${tpl.priority || 'normal'}`,
+    ...(tpl.dueDays != null ? [`due_days: ${tpl.dueDays}`] : []),
+    '---',
+    '',
+    '## Description',
+    ...(tpl.description ? [tpl.description] : []),
+    '',
+    '## Next steps',
+    ...tpl.steps.map((s) => `- [ ] ${s}`),
+    '',
+  ].join('\n');
+}
+/** A template note back into { id, name, steps, description, priority, dueDays }; null when it isn't one. */
+function parseTemplateNote(name, text) {
+  const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fm || !/^type:\s*["']?ticket-template["']?\s*$/m.test(fm[1])) return null;
+  const val = (k) => {
+    const m = fm[1].match(new RegExp(`^${k}:[ \\t]*(.*)$`, 'm'));
+    return m ? m[1].trim().replace(/^(["'])(.*)\1$/, '$2') : '';
+  };
+  const lines = text.slice(fm[0].length).split('\n');
+  const d = findSection(lines, 'description');
+  const due = parseInt(val('due_days'), 10);
+  const prio = val('priority');
+  return {
+    id: val('template'),
+    name,
+    steps: parseTicketBody(lines.join('\n')).steps.map((s) => s.text),
+    description: d ? lines.slice(d[0] + 1, d[1]).join('\n').trim() : '',
+    priority: TICKET_PRIOS.includes(prio) ? prio : 'normal',
+    dueDays: Number.isFinite(due) && due >= 0 ? due : null,
+  };
+}

@@ -41,7 +41,7 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 ### Tickets (Neon Tickets)
 - A ticket is a normal note with `type: ticket`. It opens as a pop-up with steps, a log that writes itself, due dates, reminders and a Waiting state with follow-ups.
 - Done tickets file themselves into `Done/YYYY-MM/`; a counter reads like *14 done in November · 11 in October*.
-- **Templates:** a Templates tab in the tracker to add, edit, duplicate, delete and export ticket blueprints (steps, description, priority, due) as a note/PDF. Pick one in New ticket and its steps are filled in. Stored locally in the plugin's data; exported notes are snapshots and do not sync edits back.
+- **Templates:** each template is a note in `Core/Tickets/Templates` (steps, description, priority, due). Add, edit, duplicate, delete or export them to PDF from the Templates tab, edit the notes directly, or right-click a ticket → **Save as template…**. Pick one in New ticket and its steps are filled in.
 - **Screenshots and PDF export:** paste, drop or pick screenshots on a ticket (saved in `Core/Images/Tickets/`), and export the whole ticket (steps, screenshots, log, time) as a PDF report.
 - **Clear done tickets:** on the Done tab, clear all done tickets or only those finished before this month (optionally with their screenshots and reports) — they go to the system trash.
 - **Sort and group** the Tickets tab by due date, status, priority, newest, oldest, recently changed, title, ID or Jira key.
@@ -95,6 +95,8 @@ Neon Deck isn't in the Community plugins list yet. Install it by hand:
 2. Drag the resulting **`neon-deck` folder** into your vault's `.obsidian/plugins/` folder (create it if needed).
 3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable **Neon Deck**.
 4. Open the dashboard from the ribbon `▦` icon or `Ctrl+P → Neon Deck: Open dashboard`.
+
+**Updating:** copy only `main.js`, `manifest.json` and `styles.css` from the new release over the ones in `.obsidian/plugins/neon-deck/`, then reload. Don't delete or replace the `neon-deck` folder itself: it also holds your settings and module data (tracked time, ticket and task settings). Ticket templates are notes in `Core/Tickets/Templates`, so they are safe either way.
 
 If the ZIP is not attached to an older release, download its three files instead and put them in `.obsidian/plugins/neon-deck/`. Maintainers can add the ZIP to an existing release with **Actions → Package installer**.
 

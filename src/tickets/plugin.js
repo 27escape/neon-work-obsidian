@@ -83,8 +83,14 @@ class NeonTickets extends Plugin {
     this.registerEvent(ref);
     this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => this.decorateMarkdown(leaf)));
     this.registerEvent(this.app.workspace.on('neon-deck:core-ready', () => this.hookCore()));
+    this.templates = [];
+    const tplChanged = debounce(() => this.loadTemplates(), 300, true);
+    const inTpl = (path) => !!path && path.startsWith(this.templateDir() + '/');
+    for (const ev of ['create', 'modify', 'delete']) this.registerEvent(this.app.vault.on(ev, (f) => inTpl(f.path) && tplChanged()));
+    this.registerEvent(this.app.vault.on('rename', (f, old) => (inTpl(f.path) || inTpl(old)) && tplChanged()));
     this.app.workspace.onLayoutReady(() => {
       this.hookCore();
+      this.initTemplates().catch((e) => console.error('Neon Tickets: templates', e));
       window.setTimeout(async () => {
         if (!this.settings.migrated) {
           this.settings.migrated = true;
