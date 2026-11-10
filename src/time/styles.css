@@ -1,5 +1,3 @@
-/* breaks on the Time wheel: distinct from the categories, muted because they are not work */
-.tm-donut, .tm-legend { --tm-break: color-mix(in srgb, var(--color-blue) 55%, var(--background-secondary)); }
 /* NEON TIME — uses the --nd-* tokens from Neon Deck */
 .tm-view *,
 .tm-modal *,
@@ -42,8 +40,9 @@
   stroke-linecap: butt;
   transition: stroke-dasharray var(--nd-med, 250ms) ease;
 }
+/* overtime has its own theme colour: the accent already means Projects on the wheel */
 .tm-donut-seg.is-over {
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--nd-accent) 60%, transparent));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--nd-cat-over, var(--nd-warn)) 60%, transparent));
 }
 .tm-donut-mid {
   position: absolute;
@@ -65,7 +64,7 @@
   white-space: nowrap;
 }
 .tm-donut-l.is-over {
-  color: var(--nd-accent);
+  color: var(--nd-cat-over, var(--nd-warn));
 }
 /* legend */
 .tm-legend {
@@ -101,7 +100,7 @@
   color: var(--nd-text);
 }
 .tm-leg.is-over .tm-leg-v {
-  color: var(--nd-accent);
+  color: var(--nd-cat-over, var(--nd-warn));
 }
 /* dashboard widget */
 .nd-card-body.tm-widget {

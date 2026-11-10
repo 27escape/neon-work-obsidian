@@ -295,6 +295,8 @@ body:not(.nd-themed) {
   --nd-cat-admin: var(--color-yellow, #d9a400);
   --nd-cat-operations: var(--color-cyan, #39a5c9);
   --nd-cat-other: var(--text-faint);
+  --nd-cat-untracked: var(--text-faint);
+  --nd-cat-break: var(--color-blue, #4a90d9);
   --nd-mono: var(--font-monospace);
   --nd-font-ui: var(--font-interface);
   --nd-font-display: var(--font-interface);

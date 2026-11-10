@@ -13,10 +13,10 @@ Object.assign(NeonTime.prototype, {
     const within = Math.min(sum.total, sum.target || sum.total);
     const scale = sum.total ? within / sum.total : 0;
     const slices = TIME_CATS.filter((k) => sum.by[k]).map((k) => [catColor(k), sum.by[k] * scale]);
-    if (sum.untracked) slices.push(['var(--text-faint)', sum.untracked * scale]);
-    if (sum.over && sum.target) slices.push(['var(--nd-accent)', sum.over, true]);
+    if (sum.untracked) slices.push(['var(--nd-cat-untracked, var(--text-faint))', sum.untracked * scale]);
+    if (sum.over && sum.target) slices.push(['var(--nd-cat-over, var(--nd-warn))', sum.over, true]);
     // breaks follow the worked time on the ring; they never count as worked
-    if (sum.breaks) slices.push(['var(--tm-break)', sum.breaks, false, true]);
+    if (sum.breaks) slices.push(['var(--nd-cat-break)', sum.breaks, false, true]);
     const gap = slices.length > 1 ? 1.2 : 0;
     let off = 0;
     let i = 0;
@@ -58,7 +58,7 @@ Object.assign(NeonTime.prototype, {
       r.createSpan({ cls: 'tm-leg-k', text: CAT_LABEL[k] });
       r.createSpan({ cls: 'tm-leg-v', text: sum.by[k] ? fmtMin(sum.by[k]) : '—' });
     }
-    for (const [n, label, color] of [[sum.untracked, 'Untracked', 'var(--text-faint)'], [sum.breaks, 'Breaks', 'var(--tm-break)']]) {
+    for (const [n, label, color] of [[sum.untracked, 'Untracked', 'var(--nd-cat-untracked, var(--text-faint))'], [sum.breaks, 'Breaks', 'var(--nd-cat-break)']]) {
       if (!n) continue;
       const r = el.createDiv('tm-leg');
       r.style.setProperty('--cat', color);
@@ -68,7 +68,7 @@ Object.assign(NeonTime.prototype, {
     }
     if (sum.over && sum.target) {
       const r = el.createDiv('tm-leg is-over');
-      r.style.setProperty('--cat', 'var(--nd-accent)');
+      r.style.setProperty('--cat', 'var(--nd-cat-over, var(--nd-warn))');
       r.createSpan('tm-leg-dot');
       r.createSpan({ cls: 'tm-leg-k', text: 'Overtime' });
       r.createSpan({ cls: 'tm-leg-v', text: fmtMin(sum.over) });
