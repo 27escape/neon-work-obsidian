@@ -25,14 +25,20 @@ Object.assign(NeonTime.prototype, {
     const wd = (m || moment()).isoWeekday();
     return wd <= 5 ? Math.round(this.settings.dayHours * 60) : 0;
   },
-  /** Minutes per category for a day, exactly as logged. */
+  /** Minutes per category as logged; with a started workday the total is the larger of logged time and the
+   *  work timer (issue 48), the difference is "untracked", breaks are reported but never counted (issue 52). */
   summary(key, live) {
     const by = Object.fromEntries(TIME_CATS.map((k) => [k, 0]));
     for (const e of this.entriesOf(key, live)) by[TIME_CATS.includes(e.cat) ? e.cat : 'other'] += e.ms / 60000;
     for (const k of TIME_CATS) by[k] = Math.round(by[k]);
-    const total = TIME_CATS.reduce((s, k) => s + by[k], 0);
+    const tracked = TIME_CATS.reduce((s, k) => s + by[k], 0);
+    const w = this.workOf(key);
+    // a past day never ended stops at its last activity instead of growing forever
+    const now = w ? w.end || (live ? Date.now() : w.last) : 0;
+    const total = w ? Math.max(tracked, this.workMin(key, now)) : tracked;
+    const breaks = w ? Math.round(w.breaks.reduce((n, [a, b]) => n + Math.max(0, Math.min(b == null ? now : b, now) - a), 0) / 60000) : 0;
     const target = this.targetMin(moment(key, 'YYYY-MM-DD'));
-    return { key, by, total, target, over: Math.max(0, total - target), work: this.workState(key) };
+    return { key, by, tracked, untracked: total - tracked, breaks, total, target, over: Math.max(0, total - target), work: this.workState(key) };
   },
 
   /** Overtime balance over a range: only days with tracked time count; today counts once it's past the target. */

@@ -129,6 +129,7 @@ test('manual time stays exact when the workday timer is shorter', () => {
     entriesOf: NeonTime.prototype.entriesOf,
     targetMin: () => 480,
     workMin: () => 24,
+    workOf: () => ({ start: 1, end: 2, breaks: [] }),
     workState: () => 'running',
   };
   const sum = NeonTime.prototype.summary.call(t, key, false);
@@ -285,4 +286,33 @@ test('Study tab motion respects reduced motion (issues 36, 42)', () => {
   const css = readFileSync(new URL('../src/research/styles.css', import.meta.url), 'utf8');
   const tail = css.slice(css.indexOf('Study tab motion'));
   for (const sel of ['.nr-panel.is-switch', '.nr-research-row.is-new', '.nr-research-row.is-leaving']) assert.ok(tail.lastIndexOf(sel) > tail.indexOf('prefers-reduced-motion'), sel);
+});
+
+test('workday timer counts toward the day total; breaks are shown but not counted (issues 48, 52)', () => {
+  const { NeonTime } = load('neon-time', ['NeonTime']);
+  const key = '2026-01-05'; // a Monday
+  const start = new Date('2026-01-05T08:00:00').getTime();
+  const h = 3600000;
+  const t = Object.assign(Object.create(NeonTime.prototype), {
+    settings: { dayHours: 8, idleMin: 30 },
+    pending: new Map(),
+    targetMin: () => 480,
+    days: { [key]: { entries: [{ start, ms: 2 * h, cat: 'projects' }], work: { start, end: start + 9 * h, last: start + 9 * h, breaks: [[start + 4 * h, start + 5 * h]] } } },
+  });
+  let s = t.summary(key, false);
+  assert.equal(s.tracked, 120);
+  assert.equal(s.total, 480); // 9 h day minus the 1 h break
+  assert.equal(s.untracked, 360);
+  assert.equal(s.breaks, 60);
+  assert.equal(s.over, 0);
+  // more logged than the timer: logged time wins, nothing untracked
+  t.days[key].entries.push({ start, ms: 7 * h, cat: 'admin' });
+  s = t.summary(key, false);
+  assert.equal(s.total, 540);
+  assert.equal(s.untracked, 0);
+  assert.equal(s.over, 60);
+  // a past day never ended stops at its last activity
+  Object.assign(t.days[key].work, { end: null, last: start + 3 * h, breaks: [] });
+  t.days[key].entries = [];
+  assert.equal(t.summary(key, false).total, 180);
 });

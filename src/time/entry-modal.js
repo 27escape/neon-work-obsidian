@@ -76,7 +76,12 @@ class EntryModal extends Modal {
       const clock = time.value.trim() && parseClock(time.value);
       if (clock === null) return time.addClass('is-invalid');
       if (clock) s = moment(`${date.value} ${clock}`, 'YYYY-MM-DD HH:mm', true);
-      else if (d.isSame(moment(), 'day')) s = moment().subtract(n, 'minutes');
+      else if (d.isSame(moment(), 'day')) {
+        // a break ends where work stopped: an open pause or End day, else now (issue 52)
+        const w = this.isBreak && p.workOf(date.value);
+        const open = w && w.breaks.find((b) => b[1] == null);
+        s = moment(w ? Math.min(Date.now(), w.end || Infinity, open ? open[0] : Infinity) : Date.now()).subtract(n, 'minutes');
+      }
       else s = d.clone().hour(9);
       if (!s.isValid()) return time.addClass('is-invalid');
       if (!s.isSame(d, 'day')) s = d.clone().startOf('day');

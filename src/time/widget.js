@@ -12,16 +12,21 @@ Object.assign(NeonTime.prototype, {
     const within = Math.min(sum.total, sum.target || sum.total);
     const scale = sum.total ? within / sum.total : 0;
     const slices = TIME_CATS.filter((k) => sum.by[k]).map((k) => [catColor(k), sum.by[k] * scale]);
+    if (sum.untracked) slices.push(['var(--text-faint)', sum.untracked * scale]);
     if (sum.over && sum.target) slices.push(['var(--nd-accent)', sum.over, true]);
+    // breaks fill part of what's left of the ring, after the worked time; they never count as worked
+    const brk = Math.min(sum.breaks || 0, base - sum.total);
+    if (brk > 0) slices.push(['var(--background-modifier-border)', brk, false, true]);
     const gap = slices.length > 1 ? 1.2 : 0;
     let off = 0;
     let i = 0;
-    for (const [color, v, isOver] of slices) {
+    for (const [color, v, isOver, isBreak] of slices) {
       const len = (v / base) * C;
       if (len > gap) {
         // createSvg takes one class per string (a space throws), so add is-over separately
         const c = svg.createSvg('circle', { cls: 'tm-donut-seg', attr: { cx: '60', cy: '60', r: String(R) } });
         if (isOver) c.classList.add('is-over');
+        if (isBreak) c.classList.add('is-break');
         c.style.stroke = color;
         c.style.setProperty('--i', String(i++));
         c.setAttribute('stroke-dasharray', `${len - gap} ${C - len + gap}`);
@@ -52,6 +57,14 @@ Object.assign(NeonTime.prototype, {
       r.createSpan('tm-leg-dot');
       r.createSpan({ cls: 'tm-leg-k', text: CAT_LABEL[k] });
       r.createSpan({ cls: 'tm-leg-v', text: sum.by[k] ? fmtMin(sum.by[k]) : '—' });
+    }
+    for (const [n, label, color] of [[sum.untracked, 'Untracked', 'var(--text-faint)'], [sum.breaks, 'Breaks', 'var(--background-modifier-border)']]) {
+      if (!n) continue;
+      const r = el.createDiv('tm-leg');
+      r.style.setProperty('--cat', color);
+      r.createSpan('tm-leg-dot');
+      r.createSpan({ cls: 'tm-leg-k', text: label });
+      r.createSpan({ cls: 'tm-leg-v', text: fmtMin(n) });
     }
     if (sum.over && sum.target) {
       const r = el.createDiv('tm-leg is-over');

@@ -13,7 +13,7 @@ Object.assign(NeonTime.prototype, {
     const d = this.days[key] || { entries: [], done: [] };
     const s = this.summary(key, false);
     const m = moment(key, 'YYYY-MM-DD');
-    const lines = ['---', `date: ${key}`, `total_min: ${s.total}`];
+    const lines = ['---', `date: ${key}`, `total_min: ${s.total}`, `untracked_min: ${s.untracked}`, `break_min: ${s.breaks}`];
     for (const k of TIME_CATS) lines.push(`${k}_min: ${s.by[k]}`);
     lines.push(`target_min: ${s.target}`, `overtime_min: ${s.over}`, `synced: ${synced ? 'true' : 'false'}`, '---', '');
     lines.push(`# Time log · ${m.format('ddd D MMM YYYY')}`, '');
@@ -96,7 +96,9 @@ Object.assign(NeonTime.prototype, {
       '',
       '## Properties',
       '- `date` — the day.',
-      '- `total_min`, `projects_min`, `school_min`, `admin_min`, `operations_min`, `other_min` — active minutes per category (`other` = notes without a category).',
+      '- `total_min` — minutes worked: the category minutes added up, or the workday timer (Start day to End day minus breaks) when that is longer.',
+      '- `untracked_min` — workday minutes not covered by a category; `break_min` — breaks in the workday (not counted as worked).',
+      '- `projects_min`, `school_min`, `admin_min`, `operations_min`, `other_min` — active minutes per category (`other` = notes without a category).',
       `- \`target_min\` — ${target} on weekdays (${fmtMin(target)}), 0 on weekends. \`overtime_min\` — time past the target.`,
       '- `synced` — set to `true` once the day has been sent to Jira. Neon Time keeps it, unless entries change afterwards, then it goes back to `false`.',
       '',
