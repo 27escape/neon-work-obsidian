@@ -40,12 +40,12 @@ Object.assign(NeonTime.prototype, {
     return true;
   },
   /** The Start / Pause / Resume button. */
-  workToggle() {
+  workToggle(startAt) {
     const key = moment().format('YYYY-MM-DD');
     const now = Date.now();
     const d = this.day(key);
     const st = this.workState(key);
-    if (st === 'none') d.work = { start: now, breaks: [], end: null, last: now };
+    if (st === 'none') d.work = { start: Math.min(startAt || now, now), breaks: [], end: null, last: now };
     else if (st === 'running') d.work.breaks.push([now, null]);
     else if (st === 'paused') d.work.breaks[d.work.breaks.length - 1][1] = now;
     else (d.work.breaks.push([d.work.end, now]), (d.work.end = null)); // ended: the gap becomes a break
@@ -64,8 +64,24 @@ Object.assign(NeonTime.prototype, {
         new Notice(`Workday ended · ${fmtMin(this.workMin(key))} worked`);
       });
       btn(st === 'running' ? 'pause' : 'play', st === 'running' ? 'Pause' : 'Resume', false, () => this.workToggle());
-    } else btn('play', st === 'none' ? 'Start day' : 'Resume day', st === 'none', () => this.workToggle());
+    } else btn('play', st === 'none' ? 'Start day' : 'Resume day', st === 'none', () => (st === 'none' ? this.workStartAsk() : this.workToggle()));
     return wrap;
+  },
+  /** Start day asks when the day began: you may have clocked in before opening Obsidian (issue 57). */
+  workStartAsk() {
+    new PromptModal(this.app, {
+      title: 'When did your day start?',
+      value: moment().format('HH:mm'),
+      placeholder: '9:30',
+      cta: 'Start day',
+      onSubmit: (v) => {
+        const c = parseClock(v);
+        const at = c && moment(`${moment().format('YYYY-MM-DD')} ${c}`, 'YYYY-MM-DD HH:mm', true);
+        if (!at || !at.isValid() || at.valueOf() > Date.now() + 60000) return void new Notice('Enter a start time today, not later than now (e.g. 8:45).');
+        this.workToggle(at.valueOf());
+        new Notice(`Workday started at ${at.format('HH:mm')}`);
+      },
+    }).open();
   },
   /** End the workday at `at` (Wrap up, or the idle rule with the last activity). */
   workEnd(key, at = Date.now()) {
