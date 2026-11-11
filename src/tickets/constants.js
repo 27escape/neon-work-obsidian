@@ -35,7 +35,7 @@ const TICKETS_DEFAULTS = {
   // (templatesMigrated), kept here only as a backup
   templates: [],
   templatesMigrated: false,
-  tabSort: 'due', // Tickets tab sort / group (TICKET_SORTS)
+  tabSort: 'status', // Tickets tab sort / group (TICKET_SORTS)
   statusLog: [], // { t, id, title, status, path }: tickets set to a status below (Recently done on the dashboard)
   activityStatuses: ['done', 'waiting'],
 };
@@ -90,10 +90,10 @@ function ticketSort(a, b) {
   return TICKET_PRIO_RANK[a.priority] - TICKET_PRIO_RANK[b.priority] || a.title.localeCompare(b.title);
 }
 
-/** Sort / group options of the Tickets tab (item 38); 'due' is the original due-date buckets. */
+/** Sort / group options of the Tickets tab (item 38); 'status' is the default (issue 59), 'due' the due-date buckets. */
 const TICKET_SORTS = [
-  ['due', 'Due date'],
   ['status', 'Status'],
+  ['due', 'Due date'],
   ['priority', 'Priority'],
   ['newest', 'Newest first'],
   ['oldest', 'Oldest first'],
@@ -106,7 +106,17 @@ const byText = (k) => (a, b) => (a[k] || '').localeCompare(b[k] || '', undefined
 /** Tickets in sections for a sort mode: [[key, label, tickets]], from data already in memory. */
 function ticketGroups(items, mode) {
   const label = (s) => s[0].toUpperCase() + s.slice(1);
-  if (mode === 'status') return TICKET_STATUS.map((st) => [`status-${st}`, TICKET_STATUS_LABEL[st], items.filter((t) => t.status === st).sort(ticketSort)]);
+  if (mode === 'status') {
+    // untouched tickets first, then Waiting, In progress, started Open ones, Done (issue 59)
+    const of = (f) => items.filter(f).sort(ticketSort);
+    return [
+      ['status-new', 'Not started', of((t) => t.status === 'open' && !t.started)],
+      ['status-waiting', 'Waiting', of((t) => t.status === 'waiting')],
+      ['status-in-progress', 'In progress', of((t) => t.status === 'in-progress')],
+      ['status-open', 'Open', of((t) => t.status === 'open' && t.started)],
+      ['status-done', 'Done', of((t) => t.status === 'done')],
+    ];
+  }
   if (mode === 'priority') return [...TICKET_PRIOS].reverse().map((pr) => [`prio-${pr}`, label(pr), items.filter((t) => t.priority === pr).sort(ticketSort)]);
   const flat = {
     newest: ['Newest first', (a, b) => b.created.valueOf() - a.created.valueOf()],

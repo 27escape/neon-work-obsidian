@@ -19,7 +19,12 @@ class NeonTickets extends Plugin {
       }));
     // own copies, never the arrays in TICKETS_DEFAULTS
     this.settings.statusLog = Array.isArray(this.settings.statusLog) ? this.settings.statusLog.slice(-200) : [];
-    if (!TICKET_SORTS.some(([k]) => k === this.settings.tabSort)) this.settings.tabSort = 'due';
+    // issue 59: Status became the default; move the old default once, a later choice of Due date sticks
+    if (!this.settings.tabSortV2) {
+      this.settings.tabSortV2 = true;
+      if (this.settings.tabSort === 'due') this.settings.tabSort = 'status';
+    }
+    if (!TICKET_SORTS.some(([k]) => k === this.settings.tabSort)) this.settings.tabSort = 'status';
     this.settings.activityStatuses = Array.isArray(this.settings.activityStatuses) ? this.settings.activityStatuses.slice() : ['done', 'waiting'];
     await this.saveSettings();
     this.rawPaths = new Set();

@@ -39,6 +39,8 @@ Object.assign(NeonTickets.prototype, {
       daysLeft: due ? daysFromToday(due) : null,
       age: Math.max(0, today.diff(created.clone().startOf('day'), 'days')),
       progress: 0,
+      // anything done yet: a status past Open, or a ticked step (issue 59)
+      started: normTicketStatus(fm.status) !== 'open' || ((cache && cache.listItems) || []).some((li) => li.task && li.task !== ' '),
     };
     if (t.id && t.title.startsWith(t.id)) t.title = t.title.slice(t.id.length).replace(/^[\s·:\-–—]+/, '') || t.title;
     if (due) {
