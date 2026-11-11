@@ -207,10 +207,19 @@ class NeonTickets extends Plugin {
   }
   /** A click on a ticket: pop-up by default, Ctrl/Cmd+click opens a tab. */
   showTicket(file, e) {
+    this.followedUp(file);
     if (e && (e.ctrlKey || e.metaKey)) return this.openTicket(file, true);
     if (e && e.shiftKey) return this.openTicket(file, 'split');
     if (!this.settings.popup) return this.openTicket(file);
     new TicketPopup(this, file).open();
+  }
+  /** Opening a ticket whose follow-up is due is the follow-up: the next one moves autoFollowUpDays ahead (issue 58). */
+  async followedUp(file) {
+    const t = this.activeTickets().find((x) => x.file === file);
+    if (!t || t.bucket !== 'followup') return;
+    const next = moment().add(this.settings.autoFollowUpDays, 'days');
+    await this.patch(t, { follow_up: next.format('YYYY-MM-DD') });
+    await this.log(t, `Followed up · next follow up ${next.format('ddd D MMM')}`);
   }
   async openTicket(file, newTab, leaf) {
     this.rawPaths.delete(file.path);
