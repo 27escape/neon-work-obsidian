@@ -1,36 +1,19 @@
 Object.assign(NeonResearch.prototype, {
-  /** Study notes get a cards button on the side (when they have cards) and a cards menu top left (issue 56). */
+  /** Study notes get one accent cards button in the header toolbar, with the card count; it opens the cards menu (issue 56). */
   syncCardButton(view) {
     const file = view && view.file && this.inRoot(view.file) ? view.file : null;
     if (!file) return this.dropCardButtons(view);
-    // the menu sits after back / forward; Obsidian has no API for that spot, so fall back to a header action
-    if (!view.nrCardMenu || !view.nrCardMenu.isConnected) {
-      const left = view.containerEl.querySelector('.view-header-left');
-      const open = (e) => this.cardMenu(view, e);
-      view.nrCardMenu = left ? left.createDiv({ cls: 'clickable-icon nr-card-menu', attr: { 'aria-label': 'Flashcards and exercises' } }) : view.addAction('layers', 'Flashcards and exercises', open);
-      if (left) {
-        icon(view.nrCardMenu, 'layers');
-        icon(view.nrCardMenu, 'chevron-down', 'nr-card-menu-chev');
-        view.nrCardMenu.addEventListener('click', open);
-      }
+    if (!view.nrCardBtn || !view.nrCardBtn.isConnected) {
+      view.nrCardBtn = view.addAction('layers', 'Flashcards and exercises', (e) => this.cardMenu(view, e));
+      view.nrCardBtn.addClass('nr-card-btn');
+      view.nrCardBtn.createSpan('nr-card-btn-n');
     }
     const n = this.cardsIn(file).length;
-    if (!n) return view.nrCardPill && (view.nrCardPill.remove(), (view.nrCardPill = null));
-    if (!view.nrCardPill || !view.nrCardPill.isConnected) {
-      view.nrCardPill = view.contentEl.createDiv({ cls: 'nr-card-pill', attr: { role: 'button', tabindex: '0' } });
-      icon(view.nrCardPill, 'layers');
-      view.nrCardPill.createSpan('nr-card-pill-n');
-      const go = () => view.file && new FlashcardModal(this, view.file).open();
-      view.nrCardPill.addEventListener('click', go);
-      view.nrCardPill.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), go()));
-    }
-    view.nrCardPill.querySelector('.nr-card-pill-n').setText(String(n));
-    tip(view.nrCardPill, `${n} card${n === 1 ? '' : 's'} in this note`);
+    view.nrCardBtn.querySelector('.nr-card-btn-n').setText(n ? String(n) : '');
+    view.nrCardBtn.setAttr('aria-label', `Flashcards and exercises · ${n} card${n === 1 ? '' : 's'} in this note`);
   },
   dropCardButtons(view) {
-    if (!view) return;
-    if (view.nrCardMenu) (view.nrCardMenu.remove(), (view.nrCardMenu = null));
-    if (view.nrCardPill) (view.nrCardPill.remove(), (view.nrCardPill = null));
+    if (view && view.nrCardBtn) (view.nrCardBtn.remove(), (view.nrCardBtn = null));
   },
   cardMenu(view, e) {
     const f = view.file;
@@ -42,7 +25,12 @@ Object.assign(NeonResearch.prototype, {
     m.addSeparator();
     m.addItem((i) => i.setTitle(`Show cards (${n})`).setIcon('list').onClick(() => new FlashcardModal(this, f).open()));
     m.addItem((i) => i.setTitle('Quiz this note').setIcon('graduation-cap').setDisabled(!n).onClick(() => this.quizNote(f)));
-    m.showAtMouseEvent(e);
+    // Enter / Space on the button: no mouse position, so open under the button
+    const b = view.nrCardBtn;
+    if (b && (!e || e.detail === 0)) {
+      const r = b.getBoundingClientRect();
+      m.showAtPosition({ x: r.left, y: r.bottom });
+    } else m.showAtMouseEvent(e);
   },
   quizNote(f) {
     new QuizModal(this, this.cardsIn(f), f.basename).open();
