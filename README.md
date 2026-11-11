@@ -118,7 +118,7 @@ Requires Obsidian 1.5.0 or later, desktop.
 
 ## Release notes
 
-Only the latest release notes are kept: [2.1.1](docs/release-notes/2.1.1.md): instant Study research list, Black ICE in black, white and electric purple. Older notes are in the git history.
+Only the latest release notes are kept: [2.1.2](docs/release-notes/2.1.2.md): flashcards off the page with a cards button and exercises, Start day asks the start time, folder drops, tickets sorted by status. Older notes are in the git history.
 
 ## License
 
