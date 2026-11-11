@@ -154,30 +154,55 @@ Object.assign(NeonDeck.prototype, {
   /** Files dropped from the computer (PDF, DOCX, images, …): copied into dest; a taken name gets a number, nothing is overwritten. */
   async importFiles(dt, dest) {
     const where = dest === '/' ? 'vault root' : dest;
-    const dir = dest === '/' ? '' : dest + '/';
+    // read entries now: the drop's data is gone after the first await
     const entries = Array.from(dt.items || []).map((it) => it.webkitGetAsEntry && it.webkitGetAsEntry());
+    const files = Array.from(dt.files);
     let n = 0;
-    let skipped = 0;
-    for (const [i, f] of Array.from(dt.files).entries()) {
-      if (entries[i] && entries[i].isDirectory) {
-        skipped++;
-        continue;
-      }
-      const dot = f.name.lastIndexOf('.');
-      const base = dot > 0 ? f.name.slice(0, dot) : f.name;
-      const ext = dot > 0 ? f.name.slice(dot) : '';
-      let np = normalizePath(dir + f.name);
+    const free = async (dir, name) => {
+      const dot = name.lastIndexOf('.');
+      const base = dot > 0 ? name.slice(0, dot) : name;
+      const ext = dot > 0 ? name.slice(dot) : '';
+      let np = normalizePath(dir + name);
       for (let k = 1; await this.app.vault.adapter.exists(np); k++) np = normalizePath(`${dir}${base} ${k}${ext}`);
+      return np;
+    };
+    const addFile = async (f, dir, inFolder) => {
       try {
+        const np = await free(dir, f.name);
+        // files of a dropped folder stay where they are: Neon Write's image mover skips these paths
+        if (inFolder) (this.placed || (this.placed = new Set())).add(np);
         await this.app.vault.createBinary(np, await f.arrayBuffer());
         n++;
       } catch (err) {
         console.error('Neon Deck: could not add', f.name, err);
         new Notice(`Could not add “${f.name}”`);
       }
+    };
+    // a dropped folder comes in with everything inside it (issue 55); an existing name gets a number
+    const addDir = async (entry, dir) => {
+      const path = await free(dir, entry.name);
+      await this.app.vault.createFolder(path);
+      const reader = entry.createReader();
+      for (;;) {
+        const batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+        if (!batch.length) break;
+        for (const c of batch) {
+          if (c.isDirectory) await addDir(c, path + '/');
+          else await addFile(await new Promise((res, rej) => c.file(res, rej)), path + '/', true);
+        }
+      }
+    };
+    const dir = dest === '/' ? '' : dest + '/';
+    for (const [i, f] of files.entries()) {
+      try {
+        if (entries[i] && entries[i].isDirectory) await addDir(entries[i], dir);
+        else await addFile(f, dir);
+      } catch (err) {
+        console.error('Neon Deck: could not add', f.name, err);
+        new Notice(`Could not add “${f.name}”`);
+      }
     }
     if (n) new Notice(`Added ${n} file${n === 1 ? '' : 's'} → ${where}`);
-    if (skipped) new Notice(`Folders can't be dropped here (${skipped} skipped); drop the files inside them`);
   },
 
   /* file creation --------------------------------------------------------- */

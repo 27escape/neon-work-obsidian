@@ -257,6 +257,8 @@ class NeonWrite extends Plugin {
     return f instanceof TFile && /^(png|jpe?g)$/i.test(f.extension) && !f.path.startsWith(dir + '/');
   }
   onCreate(f) {
+    const deck = neonPlugin(this.app, 'neon-deck');
+    if (deck && deck.placed && deck.placed.delete(f.path)) return; // part of a folder dropped into Cards (issue 55)
     if (!this.settings.moveImages || !this.isLooseImage(f)) return;
     // give Obsidian a moment to write the ![[link]] into the note, so the rename updates it too
     window.setTimeout(async () => {
