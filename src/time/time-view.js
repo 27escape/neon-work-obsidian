@@ -116,6 +116,12 @@ class TimeView extends ItemView {
         seg.style.height = `${(s.by[k] / max) * 100}%`;
         seg.style.background = catColor(k);
       }
+      // workday time not covered by an entry (issue 54)
+      if (s.untracked > 0) {
+        const seg = bar.createDiv('tm-col-seg');
+        seg.style.height = `${(s.untracked / max) * 100}%`;
+        seg.style.background = 'var(--nd-cat-untracked, var(--text-faint))';
+      }
       col.createDiv({ cls: 'tm-col-v', text: s.total ? fmtMin(s.total) : '·' });
       col.createDiv({ cls: 'tm-col-d', text: d.format('dd D') });
       tip(col, `${d.format('ddd D MMM')} · ${fmtMin(s.total)}${s.over ? ` · +${fmtMin(s.over)} over` : ''}`);

@@ -96,8 +96,8 @@ Object.assign(DashboardView.prototype, {
       let tasks = 0;
       let tasksMonth = 0;
       for (const [key, day] of Object.entries(tm.days)) {
-        const entries = key === todayKey && tm.entriesOf ? tm.entriesOf(key, true) : day.entries || [];
-        const min = entries.reduce((s, e) => s + (e.ms || 0), 0) / 60000;
+        // the day total includes the Start day / End day timer (issue 54), not only logged entries
+        const min = tm.summary ? tm.summary(key, key === todayKey).total : (day.entries || []).reduce((s, e) => s + (e.ms || 0), 0) / 60000;
         total += min;
         if (key >= monthStart.format('YYYY-MM-DD')) monthMin += min;
         if (min >= 1) worked++;
