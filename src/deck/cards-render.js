@@ -56,7 +56,8 @@ Object.assign(CardsView.prototype, {
     this.catTag(top, info.cat);
     const n = info.notes.length;
     const weekAgo = Date.now() - 7 * 864e5;
-    let meta = `${n} note${n === 1 ? '' : 's'}`;
+    const files = info.other ? `${info.other} file${info.other === 1 ? '' : 's'}` : '';
+    let meta = n || !files ? `${n} note${n === 1 ? '' : 's'}${files ? ` · ${files}` : ''}` : files;
     if (info.cat === 'school' && n) {
       const fresh = info.notes.filter((f) => !this.needsRevisit(f)).length;
       meta += ` · ${fresh} / ${n} revisited`;

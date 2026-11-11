@@ -65,13 +65,15 @@ Object.assign(CardsView.prototype, {
     if (c === 'untracked') return f.extension === 'md' && (!cat || cat === 'untracked');
     return cat === c;
   },
-  /** Notes in a folder (recursive), with category counts. */
+  /** Notes in a folder (recursive), with category counts and how many other files (images…) it holds. */
   folderInfo(folder) {
     const notes = [];
+    let other = 0; // images and other attachments (issue 53)
     const walk = (fd) => {
       for (const c of fd.children) {
         if (c instanceof TFolder) walk(c);
         else if (c instanceof TFile && c.extension === 'md') notes.push(c);
+        else if (c instanceof TFile) other++;
       }
     };
     walk(folder);
@@ -82,7 +84,7 @@ Object.assign(CardsView.prototype, {
     }
     const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
     const cat = top && top[1] * 2 >= notes.length ? top[0] : null;
-    return { notes, cat };
+    return { notes, other, cat };
   },
 
   renderChips() {

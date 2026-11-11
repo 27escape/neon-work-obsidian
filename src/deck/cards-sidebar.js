@@ -35,7 +35,7 @@ Object.assign(CardsView.prototype, {
         const row = body.createDiv('nd-side-pin' + (p === this.path ? ' is-current' : ''));
         this.folderIcon(row, info.cat, p);
         row.createSpan({ cls: 'nd-side-name', text: fd.name });
-        row.createSpan({ cls: 'nd-side-count', text: String(info.notes.length) });
+        row.createSpan({ cls: 'nd-side-count', text: String(info.notes.length + info.other) });
         tip(row, `${p} · right-click to unpin`);
         row.addEventListener('click', () => this.navigate(p, 1));
         row.addEventListener('auxclick', (e) => e.button === 1 && this.plugin.openCardsAt(p, true));
@@ -64,7 +64,7 @@ Object.assign(CardsView.prototype, {
       this.folderIcon(row, info.cat, d.path);
       if (d.name.startsWith('!')) icon(row, 'pin', 'nd-ico nd-side-bang');
       row.createSpan({ cls: 'nd-side-name', text: d.name });
-      row.createSpan({ cls: 'nd-side-count', text: String(info.notes.length) });
+      row.createSpan({ cls: 'nd-side-count', text: String(info.notes.length + info.other) });
       row.addEventListener('click', () => this.navigate(d.path, 1));
       row.addEventListener('contextmenu', (e) => this.folderMenu(d, e));
       this.dragFolder(row, d);
