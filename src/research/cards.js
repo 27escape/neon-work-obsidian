@@ -1,37 +1,85 @@
 Object.assign(NeonResearch.prototype, {
+  /** Study notes get a cards button on the side (when they have cards) and a cards menu top left (issue 56). */
   syncCardButton(view) {
-    const want = !!(view && view.file && this.inRoot(view.file));
-    if (want && !view.nrCardBtn) view.nrCardBtn = view.addAction('layers', 'Add flashcards', () => view.file && new FlashcardModal(this, view.file).open());
-    else if (!want && view && view.nrCardBtn) (view.nrCardBtn.remove(), (view.nrCardBtn = null));
-  },
-  /** Append one card line to a note: through the editor when it's open (keeps cursor and undo), else in the file. */
-  async appendCard(file, line) {
-    const leaf = this.app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === file && l.view.editor);
-    if (leaf) {
-      const ed = leaf.view.editor;
-      const last = ed.lastLine();
-      const end = { line: last, ch: ed.getLine(last).length };
-      ed.replaceRange((ed.getLine(last).trim() ? '\n' : '') + line + '\n', end);
-      return;
+    const file = view && view.file && this.inRoot(view.file) ? view.file : null;
+    if (!file) return this.dropCardButtons(view);
+    // the menu sits after back / forward; Obsidian has no API for that spot, so fall back to a header action
+    if (!view.nrCardMenu || !view.nrCardMenu.isConnected) {
+      const left = view.containerEl.querySelector('.view-header-left');
+      const open = (e) => this.cardMenu(view, e);
+      view.nrCardMenu = left ? left.createDiv({ cls: 'clickable-icon nr-card-menu', attr: { 'aria-label': 'Flashcards and exercises' } }) : view.addAction('layers', 'Flashcards and exercises', open);
+      if (left) {
+        icon(view.nrCardMenu, 'layers');
+        icon(view.nrCardMenu, 'chevron-down', 'nr-card-menu-chev');
+        view.nrCardMenu.addEventListener('click', open);
+      }
     }
-    await writeNote(this.app, file, (d) => d.replace(/\s*$/, '') + `\n${line}\n`);
+    const n = this.cardsIn(file).length;
+    if (!n) return view.nrCardPill && (view.nrCardPill.remove(), (view.nrCardPill = null));
+    if (!view.nrCardPill || !view.nrCardPill.isConnected) {
+      view.nrCardPill = view.contentEl.createDiv({ cls: 'nr-card-pill', attr: { role: 'button', tabindex: '0' } });
+      icon(view.nrCardPill, 'layers');
+      view.nrCardPill.createSpan('nr-card-pill-n');
+      const go = () => view.file && new FlashcardModal(this, view.file).open();
+      view.nrCardPill.addEventListener('click', go);
+      view.nrCardPill.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), go()));
+    }
+    view.nrCardPill.querySelector('.nr-card-pill-n').setText(String(n));
+    tip(view.nrCardPill, `${n} card${n === 1 ? '' : 's'} in this note`);
+  },
+  dropCardButtons(view) {
+    if (!view) return;
+    if (view.nrCardMenu) (view.nrCardMenu.remove(), (view.nrCardMenu = null));
+    if (view.nrCardPill) (view.nrCardPill.remove(), (view.nrCardPill = null));
+  },
+  cardMenu(view, e) {
+    const f = view.file;
+    if (!f) return;
+    const n = this.cardsIn(f).length;
+    const m = new Menu();
+    m.addItem((i) => i.setTitle('Add flashcard').setIcon('layers').onClick(() => new FlashcardModal(this, f, false).open()));
+    m.addItem((i) => i.setTitle('Add exercise').setIcon('pencil-line').onClick(() => new FlashcardModal(this, f, true).open()));
+    m.addSeparator();
+    m.addItem((i) => i.setTitle(`Show cards (${n})`).setIcon('list').onClick(() => new FlashcardModal(this, f).open()));
+    m.addItem((i) => i.setTitle('Quiz this note').setIcon('graduation-cap').setDisabled(!n).onClick(() => this.quizNote(f)));
+    m.showAtMouseEvent(e);
+  },
+  quizNote(f) {
+    new QuizModal(this, this.cardsIn(f), f.basename).open();
+  },
+  /** Add one card line to the note's hidden card block (through the editor when it's open: keeps undo). */
+  async appendCard(file, line) {
+    await writeNote(this.app, file, (t) => addToCardBlock(t, line));
+  },
+  /** Edit (line) or delete (null) one card of a note. */
+  async setCard(card, line) {
+    await writeNote(this.app, card.file, (t) => setCardLine(t, card, line));
+  },
+  async moveCardsOffPage(file) {
+    await writeNote(this.app, file, (t) => moveCardsToBlock(t, this.parseCards(file, t)));
   },
 
   /* ---- quiz cards ---- */
   parseCards(f, text) {
     const out = [];
-    let fence = false;
-    for (const line of stripFrontmatter(text).split('\n')) {
-      if (/^\s*(```|~~~)/.test(line)) fence = !fence;
-      if (fence || /^\s*%%/.test(line)) continue;
+    const lines = text.split('\n');
+    const start = text.slice(0, text.length - stripFrontmatter(text).length).split('\n').length - 1;
+    let fence = null; // null, 'cards' (the hidden neon-cards block) or 'other' (code: no cards)
+    for (let i = start; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^\s*(```|~~~)/.test(line)) {
+        fence = fence ? null : CARD_FENCE_RE.test(line) ? 'cards' : 'other';
+        continue;
+      }
+      if (fence === 'other' || /^\s*%%/.test(line)) continue;
       // a "::" inside inline code doesn't make a card
-      if (!/\s::\s/.test(line.replace(/`[^`]*`/g, (c) => ' '.repeat(c.length)))) continue;
+      if (!/\s:::?\s/.test(line.replace(/`[^`]*`/g, (c) => ' '.repeat(c.length)))) continue;
       const m = line.match(CARD_RE);
       if (!m || /^#/.test(m[1])) continue;
       const q = m[1].trim();
       // the same question twice in a note: each keeps its own history
       const n = out.filter((c) => c.q === q).length;
-      out.push({ file: f, q, a: m[2].trim(), id: `${f.path}|${q}${n ? `#${n + 1}` : ''}` });
+      out.push({ file: f, q, a: m[3].trim(), type: m[2] === ':::', hidden: fence === 'cards', ln: i, raw: line, id: `${f.path}|${q}${n ? `#${n + 1}` : ''}` });
     }
     return out;
   },
@@ -49,6 +97,7 @@ Object.assign(NeonResearch.prototype, {
     const before = this.cardsIn(f).map((c) => c.id);
     this.cardText.set(f.path, text);
     const after = this.cardsIn(f).map((c) => c.id);
+    if (before.join('\n') !== after.join('\n')) this.syncButtons(f);
     if (before.join('\n') === after.join('\n')) return this.listeners.forEach((fn) => fn(f)); // light update
     // edited questions: unchanged cards keep their history; changed ones are paired in order
     const h = this.settings.cards;

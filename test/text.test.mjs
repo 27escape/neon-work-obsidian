@@ -364,3 +364,29 @@ test('Tickets sort by status by default: not started first, then Waiting, In pro
     ['status-done', 'a'],
   ]);
 });
+
+test('flashcards off the page: neon-cards block, exercises, moving keeps ids (issue 56)', () => {
+  const { NeonResearch, addToCardBlock, setCardLine, moveCardsToBlock } = load('neon-research', ['NeonResearch', 'addToCardBlock', 'setCardLine', 'moveCardsToBlock']);
+  const plain = (v) => JSON.parse(JSON.stringify(v));
+  const parse = (t) => NeonResearch.prototype.parseCards.call({}, { path: 'S/n.md' }, t);
+  const note = '---\ntags: x\n---\n# N\nA :: 1\n```js\nB :: 2\n```\n- A :: 3\n';
+  const before = parse(note);
+  assert.deepEqual(plain(before.map((c) => c.id)), ['S/n.md|A', 'S/n.md|A#2']); // code fences still make no cards
+  assert.equal(before[0].ln, 4);
+  // a new card goes into a block at the end; a second one is appended inside it
+  let t = addToCardBlock('# N\n', 'Q :: a');
+  assert.equal(t, '# N\n\n```neon-cards\nQ :: a\n```\n');
+  t = addToCardBlock(t, 'E ::: b');
+  const cards = parse(t);
+  assert.deepEqual(plain(cards.map((c) => [c.q, c.a, c.type, c.hidden])), [['Q', 'a', false, true], ['E', 'b', true, true]]);
+  // edit and delete
+  assert.equal(setCardLine(t, cards[1], 'E ::: c').includes('E ::: c'), true);
+  assert.equal(parse(setCardLine(t, cards[0], null)).length, 1);
+  assert.equal(setCardLine(t, { ln: 0, raw: 'gone :: x' }, null), t); // a card that's no longer there: no change
+  // moving inline cards off the page keeps ids (history) and order
+  const moved = moveCardsToBlock(note, before);
+  const after = parse(moved);
+  assert.deepEqual(plain(after.map((c) => c.id)), plain(before.map((c) => c.id)));
+  assert.ok(after.every((c) => c.hidden));
+  assert.ok(!/^- A :: 3$/m.test(moved) && moved.includes('B :: 2'));
+});

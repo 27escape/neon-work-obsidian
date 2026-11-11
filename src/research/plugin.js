@@ -20,22 +20,26 @@ class NeonResearch extends Plugin {
     this.addCommand({ id: 'open-research', name: 'Open the Study tab', callback: () => this.openTab() });
     this.addCommand({ id: 'new-topic', name: 'New topic', callback: () => this.newTopic(this.rootFolder()) });
     this.addCommand({ id: 'quiz-all', name: 'Quiz me…', callback: () => new QuizPickModal(this).open() });
-    this.addCommand({
-      id: 'add-flashcard',
-      name: 'Add flashcard to this note',
-      checkCallback: (checking) => {
-        const f = this.app.workspace.getActiveFile();
-        if (!f || f.extension !== 'md' || !this.inRoot(f)) return false;
-        if (!checking) new FlashcardModal(this, f).open();
-        return true;
-      },
-    });
-    // a Flashcards button in the header of notes inside a section
-    const syncButtons = () => this.app.workspace.getLeavesOfType('markdown').forEach((l) => this.syncCardButton(l.view));
-    this.registerEvent(this.app.workspace.on('file-open', syncButtons));
-    this.registerEvent(this.app.workspace.on('active-leaf-change', syncButtons));
-    this.app.workspace.onLayoutReady(syncButtons);
-    this.register(() => this.app.workspace.getLeavesOfType('markdown').forEach((l) => l.view.nrCardBtn && (l.view.nrCardBtn.remove(), (l.view.nrCardBtn = null))));
+    const cardCmd = (id, name, exercise) =>
+      this.addCommand({
+        id,
+        name,
+        checkCallback: (checking) => {
+          const f = this.app.workspace.getActiveFile();
+          if (!f || f.extension !== 'md' || !this.inRoot(f)) return false;
+          if (!checking) new FlashcardModal(this, f, exercise).open();
+          return true;
+        },
+      });
+    cardCmd('add-flashcard', 'Add flashcard to this note', false);
+    cardCmd('add-exercise', 'Add exercise to this note', true);
+    // cards live in a neon-cards block: in the file, never on the page (issue 56)
+    this.registerMarkdownCodeBlockProcessor(CARD_BLOCK, (src, el) => el.addClass('nr-cards-block'));
+    // the cards menu and side button of notes inside a section
+    this.registerEvent(this.app.workspace.on('file-open', () => this.syncButtons()));
+    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.syncButtons()));
+    this.app.workspace.onLayoutReady(() => this.syncButtons());
+    this.register(() => this.app.workspace.getLeavesOfType('markdown').forEach((l) => this.dropCardButtons(l.view)));
     this.addCommand({ id: 'link-suggestions', name: 'Suggest links in this note', callback: () => this.showLinkSuggestions(true) });
     this.addSettingTab(new NeonResearchSettingTab(this.app, this));
 
@@ -72,6 +76,7 @@ class NeonResearch extends Plugin {
       this.hookDeck();
       this.updateLinkHint();
       await this.refreshCardText();
+      this.syncButtons(); // card counts are known now
       this.emitSoon();
     });
   }
@@ -86,6 +91,9 @@ class NeonResearch extends Plugin {
   saveSoon() {
     if (!this._save) this._save = debounce(() => this.saveData(this.settings), 1500, true);
     this._save();
+  }
+  syncButtons(file) {
+    for (const l of this.app.workspace.getLeavesOfType('markdown')) if (!file || l.view.file === file) this.syncCardButton(l.view);
   }
   onChange(fn) {
     this.listeners.add(fn);

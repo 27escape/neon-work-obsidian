@@ -11,8 +11,9 @@ class QuizModal extends Modal {
     this.modalEl.addClass('nd-modal', 'nr-study');
     this.titleEl.setText(`Quiz · ${this.label}`);
     // keys through the modal's scope: they work wherever focus is, and space never also presses a button
-    this.scope.register([], ' ', () => (this.showBtn && this.showBtn.click(), false));
-    ['1', '2', '3'].forEach((k, i) => this.scope.register([], k, () => (this.answerShown && this.grade(['again', 'hard', 'easy'][i]), false)));
+    // returning true lets the key through, so an exercise's answer box can still take spaces and digits
+    this.scope.register([], ' ', () => (this.showBtn ? (this.showBtn.click(), false) : true));
+    ['1', '2', '3'].forEach((k, i) => this.scope.register([], k, () => (this.answerShown ? (this.grade(['again', 'hard', 'easy'][i]), false) : true)));
     this.next();
   }
   next() {
@@ -35,19 +36,38 @@ class QuizModal extends Modal {
     const a = c.createDiv({ cls: 'nr-study-a', text: card.a });
     a.hide();
     const r = c.createDiv('nd-modal-row');
-    this.showBtn = button(r, {
-      text: 'Show answer (space)',
-      cls: 'mod-cta',
-      onClick: () => {
-        a.show();
-        this.answerShown = true;
-        r.empty();
-        button(r, { text: 'Again (1)', cls: 'nr-again', onClick: () => this.grade('again') });
-        button(r, { text: 'Hard (2)', onClick: () => this.grade('hard') });
-        button(r, { text: 'Easy (3)', cls: 'mod-cta', onClick: () => this.grade('easy') });
-        this.showBtn = null;
-      },
+    const grades = () => {
+      a.show();
+      this.answerShown = true;
+      r.empty();
+      button(r, { text: 'Again (1)', cls: 'nr-again', onClick: () => this.grade('again') });
+      button(r, { text: 'Hard (2)', onClick: () => this.grade('hard') });
+      button(r, { text: 'Easy (3)', cls: 'mod-cta', onClick: () => this.grade('easy') });
+      this.showBtn = null;
+    };
+    if (!card.type) {
+      this.showBtn = button(r, { text: 'Show answer (space)', cls: 'mod-cta', onClick: grades });
+      return;
+    }
+    // an exercise: type an answer first, then compare (issue 56)
+    const input = c.createEl('input', { cls: 'nd-input nr-study-input', attr: { type: 'text', placeholder: 'Your answer', 'aria-label': 'Your answer' } });
+    c.insertBefore(input, a);
+    const check = button(r, { text: 'Check (Enter)', cls: 'mod-cta', onClick: () => submit() });
+    check.disabled = true;
+    input.addEventListener('input', () => (check.disabled = !input.value.trim()));
+    const norm = (v) => v.trim().replace(/\s+/g, ' ').toLowerCase();
+    const submit = () => {
+      if (!input.value.trim() || this.answerShown) return;
+      input.disabled = true;
+      const same = norm(input.value) === norm(card.a);
+      a.after(createDiv({ cls: `nr-study-verdict ${same ? 'is-match' : 'is-diff'}`, text: same ? '✓ Match' : '≠ Different — compare with the answer' }));
+      grades();
+    };
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation(); // typing a space or 1–3 must not answer or grade
+      if (e.key === 'Enter' && !e.isComposing) (e.preventDefault(), submit());
     });
+    window.setTimeout(() => input.focus(), 10);
   }
   async grade(how) {
     const card = this.card;
@@ -74,51 +94,113 @@ class QuizModal extends Modal {
 }
 
 /** Quiz me: pick which topic (or all) to quiz, and whether only due cards or all of them. */
-/** Add `question :: answer` cards to a note; stays open to add several. */
+/** A note's flashcards and exercises: list, edit, delete, add, quiz, and move cards off the page (issue 56). */
 class FlashcardModal extends Modal {
-  constructor(plugin, file) {
+  constructor(plugin, file, exercise) {
     super(plugin.app);
     this.plugin = plugin;
     this.file = file;
+    this.exercise = !!exercise;
+    this.focusAdd = exercise != null; // opened to add: focus the question
     this.added = 0;
+    this.editing = null;
   }
   onOpen() {
     this.modalEl.addClass('nd-modal', 'nr-card-modal');
-    this.titleEl.setText(`Flashcards · ${this.file.basename}`);
+    this.titleEl.setText(`Cards · ${this.file.basename}`);
+    this.off = this.plugin.onChange((f) => (!f || f === this.file) && this.drawList());
     const c = this.contentEl;
+    this.listEl = c.createDiv('nr-card-list');
+    this.toolsEl = c.createDiv('nd-modal-row');
     const field = (label, ph) => {
       const w = c.createDiv('nr-card-field');
       w.createDiv({ cls: 'nr-card-label', text: label });
-      return w.createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: ph } });
+      return w.createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: ph, 'aria-label': label } });
     };
-    const q = field('Question', 'e.g. What does the mitochondrion do?');
-    const a = field('Answer', 'e.g. Makes energy (ATP) for the cell');
+    const q = (this.q = field('Question', 'e.g. What does the mitochondrion do?'));
+    const a = (this.a = field('Answer', 'e.g. Makes energy (ATP) for the cell'));
+    this.kind = pills(c, [['card', 'Flashcard'], ['exercise', 'Exercise (type the answer)']], this.exercise ? 'exercise' : 'card', (v) => (this.exercise = v === 'exercise'), 'nr-card-types');
+    c.insertBefore(this.kind.el, q.parentElement);
     const foot = c.createDiv('nd-modal-row');
-    const info = foot.createSpan({ cls: 'nr-card-info', text: 'Enter adds the card · Esc closes' });
-    const add = async () => {
-      // one line per card, and " :: " is the separator, so neither may appear inside
-      const clean = (v) => v.replace(/\s+/g, ' ').replace(/\s::\s/g, ' : ').trim();
+    this.info = foot.createSpan({ cls: 'nr-card-info', text: 'Enter adds the card · Esc closes' });
+    const save = async () => {
+      // one line per card, and " :: " / " ::: " separate the sides, so neither may appear inside
+      const clean = (v) => v.replace(/\s+/g, ' ').replace(/\s:::?\s/g, ' : ').trim();
       const qv = clean(q.value).replace(/^#+\s*/, '');
       const av = clean(a.value);
       if (!qv || !av) return (qv ? a : q).focus();
+      const line = `${qv} ${this.exercise ? ':::' : '::'} ${av}`;
       try {
-        await this.plugin.appendCard(this.file, `${qv} :: ${av}`);
+        if (this.editing) await this.plugin.setCard(this.editing, line);
+        else await this.plugin.appendCard(this.file, line);
       } catch (e) {
-        console.error('Neon Study: could not add card', e);
-        return new Notice('Could not add the card');
+        console.error('Neon Study: could not save card', e);
+        return new Notice('Could not save the card');
       }
-      this.added++;
-      info.setText(`✦ ${this.added} card${this.added === 1 ? '' : 's'} added · Enter adds another · Esc closes`);
+      if (this.editing) this.info.setText('✦ Card saved');
+      else this.info.setText(`✦ ${++this.added} card${this.added === 1 ? '' : 's'} added · Enter adds another · Esc closes`);
+      this.editing = null;
+      this.saveBtn.querySelector('.nd-btn-label').setText('Add card');
       q.value = a.value = '';
       q.focus();
     };
-    q.addEventListener('keydown', (e) => e.key === 'Enter' && !e.isComposing && (e.preventDefault(), a.value.trim() ? add() : a.focus()));
-    a.addEventListener('keydown', (e) => e.key === 'Enter' && !e.isComposing && (e.preventDefault(), add()));
+    q.addEventListener('keydown', (e) => e.key === 'Enter' && !e.isComposing && (e.preventDefault(), a.value.trim() ? save() : a.focus()));
+    a.addEventListener('keydown', (e) => e.key === 'Enter' && !e.isComposing && (e.preventDefault(), save()));
     button(foot, { text: 'Done', onClick: () => this.close() });
-    button(foot, { text: 'Add card', cls: 'mod-cta', onClick: add });
-    window.setTimeout(() => q.focus(), 10);
+    this.saveBtn = button(foot, { text: 'Add card', cls: 'mod-cta', onClick: save });
+    this.drawList();
+    if (this.focusAdd || !this.plugin.cardsIn(this.file).length) window.setTimeout(() => q.focus(), 10);
+  }
+  drawList() {
+    const p = this.plugin;
+    const cards = p.cardsIn(this.file);
+    const list = this.listEl;
+    list.empty();
+    list.toggle(!!cards.length);
+    for (const card of cards) {
+      const r = list.createDiv({ cls: 'nr-card-row' + (this.editing && this.editing.id === card.id ? ' is-editing' : ''), attr: { tabindex: '0', role: 'button' } });
+      r.createSpan({ cls: 'nr-card-kind', text: card.type ? 'Exercise' : 'Card' });
+      r.createSpan({ cls: 'nr-card-row-q', text: card.q });
+      r.createSpan({ cls: 'nr-card-row-a', text: card.a });
+      const edit = () => {
+        this.editing = card;
+        this.q.value = card.q;
+        this.a.value = card.a;
+        this.kind.set(card.type ? 'exercise' : 'card');
+        this.exercise = card.type;
+        this.saveBtn.querySelector('.nd-btn-label').setText('Save card');
+        this.drawList();
+        this.q.focus();
+      };
+      r.addEventListener('click', edit);
+      r.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), edit()));
+      button(r, {
+        icon: 'x',
+        cls: 'nd-icon-btn',
+        title: 'Delete card',
+        onClick: async (e) => {
+          e.stopPropagation();
+          if (this.editing && this.editing.id === card.id) this.editing = null;
+          await p.setCard(card, null);
+        },
+      });
+    }
+    const t = this.toolsEl;
+    t.empty();
+    const inline = cards.filter((c) => !c.hidden).length;
+    if (inline) button(t, { icon: 'eye-off', text: `Move ${inline} card${inline === 1 ? '' : 's'} off the page`, onClick: () => p.moveCardsOffPage(this.file) });
+    if (cards.length)
+      button(t, {
+        icon: 'graduation-cap',
+        text: 'Quiz this note',
+        onClick: () => {
+          this.close();
+          p.quizNote(this.file);
+        },
+      });
   }
   onClose() {
+    if (this.off) this.off();
     this.contentEl.empty();
   }
 }

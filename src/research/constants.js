@@ -24,7 +24,39 @@ function shortAgo(ms) {
   if (d < 7 * DAY) return `${Math.floor(d / DAY)}d ago`;
   return moment(ms).format(moment(ms).isSame(moment(), 'year') ? 'D MMM' : 'D MMM YYYY');
 }
-const CARD_RE = /^\s*(?:[-*+]\s+)?(.+?)\s+::\s+(.+?)\s*$/;
+const CARD_RE = /^\s*(?:[-*+]\s+)?(.+?)\s+(:::?)\s+(.+?)\s*$/; // "q :: a" flashcard, "q ::: a" exercise (typed answer)
+const CARD_BLOCK = 'neon-cards'; // fenced block that keeps a note's cards in the file but off the page (issue 56)
+const CARD_FENCE_RE = /^\s*(```|~~~)\s*neon-cards\s*$/;
+
+/** Text with card lines added to the note's hidden card block (made at the end when missing); `top` puts them first. */
+function addToCardBlock(text, lines, top) {
+  lines = [].concat(lines);
+  const all = text.split('\n');
+  const s = all.findIndex((l) => CARD_FENCE_RE.test(l));
+  if (s < 0) return `${text.replace(/\s*$/, '')}\n\n\`\`\`${CARD_BLOCK}\n${lines.join('\n')}\n\`\`\`\n`;
+  const fence = all[s].trim().slice(0, 3);
+  let e = all.findIndex((l, i) => i > s && l.trim().startsWith(fence));
+  if (e < 0) e = all.length;
+  all.splice(top ? s + 1 : e, 0, ...lines);
+  return all.join('\n');
+}
+/** Replace (or with null remove) a card's line; finds it again if lines moved, leaves the text alone if it's gone. */
+function setCardLine(text, card, line) {
+  const all = text.split('\n');
+  let i = all[card.ln] === card.raw ? card.ln : all.indexOf(card.raw);
+  if (i < 0) return text;
+  if (line == null) all.splice(i, 1);
+  else all[i] = (card.raw.match(/^\s*(?:[-*+]\s+)?/) || [''])[0] + line;
+  return all.join('\n');
+}
+/** Move cards written on the page into the hidden block, in file order at its top, so ids and history stay. */
+function moveCardsToBlock(text, cards) {
+  const inline = cards.filter((c) => !c.hidden).sort((a, b) => a.ln - b.ln);
+  if (!inline.length) return text;
+  let t = text;
+  for (const c of inline.slice().reverse()) t = setCardLine(t, c, null);
+  return addToCardBlock(t, inline.map((c) => `${c.q} ${c.type ? ':::' : '::'} ${c.a}`), true);
+}
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** Same length as text, with code, links and frontmatter blanked out: where a plain mention may be linked. */
 function plainMask(text) {

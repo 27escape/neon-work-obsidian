@@ -155,7 +155,7 @@ function insertPageBreak(ed) {
 }
 /** One flashcard line, or null when a side is empty; " :: " separates the sides, so it can't appear inside one. */
 function cardLine(q, a) {
-  const clean = (v) => String(v || '').replace(/\s+/g, ' ').replace(/\s::\s/g, ' : ').trim();
+  const clean = (v) => String(v || '').replace(/\s+/g, ' ').replace(/\s:::?\s/g, ' : ').trim();
   const qv = clean(q).replace(/^#+\s*/, '');
   const av = clean(a);
   return qv && av ? `${qv} :: ${av}` : null;
