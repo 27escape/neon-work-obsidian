@@ -58,7 +58,10 @@ class DashboardView extends ItemView {
     this.scroller = root.createDiv('nd-dash-scroll');
     const inner = this.scroller.createDiv('nd-dash-inner');
     this.buildHero(inner);
-    this.tickerEl = inner.createDiv('nd-ticker');
+    // the ticker is the pin board's resting form: it swells into the Dynamic Island
+    this.tickerEl = inner.createDiv({ cls: 'nd-ticker', attr: { role: 'button', tabindex: '0', 'aria-label': 'Open pin board' } });
+    this.tickerEl.addEventListener('click', () => this.plugin.toggleIsland());
+    this.tickerEl.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), this.plugin.toggleIsland()));
     this.grid = inner.createDiv('nd-dash-grid is-entering');
     window.setTimeout(() => this.grid && this.grid.removeClass('is-entering'), 900);
     this.totals = this.place(widget(this.grid, 'nd-w-totals', 'Totals', 'sigma', 'everything tracked so far'), 'totals');

@@ -8,7 +8,10 @@ Object.assign(NeonDeck.prototype, {
     this.register(() => {
       window.clearTimeout(this.island.dwell);
       window.clearTimeout(this.island.fold);
+      if (this.island.anim) this.island.anim.cancel();
       if (this.island.el) this.island.el.remove();
+      if (this.island.svg) this.island.svg.remove();
+      if (this.island.anchor) this.island.anchor.removeClass('is-island-open');
     });
     const isBoard = (f) => f && f.path === this.boardPath();
     const redraw = debounce(() => this.renderPins(), 150, true);
@@ -35,7 +38,7 @@ Object.assign(NeonDeck.prototype, {
     });
     this.registerDomEvent(document, 'mousedown', (e) => {
       if (!this.island.open || !(e.target instanceof Element)) return;
-      if (this.island.el.contains(e.target) || e.target.closest('.menu, .modal-container, .popover')) return;
+      if (this.island.el.contains(e.target) || e.target.closest('.menu, .modal-container, .popover, .nd-ticker')) return;
       this.closeIsland();
     });
   },
@@ -65,7 +68,8 @@ Object.assign(NeonDeck.prototype, {
       window.clearTimeout(s.fold); // still dragging: stay open
       return;
     }
-    if (!ok || e.clientY > this.topBarBottom()) {
+    const onTicker = e.target instanceof Element && e.target.closest('.nd-ticker');
+    if (!ok || (e.clientY > this.topBarBottom() && !onTicker)) {
       window.clearTimeout(s.dwell);
       s.dwell = 0;
       return;
@@ -80,6 +84,27 @@ Object.assign(NeonDeck.prototype, {
     if (this.island.open) this.closeIsland();
     else this.openIsland({ focus: true });
   },
+  /** The dashboard's ticker line when one is on screen: the island's resting form there. */
+  tickerAnchor() {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_DASH)) {
+      const t = leaf.view.tickerEl;
+      if (!t || !t.isConnected || t.ownerDocument !== document) continue;
+      const r = t.getBoundingClientRect();
+      if (!r.width || r.bottom < 0 || r.top > window.innerHeight) continue;
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (hit && hit.closest('.nd-ticker') === t) return t;
+    }
+    return null;
+  },
+  /** Where the island grows from: the ticker pill, or a small drop under the top bar. */
+  islandOrigin() {
+    const s = this.island;
+    if (s.anchor && s.anchor.isConnected) {
+      const r = s.anchor.getBoundingClientRect();
+      return { top: r.top, x: r.left + r.width / 2, w: r.width, h: r.height };
+    }
+    return { top: this.topBarBottom() + 8, x: window.innerWidth / 2, w: 150, h: 30 };
+  },
   openIsland({ focus = false, byDrag = false } = {}) {
     const s = this.island;
     window.clearTimeout(s.fold);
@@ -87,33 +112,87 @@ Object.assign(NeonDeck.prototype, {
     s.dwell = 0;
     if (!s.el) this.buildIsland();
     s.byDrag = byDrag;
-    s.el.style.setProperty('--nd-island-top', `${Math.round(this.topBarBottom())}px`);
     this.fillTargets();
-    if (!s.open) {
+    if (!s.open || s.closing) {
+      if (s.anim) s.anim.cancel();
+      s.closing = false;
+      if (!s.open) (s.anchor = this.tickerAnchor()), (s.seen = null);
+      const o = this.islandOrigin();
+      const w = Math.min(640, window.innerWidth - 32);
+      s.el.style.setProperty('--nd-island-top', `${Math.round(o.top)}px`);
+      s.el.style.setProperty('--nd-island-x', `${Math.round(Math.min(Math.max(o.x, w / 2 + 16), window.innerWidth - w / 2 - 16))}px`);
+      s.el.toggleClass('from-ticker', !!s.anchor);
       s.open = true;
       s.el.addClass('is-open');
       s.el.setAttr('aria-hidden', 'false');
+      if (s.anchor) s.anchor.addClass('is-island-open');
       this.renderPins();
+      this.morph(true, o);
     }
     if (focus) window.setTimeout(() => s.input.focus(), 0);
   },
   closeIsland() {
     const s = this.island;
     window.clearTimeout(s.fold);
-    if (!s.open) return;
-    s.open = s.byDrag = false;
-    s.el.removeClass('is-open', 'is-target');
-    s.el.setAttr('aria-hidden', 'true');
+    if (!s.open || s.closing) return;
+    s.closing = true;
+    s.el.removeClass('is-target');
     if (s.el.contains(document.activeElement)) document.activeElement.blur();
+    const done = () => {
+      s.open = s.byDrag = s.closing = false;
+      s.el.removeClass('is-open');
+      s.el.setAttr('aria-hidden', 'true');
+      if (s.anchor) s.anchor.removeClass('is-island-open');
+      s.anchor = null;
+    };
+    const a = this.morph(false, this.islandOrigin());
+    if (a) a.onfinish = () => (done(), a.cancel());
+    else done();
+  },
+  /** Ferrofluid grow / shrink: squash and stretch between the origin pill and the full island. */
+  morph(opening, from) {
+    const s = this.island;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
+    const r = s.el.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    const at = (x, y) => ({ transform: `translate(-50%, 0) scale(${x}, ${y})` });
+    const pill = at(Math.min(1, from.w / r.width), Math.min(1, from.h / r.height));
+    const frames = opening
+      ? [pill, { ...at(1.035, 0.94), offset: 0.55 }, { ...at(0.99, 1.025), offset: 0.78 }, at(1, 1)]
+      : [at(1, 1), { ...at(1.025, 0.95), offset: 0.3 }, pill];
+    if (s.anim) s.anim.cancel();
+    s.anim = s.el.animate(frames, opening ? { duration: 560, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' } : { duration: 340, easing: 'cubic-bezier(0.5, 0, 0.75, 0)', fill: 'forwards' });
+    s.body.animate(opening ? [{ opacity: 0 }, { opacity: 0, offset: 0.35 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0, offset: 0.45 }, { opacity: 0 }], { duration: opening ? 460 : 340 });
+    return s.anim;
+  },
+  /** A swallow: the blob squashes as a pin goes in. */
+  gulp() {
+    const { el, open } = this.island;
+    if (!el || !open || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const at = (x, y) => ({ transform: `translate(-50%, 0) scale(${x}, ${y})` });
+    el.animate([at(1, 1), { ...at(1.03, 0.93), offset: 0.35 }, { ...at(0.99, 1.03), offset: 0.7 }, at(1, 1)], { duration: 420, easing: 'ease-out' });
   },
 
   buildIsland() {
     const s = this.island;
     const el = (s.el = document.body.createDiv({ cls: 'nd-island nd-root', attr: { 'aria-hidden': 'true', role: 'dialog', 'aria-label': 'Pin board' } }));
-    const cap = el.createDiv('nd-island-cap');
+    // ferrofluid: shapes in one layer melt together through an SVG goo filter; text sits above, crisp
+    if (!document.getElementById('nd-goo-filter')) {
+      s.svg = document.body.createSvg('svg', { cls: 'nd-goo-defs', attr: { 'aria-hidden': 'true', width: '0', height: '0' } });
+      const f = s.svg.createSvg('defs').createSvg('filter', { attr: { id: 'nd-goo-filter', x: '-20%', y: '-40%', width: '140%', height: '180%' } });
+      f.createSvg('feGaussianBlur', { attr: { in: 'SourceGraphic', stdDeviation: '6', result: 'blur' } });
+      f.createSvg('feColorMatrix', { attr: { in: 'blur', mode: 'matrix', values: '1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -11'  } });
+    }
+    const goo = (s.goo = el.createDiv('nd-island-goo'));
+    goo.createDiv('nd-goo-neck');
+    goo.createDiv('nd-goo-core');
+    for (let i = 0; i < 7; i++) goo.createDiv('nd-goo-drop').style.setProperty('--d', String(i));
+    el.createDiv('nd-island-skin'); // the crisp, glossy surface over the melted shape
+    const body = (s.body = el.createDiv('nd-island-body'));
+    const cap = body.createDiv('nd-island-cap');
     s.select = cap.createEl('select', { cls: 'dropdown nd-island-target', attr: { 'aria-label': 'Capture into' } });
     s.input = cap.createEl('input', { cls: 'nd-input nd-island-input', attr: { type: 'text', placeholder: 'Pin a note, or pick where it goes… (Enter)' } });
-    s.list = el.createDiv('nd-island-pins');
+    s.list = body.createDiv('nd-island-pins');
     s.input.addEventListener('keydown', (e) => this.islandKey(e));
     // the island is the drop target while open
     el.addEventListener('dragover', (e) => {
@@ -168,6 +247,7 @@ Object.assign(NeonDeck.prototype, {
     if (!lines.length) return;
     const f = await this.pinBoard(true);
     const text = await writeNote(this.app, f, (t) => lines.reduce(addPinLine, t));
+    this.gulp();
     this.renderPins(text);
   },
   pinText(v) {
@@ -226,8 +306,15 @@ Object.assign(NeonDeck.prototype, {
       return;
     }
     const from = this.boardPath();
+    const fresh = s.seen ? pins.filter((p) => !s.seen.has(p.raw)) : pins; // after opening, every pin bubbles in
+    s.seen = new Set(pins.map((p) => p.raw));
     for (const p of pins) {
       const card = list.createDiv('nd-island-pin');
+      const k = fresh.indexOf(p);
+      if (k >= 0) {
+        card.addClass('is-new');
+        card.style.setProperty('--i', String(Math.min(k, 12)));
+      }
       if (p.link) {
         const f = this.app.metadataCache.getFirstLinkpathDest(p.link, from);
         icon(card, f ? (f.extension === 'md' ? 'file-text' : 'file') : 'file-x');
@@ -246,7 +333,8 @@ Object.assign(NeonDeck.prototype, {
       setIcon(x, 'x');
       x.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.unpin(p.raw);
+        card.addClass('is-leaving');
+        window.setTimeout(() => this.unpin(p.raw), window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 220);
       });
     }
   },
