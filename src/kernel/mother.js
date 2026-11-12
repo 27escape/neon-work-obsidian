@@ -8,12 +8,20 @@ const KERNEL_FILE = 'modules.json'; // { off: { 'neon-time': true }, starting: b
 class NeonMother extends Plugin {
   async onload() {
     this.modules = new Map(); // id -> running child plugin
+    neonMother = this;
     this.failed = new Map(); // id -> error message
     this.state = Object.assign({ off: {}, starting: false, safe: false }, await this.readState());
     const crashed = this.state.starting; // the last start never finished
     this.state.starting = true;
     if (crashed) this.state.safe = true; // stays on until turned off in settings
     await this.writeState();
+    // enabled community plugins, from the public config file (old 1.x copies must not run twice)
+    try {
+      this.enabled = new Set(JSON.parse(await this.app.vault.adapter.read(`${this.app.vault.configDir}/community-plugins.json`)));
+    } catch (e) {
+      this.enabled = new Set();
+    }
+    await readDailyOpts(this.app);
     this.addSettingTab(new NeonModulesTab(this.app, this));
     this.addCommand({ id: 'safe-mode', name: 'Restart in safe mode (modules off)', callback: () => this.setSafe(true) });
     if (crashed || this.state.safe) {
@@ -26,6 +34,7 @@ class NeonMother extends Plugin {
     // a normal unload (quit, reload, switched off) is not a crash, however soon after the start
     window.clearTimeout(this.doneTimer);
     this.startDone();
+    if (neonMother === this) neonMother = null;
   }
   startDone() {
     if (!this.state.starting) return;
@@ -43,7 +52,7 @@ class NeonMother extends Plugin {
   async start(m) {
     if (this.modules.has(m.id) || !this.isOn(m.id)) return;
     // the old separate plugin is still on: never run two copies
-    if (m.id !== 'neon-deck' && this.app.plugins.enabledPlugins.has(m.id)) {
+    if (m.id !== 'neon-deck' && this.enabled.has(m.id)) {
       this.failed.set(m.id, `turn off the old "${m.old}" plugin, then reload`);
       new Notice(`${m.name} is now part of Neon Deck. Turn off the old ${m.old} plugin in Community plugins, then reload.`, 0);
       return;

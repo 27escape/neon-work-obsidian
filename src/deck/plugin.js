@@ -35,7 +35,6 @@ class NeonDeck extends Plugin {
       ['open-graph', 'Open note graph', () => this.openGraph('notes')],
       ['graph-active-note', 'Note graph of active note', () => this.openGraph('notes', 'note')],
       ['open-today', 'Open today’s daily note', () => this.openToday()],
-      ['toggle-light-dark', 'Toggle light / dark mode', () => this.toggleLightDark()],
       ['next-theme', 'Next theme', () => this.setLook({ theme: THEMES[(THEMES.indexOf(this.settings.theme) + 1) % THEMES.length] }, true)],
       ['next-pattern', 'Next pattern', () => this.setLook({ pattern: PATTERNS[(PATTERNS.indexOf(this.activePattern()) + 1) % PATTERNS.length] }, true)],
       ['weekly-review', 'Create / open this week’s review', () => this.weeklyReview()],
@@ -249,24 +248,6 @@ class NeonDeck extends Plugin {
   }
   emitLook() {
     for (const fn of this.lookListeners) fn();
-  }
-  isDark() {
-    return document.body.hasClass('theme-dark');
-  }
-  toggleLightDark() {
-    const next = this.isDark() ? 'moonstone' : 'obsidian';
-    const app = this.app;
-    try {
-      if (typeof app.changeTheme === 'function') app.changeTheme(next);
-      else if (typeof app.setTheme === 'function') app.setTheme(next);
-      else throw new Error('no theme api');
-      if (app.vault && typeof app.vault.setConfig === 'function') app.vault.setConfig('theme', next);
-    } catch (_) {
-      document.body.toggleClass('theme-dark', next === 'obsidian');
-      document.body.toggleClass('theme-light', next === 'moonstone');
-    }
-    app.workspace.trigger('css-change');
-    this.emitLook();
   }
 
 }

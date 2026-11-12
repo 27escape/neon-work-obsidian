@@ -33,9 +33,6 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc('The pattern drifts very slowly. It always pauses when Obsidian is in the background and when your system asks for reduced motion.')
       .addToggle((t) => t.setValue(s.patternMotion).onChange((v) => p.setLook({ patternMotion: v })));
     new Setting(containerEl)
-      .setName('Light / dark mode')
-      .addButton((b) => b.setButtonText('Toggle').onClick(() => p.toggleLightDark()));
-    new Setting(containerEl)
       .setName('Your name')
       .setDesc('Used in the dashboard greeting.')
       .addText((t) => t.setValue(s.name).onChange((v) => ((s.name = v.trim()), save())));

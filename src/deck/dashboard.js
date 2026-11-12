@@ -211,7 +211,6 @@ class DashboardView extends ItemView {
       (v) => p.setLook({ pattern: v }),
     );
     this.strSel = sel('Strength', STRENGTHS.map((x) => [x, STRENGTH_LABEL[x]]), () => p.settings.patternStrength, (v) => p.setLook({ patternStrength: v }));
-    this.modeBtn = button(looks, { cls: 'nd-icon-btn nd-mode-toggle', title: 'Light / dark', onClick: () => p.toggleLightDark() });
     this.registerEvent(this.app.workspace.on('css-change', () => this.syncLook()));
     this.updateClock();
     this.registerInterval(window.setInterval(() => this.updateClock(), 1000));
@@ -235,10 +234,6 @@ class DashboardView extends ItemView {
     if (this.themeSel) this.themeSel.value = s.theme;
     if (this.patSel) this.patSel.value = s.pattern;
     if (this.strSel) this.strSel.value = s.patternStrength;
-    if (this.modeBtn) {
-      this.modeBtn.empty();
-      icon(this.modeBtn, this.plugin.isDark() ? 'sun' : 'moon');
-    }
     if (this.footEl) {
       this.footEl.empty();
       const pat = this.plugin.activePattern();

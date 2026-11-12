@@ -30,10 +30,7 @@ Object.assign(NeonDeck.prototype, {
         }
         return { s, save: () => app.vault.adapter.write(dp, JSON.stringify(s, null, 2)) };
       };
-      const coreJson = async (name, key, def) => {
-        const id = name.replace('.json', '');
-        const ip = app.internalPlugins && app.internalPlugins.getPluginById && app.internalPlugins.getPluginById(id);
-        const opts = ip && ip.instance && ip.instance.options;
+      const coreJson = async (name, key, def, label) => {
         const dp = normalizePath(`${app.vault.configDir}/${name}`);
         let s = {};
         try {
@@ -41,16 +38,10 @@ Object.assign(NeonDeck.prototype, {
         } catch (e) {
           /* keep {} */
         }
-        const cur = (opts && opts[key]) || s[key] || def;
-        return {
-          cur,
-          set: (v) => {
-            if (opts) opts[key] = v;
-            s[key] = v;
-            saves.push(() => app.vault.adapter.write(dp, JSON.stringify(s, null, 2)));
-          },
-        };
+        // Obsidian's own settings stay the user's: say what to change instead of writing them
+        return { cur: s[key] || def, set: (v) => coreHints.push(`${label} → ${v}`) };
       };
+      const coreHints = [];
       // [current path, old default, setter]
       const items = [];
       const add = (cur, set, old) => {
@@ -80,9 +71,9 @@ Object.assign(NeonDeck.prototype, {
         add(time.s.logFolder || 'Time Log', (v) => (time.s.logFolder = v), 'Time Log');
         saves.push(time.save);
       }
-      const daily = await coreJson('daily-notes.json', 'folder', '');
+      const daily = await coreJson('daily-notes.json', 'folder', '', 'Daily notes → New file location');
       if (daily.cur) add(daily.cur, daily.set);
-      const tpl = await coreJson('templates.json', 'folder', '');
+      const tpl = await coreJson('templates.json', 'folder', '', 'Templates → Template folder location');
       add(tpl.cur || 'Templates', (v) => (tpl.cur ? tpl.set(v) : null));
       for (const p of s.excludeFolders.split(',').map((x) => x.trim()).filter(Boolean)) add(p, (v) => mapEx.push([normalizePath(p), v]));
       for (const p of ['Neon Deck Guide.md', 'Welcome.md']) add(p, () => null);
@@ -134,6 +125,7 @@ Object.assign(NeonDeck.prototype, {
       this._ex = null;
       await this.saveSettings();
       for (const fn of saves) await fn();
+      if (coreHints.length) new Notice(`Neon Deck: update these in Settings so they point into ${root}/:\n${coreHints.join('\n')}`, 0);
       if (moved || manual) new Notice(moved ? `Neon Deck: moved ${moved} item${moved === 1 ? '' : 's'} into ${root}/.` + (clash.length ? ` Skipped (already in ${root}): ${clash.join(', ')}.` : '') : `Neon Deck: everything is already in ${root}/.`, 8000);
       else if (clash.length) new Notice(`Neon Deck: not moved, already in ${root}/: ${clash.join(', ')}`, 8000);
     } catch (e) {
@@ -273,8 +265,9 @@ Object.assign(NeonDeck.prototype, {
     return openFile(this.app, file, evt, line);
   },
   openSearch(q) {
-    const gs = this.app.internalPlugins && this.app.internalPlugins.getPluginById && this.app.internalPlugins.getPluginById('global-search');
-    if (gs && gs.instance && gs.instance.openGlobalSearch) gs.instance.openGlobalSearch(q);
-    else new Notice('Enable the core “Search” plugin to use this');
+    const ws = this.app.workspace;
+    const leaf = ws.getLeavesOfType('search')[0] || ws.getLeftLeaf(false);
+    if (!leaf) return;
+    leaf.setViewState({ type: 'search', active: true, state: { query: q } }).then(() => ws.revealLeaf(leaf));
   },
 });
