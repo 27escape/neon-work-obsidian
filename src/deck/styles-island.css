@@ -4,14 +4,21 @@
    It grows out of the dashboard ticker (.from-ticker) or drips down from the top bar. */
 .nd-island,
 .nd-ticker {
-  --nd-fluid-hi: #23252c;
-  --nd-fluid: #0b0c0f;
-  --nd-fluid-lo: #030304;
-  --nd-fluid-text: #eceef2;
-  --nd-fluid-muted: rgba(236, 238, 242, 0.56);
-  --nd-fluid-glass: rgba(255, 255, 255, 0.06);
-  --nd-fluid-edge: rgba(255, 255, 255, 0.09);
+  /* dark: the theme's deepest background, darker still, with a breath of its accent */
+  --nd-fluid: color-mix(in srgb, color-mix(in srgb, var(--nd-bg2, #111215) 55%, #000) 92%, var(--nd-accent, #888));
+  --nd-fluid-text: var(--nd-text, #eceef2);
+  --nd-fluid-hi: color-mix(in srgb, var(--nd-fluid) 84%, #fff);
+  --nd-fluid-lo: color-mix(in srgb, var(--nd-fluid) 65%, #000);
+  --nd-fluid-muted: color-mix(in srgb, var(--nd-fluid-text) 60%, transparent);
+  --nd-fluid-glass: color-mix(in srgb, var(--nd-fluid-text) 7%, transparent);
+  --nd-fluid-edge: color-mix(in srgb, var(--nd-fluid-text) 11%, transparent);
   --nd-fluid-rim: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 55%, transparent);
+}
+/* light: an ink-dark tone of the theme (its text colour, tinted by the accent), light text on it */
+body.theme-light .nd-island,
+body.theme-light .nd-ticker {
+  --nd-fluid: color-mix(in srgb, var(--nd-text, #1b1e23) 86%, var(--nd-accent, #888));
+  --nd-fluid-text: var(--nd-bg, #f1f2f4);
 }
 .nd-island {
   position: fixed;
@@ -60,7 +67,7 @@
     radial-gradient(120% 90% at 22% -30%, rgba(255, 255, 255, 0.16), transparent 52%),
     radial-gradient(70% 60% at 100% 120%, color-mix(in srgb, var(--nd-accent, #888) 22%, transparent), transparent 70%),
     linear-gradient(180deg, var(--nd-fluid-hi), var(--nd-fluid) 38%, var(--nd-fluid-lo));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px var(--nd-fluid-edge), inset 0 -1px 0 var(--nd-fluid-rim);
+  box-shadow: inset 0 1px 0 var(--nd-fluid-edge), inset 0 0 0 1px var(--nd-fluid-edge), inset 0 -1px 0 var(--nd-fluid-rim);
   transition: transform var(--nd-med, 250ms) var(--nd-ease, ease);
 }
 /* the neck it hangs from under the top bar (not when it grows out of the ticker) */
@@ -105,6 +112,14 @@
 }
 
 /* contents */
+.nd-island-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .nd-island-body {
   position: relative;
   z-index: 1;

@@ -98,12 +98,7 @@ Object.assign(CardsView.prototype, {
     el.setAttr('draggable', 'true');
     el.addEventListener('dragstart', (e) => {
       this.plugin.dragging = folder;
-      try {
-        const dm = this.app.dragManager;
-        dm.onDragStart(e, dm.dragFolder(e, folder));
-      } catch (_) {
-        if (e.dataTransfer) e.dataTransfer.setData('text/plain', folder.path);
-      }
+      this.plugin.setDragData(e, folder);
     });
     el.addEventListener('dragend', () => (this.plugin.dragging = null));
   },

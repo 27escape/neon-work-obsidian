@@ -95,14 +95,35 @@ Object.assign(NeonDeck.prototype, {
     el.setAttr('draggable', 'true');
     el.addEventListener('dragstart', (e) => {
       this.dragging = file;
-      try {
-        const dm = this.app.dragManager;
-        dm.onDragStart(e, dm.dragFile(e, file));
-      } catch (_) {
-        if (e.dataTransfer) e.dataTransfer.setData('text/plain', `[[${file.basename}]]`);
-      }
+      this.setDragData(e, file);
     });
     el.addEventListener('dragend', () => (this.dragging = null));
+  },
+  /** Plain browser drag data: a link in the user's link style for files (a note inserts it as is), the path for folders.
+   *  No text/uri-list: with one, the editor wraps the text in a [text](url) link. */
+  setDragData(e, item) {
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    const active = this.app.workspace.getActiveFile();
+    dt.setData('text/plain', item instanceof TFile ? this.app.fileManager.generateMarkdownLink(item, active ? active.path : '') : item.path);
+    dt.effectAllowed = 'all';
+  },
+  /** A vault file or folder from a path, [[link]] or obsidian://open URL (as Obsidian's file list drags them), or null. */
+  vaultItemOf(s) {
+    s = (s || '').trim();
+    const url = s.match(/^obsidian:\/\/open\?(.*)$/);
+    if (url) s = new URLSearchParams(url[1]).get('file') || '';
+    else s = s.replace(/^!?\[\[([^\]|#]+).*\]\]$/, '$1');
+    if (!s) return null;
+    const v = this.app.vault;
+    return v.getAbstractFileByPath(normalizePath(s)) || v.getAbstractFileByPath(normalizePath(s + '.md')) || this.app.metadataCache.getFirstLinkpathDest(s, '') || null;
+  },
+  /** Vault items in a drop (only readable on drop, not while dragging over). */
+  droppedItems(dt) {
+    const raw = (dt && (dt.getData('text/uri-list') || dt.getData('text/plain'))) || '';
+    const lines = raw.split(/\r?\n/).filter((l) => l.trim() && !l.startsWith('#'));
+    const items = lines.map((l) => this.vaultItemOf(l));
+    return lines.length && items.every(Boolean) ? items : [];
   },
   fileMenu(file, e, extra) {
     const menu = new Menu();

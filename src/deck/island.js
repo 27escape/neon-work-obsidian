@@ -175,7 +175,8 @@ Object.assign(NeonDeck.prototype, {
 
   buildIsland() {
     const s = this.island;
-    const el = (s.el = document.body.createDiv({ cls: 'nd-island nd-root', attr: { 'aria-hidden': 'true', role: 'dialog', 'aria-label': 'Pin board' } }));
+    const el = (s.el = document.body.createDiv({ cls: 'nd-island nd-root', attr: { 'aria-hidden': 'true', role: 'dialog', 'aria-labelledby': 'nd-island-title' } }));
+    el.createEl('h2', { cls: 'nd-island-title', text: 'Pin board', attr: { id: 'nd-island-title' } }); // named without aria-label: that shows a tooltip
     // ferrofluid: shapes in one layer melt together through an SVG goo filter; text sits above, crisp
     if (!document.getElementById('nd-goo-filter')) {
       s.svg = document.body.createSvg('svg', { cls: 'nd-goo-defs', attr: { 'aria-hidden': 'true', width: '0', height: '0' } });
@@ -195,9 +196,9 @@ Object.assign(NeonDeck.prototype, {
     s.list = body.createDiv('nd-island-pins');
     s.input.addEventListener('keydown', (e) => this.islandKey(e));
     // the island is the drop target while open
+    // no stopPropagation: Obsidian's drag label follows the mouse through document-level events
     el.addEventListener('dragover', (e) => {
       e.preventDefault();
-      e.stopPropagation();
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
       window.clearTimeout(s.fold);
       el.addClass('is-target');
@@ -205,7 +206,6 @@ Object.assign(NeonDeck.prototype, {
     el.addEventListener('dragleave', (e) => !el.contains(e.relatedTarget) && el.removeClass('is-target'));
     el.addEventListener('drop', (e) => {
       e.preventDefault();
-      e.stopPropagation();
       el.removeClass('is-target');
       this.islandDrop(e);
     });
@@ -261,30 +261,16 @@ Object.assign(NeonDeck.prototype, {
     const f = await this.pinBoard(false);
     if (f) this.renderPins(await writeNote(this.app, f, (t) => removePinLine(t, raw)));
   },
-  /** A path, [[link]] or obsidian://open URL, as a vault file, or null. */
-  linkToFile(s) {
-    s = s.trim();
-    const url = s.match(/^obsidian:\/\/open\?(.*)$/);
-    if (url) s = new URLSearchParams(url[1]).get('file') || '';
-    else s = s.replace(/^!?\[\[([^\]|#]+).*\]\]$/, '$1');
-    if (!s) return null;
-    const mc = this.app.metadataCache;
-    const f = this.app.vault.getAbstractFileByPath(normalizePath(s)) || mc.getFirstLinkpathDest(s, '');
-    return f instanceof TFile ? f : null;
-  },
   async islandDrop(e) {
     const dt = e.dataTransfer;
     const dragged = this.dragging;
     const text = dt ? dt.getData('text/plain') : ''; // read now: the drop's data is gone after the first await
+    const items = this.droppedItems(dt);
     try {
       if (dragged instanceof TFile) await this.pinFiles([dragged]);
       else if (dt && dt.files && dt.files.length) await this.pinFiles((await this.importFiles(dt, normalizePath(`${this.settings.coreFolder || 'Core'}/Pinned`))) || []);
-      else if (text.trim()) {
-        const lines = text.split('\n').filter((l) => l.trim());
-        const files = lines.map((l) => this.linkToFile(l));
-        if (files.every(Boolean)) await this.pinFiles(files);
-        else await this.pinText(text);
-      }
+      else if (items.length) await this.pinFiles(items.filter((f) => f instanceof TFile));
+      else if (text.trim()) await this.pinText(text);
     } catch (err) {
       console.error('Neon Deck: pin drop', err);
       new Notice('Could not pin that — see console');

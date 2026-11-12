@@ -116,20 +116,20 @@ Object.assign(CardsView.prototype, {
   /** What is being dragged over a folder target: vault items to move, or files from the computer to copy in. */
   dropItems(e, dest) {
     if (dest == null) return null;
-    // a card or row of ours, else something from Obsidian's file list (one item or a selection)
-    const d = this.app.dragManager && this.app.dragManager.draggable;
-    const own = this.plugin.dragging ? [this.plugin.dragging] : d ? (d.files || (d.file ? [d.file] : [])) : [];
+    // a card or row of ours, else something from Obsidian's file list: its obsidian:// URLs are only readable on drop
+    const types = Array.from((e.dataTransfer && e.dataTransfer.types) || []);
+    const own = this.plugin.dragging ? [this.plugin.dragging] : e.type === 'drop' ? this.plugin.droppedItems(e.dataTransfer) : [];
     const items = own.filter((f) => (f instanceof TFile || f instanceof TFolder) && this.canMove(f, dest));
     if (items.length) return { move: items };
     if (own.length) return null; // vault items that are already there
-    return e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files') ? { copy: true } : null;
+    if (types.includes('Files')) return { copy: true };
+    return e.type !== 'drop' && types.includes('text/uri-list') ? { move: [] } : null; // maybe vault items: decided on drop
   },
   makeDropTarget(el, getPath) {
     el.addEventListener('dragover', (e) => {
       const what = this.dropItems(e, getPath());
-      if (!what) return;
+      if (!what || e.defaultPrevented) return; // an inner target already took it
       e.preventDefault();
-      e.stopPropagation();
       if (e.dataTransfer) e.dataTransfer.dropEffect = what.copy ? 'copy' : 'move';
       el.addClass('is-drop');
     });
