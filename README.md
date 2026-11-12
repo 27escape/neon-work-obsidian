@@ -118,7 +118,7 @@ Requires Obsidian 1.5.0 or later, desktop.
 
 ## Release notes
 
-Only the latest release notes are kept: [2.1.3](docs/release-notes/2.1.3.md): community plugin readiness (no default hotkeys, release tags without `v`). Older notes are in the git history.
+Only the latest release notes are kept: [2.1.4](docs/release-notes/2.1.4.md): community plugin readiness (public API only, no default hotkeys, no light/dark toggle). Older notes are in the git history.
 
 ## License
 
