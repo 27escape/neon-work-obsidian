@@ -26,7 +26,8 @@ Since 2.0 these are **modules of one plugin**. Neon Deck is the core; the others
 - Themes (Marathon, Cyberpunk, Calm, Paper, Night shift, Phosphor, Blueprint, Strawberry kitten, Black ICE), each in light and dark, with the same rounded corners and colour only in the accents. Each theme has its own matching category palette built from its accent, used by the Time wheel and category chips. Strawberry kitten and Black ICE are original palettes with no third-party artwork.
 - A live background pattern (Damascus, Prism, Meteorite, Topo, Hex mesh, Datastream, Black ICE) that pauses when Obsidian isn't focused or with *Reduce motion* on.
 - A ticker with live facts, and a Totals card: time worked, days worked, tasks and tickets done, notes created.
-- Quick capture from anywhere with `Ctrl+Shift+Space`: send to Task, Global task, Ticket or Time entry.
+- **Pin board (Dynamic Island):** drag a file, card or text over the top bar and the island drops down; drop it there to pin it. Pins live in `Core/Pin board.md` (one line each, edit it by hand if you like); click a pin to open it, drag it into a note, × to unpin. *Toggle pin board* opens it from the command palette.
+- Quick capture is the island's input line: Enter pins the text, or pick Task, Global task, Ticket or Time entry (Tab / Alt+1…). In popout windows it opens as a dialog.
 - Card explorer with category chips and a *Revisit* reminder for notes you haven't opened in a while, plus a local note graph that follows the theme.
 - **Sidebar order:** notes and folders starting with `!` stay on top (with a pin); the rest sort by their `created` property, newest first.
 - **Recently done:** ticked tasks and tickets set to Done or Waiting, grouped by day. The header button opens recently edited notes.

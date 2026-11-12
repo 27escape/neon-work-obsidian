@@ -31,16 +31,19 @@
         "src/deck/graph-panel.js",
         "src/deck/graph-draw.js",
         "src/deck/settings.js",
+        "src/deck/pins.js",
         "src/deck/plugin.js",
         "src/deck/workspace.js",
-        "src/deck/files.js"
+        "src/deck/files.js",
+        "src/deck/island.js"
       ],
       "css": [
         "src/deck/styles-tokens.css",
         "src/deck/styles-controls.css",
         "src/deck/styles-dashboard.css",
         "src/deck/styles-cards.css",
-        "src/deck/styles-graph-motion.css"
+        "src/deck/styles-graph-motion.css",
+        "src/deck/styles-island.css"
       ]
     },
     {

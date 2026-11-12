@@ -51,6 +51,7 @@ const DEFAULT_SETTINGS = {
   coreTidied: false,
   reviewFolder: 'Core/Reviews',
   inboxPath: 'Core/Inbox.md',
+  pinBoardPath: 'Core/Pin board.md',
   bridgeFolder: 'Core/Bridges',
   excludeFolders: 'Core/Templates',
   cardsInSidebar: true,

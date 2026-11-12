@@ -1,0 +1,116 @@
+/* ---------- Dynamic Island: pin board that drops down below the top bar ---------- */
+.nd-island {
+  position: fixed;
+  top: calc(var(--nd-island-top, 40px) + 6px);
+  left: 50%;
+  z-index: var(--layer-popover, 30);
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(60vh, 520px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: var(--nd-border, 1px) solid var(--nd-line, var(--background-modifier-border));
+  border-radius: var(--nd-radius, 22px);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--nd-text, var(--text-normal)) 4%, var(--nd-surface, var(--background-secondary))), var(--nd-surface, var(--background-secondary)));
+  box-shadow: var(--nd-shadow), var(--nd-hi), 0 0 0 1px color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 10%, transparent);
+  color: var(--nd-text, var(--text-normal));
+  font-family: var(--nd-font-ui);
+  transform: translate(-50%, calc(-100% - var(--nd-island-top, 40px)));
+  transform-origin: top center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform var(--nd-med, 250ms) var(--nd-ease, ease), opacity var(--nd-fast, 150ms) ease, visibility 0s linear var(--nd-med, 250ms), border-color var(--nd-fast, 150ms) ease;
+}
+.nd-island.is-open {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: transform var(--nd-med, 250ms) var(--nd-ease, ease), opacity var(--nd-fast, 150ms) ease, visibility 0s, border-color var(--nd-fast, 150ms) ease;
+}
+.nd-island.is-target {
+  border-color: var(--nd-accent, var(--interactive-accent));
+  box-shadow: var(--nd-shadow), 0 0 0 3px color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 28%, transparent);
+}
+.nd-island-cap {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.nd-island-target {
+  flex: none;
+  max-width: 40%;
+}
+.nd-island-input {
+  flex: 1;
+  min-width: 0;
+}
+.nd-island-pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.nd-island-pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 4px 4px 10px;
+  border: var(--nd-border, 1px) solid var(--nd-line, var(--background-modifier-border));
+  border-radius: var(--nd-radius-s, 12px);
+  background: var(--nd-surface2, var(--background-primary));
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--nd-fast, 150ms) ease, background-color var(--nd-fast, 150ms) ease;
+}
+.nd-island-pin:hover {
+  border-color: var(--nd-accent, var(--interactive-accent));
+}
+.nd-island-pin.is-text {
+  cursor: grab;
+}
+.nd-island-pin.is-missing {
+  opacity: 0.55;
+  cursor: default;
+}
+.nd-island-pin .nd-ico {
+  flex: none;
+  color: var(--nd-accent, var(--interactive-accent));
+  display: inline-flex;
+}
+.nd-island-pin .nd-ico svg {
+  width: 14px;
+  height: 14px;
+}
+.nd-island-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nd-island-x {
+  flex: none;
+  padding: 2px;
+  opacity: 0.6;
+}
+.nd-island-x:hover,
+.nd-island-x:focus-visible {
+  opacity: 1;
+}
+.nd-island-empty {
+  width: 100%;
+  padding: 10px 4px;
+  color: var(--nd-muted, var(--text-muted));
+  font-size: 13px;
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nd-island,
+  .nd-island.is-open {
+    transition: none;
+  }
+}

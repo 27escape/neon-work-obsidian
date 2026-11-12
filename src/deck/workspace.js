@@ -54,6 +54,7 @@ Object.assign(NeonDeck.prototype, {
       const mapEx = [];
       add(s.reviewFolder || 'Reviews', (v) => (s.reviewFolder = v), 'Reviews');
       add(s.inboxPath || 'Inbox.md', (v) => (s.inboxPath = v), 'Inbox.md');
+      add(s.pinBoardPath || 'Pin board.md', (v) => (s.pinBoardPath = v), 'Pin board.md');
       add(s.bridgeFolder || 'Bridges', (v) => (s.bridgeFolder = v), 'Bridges');
       const tasks = await sat('neon-tasks');
       if (tasks) {
