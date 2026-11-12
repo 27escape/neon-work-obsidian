@@ -17,7 +17,6 @@ class NeonDeck extends Plugin {
     this.services = new Map();
     this.dragging = null;
     this.api = this.buildApi();
-    this.loadFonts();
     this.applyLook();
 
     this.registerView(VIEW_DASH, (leaf) => new DashboardView(leaf, this));
@@ -56,7 +55,6 @@ class NeonDeck extends Plugin {
     this.addCommand({
       id: 'quick-capture',
       name: 'Quick capture',
-      hotkeys: [{ modifiers: ['Mod', 'Shift'], key: ' ' }],
       callback: () => new QuickCaptureModal(this).open(),
     });
     this.addCommand({
@@ -108,7 +106,6 @@ class NeonDeck extends Plugin {
 
   onunload() {
     if (this._saveSoon) (this._saveSoon.cancel(), this.saveSettings()); // don't lose the last 4 s of changes
-    if (this.fontStyle) this.fontStyle.remove();
     document.body.removeClass('nd-themed', ...THEMES.map((x) => `nd-theme-${x}`));
     this.app.workspace.trigger('neon-deck:core-unloaded');
   }
@@ -227,14 +224,6 @@ class NeonDeck extends Plugin {
     return [...this.captures.values()].sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
   }
 
-  loadFonts() {
-    if (this.manifest.fontsInCss) return; // Neon Deck 2: the fonts are inside styles.css
-    const dir = this.manifest.dir;
-    const url = (f) => this.app.vault.adapter.getResourcePath(normalizePath(`${dir}/fonts/${f}`));
-    const face = (family, file) => `@font-face{font-family:"${family}";src:url("${url(file)}") format("truetype");font-weight:100 900;font-style:normal;font-display:swap;}`;
-    this.fontStyle = document.head.createEl('style', { attr: { id: 'neon-deck-fonts' } });
-    this.fontStyle.textContent = [face('Unbounded', 'Unbounded.ttf'), face('Space Grotesk', 'SpaceGrotesk.ttf'), face('JetBrains Mono', 'JetBrainsMono.ttf')].join('\n');
-  }
 
   /* look: theme + pattern -------------------------------------------------- */
   activePattern() {

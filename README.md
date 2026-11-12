@@ -102,11 +102,11 @@ If the ZIP is not attached to an older release, download its three files instead
 
 Requires Obsidian 1.5.0 or later, desktop.
 
-**Upgrading from 1.x (six plugins):** replace the files in `neon-deck/` as above, turn **off** Neon Tasks, Time, Tickets, Research (now Study) and Write, and reload. Their settings and data are copied once into Neon Deck (the old files stay), hotkeys are kept. Then you can delete the five old plugin folders.
+**Upgrading from 1.x (six plugins):** replace the files in `neon-deck/` as above, turn **off** Neon Tasks, Time, Tickets, Research (now Study) and Write, and reload. Their settings and data are copied once into Neon Deck (the old files stay). Hotkeys are not carried over: set them again in *Settings → Hotkeys*. Then you can delete the five old plugin folders.
 
 **Safe mode:** if Neon Deck ever fails while starting, the next start keeps all modules off; turn them back on one by one in *Settings → Neon Deck modules*.
 
-**Quick capture** has no default hotkey for new installs (community plugin rule); set one in *Settings → Hotkeys*.
+**Quick capture** has no default hotkey (community plugin rule); set one in *Settings → Hotkeys*.
 
 ## For developers
 
@@ -118,7 +118,7 @@ Requires Obsidian 1.5.0 or later, desktop.
 
 ## Release notes
 
-Only the latest release notes are kept: [2.1.2](docs/release-notes/2.1.2.md): flashcards off the page with a cards button and exercises, Start day asks the start time, folder drops, tickets sorted by status. Older notes are in the git history.
+Only the latest release notes are kept: [2.1.3](docs/release-notes/2.1.3.md): community plugin readiness (no default hotkeys, release tags without `v`). Older notes are in the git history.
 
 ## License
 

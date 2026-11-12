@@ -13,9 +13,6 @@ class NeonMother extends Plugin {
     const crashed = this.state.starting; // the last start never finished
     this.state.starting = true;
     if (crashed) this.state.safe = true; // stays on until turned off in settings
-    // coming from 1.x (old plugin data present): keep the hotkeys 1.x set by default, once
-    this.upgrading = !this.state.keysKept && (await Promise.all(NEON_MODULES.map((m) => this.app.vault.adapter.exists(`${this.app.vault.configDir}/plugins/${m.id}/data.json`)))).some(Boolean);
-    this.state.keysKept = true;
     await this.writeState();
     this.addSettingTab(new NeonModulesTab(this.app, this));
     this.addCommand({ id: 'safe-mode', name: 'Restart in safe mode (modules off)', callback: () => this.setSafe(true) });
@@ -54,16 +51,7 @@ class NeonMother extends Plugin {
     const dir = m.id === 'neon-deck' ? this.manifest.dir : `${this.manifest.dir}/${m.id.replace('neon-', '')}`;
     try {
       await this.adoptData(m.id, dir);
-      const child = new m.cls(this.app, { ...this.manifest, id: m.id, name: m.name, dir, fontsInCss: true });
-      // no default hotkeys (community rule); people upgrading from 1.x get them as their own, once
-      const add = child.addCommand;
-      child.addCommand = (c) => {
-        if (c.hotkeys) {
-          if (this.upgrading) this.keepHotkey(`${m.id}:${c.id}`, c.hotkeys);
-          delete c.hotkeys;
-        }
-        return add.call(child, c);
-      };
+      const child = new m.cls(this.app, { ...this.manifest, id: m.id, name: m.name, dir });
       // a failing start stops only this module
       const load = child.onload;
       child.onload = async () => {
@@ -102,13 +90,6 @@ class NeonMother extends Plugin {
     this.state.safe = on;
     await this.writeState();
     new Notice(on ? 'Neon Deck: safe mode on. Reload Obsidian (or the plugin) to apply.' : 'Neon Deck: safe mode off. Reload to start the modules.');
-  }
-  /** A 1.x default hotkey becomes the user's own (unless they already set one for that command). */
-  keepHotkey(id, keys) {
-    const hm = this.app.hotkeyManager;
-    if (!hm || !hm.setHotkeys || hm.getHotkeys(id)) return;
-    hm.setHotkeys(id, keys);
-    if (hm.save) hm.save();
   }
   /** First start of a module: copy the settings of the old separate plugin (never move or delete it). */
   async adoptData(id, dir) {

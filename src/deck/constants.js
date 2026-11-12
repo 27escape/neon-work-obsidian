@@ -55,7 +55,7 @@ const DEFAULT_SETTINGS = {
   excludeFolders: 'Core/Templates',
   cardsInSidebar: true,
   replaceFileExplorer: true,
-  showCapture: false, // the Quick capture card (the capture command and hotkey work either way)
+  showCapture: false, // the Quick capture card (the capture command works either way)
   cardSort: 'created-prop',
   cardMode: 'cards',
   revisitDays: 14,

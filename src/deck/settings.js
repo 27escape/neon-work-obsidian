@@ -59,7 +59,7 @@ class NeonSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName('Card explorer').setHeading();
     new Setting(containerEl)
       .setName('Quick capture card')
-      .setDesc('Show the Quick capture card on the dashboard. The capture command and hotkey work either way.')
+      .setDesc('Show the Quick capture card on the dashboard. The capture command works either way.')
       .addToggle((t) =>
         t.setValue(s.showCapture).onChange(async (v) => {
           s.showCapture = v;
