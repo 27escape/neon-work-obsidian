@@ -18,6 +18,16 @@ class NeonMother extends Plugin {
     NEON_GUARD.readOnly = this.state.readOnly !== false;
     NEON_BASE.folder = this.state.baseFolder || ''; // fork: asked on first start (see BaseFolderModal)
     this.guardedApp = guardApp(this.app);
+    // fork: one shared, event-kept list of notes for every module (src/shared/note-index.js)
+    neonIndex = new NoteIndex(this.app);
+    this.registerEvent(this.app.metadataCache.on('changed', (f) => neonIndex && neonIndex.changed(f)));
+    this.registerEvent(this.app.vault.on('delete', (f) => neonIndex && neonIndex.deleted(f)));
+    this.registerEvent(this.app.vault.on('rename', (f, old) => neonIndex && neonIndex.renamed(f, old)));
+    const resolved = this.app.metadataCache.on('resolved', () => {
+      this.app.metadataCache.offref(resolved);
+      if (neonIndex) neonIndex.map = null; // the first full index: rebuild once from it
+    });
+    this.registerEvent(resolved);
     const gesture = () => (NEON_GUARD.lastGesture = Date.now());
     this.registerDomEvent(document, 'pointerdown', gesture, true);
     this.registerDomEvent(document, 'keydown', gesture, true);
@@ -62,6 +72,7 @@ class NeonMother extends Plugin {
     window.clearTimeout(this.doneTimer);
     this.startDone();
     if (neonMother === this) neonMother = null;
+    neonIndex = null;
   }
   startDone() {
     if (!this.state.starting) return;

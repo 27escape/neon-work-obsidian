@@ -27,10 +27,8 @@ Object.assign(NeonDeck.prototype, {
   claudeEntries() {
     const key = (this.settings.claudeProperty || 'claude').trim();
     const out = [];
-    for (const f of this.app.vault.getMarkdownFiles()) {
+    for (const { file: f, fm } of noteIndex(this.app).withProperty(key)) {
       if (this.isExcluded(f)) continue;
-      const fm = (this.app.metadataCache.getFileCache(f) || {}).frontmatter;
-      if (!fm || fm[key] == null) continue;
       const v = Array.isArray(fm[key]) ? fm[key][0] : fm[key];
       if (v != null && typeof v !== 'object') out.push({ file: f, value: String(v) });
     }

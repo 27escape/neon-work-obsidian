@@ -26,9 +26,8 @@ Object.assign(NeonTasks.prototype, {
     const todo = this.quickPath();
     const deck = neonPlugin(app, 'neon-deck');
     const sources = new Map();
-    for (const f of app.vault.getMarkdownFiles()) {
-      const cache = app.metadataCache.getFileCache(f);
-      if (!this.mayHoldTasks(f, cache) || this.isLegacyTicket(cache)) continue;
+    for (const { file: f, cache } of noteIndex(app).withOpenTasks()) {
+      if (this.isLegacyTicket(cache)) continue;
       if (deck && deck.isExcluded && deck.isExcluded(f)) continue;
       const d = dailyDateOf(app, f);
       const daily = d && !d.isAfter(today) && today.diff(d, 'days') <= this.settings.carryDays ? d : null;

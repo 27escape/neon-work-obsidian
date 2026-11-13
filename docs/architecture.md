@@ -35,7 +35,8 @@ flowchart TB
 | Time | `neon-time` | `src/time` | `NeonTime` | `neon-time` |
 | Write | `neon-write` | `src/write` | `NeonWrite` | — |
 
-- **Shared** (`src/shared/shared.js`, `src/shared/guard.js`): helpers every module uses (format, DOM, categories, daily notes, files, `writeNote`, path suggestions, the base folder, the read-only guard). One copy, loaded before the modules.
+- **Shared** (`src/shared/shared.js`, `guard.js`, `note-index.js`): helpers every module uses (format, DOM, categories, daily notes, files, `writeNote`, path suggestions, the base folder), the read-only guard and the note index. One copy, loaded before the modules.
+- **Note index** (`src/shared/note-index.js`): one list of the vault's notes with their metadata, tags and whether they hold open tasks. The kernel keeps it current from Obsidian's events (`changed`, `delete`, `rename`, the first `resolved`); modules ask `noteIndex(app)` for `projects()`, `withOpenTasks()` and `withProperty(key)` instead of each walking every note. Each module still caches its own results (for example the project list until a project note changes).
 
 ## Shared configuration
 
@@ -49,6 +50,7 @@ Settings that several modules need live in small shared objects, filled by which
 | `NEON_PROJECTS` | Projects | the project tag, status value → group map, status order, cancelled value |
 | `NEON_CATS` + `CATS`, `CAT_LABEL` | Projects / Dashboard (`refreshCategories`) | customers as categories, from the folders in the customers folder; the upstream four categories when there is none |
 | `NEON_DAILY_FALLBACK` | Dashboard | daily-note folder, format and template used while the core Daily notes plugin is off |
+| `neonIndex` | kernel | the shared note index (`noteIndex(app)`) |
 
 ## How the parts meet
 
@@ -91,7 +93,5 @@ Settings that several modules need live in small shared objects, filled by which
 
 ## Open
 
-- **Shared note index:** one cached scan for tasks, projects, research and the dashboard instead of each module scanning the vault.
-- **Settings shortcut:** Obsidian's ⋮ menu in the community plugins list may not offer the settings; the settings page itself works.
-- **Fix properties** (Tasks) deletes empty properties and adds `created`; it is blocked while read-only is on, but should be reviewed or removed before relying on it.
+- **Note index for the rest of the dashboard:** stats, the graph and the card explorer still list notes themselves (cheap, but they could use the index too).
 - **Screenshots** in `docs/screenshots/` are from upstream and out of date.

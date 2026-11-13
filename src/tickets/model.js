@@ -6,9 +6,7 @@ Object.assign(NeonProjects.prototype, {
     const out = [];
     const today = moment().startOf('day');
     const deck = neonPlugin(this.app, 'neon-deck');
-    for (const f of this.app.vault.getMarkdownFiles()) {
-      const cache = this.app.metadataCache.getFileCache(f);
-      if (!isProjectCache(cache)) continue;
+    for (const { file: f, cache } of noteIndex(this.app).projects()) {
       if (deck && deck.isExcluded && deck.isExcluded(f)) continue;
       out.push(this.toProject(f, cache, today));
     }

@@ -16,25 +16,10 @@ class NeonTasks extends Plugin {
     this.registerView(VIEW_TASKS, (leaf) => new TasksView(leaf, this));
     this.addCommand({ id: 'open-tasks', name: 'Open the Tasks tab', callback: () => this.openTab() });
     this.addCommand({ id: 'new-note', name: 'New note', callback: () => this.newNote(this.currentFolder()) });
-    this.addCommand({
-      id: 'fix-properties',
-      name: 'Fix properties of current note',
-      checkCallback: (checking) => {
-        const f = this.app.workspace.getActiveFile();
-        if (!f || f.extension !== 'md') return false;
-        if (!checking) this.fixProps(f).then((ch) => new Notice(ch ? '✦ Properties fixed' : 'Properties already tidy'));
-        return true;
-      },
-    });
-    this.addCommand({ id: 'fix-properties-folder', name: 'Fix properties in a folder…', callback: () => this.pickFolderToFix() });
+    // fork: "Fix properties" (current note / folder) and the automatic ops → operations rename are removed:
+    // they deleted empty properties (e.g. due: and completed: from your templates) and imposed upstream categories
     this.addCommand({ id: 'add-global-task', name: 'Add a task to Todo', callback: () => new PromptModal(this.app, { title: 'Add to Todo', placeholder: 'Goes at the top of your Todo note', cta: 'Add', onSubmit: (v) => this.addQuickTask(v) }).open() });
     this.addCommand({ id: 'uncategorised', name: 'Show new notes without a category', callback: () => new UncategorisedModal(this, this.uncategorised()).open() });
-    this.registerEvent(
-      this.app.workspace.on('file-menu', (menu, file) => {
-        if (file instanceof TFolder) menu.addItem((i) => i.setTitle('Fix properties in folder').setIcon('wand-2').onClick(() => this.fixFolder(file)));
-        else if (file instanceof TFile && file.extension === 'md') menu.addItem((i) => i.setTitle('Fix properties').setIcon('wand-2').onClick(() => this.fixProps(file).then((ch) => new Notice(ch ? '✦ Properties fixed' : 'Properties already tidy'))));
-      }),
-    );
     this.addSettingTab(new NeonTasksSettingTab(this.app, this));
     this.buildStatus();
 
@@ -61,8 +46,6 @@ class NeonTasks extends Plugin {
       this.registerEvent(this.app.vault.on('create', (f) => this.onCreate(f)));
       this.hookCore();
       this.updateBar();
-      // after Obsidian has read every note's properties
-      window.setTimeout(() => this.migrateCategories(), 5000);
       this.offerGlobalMove();
       // fork: no Global tasks backup (they are the Todo note); a new day moves tasks between groups
       this.registerInterval(window.setInterval(() => this.dayKey !== (this.dayKey = moment().format('YYYY-MM-DD')) && this.emit(), 10 * 60 * 1000));

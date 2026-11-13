@@ -3,7 +3,8 @@
   "manifest": "src/kernel/manifest.json",
   "shared": [
     "src/shared/shared.js",
-    "src/shared/guard.js"
+    "src/shared/guard.js",
+    "src/shared/note-index.js"
   ],
   "kernel": [
     "src/kernel/mother.js",
