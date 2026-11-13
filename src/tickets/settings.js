@@ -92,7 +92,7 @@ class NeonTicketsSettingTab extends PluginSettingTab {
       .addExtraButton((b) => b.setIcon('bell').setTooltip('Check now').onClick(() => p.checkReminders(true)));
     numSetting(new Setting(containerEl).setName('Remind this many days before due').setDesc('0 = only on the due day.'), s, 'remindDays', 0, 30, save);
     numSetting(new Setting(containerEl).setName('Waiting without a follow-up date: follow up after (days)'), s, 'autoFollowUpDays', 1, 60, save);
-    madeWith(containerEl, 'Neon Tickets');
+    madeWith(containerEl, 'Neon Projects');
   }
 }
 

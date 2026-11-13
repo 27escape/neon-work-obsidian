@@ -92,8 +92,8 @@
     },
     {
       "id": "neon-tickets",
-      "name": "Neon Tickets",
-      "desc": "Tickets and tracker",
+      "name": "Neon Projects",
+      "desc": "Projects tab and card: your project notes by customer and status",
       "cls": "NeonTickets",
       "files": [
         "src/tickets/constants.js",
