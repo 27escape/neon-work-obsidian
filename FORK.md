@@ -1,6 +1,6 @@
 # Neon Work
 
-**Plugin id:** `neon-work` · **Name:** Neon Work · **Version:** 1.0.0 (its own numbering, starting again from upstream Neon Deck 2.2.0)
+**Plugin id:** `neon-work` · **Name:** Neon Work · **Version:** 1.0.0 ([release notes](docs/release-notes/1.0.0.md); its own numbering, starting again from upstream Neon Deck 2.2.0)
 **Fork by:** {{CO_AUTHOR}}, with Claude
 **Repository:** {{REPO_URL}}
 **Based on:** [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs, version 2.2.0 (CC BY-NC-SA 4.0). The same licence applies to this fork; the changes are listed below.
@@ -39,6 +39,7 @@ To rename the plugin, change `id` and `name` in `src/kernel/manifest.json`, alon
 | **Weekly review template** | *Create / open this week's review* starts from a template note you choose (`{{weekLine}}`, `{{weekNotes}}`, `{{date:…}}`, `{{weekEnd:…}}`). |
 | **Inbox capture** | Quick capture can save a thought as a new note in your inbox folder, from your inbox template. Templater's `tp.file.title` and `tp.date.now()` are filled in. |
 | **Trimmed** | Write keeps the table picker, styled tables, dividers, locked callouts and the note pattern; the slash menu, selection toolbar and image moving are gone. The Revisit feature for "school" notes is gone. Time has no Jira field or column. Templates folders and top-level archive folders are left out of stats, tasks and projects. The lifted writing window is full width when *Readable line length* is off. "Fix properties" and the automatic category rename are removed (they deleted empty template properties). |
+| **Dashboard layout** | The header is one line (greeting, date, clock and buttons, smaller), without the Theme, Pattern and Strength selectors, which are in settings. Task rows put the date and note under the text. The Activity card's week buttons are this week and two either side. |
 | **Naming** | The UI names the plugin by its manifest name and the parts by their section (Dashboard, Tasks, Projects, Research, Time, Write); commands read "Neon Work – Tasks: …". Module ids and folders keep upstream's names, so saved data carries on. |
 
 ## How the read-only guard works

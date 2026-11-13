@@ -16,18 +16,18 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 
 ### Dashboard
 
-- **Cards** on one page: Totals, Vault pulse, Recently done, Activity (month calendar and week timeline), Tasks, Todo, Projects, Time today and the **Claude card** (notes whose `claude` property asks for Claude's work, and notes Claude changed for you to review).
+- **Cards** on one page: Totals, Vault pulse, Recently done, Activity (a month calendar, and this week with two weeks either side), Tasks, Todo, Projects, Time today and the **Claude card** (notes whose `claude` property asks for Claude's work, and notes Claude changed for you to review).
 - **Recently done:** the last 14 days of finished work, read from your notes: tasks ticked with a ✅ date (in the editor, the Tasks plugin or these cards) and projects with a `completed` or `cancelled` date. Works in read-only mode.
 - **Ticker and pin board:** a live line of facts at the top that opens into a pin board. Drop a note, a file or some text on it to pin it; pins live in one note, one line each.
 - **Quick capture:** type a thought and send it to an **Inbox note** (a new note in your inbox folder, from your inbox template), the **Todo** note, a new **Project**, a **Time entry** or the pin board.
 - **Card explorer** (sidebar or tab): your folders and notes as cards, coloured by customer, with filter chips per customer.
 - **Note graph** with suggested "bridge" notes between clusters.
 - **Weekly review** (*Create / open this week's review*): a note from your review template with the week in numbers and the notes you created or edited.
-- **Themes and patterns:** nine themes, each in light and dark, with a live pattern behind the dashboard.
+- **Themes and patterns:** nine themes, each in light and dark, with a live pattern behind the dashboard; chosen in *Settings → Dashboard*.
 
 ### Tasks
 
-- **Tasks tab and card:** every open `#task` line across the vault (`[ ]` and `[/]`), grouped Overdue · Today · Later by 📅 due or ⏳ scheduled date. Tick, edit or open each one in place. Notes tagged `tasks` and recent daily or weekly notes count every checkbox.
+- **Tasks tab and card:** every open `#task` line across the vault (`[ ]` and `[/]`), grouped Overdue · Today · Later by 📅 due or ⏳ scheduled date. Tick, edit or open each one in place; the date and note sit on a small line under the task text. Notes tagged `tasks` and recent daily or weekly notes count every checkbox.
 - **Todo card:** the open tasks of your Todo note in file order. New tasks go at the head of that note as `- [ ] #task … ➕ date`; ticking writes `[x] … ✅ date`, as the Tasks plugin does.
 - **Timeline:** a card on the Tasks tab draws dated tasks as a Mermaid Gantt chart, one section per note: a bar from 🛫 start to 📅 due, otherwise a milestone on the due date; overdue tasks in red, `[/]` tasks as active. Zoom (3 months, 12 months, all) and *Copy as Mermaid*. Can be switched off in settings.
 - **New note:** pick a customer and a kind (note, meeting, person, project, research); the note goes in `<customer>/<Meetings | People | Research>/` from that kind's template. People notes are named `@Name` with an `aliases` property.
