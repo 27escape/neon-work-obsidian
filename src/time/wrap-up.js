@@ -25,7 +25,7 @@ class WrapUpModal extends Modal {
     fact(fmtMin(sum.total), sum.target ? `of ${fmtMin(sum.target)}` : 'weekend');
     fact(sum.over ? `+${fmtMin(sum.over)}` : '—', 'overtime', sum.over ? 'is-over' : '');
     fact(day.done.filter((d) => d.kind === 'task').length, 'tasks done');
-    fact(new Set(day.done.filter((d) => d.kind === 'ticket').map((d) => d.ref)).size, 'tickets moved');
+    fact(new Set(day.done.filter((d) => d.kind === 'ticket').map((d) => d.ref)).size, 'projects moved');
     c.createDiv({ cls: 'tm-label', text: 'A line about tomorrow' });
     const ta = c.createEl('textarea', { cls: 'nd-input', attr: { rows: '2', placeholder: 'Start with…' } });
     ta.value = day.tomorrow || '';

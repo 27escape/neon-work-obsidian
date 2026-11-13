@@ -9,7 +9,8 @@ Object.assign(NeonTickets.prototype, {
     });
   },
   async log(t, text) {
-    await writeNote(this.app, t.file, (d) => addToSection(d, 'log', `- ${STAMP()} — ${text}`));
+    // fork: projects keep their changes in properties only, unless "Write a log" is on
+    if (this.settings.writeLog || !t.isProject) await writeNote(this.app, t.file, (d) => addToSection(d, 'log', `- ${STAMP()} — ${text}`));
     this.app.workspace.trigger('neon:ticket-changed', { file: t.file, id: t.id, title: t.title, change: text });
   },
   /** How many steps of a ticket are still open (read from the note). */
@@ -18,6 +19,7 @@ Object.assign(NeonTickets.prototype, {
   },
   /** Change a ticket's status. Done is refused (false) while steps are open. */
   async setStatus(t, status) {
+    if (t.isProject) return this.setProjectStatus(t, status);
     if (status === t.status) return;
     if (status === 'done') {
       const n = await this.openSteps(t);
@@ -219,4 +221,33 @@ Object.assign(NeonTickets.prototype, {
     });
   },
 
+  /**
+   * fork: a project's status. `target` is one of your status values, or a kind ('open', 'in-progress',
+   * 'waiting', 'done') meaning the first value of that group. Properties only (see projectStatusPatch).
+   */
+  async setProjectStatus(t, target) {
+    const kinds = ['open', 'in-progress', 'waiting', 'done'];
+    const value = kinds.includes(target) ? this.statusChoices(target)[0] || target : target;
+    if (!value || (t.statusRaw && value.toLowerCase() === t.statusRaw.toLowerCase())) return;
+    const { kind, patch } = projectStatusPatch(value, t.status, moment().format('YYYY-MM-DD'), NEON_PROJECTS);
+    if (kind === 'done') {
+      const n = await this.openSteps(t);
+      if (n) {
+        new Notice(`${n} step${n > 1 ? 's' : ''} still open — finish ${n > 1 ? 'them' : 'it'} first`);
+        return false;
+      }
+    }
+    // empty properties from your template (e.g. `completed:`) stay as empty keys; `cancelled` only exists while cancelled
+    await this.app.fileManager.processFrontMatter(t.file, (fm) => {
+      for (const [k, v] of Object.entries(patch)) {
+        if (v !== null) fm[k] = v;
+        else if (k === 'cancelled' || /^(waiting_on|follow_up|waiting_since)$/.test(k)) delete fm[k];
+        else if (k in fm) fm[k] = null;
+      }
+    });
+    this.logStatus(t, kind);
+    await this.log(t, `Status: ${t.statusRaw || TICKET_STATUS_LABEL[t.status]} → ${value}`);
+    if (kind === 'done') new Notice(`✓ ${t.title} — ${value}`);
+    return true;
+  },
 });

@@ -105,7 +105,8 @@
         "src/tickets/template-export.js",
         "src/tickets/filing.js",
         "src/tickets/actions.js",
-        "src/tickets/model.js"
+        "src/tickets/model.js",
+        "src/tickets/projects.js"
       ],
       "css": [
         "src/tickets/styles-view.css",

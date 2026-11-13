@@ -57,7 +57,7 @@ const ACTIVITY_STATS = [
     },
   },
   {
-    id: 'busiest', label: 'busiest weekday', accent: 'var(--nd-accent)', how: 'Weekday with the most tasks, tickets, time entries and notes this month.',
+    id: 'busiest', label: 'busiest weekday', accent: 'var(--nd-accent)', how: 'Weekday with the most tasks, projects, time entries and notes this month.',
     get(days, month) {
       const by = [0, 0, 0, 0, 0, 0, 0];
       for (const [k, x] of days) if (moment(k).isSame(month, 'month')) by[moment(k).isoWeekday() - 1] += actCount(x);
@@ -88,7 +88,7 @@ const ACTIVITY_STATS = [
     },
   },
   {
-    id: 'tickets', label: 'tickets closed / opened', accent: 'var(--nd-warn)', how: 'Ticket notes with `completed` / `created` in this month; average days from created to completed.',
+    id: 'tickets', label: 'projects closed / opened', accent: 'var(--nd-warn)', how: 'Project notes with `completed` / `created` in this month; average days from created to completed.',
     get(days, month, p) {
       let opened = 0;
       let closed = 0;

@@ -127,7 +127,7 @@ class NewNoteModal extends Modal {
     const name = field('Name').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'Untitled' } });
     name.value = file ? file.basename : this.opts.name || '';
     const kinds = [['note', 'Note'], ['tasks', 'Task list']];
-    if (this.plugin.ticketService()) kinds.push(['ticket', 'Ticket']);
+    if (this.plugin.ticketService()) kinds.push(['ticket', 'Project']);
     this.kind = pills(field('Kind'), kinds, 'note', (v) => sync());
     this.cat = pills(
       field('Category', 'for the time tracker · optional'),
@@ -151,7 +151,7 @@ class NewNoteModal extends Modal {
     const sync = () => {
       const t = this.kind.get() === 'ticket';
       folderField.toggle(!t);
-      note.setText(t ? 'Opens the New ticket form with this name as the title.' : 'You can close this and just type — the note keeps a small “No category yet” reminder.');
+      note.setText(t ? 'Opens the New project form with this name as the title.' : 'You can close this and just type — the note keeps a small “No category yet” reminder.');
       go.querySelector('.nd-btn-label').setText(t ? 'Continue' : file ? 'Save' : 'Create');
     };
     c.addEventListener('keydown', (e) => {

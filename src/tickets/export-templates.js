@@ -87,8 +87,9 @@ Object.assign(NeonTickets.prototype, {
   },
   /** Startup: make the folder (fresh vault), move templates from plugin data into notes once, then read them. */
   async initTemplates() {
-    await ensureFolder(this.app, this.templateDir());
-    if (!this.settings.templatesMigrated) {
+    // fork: the Templates folder is made only when there are old templates to move into it (or you save one)
+    if (!this.settings.templatesMigrated && this.settings.templates.length) {
+      await ensureFolder(this.app, this.templateDir());
       const have = new Set((await this.loadTemplates()).map((t) => t.id));
       for (const t of this.settings.templates) if (!have.has(t.id)) await this.writeTemplateNote(t);
       // settings.templates stays as it was, as a backup

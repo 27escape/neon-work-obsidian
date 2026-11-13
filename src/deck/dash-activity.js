@@ -30,7 +30,7 @@ Object.assign(DashboardView.prototype, {
       const key = `${x.kind}|${x.t}|${x.text}`;
       this.doneSeen.add(key);
       const r = box.createDiv('nd-done-row' + (x.open ? ' is-clickable' : '') + (seen && !seen.has(key) ? ' is-new' : ''));
-      icon(r, x.kind === 'ticket' ? 'ticket' : 'check', 'nd-ico nd-done-ico');
+      icon(r, x.kind === 'ticket' ? 'briefcase' : 'check', 'nd-ico nd-done-ico');
       r.createSpan({ cls: 'nd-done-text', text: x.text });
       if (x.status) r.createSpan({ cls: `nd-done-chip is-${x.status}`, text: x.status === 'done' ? 'Done' : 'Waiting' });
       if (x.src) r.createSpan({ cls: 'nd-done-src', text: x.src });
@@ -94,7 +94,7 @@ Object.assign(DashboardView.prototype, {
         c.createSpan({ cls: 'nd-act-num', text: String(m.date()) });
         const dots = c.createDiv('nd-act-dots');
         if (x) for (const [kind, list] of [['task', x.tasks], ['ticket', x.tickets], ['time', x.time], ['note', x.notes]]) if (list.length) dots.createSpan(`nd-act-dot is-${kind}`);
-        tip(c, `${m.format('ddd D MMM')} · ${x ? `${x.tasks.length} tasks · ${x.tickets.length} tickets · ${x.time.length} time entries · ${x.notes.length} notes` : 'nothing'}`);
+        tip(c, `${m.format('ddd D MMM')} · ${x ? `${x.tasks.length} tasks · ${x.tickets.length} projects · ${x.time.length} time entries · ${x.notes.length} notes` : 'nothing'}`);
         if (n) c.addEventListener('click', () => new ActivityDayModal(this.plugin, m, x).open());
       }
     });
@@ -115,7 +115,7 @@ Object.assign(DashboardView.prototype, {
       if (!rows.length) list.createDiv({ cls: 'nd-act-none', text: '·' });
       for (const r of rows) {
         const el = list.createDiv(`nd-act-item is-${r.kind}` + (r.open ? ' is-clickable' : ''));
-        icon(el, { task: 'check', ticket: 'ticket', time: 'clock', note: 'file-text' }[r.kind], 'nd-ico');
+        icon(el, { task: 'check', ticket: 'briefcase', time: 'clock', note: 'file-text' }[r.kind], 'nd-ico');
         el.createSpan({ cls: 'nd-act-item-text', text: r.text });
         tip(el, `${moment(r.t).format('HH:mm')} · ${r.text}${r.extra ? ' · ' + r.extra : ''}`);
         if (r.open) el.addEventListener('click', (e) => r.open(e));

@@ -9,10 +9,10 @@ class TicketView extends FileView {
     return VIEW_TICKET;
   }
   getIcon() {
-    return 'ticket';
+    return 'briefcase';
   }
   getDisplayText() {
-    return this.file ? this.file.basename : 'Ticket';
+    return this.file ? this.file.basename : 'Project';
   }
   canAcceptExtension(ext) {
     return ext === 'md';
@@ -109,13 +109,13 @@ class TicketCard {
     root.empty();
     if (!t) {
       const e = root.createDiv('tk-empty');
-      e.createDiv({ text: 'This note isn’t a ticket (no “type: ticket”).' });
+      e.createDiv({ text: 'This note isn’t a project (no “type: ticket”).' });
       button(e, { text: 'Open as note', cls: 'mod-cta', onClick: () => this.host.raw(file) });
       return;
     }
     const card = root.createDiv(`tk-card status-${t.status} prio-${t.priority}`);
     const kick = card.createDiv('tk-kicker');
-    kick.createSpan({ cls: 'tk-k', text: 'Ticket' });
+    kick.createSpan({ cls: 'tk-k', text: 'Project' });
     if (t.id) kick.createSpan({ cls: 'tk-id', text: t.id });
     if (t.jira) kick.createSpan({ cls: 'tk-jira', text: t.jira });
     kick.createSpan({ cls: 'tk-path', text: `· ${file.parent && file.parent.path !== '/' ? file.parent.path + '/' : ''}` });
@@ -137,6 +137,17 @@ class TicketCard {
     card.createDiv({ cls: 'tk-title', text: t.title });
 
     const st = card.createDiv('nd-pills tk-status');
+    if (t.isProject) {
+      // fork: your status values, coloured by their group
+      for (const v of this.plugin.statusChoices()) {
+        const on = (t.statusRaw || '').toLowerCase() === v.toLowerCase();
+        const btn = st.createEl('button', { cls: `nd-pill-btn s-${this.plugin.statusKind(v)}` + (on ? ' is-on' : ''), text: v });
+        btn.addEventListener('click', () => !on && this.plugin.setStatus(t, v));
+      }
+      const facts = [t.customer && `Customer: ${t.customer}`, t.stage && `Stage: ${t.stage}`, t.startedOn && `Started ${t.startedOn.format('D MMM YYYY')}`].filter(Boolean);
+      if (facts.length) card.createDiv({ cls: 'tk-path', text: facts.join(' · ') });
+      if (t.note) card.createDiv({ cls: 'tk-row-note', text: t.note });
+    } else
     for (const s of TICKET_STATUS) {
       const btn = st.createEl('button', { cls: `nd-pill-btn s-${s}` + (t.status === s ? ' is-on' : ''), text: TICKET_STATUS_LABEL[s] });
       btn.addEventListener('click', () => t.status !== s && (s === 'done' ? this.finish(t) : this.plugin.setStatus(t, s)));
@@ -278,7 +289,7 @@ class TicketCard {
           title: 'Remove screenshot',
           onClick: (e) => {
             e.stopPropagation();
-            new ConfirmModal(this.app, { title: 'Remove screenshot?', text: 'It leaves the ticket and the image goes to the system trash.', cta: 'Remove', onConfirm: () => this.plugin.removeScreenshot(t, shot) }).open();
+            new ConfirmModal(this.app, { title: 'Remove screenshot?', text: 'It leaves the project and the image goes to the system trash.', cta: 'Remove', onConfirm: () => this.plugin.removeScreenshot(t, shot) }).open();
           },
         });
       }
@@ -334,7 +345,7 @@ class TicketCard {
       if (ok === false) throw new Error('a step was added meanwhile');
     } catch (e) {
       console.error('Neon Tickets: could not mark done', e);
-      new Notice('Could not mark the ticket done');
+      new Notice('Could not mark the project done');
       this.finishing = false;
       return this.render(); // the redraw takes the checkmark away
     }

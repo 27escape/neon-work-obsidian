@@ -17,12 +17,22 @@ Object.assign(NeonTickets.prototype, {
   },
   toTicket(f, cache, today) {
     const fm = (cache && cache.frontmatter) || {};
-    const created = parseDay(fm.created) || moment(f.stat.ctime);
+    const isProject = isProjectCache(cache); // fork
+    const started = parseDay(fm.started);
+    const created = parseDay(fm.created) || started || moment(f.stat.ctime);
     const due = parseDay(fm.due);
     const remindRaw = fm.remind != null ? String(fm.remind) : '';
     const t = {
       file: f,
-      title: String(fm.title || f.basename),
+      title: isProject ? projectTitle(f.basename) : String(fm.title || f.basename),
+      // fork: project fields
+      isProject,
+      statusRaw: fm.status != null && typeof fm.status !== 'object' && String(fm.status).trim() ? String(fm.status).trim() : '',
+      customer: projectCustomer(f.path, fm, this.settings.customersFolder),
+      stage: fm.stage != null && typeof fm.stage !== 'object' ? String(fm.stage).trim() : '',
+      note: fm.note != null && typeof fm.note !== 'object' ? String(fm.note).trim() : '',
+      startedOn: started,
+      cancelled: parseDay(fm.cancelled),
       id: fm.ticket != null && fm.ticket !== '' ? String(fm.ticket) : fm.id != null ? String(fm.id) : '',
       status: normTicketStatus(fm.status),
       priority: normTicketPrio(fm.priority),
@@ -31,7 +41,7 @@ Object.assign(NeonTickets.prototype, {
       due,
       remind: parseDay(remindRaw),
       remindHasTime: /\d{1,2}:\d{2}/.test(remindRaw),
-      completed: parseDay(fm.completed),
+      completed: parseDay(fm.completed) || parseDay(fm.cancelled),
       waitingOn: fm.waiting_on ? String(fm.waiting_on) : '',
       followUp: parseDay(fm.follow_up),
       waitingSince: parseDay(fm.waiting_since),

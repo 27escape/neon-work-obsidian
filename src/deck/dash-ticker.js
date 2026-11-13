@@ -128,7 +128,7 @@ Object.assign(DashboardView.prototype, {
       const all = tk.collectTickets();
       const done = all.filter((t) => t.status === 'done');
       const doneMonth = done.filter((t) => t.completed && t.completed.isSame(now, 'month')).length;
-      tile(done.length, 'tickets done', 'var(--nd-warn)', `${doneMonth} in ${month} · ${all.length - done.length} open`, 'Tickets marked done, by completed date');
+      tile(done.length, 'projects done', 'var(--nd-warn)', `${doneMonth} in ${month} · ${all.length - done.length} open`, 'Projects marked done, by completed date');
     }
 
     // notes (vault)

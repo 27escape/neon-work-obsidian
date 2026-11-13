@@ -139,8 +139,25 @@ function fmTags(fm) {
   const arr = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(/[,\s]+/) : [];
   return arr.filter(Boolean).map((t) => String(t).replace(/^#/, '').toLowerCase());
 }
+/**
+ * fork: projects are what upstream calls tickets. A project is a note with the project tag in its tags
+ * property (default `project`, a Neon Projects setting). Upstream ticket notes (`type: ticket` or a
+ * #ticket tag) still count. Status values and their groups come from the same settings.
+ */
+const NEON_PROJECTS = {
+  tag: 'project',
+  // status value (lower case) -> 'open' | 'in-progress' | 'waiting' | 'done'
+  kinds: { init: 'open', created: 'open', inprogress: 'in-progress', ongoing: 'in-progress', paused: 'waiting', blocked: 'waiting', completed: 'done', cancelled: 'done' },
+  order: ['init', 'inprogress', 'paused', 'blocked', 'cancelled', 'completed'], // the choices offered, in this order
+  cancelled: 'cancelled', // closing with this value writes a `cancelled` date instead of `completed`
+};
+function isProjectCache(cache) {
+  const fm = cache && cache.frontmatter;
+  return !!fm && !!NEON_PROJECTS.tag && fmTags(fm).includes(NEON_PROJECTS.tag.replace(/^#/, '').toLowerCase());
+}
 function isTicketCache(cache) {
   if (!cache) return false;
+  if (isProjectCache(cache)) return true;
   const fm = cache.frontmatter;
   if (fm && /^ticket$/i.test(String(fm.type || '').trim())) return true;
   const tags = getAllTags(cache) || [];

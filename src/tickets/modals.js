@@ -11,7 +11,7 @@ class NewTicketModal extends Modal {
     this.titleEl.empty();
     const tchip = this.titleEl.createSpan('tk-form-icon');
     setIcon(tchip, 'ticket');
-    this.titleEl.createSpan({ text: 'New ticket' });
+    this.titleEl.createSpan({ text: 'New project' });
     const c = this.contentEl.createDiv('tk-form');
     const field = (parent, label, note, req) => {
       const f = parent.createDiv('tk-field');
@@ -28,7 +28,7 @@ class NewTicketModal extends Modal {
     const r1 = row();
     const title = field(r1, 'Title', 'required', true).createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'What is it about?' } });
     title.value = this.opts.title || '';
-    const id = field(r1, 'Ticket ID', 'optional').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'e.g. INC-4821' } });
+    const id = field(r1, 'Project ID', 'optional').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'e.g. INC-4821' } });
     const descF = field(c, 'Description', 'required', true);
     const desc = descF.createEl('textarea', { cls: 'nd-input', attr: { rows: '3', placeholder: 'What’s wrong, who’s affected, since when?' } });
     const ready = c.createDiv('tk-ready');
@@ -115,7 +115,7 @@ class NewTicketModal extends Modal {
     const foot = this.contentEl.createDiv('tk-form-foot');
     foot.createDiv({ cls: 'tk-keys', text: 'Ctrl+Enter to create · Esc to cancel' });
     button(foot, { text: 'Cancel', onClick: () => this.close() });
-    const create = button(foot, { text: 'Create ticket', cls: 'mod-cta', onClick: () => submit() });
+    const create = button(foot, { text: 'Create project', cls: 'mod-cta', onClick: () => submit() });
 
     const fmtDay = (v) => (v ? moment(v).format('ddd D MMM') : '—');
     const syncDue = () => {
@@ -249,7 +249,7 @@ class TemplateModal extends Modal {
       }
     });
 
-    const desc = field('Description', 'optional · filled in when empty').createEl('textarea', { cls: 'nd-input', attr: { rows: '2', placeholder: 'Text the ticket starts with' } });
+    const desc = field('Description', 'optional · filled in when empty').createEl('textarea', { cls: 'nd-input', attr: { rows: '2', placeholder: 'Text the project starts with' } });
     desc.value = t.description || '';
     const row = c.createDiv('tk-row');
     const pf = row.createDiv('tk-field');
@@ -300,7 +300,7 @@ class ClearDoneModal extends Modal {
   onOpen() {
     const p = this.plugin;
     this.modalEl.addClass('nd-modal', 'tk-clear-modal');
-    this.titleEl.setText('Clear done tickets');
+    this.titleEl.setText('Clear done projects');
     const c = this.contentEl;
     const monthStart = moment().startOf('month');
     const finished = (t) => (t.completed ? t.completed : moment(t.file.stat.mtime));
@@ -309,7 +309,7 @@ class ClearDoneModal extends Modal {
       all: this.done,
     };
     const what = c.createDiv('tk-field');
-    what.createDiv({ cls: 'tk-label', text: 'Which tickets' });
+    what.createDiv({ cls: 'tk-label', text: 'Which projects' });
     const choice = pills(
       what,
       [
@@ -340,7 +340,7 @@ class ClearDoneModal extends Modal {
     const sync = () => {
       const n = (sets[choice.get()] || []).length;
       go.toggleClass('is-disabled', !n);
-      info.setText(n ? `${n} ticket${n === 1 ? '' : 's'} go${n === 1 ? 'es' : ''} to the system trash (you can restore them from there). The “done in …” counter counts them no more; time logged in Neon Time stays.` : 'Nothing to clear for this choice.');
+      info.setText(n ? `${n} project${n === 1 ? '' : 's'} go${n === 1 ? 'es' : ''} to the system trash (you can restore them from there). The “done in …” counter counts them no more; time logged in Neon Time stays.` : 'Nothing to clear for this choice.');
     };
     sync();
   }
@@ -451,22 +451,27 @@ class TimeEntryModal extends Modal {
 }
 
 function ticketMenu(plugin, t, m) {
-  m.addItem((i) => i.setTitle('Open').setIcon('ticket').onClick(() => plugin.showTicket(t.file)));
+  m.addItem((i) => i.setTitle('Open').setIcon('briefcase').onClick(() => plugin.showTicket(t.file)));
   m.addItem((i) => i.setTitle('Open in new tab').setIcon('file-plus-2').onClick(() => plugin.openTicket(t.file, true)));
   m.addItem((i) => i.setTitle('Edit as note').setIcon('file-text').onClick(() => plugin.openRaw(t.file)));
-  m.addItem((i) => i.setTitle('Save as template…').setIcon('layout-template').onClick(() => plugin.templateFromTicket(t)));
+  if (!t.isProject) m.addItem((i) => i.setTitle('Save as template…').setIcon('layout-template').onClick(() => plugin.templateFromTicket(t)));
   m.addSeparator();
   if (t.status === 'done') m.addItem((i) => i.setTitle('Reopen').setIcon('rotate-ccw').onClick(() => plugin.setStatus(t, 'open')));
   else m.addItem((i) => i.setTitle('Mark done').setIcon('check').onClick(() => plugin.setStatus(t, 'done')));
-  for (const s of TICKET_STATUS) {
-    if (s === 'done') continue;
-    m.addItem((i) => i.setTitle(`Status: ${TICKET_STATUS_LABEL[s]}`).setChecked(t.status === s).onClick(() => plugin.setStatus(t, s)));
-  }
+  if (t.isProject) {
+    // fork: your own status values
+    for (const v of plugin.statusChoices()) m.addItem((i) => i.setTitle(`Status: ${v}`).setChecked((t.statusRaw || '').toLowerCase() === v.toLowerCase()).onClick(() => plugin.setStatus(t, v)));
+  } else
+    for (const s of TICKET_STATUS) {
+      if (s === 'done') continue;
+      m.addItem((i) => i.setTitle(`Status: ${TICKET_STATUS_LABEL[s]}`).setChecked(t.status === s).onClick(() => plugin.setStatus(t, s)));
+    }
   m.addSeparator();
-  for (const p of [...TICKET_PRIOS].reverse()) m.addItem((i) => i.setTitle(`Priority: ${p}`).setChecked(t.priority === p).onClick(() => plugin.setPriority(t, p)));
+  if (!t.isProject) for (const p of [...TICKET_PRIOS].reverse()) m.addItem((i) => i.setTitle(`Priority: ${p}`).setChecked(t.priority === p).onClick(() => plugin.setPriority(t, p)));
   m.addSeparator();
   for (const [n, label] of [[1, '+1 day'], [3, '+3 days'], [7, '+1 week'], [14, '+2 weeks']]) m.addItem((i) => i.setTitle(`Postpone ${label}`).setIcon('calendar-clock').onClick(() => plugin.postpone(t, n)));
   m.addItem((i) => i.setTitle('Set due date…').setIcon('calendar').onClick(() => plugin.promptDate(t, 'due')));
   m.addItem((i) => i.setTitle('Remind me on…').setIcon('bell').onClick(() => plugin.promptDate(t, 'remind')));
+  if (t.isProject) m.addItem((i) => i.setTitle('Set note…').setIcon('message-square').onClick(() => plugin.promptNote(t)));
 }
 

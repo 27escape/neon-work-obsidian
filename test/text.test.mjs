@@ -294,9 +294,9 @@ test('workday timer counts toward the day total; breaks are shown but not counte
   assert.equal(t.summary(key, false).total, 180);
 });
 
-test('Tickets sort by status by default: not started first, then Waiting, In progress, Open, Done (issue 59)', () => {
+test('Status grouping: not started first, then Waiting, In progress, Open, Done (issue 59)', () => {
   const { ticketGroups, TICKETS_DEFAULTS } = load('neon-tickets', ['ticketGroups', 'TICKETS_DEFAULTS']);
-  assert.equal(TICKETS_DEFAULTS.tabSort, 'status');
+  assert.equal(TICKETS_DEFAULTS.tabSort, 'customer'); // fork: projects group by customer by default
   const tk = (title, status, started) => ({ title, status, started, priority: 'normal', bucket: 'nodate', due: null });
   const groups = ticketGroups([tk('a', 'done', true), tk('b', 'open', true), tk('c', 'in-progress', true), tk('d', 'waiting', true), tk('e', 'open', false)], 'status');
   assert.deepEqual(JSON.parse(JSON.stringify(groups.map(([k, , g]) => [k, g.map((t) => t.title).join('')]))), [

@@ -6,7 +6,7 @@
 const VIEW_TICKETS = 'neon-deck-tickets';
 const VIEW_TICKET = 'neon-ticket';
 const TICKET_STATUS = ['open', 'in-progress', 'waiting', 'done'];
-const TICKET_STATUS_LABEL = { open: 'Open', 'in-progress': 'In progress', waiting: 'Waiting', done: 'Done' };
+const TICKET_STATUS_LABEL = { open: 'Not started', 'in-progress': 'In progress', waiting: 'On hold', done: 'Closed' }; // fork: project wording
 const TICKET_PRIOS = ['low', 'normal', 'high', 'urgent'];
 const TICKET_PRIO_RANK = { urgent: 0, high: 1, normal: 2, low: 3 };
 const TICKET_BUCKETS = [
@@ -19,12 +19,24 @@ const TICKET_BUCKETS = [
   ['done', 'Done'],
 ];
 const TICKETS_DEFAULTS = {
-  ticketFolder: 'Neon/Tickets', // fork: no Core folder
+  // fork: projects. Which notes are projects, their status values (comma lists, in the order offered),
+  // and where new ones go: <customers folder>/<customer>/<projects folder>/, from a template note.
+  projectTag: 'project',
+  statusNotStarted: 'init, created',
+  statusActive: 'inprogress, ongoing',
+  statusOnHold: 'paused, blocked',
+  statusClosed: 'completed, cancelled',
+  statusCancelled: 'cancelled', // closing with this value writes a `cancelled` date instead of `completed`
+  customersFolder: '1.Customers',
+  projectsFolderName: 'Projects',
+  projectTemplate: '',
+  writeLog: false, // fork: status changes only update properties; on = also a dated line under ## Log
+  ticketFolder: 'Neon/Tickets', // fork: no Core folder (used for upstream tickets and templates)
   screenshotFolder: 'Neon/Images/Tickets', // fork: was <Core folder>/Images/Tickets
   doneFolder: 'Done',
-  autoFile: true,
-  openInTicketView: true,
-  popup: true,
+  autoFile: false, // fork: projects stay where they are
+  openInTicketView: false, // fork: projects open as plain notes
+  popup: false, // fork
   defaultDays: 7,
   defaultCategory: 'operations',
   reminders: true,
@@ -36,7 +48,7 @@ const TICKETS_DEFAULTS = {
   // (templatesMigrated), kept here only as a backup
   templates: [],
   templatesMigrated: false,
-  tabSort: 'status', // Tickets tab sort / group (TICKET_SORTS)
+  tabSort: 'customer', // Tickets tab sort / group (TICKET_SORTS); fork: by customer
   statusLog: [], // { t, id, title, status, path }: tickets set to a status below (Recently done on the dashboard)
   activityStatuses: ['done', 'waiting'],
 };
@@ -53,6 +65,9 @@ const IMG_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif',
 const STAMP = () => moment().format('YYYY-MM-DD HH:mm');
 
 function normTicketStatus(v) {
+  // fork: the project status groups from settings come first (NEON_PROJECTS, src/shared/shared.js)
+  const k = NEON_PROJECTS.kinds[String(v == null ? '' : v).trim().toLowerCase()];
+  if (k) return k;
   const s = String(v || 'open').trim().toLowerCase().replace(/[\s_]+/g, '-');
   if (/^(done|closed|resolved|completed?|cancell?ed|erledigt)$/.test(s)) return 'done';
   if (/^(in-?progress|doing|active|wip|started)$/.test(s)) return 'in-progress';
@@ -93,6 +108,7 @@ function ticketSort(a, b) {
 
 /** Sort / group options of the Tickets tab (item 38); 'status' is the default (issue 59), 'due' the due-date buckets. */
 const TICKET_SORTS = [
+  ['customer', 'Customer'], // fork
   ['status', 'Status'],
   ['due', 'Due date'],
   ['priority', 'Priority'],
@@ -112,11 +128,17 @@ function ticketGroups(items, mode) {
     const of = (f) => items.filter(f).sort(ticketSort);
     return [
       ['status-new', 'Not started', of((t) => t.status === 'open' && !t.started)],
-      ['status-waiting', 'Waiting', of((t) => t.status === 'waiting')],
+      ['status-waiting', 'On hold', of((t) => t.status === 'waiting')],
       ['status-in-progress', 'In progress', of((t) => t.status === 'in-progress')],
       ['status-open', 'Open', of((t) => t.status === 'open' && t.started)],
       ['status-done', 'Done', of((t) => t.status === 'done')],
     ];
+  }
+  if (mode === 'customer') {
+    // fork: one group per customer (A–Z), projects without one last; open before closed inside a group
+    const names = [...new Set(items.map((t) => t.customer || ''))].sort((a, b) => (!a - !b) || a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    const inGroup = (a, b) => (a.status === 'done') - (b.status === 'done') || ticketSort(a, b);
+    return names.map((c) => [`customer-${c || 'none'}`, c || 'No customer', items.filter((t) => (t.customer || '') === c).sort(inGroup)]);
   }
   if (mode === 'priority') return [...TICKET_PRIOS].reverse().map((pr) => [`prio-${pr}`, label(pr), items.filter((t) => t.priority === pr).sort(ticketSort)]);
   const flat = {

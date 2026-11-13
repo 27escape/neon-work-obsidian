@@ -280,7 +280,7 @@ class DashboardView extends ItemView {
     const row = this.capRow;
     row.empty();
     const targets = this.plugin.captureTargets();
-    this.capInput.setAttr('placeholder', targets.length ? `Dump a thought… (Ctrl+Enter → ${targets[0].label})` : 'Dump a thought… (turn on Neon Tasks, Tickets or Time to send it somewhere)');
+    this.capInput.setAttr('placeholder', targets.length ? `Dump a thought… (Ctrl+Enter → ${targets[0].label})` : 'Dump a thought… (turn on Neon Tasks, Projects or Time to send it somewhere)');
     targets.forEach((t, i) => {
       const b = row.createEl('button', { cls: 'nd-pill-btn' + (i === 0 ? ' is-on' : ''), text: t.short || t.label });
       tip(b, t.label);

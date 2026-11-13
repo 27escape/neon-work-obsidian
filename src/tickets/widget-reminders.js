@@ -2,8 +2,8 @@ Object.assign(NeonTickets.prototype, {
   /* dashboard widget ------------------------------------------------------------ */
   mountWidget(card) {
     const p = this;
-    button(card.actions, { icon: 'plus', cls: 'nd-icon-btn', title: 'New ticket', onClick: () => p.newTicket() });
-    button(card.actions, { icon: 'maximize-2', cls: 'nd-icon-btn', title: 'Open ticket tracker', onClick: () => p.openTracker() });
+    button(card.actions, { icon: 'plus', cls: 'nd-icon-btn', title: 'New project', onClick: () => p.newTicket() });
+    button(card.actions, { icon: 'maximize-2', cls: 'nd-icon-btn', title: 'Open project tracker', onClick: () => p.openTracker() });
     const counter = card.body.createDiv('tk-counter is-mini');
     const list = card.body.createDiv('tk-mini-list');
     let renders = 0;
@@ -17,7 +17,7 @@ Object.assign(NeonTickets.prototype, {
       p.renderCounter(counter, all);
       list.empty();
       if (!act.length) {
-        emptyState(list, 'No open tickets ✦');
+        emptyState(list, 'No open projects ✦');
         return;
       }
       act.slice(0, 30).forEach((t, i) => {
@@ -27,7 +27,9 @@ Object.assign(NeonTickets.prototype, {
         const txt = r.createDiv('tk-mini-text');
         if (t.id) txt.createSpan({ cls: 'tk-id', text: t.id });
         txt.createSpan({ cls: 'tk-mini-title', text: t.title });
-        if (t.status === 'waiting' && t.bucket !== 'followup') r.createSpan({ cls: 'tk-tag-wait', text: 'waiting' });
+        if (t.customer) txt.createSpan({ cls: 'tk-id', text: ` · ${t.customer}` });
+        if (t.isProject && t.statusRaw) r.createSpan({ cls: `tk-tag-wait s-${t.status}`, text: t.statusRaw });
+        else if (t.status === 'waiting' && t.bucket !== 'followup') r.createSpan({ cls: 'tk-tag-wait', text: 'waiting' });
         r.addEventListener('click', (e) => p.showTicket(t.file, e));
         r.addEventListener('contextmenu', (e) => {
           e.preventDefault();
@@ -49,7 +51,7 @@ Object.assign(NeonTickets.prototype, {
     const today = now.format('YYYY-MM-DD');
     // waiting tickets without a follow-up date get one after N days
     for (const t of this.activeTickets()) {
-      if (t.status === 'waiting' && !t.followUp) {
+      if (t.status === 'waiting' && !t.followUp && !t.isProject) { // fork: never add follow_up to projects
         const since = t.waitingSince || moment(t.file.stat.mtime);
         if (now.diff(since, 'days') >= this.settings.autoFollowUpDays) {
           await this.patch(t, { follow_up: today });
@@ -64,13 +66,13 @@ Object.assign(NeonTickets.prototype, {
     const due = this.activeTickets().filter((t) => t.bucket === 'followup' || (t.due && t.daysLeft <= ahead) || (t.remind && !t.remind.isAfter(now)));
     const fresh = force ? due : due.filter((t) => seen[t.file.path] !== today);
     if (!fresh.length) {
-      if (force) new Notice('No tickets need attention right now ✦');
+      if (force) new Notice('No projects need attention right now ✦');
       return;
     }
     for (const t of fresh) seen[t.file.path] = today;
     await this.saveSettings();
     const frag = createFragment((d) => {
-      d.createDiv({ cls: 'tk-notice-title', text: `🎫 ${fresh.length} ticket${fresh.length === 1 ? '' : 's'} need${fresh.length === 1 ? 's' : ''} attention` });
+      d.createDiv({ cls: 'tk-notice-title', text: `🎫 ${fresh.length} project${fresh.length === 1 ? '' : 's'} need${fresh.length === 1 ? 's' : ''} attention` });
       for (const t of fresh.slice(0, 6)) {
         const line = d.createDiv({ cls: `tk-notice-line is-${t.bucket}` });
         line.createSpan({ cls: 'tk-notice-due', text: ticketDueText(t) });

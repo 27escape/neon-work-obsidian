@@ -26,6 +26,7 @@ class NeonTickets extends Plugin {
     }
     if (!TICKET_SORTS.some(([k]) => k === this.settings.tabSort)) this.settings.tabSort = 'status';
     this.settings.activityStatuses = Array.isArray(this.settings.activityStatuses) ? this.settings.activityStatuses.slice() : ['done', 'waiting'];
+    this.applyProjectSettings(); // fork: which notes are projects, and their status values
     await this.saveSettings();
     this.rawPaths = new Set();
     this.listeners = new Set();
@@ -34,13 +35,13 @@ class NeonTickets extends Plugin {
     this.registerView(VIEW_TICKETS, (leaf) => new TicketsView(leaf, this));
     this.registerView(VIEW_TICKET, (leaf) => new TicketView(leaf, this));
     this.registerHoverLinkSource(VIEW_TICKETS, { display: 'Neon tickets', defaultMod: true });
-    this.addRibbonIcon('ticket', 'Ticket tracker', () => this.openTracker());
+    this.addRibbonIcon('briefcase', 'Project tracker', () => this.openTracker());
     this.patchLeaf();
 
-    this.addCommand({ id: 'open-tickets', name: 'Open ticket tracker', callback: () => this.openTracker() });
-    this.addCommand({ id: 'new-ticket', name: 'New ticket', callback: () => this.newTicket() });
-    this.addCommand({ id: 'ticket-reminders', name: 'Show tickets that need attention', callback: () => this.checkReminders(true) });
-    this.addCommand({ id: 'file-done', name: 'File all done tickets into Done/YYYY-MM', callback: () => this.fileAllDone(true) });
+    this.addCommand({ id: 'open-tickets', name: 'Open project tracker', callback: () => this.openTracker() });
+    this.addCommand({ id: 'new-ticket', name: 'New project', callback: () => this.newTicket() });
+    this.addCommand({ id: 'ticket-reminders', name: 'Show projects that need attention', callback: () => this.checkReminders(true) });
+    this.addCommand({ id: 'file-done', name: 'File all done projects into Done/YYYY-MM', callback: () => this.fileAllDone(true) });
     const cur = (id, name, fn) =>
       this.addCommand({
         id,
@@ -53,11 +54,11 @@ class NeonTickets extends Plugin {
           return true;
         },
       });
-    cur('ticket-done', 'Ticket: mark current ticket done', (t) => this.setStatus(t, 'done'));
-    cur('ticket-postpone-1', 'Ticket: postpone current ticket by 1 day', (t) => this.postpone(t, 1));
-    cur('ticket-postpone-7', 'Ticket: postpone current ticket by 1 week', (t) => this.postpone(t, 7));
-    cur('ticket-due', 'Ticket: set due date of current ticket', (t) => this.promptDate(t, 'due'));
-    cur('ticket-view', 'Ticket: toggle ticket view / note', (t) => {
+    cur('ticket-done', 'Project: mark current project done', (t) => this.setStatus(t, 'done'));
+    cur('ticket-postpone-1', 'Project: postpone current project by 1 day', (t) => this.postpone(t, 1));
+    cur('ticket-postpone-7', 'Project: postpone current project by 1 week', (t) => this.postpone(t, 7));
+    cur('ticket-due', 'Project: set due date of current project', (t) => this.promptDate(t, 'due'));
+    cur('ticket-view', 'Project: toggle project view / note', (t) => {
       const leaf = this.app.workspace.getLeaf(false);
       if (leaf.view.getViewType() === VIEW_TICKET) this.openRaw(t.file, leaf);
       else this.openTicket(t.file, false, leaf);
@@ -152,9 +153,9 @@ class NeonTickets extends Plugin {
   hookCore() {
     const api = deckApi(this.app);
     if (!api) return;
-    api.registerWidget({ id: 'tickets', slot: 'tickets', title: 'Tickets', icon: 'ticket', mount: (card) => this.mountWidget(card) });
-    api.registerCapture({ id: 'ticket', label: 'Ticket', short: 'Ticket', icon: 'ticket', order: 20, allowEmpty: true, run: (v) => this.newTicket({ title: v }) });
-    api.registerAction({ id: 'tickets', icon: 'ticket', label: 'Tickets', order: 20, view: VIEW_TICKETS, run: () => this.openTracker() });
+    api.registerWidget({ id: 'tickets', slot: 'tickets', title: 'Projects', icon: 'briefcase', mount: (card) => this.mountWidget(card) });
+    api.registerCapture({ id: 'ticket', label: 'Project', short: 'Project', icon: 'briefcase', order: 20, allowEmpty: true, run: (v) => this.newTicket({ title: v }) });
+    api.registerAction({ id: 'tickets', icon: 'briefcase', label: 'Projects', order: 20, view: VIEW_TICKETS, run: () => this.openTracker() });
     api.provide('ticketClick', (f) => {
       if (!this.settings.popup || !this.ticketFor(f)) return false;
       new TicketPopup(this, f).open();
@@ -178,7 +179,7 @@ class NeonTickets extends Plugin {
       const act = this.activeTickets();
       const week = act.filter((t) => t.due && t.daysLeft >= 0 && t.daysLeft <= 7).length;
       const over = act.filter((t) => t.bucket === 'overdue').length;
-      const out = [{ v: week, l: week === 1 ? 'ticket due this week' : 'tickets due this week' }];
+      const out = [{ v: week, l: week === 1 ? 'project due this week' : 'projects due this week' }];
       if (over) out.push({ v: over, l: 'overdue' });
       const n = this.doneIn(moment());
       if (n) out.push({ v: n, l: `done in ${moment().format('MMMM')}` });
@@ -186,7 +187,7 @@ class NeonTickets extends Plugin {
     });
     api.registerWeekLine('tickets', (start, end) => {
       const n = this.collectTickets().filter((t) => t.completed && !t.completed.isBefore(start) && t.completed.isBefore(end)).length;
-      return n ? [`${n} ticket${n === 1 ? '' : 's'} closed`] : [];
+      return n ? [`${n} project${n === 1 ? '' : 's'} closed`] : [];
     });
   }
 
@@ -241,7 +242,7 @@ class NeonTickets extends Plugin {
     const view = leaf && leaf.view;
     if (!view || view.getViewType() !== 'markdown' || !view.file || view.ntAction) return;
     if (!this.ticketFor(view.file)) return;
-    view.ntAction = view.addAction('ticket', 'Ticket view', () => view.file && this.openTicket(view.file, false, view.leaf));
+    view.ntAction = view.addAction('briefcase', 'Project view', () => view.file && this.openTicket(view.file, false, view.leaf));
   }
   openTracker() {
     return activateView(this.app, VIEW_TICKETS, 'tab');
@@ -250,9 +251,9 @@ class NeonTickets extends Plugin {
   buildStatus() {
     const el = this.addStatusBarItem();
     el.addClass('nd-status', 'tk-statusbar', 'mod-clickable');
-    setIcon(el.createSpan('nd-status-icon'), 'ticket');
+    setIcon(el.createSpan('nd-status-icon'), 'briefcase');
     const txt = el.createSpan('nd-status-text');
-    tip(el, 'Tickets — click to open the tracker');
+    tip(el, 'Projects — click to open the tracker');
     el.addEventListener('click', () => this.openTracker());
     const update = () => {
       const act = this.activeTickets();

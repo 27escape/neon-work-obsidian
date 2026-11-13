@@ -49,14 +49,14 @@ class ActivityDayModal extends Modal {
     fact(x.tickets.length, 'tickets');
     fact(x.notes.length, 'notes');
     let i = 0;
-    for (const [kind, label, list] of [['task', 'Tasks done', x.tasks], ['ticket', 'Tickets', x.tickets], ['time', 'Time', x.time], ['note', 'Notes', x.notes]]) {
+    for (const [kind, label, list] of [['task', 'Tasks done', x.tasks], ['ticket', 'Projects', x.tickets], ['time', 'Time', x.time], ['note', 'Notes', x.notes]]) {
       if (!list.length) continue;
       const sec = c.createDiv('nd-act-pop-sec');
       sec.createDiv({ cls: 'nd-act-pop-head', text: `${label} · ${list.length}` });
       for (const r of list.slice().sort((a, b) => a.t - b.t)) {
         const el = sec.createDiv(`nd-act-item is-${kind}` + (r.open ? ' is-clickable' : ''));
         el.style.setProperty('--i', String(Math.min(i++, 20)));
-        icon(el, { task: 'check', ticket: 'ticket', time: 'clock', note: 'file-text' }[kind], 'nd-ico');
+        icon(el, { task: 'check', ticket: 'briefcase', time: 'clock', note: 'file-text' }[kind], 'nd-ico');
         el.createSpan({ cls: 'nd-act-item-text', text: r.text });
         if (r.extra) el.createSpan({ cls: 'nd-act-pop-extra', text: r.extra });
         el.createSpan({ cls: 'nd-act-pop-at', text: moment(r.t).format('HH:mm') });
@@ -89,7 +89,7 @@ class QuickCaptureModal extends Modal {
     this.titleEl.setText('Quick capture');
     const targets = this.plugin.captureTargets();
     if (!targets.length) {
-      this.contentEl.createDiv({ cls: 'nd-muted', text: 'Turn on Neon Tasks, Tickets or Time to capture into them.' });
+      this.contentEl.createDiv({ cls: 'nd-muted', text: 'Turn on Neon Tasks, Projects or Time to capture into them.' });
       return;
     }
     let idx = Math.max(0, targets.findIndex((t) => t.id === this.plugin.lastCaptureTarget));

@@ -64,12 +64,14 @@ Object.assign(NeonTickets.prototype, {
         n++;
       }
     }
-    if (notify || n) new Notice(n ? `✦ Filed ${n} done ticket${n === 1 ? '' : 's'} into ${this.doneRoot()}/` : 'All done tickets are already filed');
+    if (notify || n) new Notice(n ? `✦ Filed ${n} done project${n === 1 ? '' : 's'} into ${this.doneRoot()}/` : 'All done projects are already filed');
   },
 
   /* creating ------------------------------------------------------------------ */
+  /** fork: New project (name + customer); the upstream ticket form only for a ticket template. */
   newTicket(opts) {
-    new NewTicketModal(this, opts || {}).open();
+    if (opts && opts.template) return new NewTicketModal(this, opts).open();
+    this.newProject(opts || {});
   },
 
   /* ---- screenshots ---- */
@@ -141,7 +143,7 @@ Object.assign(NeonTickets.prototype, {
     if (done && done.children) for (const d of [...done.children]) if (d.children && !d.children.length) await this.app.vault.trash(d, true);
     this.cache = null;
     this.emitSoon();
-    new Notice(`Cleared ${list.length} done ticket${list.length === 1 ? '' : 's'}${n > list.length ? ` and ${n - list.length} file${n - list.length === 1 ? '' : 's'}` : ''} (system trash)`);
+    new Notice(`Cleared ${list.length} done project${list.length === 1 ? '' : 's'}${n > list.length ? ` and ${n - list.length} file${n - list.length === 1 ? '' : 's'}` : ''} (system trash)`);
   },
 
 });

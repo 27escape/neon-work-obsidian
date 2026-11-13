@@ -11,10 +11,10 @@ class TicketsView extends ItemView {
     return VIEW_TICKETS;
   }
   getDisplayText() {
-    return 'Tickets';
+    return 'Projects';
   }
   getIcon() {
-    return 'ticket';
+    return 'briefcase';
   }
   async onOpen() {
     const root = this.contentEl;
@@ -26,14 +26,16 @@ class TicketsView extends ItemView {
     const inner = this.island.createDiv('tk-island-inner');
     const bar = inner.createDiv('tk-bar');
     const head = bar.createDiv('tk-bar-head');
-    head.createDiv({ cls: 'tk-k', text: 'Ticket tracker' });
+    head.createDiv({ cls: 'tk-k', text: 'Project tracker' });
     this.dateEl = head.createDiv({ cls: 'tk-bar-date' });
     this.counterEl = bar.createDiv('tk-counter');
     this.summary = bar.createDiv('tk-summary');
     const tools = bar.createDiv('tk-tools');
     const seg = tools.createDiv('nd-seg');
     this.segBtns = {};
-    for (const [k, label] of [['active', 'Active'], ['waiting', 'Waiting'], ['done', 'Done'], ['all', 'All'], ['templates', 'Templates']]) {
+    // fork: project wording; the ticket Templates tab only when ticket templates exist
+    for (const [k, label] of [['active', 'Active'], ['waiting', 'On hold'], ['done', 'Closed'], ['all', 'All'], ['templates', 'Templates']]) {
+      if (k === 'templates' && !(this.plugin.templates || []).length && !(this.plugin.settings.templates || []).length) continue;
       const b = seg.createEl('button', { cls: 'nd-seg-btn', text: label });
       b.addEventListener('click', () => {
         if (this.filter !== k) this.filterChanged = true; // rows rise in again for the new filter
@@ -43,7 +45,7 @@ class TicketsView extends ItemView {
       this.segBtns[k] = b;
     }
     // sort / group (remembered; the dashboard card keeps its own order)
-    const sort = tools.createEl('select', { cls: 'dropdown tk-sort', attr: { 'aria-label': 'Sort or group tickets' } });
+    const sort = tools.createEl('select', { cls: 'dropdown tk-sort', attr: { 'aria-label': 'Sort or group projects' } });
     for (const [k, label] of TICKET_SORTS) sort.createEl('option', { value: k, text: label });
     sort.value = this.plugin.settings.tabSort;
     sort.addEventListener('change', () => {
@@ -52,12 +54,12 @@ class TicketsView extends ItemView {
       this.filterChanged = true; // rows rise in for the new order
       this.render();
     });
-    const search = tools.createEl('input', { cls: 'nd-input tk-search', attr: { type: 'search', placeholder: 'Filter tickets…' } });
+    const search = tools.createEl('input', { cls: 'nd-input tk-search', attr: { type: 'search', placeholder: 'Filter projects…' } });
     search.addEventListener('input', () => {
       this.query = search.value.trim().toLowerCase();
       this.render();
     });
-    button(tools, { icon: 'plus', text: 'New ticket', cls: 'mod-cta', onClick: () => this.plugin.newTicket() });
+    button(tools, { icon: 'plus', text: 'New project', cls: 'mod-cta', onClick: () => this.plugin.newTicket() });
     this.listEl = inner.createDiv('tk-list');
     this.fitIsland = () => {
       const h = Math.ceil(inner.offsetHeight);
@@ -131,7 +133,7 @@ class TicketsView extends ItemView {
     stat(count('today'), 'due today', 'is-today');
     stat(count('week'), 'next 7 days', 'is-week');
     stat(active.length, 'active', 'is-active');
-    stat(active.filter((t) => t.status === 'waiting').length, 'waiting', 'is-waiting', () => ((this.filter = 'waiting'), this.render()));
+    stat(active.filter((t) => t.status === 'waiting').length, 'on hold', 'is-waiting', () => ((this.filter = 'waiting'), this.render()));
     for (const [k, b] of Object.entries(this.segBtns)) b.toggleClass('is-active', k === this.filter);
     if (this.filter === 'templates') {
       this.filterChanged = false;
@@ -142,7 +144,7 @@ class TicketsView extends ItemView {
     if (this.filter === 'active') items = active;
     else if (this.filter === 'waiting') items = active.filter((t) => t.status === 'waiting');
     else if (this.filter === 'done') items = all.filter((t) => t.status === 'done');
-    if (this.query) items = items.filter((t) => `${t.id} ${t.title} ${t.file.path} ${t.status} ${t.priority} ${t.jira}`.toLowerCase().includes(this.query));
+    if (this.query) items = items.filter((t) => `${t.id} ${t.title} ${t.file.path} ${t.status} ${t.statusRaw} ${t.customer} ${t.stage} ${t.note} ${t.priority} ${t.jira}`.toLowerCase().includes(this.query));
     this.listEl.empty();
     // calm = a refresh: only new or changed rows move. A first open or a new filter animates the list.
     const calm = !!this.rendered && !this.filterChanged;
@@ -155,13 +157,13 @@ class TicketsView extends ItemView {
     this.rowCalm = calm ? before : null;
     if (this.filter === 'done' && items.length) {
       const bar = this.listEl.createDiv('tk-clear-bar');
-      bar.createSpan({ cls: 'tk-faint', text: `${items.length} done ticket${items.length === 1 ? '' : 's'}` });
+      bar.createSpan({ cls: 'tk-faint', text: `${items.length} done project${items.length === 1 ? '' : 's'}` });
       button(bar, { icon: 'trash-2', text: 'Clear done…', cls: 'tk-clear-btn', onClick: () => new ClearDoneModal(p, all.filter((t) => t.status === 'done')).open() });
     }
     if (!items.length) {
       const e = this.listEl.createDiv('tk-empty');
-      e.createDiv({ text: all.length ? 'Nothing matches this filter.' : 'No tickets yet.' });
-      if (!all.length) button(e, { icon: 'plus', text: 'Create your first ticket', cls: 'mod-cta', onClick: () => p.newTicket() });
+      e.createDiv({ text: all.length ? 'Nothing matches this filter.' : 'No projects yet.' });
+      if (!all.length) button(e, { icon: 'plus', text: 'Create your first project', cls: 'mod-cta', onClick: () => p.newTicket() });
       return;
     }
     let idx = 0;
@@ -188,7 +190,7 @@ class TicketsView extends ItemView {
     head.createSpan({ cls: 'tk-group-count', text: String(list.length).padStart(2, '0') });
     button(head, { icon: 'plus', text: 'New template', cls: 'mod-cta tk-tpl-new', onClick: () => new TemplateModal(p).open() });
     if (!shown.length) {
-      el.createDiv({ cls: 'tk-empty', text: list.length ? 'No template matches the filter.' : `No templates yet. A template is a ready-made ticket: pick it in New ticket and its steps (plus an optional description, priority and due date) are filled in. Templates are notes in ${p.templateDir()}; right-click a ticket to save it as one.` });
+      el.createDiv({ cls: 'tk-empty', text: list.length ? 'No template matches the filter.' : `No templates yet. A template is a ready-made ticket: pick it in New project and its steps (plus an optional description, priority and due date) are filled in. Templates are notes in ${p.templateDir()}; right-click a project to save it as one.` });
       return;
     }
     shown.forEach((tpl, i) => {
@@ -204,7 +206,7 @@ class TicketsView extends ItemView {
       if (tpl.steps.length) main.createDiv({ cls: 'tk-tpl-steps', text: tpl.steps.slice(0, 4).join(' · ') + (tpl.steps.length > 4 ? ' …' : '') });
       const acts = r.createDiv('tk-tpl-acts');
       const stop = (fn) => (e) => (e.stopPropagation(), fn());
-      button(acts, { icon: 'plus', text: 'Use', cls: 'mod-cta', title: 'New ticket from this template', onClick: stop(() => p.newTicket({ template: tpl.id })) });
+      button(acts, { icon: 'plus', text: 'Use', cls: 'mod-cta', title: 'New project from this template', onClick: stop(() => p.newTicket({ template: tpl.id })) });
       button(acts, { icon: 'pencil', cls: 'nd-icon-btn', title: 'Edit template', onClick: stop(() => new TemplateModal(p, tpl).open()) });
       button(acts, { icon: 'file-down', cls: 'nd-icon-btn', title: 'Open note / export PDF', onClick: stop(() => p.exportTemplate(tpl)) });
       button(acts, { icon: 'copy', cls: 'nd-icon-btn', title: 'Duplicate', onClick: stop(() => p.duplicateTemplate(tpl.id)) });
@@ -245,15 +247,27 @@ class TicketsView extends ItemView {
     if (t.id) top.createSpan({ cls: 'tk-id', text: t.id });
     top.createSpan({ cls: 'tk-row-title', text: t.title });
     const meta = main.createDiv('tk-row-meta');
-    const st = meta.createSpan({ cls: `tk-st s-${t.status}`, text: TICKET_STATUS_LABEL[t.status] });
-    tip(st, 'Click to cycle status');
+    const st = meta.createSpan({ cls: `tk-st s-${t.status}`, text: t.isProject && t.statusRaw ? t.statusRaw : TICKET_STATUS_LABEL[t.status] });
+    tip(st, t.isProject ? 'Click to choose a status' : 'Click to cycle status');
     st.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (t.isProject) {
+        // fork: pick one of your status values
+        const m = new Menu();
+        for (const v of p.statusChoices()) m.addItem((i) => i.setTitle(v).setChecked((t.statusRaw || '').toLowerCase() === v.toLowerCase()).onClick(() => p.setStatus(t, v)));
+        return m.showAtMouseEvent(e);
+      }
       const order = ['open', 'in-progress', 'waiting'];
       p.setStatus(t, t.status === 'done' ? 'open' : order[(order.indexOf(t.status) + 1) % order.length]);
     });
+    if (t.customer && p.settings.tabSort !== 'customer') meta.createSpan({ cls: 'tk-age tk-customer', text: t.customer });
+    if (t.stage) meta.createSpan({ cls: 'tk-age', text: `stage: ${t.stage}` });
     if (t.priority !== 'normal') meta.createSpan({ cls: `tk-pr p-${t.priority}`, text: t.priority });
-    meta.createSpan({ cls: 'tk-age', text: `opened ${t.created.format('D MMM')} · ${t.age}d` });
+    meta.createSpan({ cls: 'tk-age', text: t.isProject && t.startedOn ? `started ${t.startedOn.format('D MMM')} · ${t.age}d` : `opened ${t.created.format('D MMM')} · ${t.age}d` });
+    if (t.note) {
+      const n = main.createDiv({ cls: 'tk-row-note', text: t.note });
+      tip(n, 'The project’s note property');
+    }
     if (t.status === 'waiting' && t.waitingOn) meta.createSpan({ cls: 'tk-age', text: `waiting on ${t.waitingOn}` });
     if (t.remind && t.status !== 'done') meta.createSpan({ cls: 'tk-age', text: `🔔 ${t.remind.format('D MMM')}` });
     if (t.due && t.status !== 'done') {

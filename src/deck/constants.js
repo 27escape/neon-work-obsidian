@@ -31,7 +31,7 @@ const SIGNOFFS = [
   'Fewer tabs, more done',
   'Your future self says thanks',
   'Pattern stable, operator steady',
-  'Small steps still move tickets',
+  'Small steps still move projects',
   'Write it down, clear the cache',
   'Good work today — C.',
   'Drink some water',

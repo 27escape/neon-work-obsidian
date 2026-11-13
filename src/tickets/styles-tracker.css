@@ -394,3 +394,13 @@
     border-radius: var(--nd-radius-s);
   }
 }
+
+/* fork: a project's note property under its row */
+.tk-row-note {
+  margin-top: 3px;
+  font-size: var(--font-ui-smaller);
+  color: var(--nd-muted, var(--text-muted));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
