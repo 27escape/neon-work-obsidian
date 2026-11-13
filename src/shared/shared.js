@@ -160,6 +160,9 @@ function excerptOf(text, max = 160) {
 }
 function applyTemplate(text, m, title) {
   return text
+    // fork: the two most common Templater commands, for templates made for Templater
+    .replace(/<%[-_]?\s*tp\.file\.title\s*[-_]?%>/g, () => title)
+    .replace(/<%[-_]?\s*tp\.date\.now\(\s*(?:(["'])(.*?)\1)?\s*\)\s*[-_]?%>/g, (_, q, f) => moment().format(f || 'YYYY-MM-DD'))
     .replace(/{{\s*date(?::([^}]+))?\s*}}/g, (_, f) => m.format(f ? f.trim() : 'YYYY-MM-DD'))
     .replace(/{{\s*time(?::([^}]+))?\s*}}/g, (_, f) => moment().format(f ? f.trim() : 'HH:mm'))
     .replace(/{{\s*title\s*}}/g, title);

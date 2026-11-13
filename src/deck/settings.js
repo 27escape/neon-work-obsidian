@@ -50,6 +50,14 @@ class NeonSettingTab extends PluginSettingTab {
     loc('Pinned files folder', 'Where files dropped onto the pin board from outside Obsidian are saved.', 'pinnedFolder', 'Neon/Pinned');
     loc('Bridge note folder', 'Where the graph saves bridge notes.', 'bridgeFolder', 'Neon/Bridges');
     new Setting(containerEl)
+      .setName('Inbox folder')
+      .setDesc('Quick capture can save a thought as a new note here, named after its first line (“Inbox note”, first in the capture choices). Empty: off.')
+      .addText((t) => t.setPlaceholder('2.Resources/Inbox').setValue(s.inboxFolder).onChange((v) => ((s.inboxFolder = v.trim() ? normalizePath(v.trim()) : ''), save(), p.registerInboxCapture())));
+    new Setting(containerEl)
+      .setName('Inbox template')
+      .setDesc('Optional template for inbox notes; the captured text goes below it.')
+      .addText((t) => t.setPlaceholder('2.Resources/templates/inbox_template.md').setValue(s.inboxTemplate).onChange((v) => ((s.inboxTemplate = v.trim()), save())));
+    new Setting(containerEl)
       .setName('Excluded folders')
       .setDesc('Comma-separated, e.g. an archive folder. Ignored by stats, the graph, tasks and projects.')
       .addText((t) => t.setPlaceholder('4.Archive').setValue(s.excludeFolders).onChange((v) => ((s.excludeFolders = v), (p._ex = null), save())));

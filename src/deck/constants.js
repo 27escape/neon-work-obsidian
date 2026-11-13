@@ -52,6 +52,8 @@ const DEFAULT_SETTINGS = {
   coreTidied: true, // unused: the move into Core was removed
   reviewFolder: 'Neon/Reviews',
   inboxPath: 'Neon/Inbox.md', // unused
+  inboxFolder: '', // fork: Quick capture can save a new note here ('' = off)
+  inboxTemplate: '', // fork: template for those notes
   pinBoardPath: 'Neon/Pin board.md',
   pinnedFolder: 'Neon/Pinned', // files dropped onto the pin board from outside Obsidian
   bridgeFolder: 'Neon/Bridges',
