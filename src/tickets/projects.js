@@ -134,7 +134,8 @@ class NewProjectModal extends Modal {
     sel.style.marginTop = '10px';
     for (const c of list) sel.createEl('option', { value: c, text: c });
     sel.createEl('option', { value: '', text: list.length ? 'No customer (project folder)' : `No customers found in ${p.settings.customersFolder}` });
-    sel.value = list.includes(guess) ? guess : list[0] || '';
+    const want = this.opts.customer || guess;
+    sel.value = list.includes(want) ? want : list[0] || '';
     const where = el.createDiv({ cls: 'setting-item-description' });
     const show = () => where.setText(`Goes in ${sel.value ? `${p.settings.customersFolder}/${sel.value}/${p.settings.projectsFolderName || 'Projects'}` : p.ticketRoot()}/`);
     sel.addEventListener('change', show);

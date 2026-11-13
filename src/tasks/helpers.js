@@ -8,10 +8,19 @@ const TASKS_DEFAULTS = {
   quickTasksPath: 'Todo.md', // the Todo note: new tasks go at its head; its open tasks fill the Todo card
   taskTag: '#task', // fork: a checkbox line with this tag is a task wherever it is (Tasks-plugin style); empty = off
   backupPath: 'Neon/Global tasks backup.md', // unused since the fork (Global tasks are the Todo note)
-  askOnCreate: true,
+  askOnCreate: false, // fork: off — Templater, daily notes and your own habits make new notes
   stampDone: true,
   carryDays: 14,
-  showNoCategoryBar: true,
+  showNoCategoryBar: false, // fork: off
+  // fork: New note with customers (1.Customers/<customer>/<folder>/), a template per kind
+  meetingsFolder: 'Meetings',
+  peopleFolder: 'People',
+  researchFolder: 'Research',
+  noCustomerFolder: '', // where notes without a customer go ('' = vault root)
+  noteTemplate: '',
+  meetingTemplate: '',
+  personTemplate: '',
+  researchTemplate: '',
   installedAt: 0,
   globalTasks: [],
   doneLog: [],

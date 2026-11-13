@@ -1,6 +1,8 @@
 Object.assign(NeonTasks.prototype, {
   /* new notes ------------------------------------------------------------- */
   newNote(folder) {
+    // fork: with customers, the card that knows the customer folder layout
+    if (NEON_CATS.customers) return new CustomerNoteModal(this, { folder }).open();
     new NewNoteModal(this, { folder }).open();
   },
   /** Folders the plugins write to themselves (log notes, reviews, backups): never asked about. */
@@ -21,7 +23,7 @@ Object.assign(NeonTasks.prototype, {
       const cur = this.app.vault.getAbstractFileByPath(f.path);
       if (!(cur instanceof TFile)) return;
       if ((await this.app.vault.read(cur)).trim()) return;
-      new NewNoteModal(this, { file: cur }).open();
+      new (NEON_CATS.customers ? CustomerNoteModal : NewNoteModal)(this, { file: cur }).open();
     }, 350);
   },
   needsCategory(f) {
@@ -43,7 +45,7 @@ Object.assign(NeonTasks.prototype, {
     el.addEventListener('click', () => new UncategorisedModal(this, this.uncategorised()).open());
     const update = () => {
       const n = this.uncategorised().length;
-      el.toggle(n > 0);
+      el.toggle(n > 0 && this.settings.showNoCategoryBar && !NEON_CATS.customers); // fork: no nagging by default
       txt.setText(`${n} no category`);
     };
     this.register(this.onChange(update));
