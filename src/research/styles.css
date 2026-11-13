@@ -125,7 +125,7 @@
   text-align: right;
 }
 .nr-c-due {
-  width: 86px;
+  width: 124px; /* fork: room for "12 to research" */
   text-align: right;
 }
 .nr-c-when {
