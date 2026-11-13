@@ -1,6 +1,6 @@
 # ✦ Neon Work
 
-A command centre for an Obsidian vault: a dashboard, projects, tasks, time tracking, research notes and a few writing touches, in a neon look with live background patterns. Fork by {{CO_AUTHOR}} ({{REPO_URL}}) of [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.
+A command centre for an Obsidian vault: a dashboard, projects, tasks, time tracking, research notes and a few writing touches, in a neon look with live background patterns. By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.
 
 The fork sits on top of a vault you already have:
 
@@ -115,6 +115,6 @@ The repo includes a **sample vault** (`sample vault/`) with made-up customers, p
 
 ## Credits
 
-Original Neon Deck made by [Yobzs](https://github.com/Yobzs) with Claude. Fork changes by {{CO_AUTHOR}} with Claude.
+Original Neon Deck made by [Yobzs](https://github.com/Yobzs) with Claude. Fork changes by Kevin Mulholland with Claude.
 
 Bundled fonts (in `src/deck/fonts/`, embedded in `styles.css`): JetBrains Mono, Space Grotesk and Unbounded, all under the SIL Open Font License 1.1. See [`src/deck/fonts/OFL.txt`](src/deck/fonts/OFL.txt).

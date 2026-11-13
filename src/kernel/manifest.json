@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "minAppVersion": "1.5.0",
   "description": "Dashboard, projects, tasks, time tracking and research notes for a vault organised by customer; read-only by default. Based on Neon Deck by Yobzs.",
-  "author": "Yobzs, {{CO_AUTHOR}}",
-  "authorUrl": "{{REPO_URL}}",
+  "author": "Kevin Mulholland",
+  "authorUrl": "https://github.com/27escape",
   "isDesktopOnly": true
 }

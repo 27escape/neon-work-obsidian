@@ -1,23 +1,17 @@
 # Neon Work
 
 **Plugin id:** `neon-work` · **Name:** Neon Work · **Version:** 1.0.0 ([release notes](docs/release-notes/1.0.0.md); its own numbering, starting again from upstream Neon Deck 2.2.0)
-**Fork by:** {{CO_AUTHOR}}, with Claude
-**Repository:** {{REPO_URL}}
+**Fork by:** Kevin Mulholland, with Claude
+**Repository:** <https://github.com/27escape/neon-work-obsidian>
 **Based on:** [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs, version 2.2.0 (CC BY-NC-SA 4.0). The same licence applies to this fork; the changes are listed below.
 
 The aim is to use Neon Deck with an existing vault without it changing, moving or creating notes, and to fit a vault organised by customer (`1.Customers/<customer>/Meetings|People|Projects|Research`).
 
 Work happens on the `claudeai` branch.
 
-## Placeholders to fill in
+## Renaming
 
-Search the repo for `{{CO_AUTHOR}}` and `{{REPO_URL}}`. They appear in:
-
-- `src/kernel/manifest.json` (`author`, `authorUrl`), copied to `manifest.json` by the build
-- `src/kernel/_header.js` (the comment at the top of `main.js`)
-- `README.md` and this file
-
-To rename the plugin, change `id` and `name` in `src/kernel/manifest.json`, along with the zip name in `.github/workflows/package-installer.yml`. The build folder and the checks follow the id. The id is also the plugin's folder name in `.obsidian/plugins/`, which holds the settings, so renaming it later means moving that folder.
+To rename the plugin, change `id` and `name` in `src/kernel/manifest.json`, along with the zip name in `.github/workflows/package-installer.yml`. The build folder and the checks follow the id. The id is also the plugin's folder name in `.obsidian/plugins/`, which holds the settings, so renaming it means moving that folder.
 
 ## What is different from upstream
 

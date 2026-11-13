@@ -2,7 +2,7 @@
 /*
  * Neon Deck 2 — dashboard, tasks, time, tickets, research and writing tools in one plugin.
  * Made by yobzz + Claude. Built from src/ by tools/build.mjs; each part starts with a "@src" line.
- * Neon Work: changes by {{CO_AUTHOR}} + Claude, {{REPO_URL}} — see FORK.md.
+ * Neon Work: changes by Kevin Mulholland + Claude, https://github.com/27escape/neon-work-obsidian — see FORK.md.
  *
  * Everything runs locally: no network requests, no telemetry, no eval, no shell access,
  * no system notifications. Files are only written when you do something that writes.
