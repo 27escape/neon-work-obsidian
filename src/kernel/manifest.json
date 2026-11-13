@@ -3,7 +3,7 @@
   "name": "Neon Deck (fork)",
   "version": "2.2.0",
   "minAppVersion": "1.5.0",
-  "description": "Fork of Neon Deck: dashboard, tasks, time tracking, tickets, research notes and writing tools, read-only by default and with every location a setting.",
+  "description": "Fork of Neon Deck: dashboard, projects, tasks, time tracking and research notes for a vault organised by customer; read-only by default.",
   "author": "Yobzs, {{CO_AUTHOR}}",
   "authorUrl": "{{REPO_URL}}",
   "isDesktopOnly": true
