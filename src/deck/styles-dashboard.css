@@ -63,28 +63,28 @@
 }
 .nd-hero {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: wrap; /* fork: the buttons sit on the greeting's line when the pane is wide enough */
   align-items: center;
-  gap: 10px 16px;
+  gap: 8px 12px;
   padding: 12px 16px;
 }
 .nd-hero-greet {
-  font: 700 11px var(--nd-mono);
+  font: 700 10px var(--nd-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--nd-on-accent);
   background: var(--nd-accent);
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 999px;
   box-shadow: 0 0 16px -2px color-mix(in srgb, var(--nd-accent) 45%, transparent);
   white-space: nowrap;
 }
 .nd-hero-date {
-  font: 700 22px var(--nd-font-display);
+  font: 700 17px var(--nd-font-display);
   white-space: nowrap;
 }
 .nd-hero-clock {
-  font: 500 13px var(--nd-mono);
+  font: 500 12px var(--nd-mono);
   color: var(--nd-muted);
   white-space: nowrap;
 }
@@ -97,10 +97,33 @@
 }
 .nd-hero-actions {
   margin-left: auto;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 3px;
 }
 .nd-action {
   border-radius: var(--nd-radius-s);
-  padding: 6px 10px;
+  padding: 3px 7px;
+  gap: 4px;
+  font-size: 11px;
+}
+.nd-action .nd-ico svg {
+  width: 13px;
+  height: 13px;
+}
+/* a narrower pane: the clock and the button icons go first; narrower still, the buttons move under the greeting */
+@container (max-width: 1140px) {
+  .nd-hero-clock,
+  .nd-action .nd-ico {
+    display: none;
+  }
+}
+@container (max-width: 720px) {
+  .nd-hero-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
 }
 .nd-look-select {
   display: inline-flex;
