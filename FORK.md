@@ -11,7 +11,7 @@ Work happens on the `claudeai` branch.
 
 ## Renaming
 
-To rename the plugin, change `id` and `name` in `src/kernel/manifest.json`, along with the zip name in `.github/workflows/package-installer.yml`. The build folder and the checks follow the id. The id is also the plugin's folder name in `.obsidian/plugins/`, which holds the settings, so renaming it means moving that folder.
+To rename the plugin, change `id` and `name` in `src/kernel/manifest.json`, along with the file paths in `.github/workflows/release.yml`. The build folder and the checks follow the id. The id is also the plugin's folder name in `.obsidian/plugins/`, which holds the settings, so renaming it means moving that folder.
 
 ## What is different from upstream
 
