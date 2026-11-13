@@ -11,7 +11,7 @@ Object.assign(NeonTasks.prototype, {
     if (!items.length || this.settings.globalMoveAsked) return;
     new ConfirmModal(this.app, {
       title: 'Move Global tasks into Todo?',
-      text: `${items.length} Global task${items.length === 1 ? '' : 's'} from the original Neon Tasks are stored in plugin data. Add them to the head of ${this.quickPath()}?`,
+      text: `${items.length} Global task${items.length === 1 ? '' : 's'} from an earlier version are stored in plugin data. Add them to the head of ${this.quickPath()}?`,
       cta: 'Move',
       warning: false,
       onConfirm: async () => {

@@ -240,7 +240,7 @@ class DashboardView extends ItemView {
     if (this.footEl) {
       this.footEl.empty();
       const pat = this.plugin.activePattern();
-      this.footEl.createSpan({ text: `Neon Deck ${ND_VERSION} · ${THEME_LABEL[s.theme]}${pat !== 'none' && s.patternStrength !== 'off' ? ' · ' + PATTERN_LABEL[pat] : ''}` });
+      this.footEl.createSpan({ text: `${appName()} ${ND_VERSION} · ${THEME_LABEL[s.theme]}${pat !== 'none' && s.patternStrength !== 'off' ? ' · ' + PATTERN_LABEL[pat] : ''}` });
       this.footEl.createSpan({ cls: 'nd-madewith', text: 'Made with Claude' });
     }
   }
@@ -280,7 +280,7 @@ class DashboardView extends ItemView {
     const row = this.capRow;
     row.empty();
     const targets = this.plugin.captureTargets();
-    this.capInput.setAttr('placeholder', targets.length ? `Dump a thought… (Ctrl+Enter → ${targets[0].label})` : 'Dump a thought… (turn on Neon Tasks, Projects or Time to send it somewhere)');
+    this.capInput.setAttr('placeholder', targets.length ? `Dump a thought… (Ctrl+Enter → ${targets[0].label})` : 'Dump a thought… (turn on Tasks, Projects or Time in the settings to send it somewhere)');
     targets.forEach((t, i) => {
       const b = row.createEl('button', { cls: 'nd-pill-btn' + (i === 0 ? ' is-on' : ''), text: t.short || t.label });
       tip(b, t.label);

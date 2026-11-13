@@ -35,9 +35,9 @@ class NeonDeck extends Plugin {
     this.registerView(VIEW_DASH, (leaf) => new DashboardView(leaf, this));
     this.registerView(VIEW_CARDS, (leaf) => new CardsView(leaf, this));
     this.registerView(VIEW_GRAPH, (leaf) => new GraphView(leaf, this));
-    for (const [v, d] of [[VIEW_DASH, 'dashboard'], [VIEW_CARDS, 'cards'], [VIEW_GRAPH, 'graph']]) this.registerHoverLinkSource(v, { display: `Neon Deck ${d}`, defaultMod: true });
+    for (const [v, d] of [[VIEW_DASH, 'dashboard'], [VIEW_CARDS, 'cards'], [VIEW_GRAPH, 'graph']]) this.registerHoverLinkSource(v, { display: `${appName()} ${d}`, defaultMod: true });
 
-    this.addRibbonIcon('layout-dashboard', 'Neon Deck dashboard', () => this.activate(VIEW_DASH, 'tab'));
+    this.addRibbonIcon('layout-dashboard', `${appName()} dashboard`, () => this.activate(VIEW_DASH, 'tab'));
     this.addRibbonIcon('layout-grid', 'Card explorer', () => this.activate(VIEW_CARDS, 'tab'));
     this.addRibbonIcon('waypoints', 'Note graph', () => this.openGraph('notes'));
 

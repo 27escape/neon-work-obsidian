@@ -491,9 +491,12 @@ function neonPlugin(app, id) {
   return (neonMother && neonMother.modules.get(id)) || null;
 }
 /** A small "made with Claude" line for settings tabs. */
+/** fork: the plugin's display name (from its manifest, set by the kernel), used wherever the UI names it. */
+const NEON_APP = { name: 'Neon Deck' };
+const appName = () => NEON_APP.name;
 function madeWith(el, name) {
   const d = el.createDiv('nd-madewith');
-  d.setText(`${name} ${ND_VERSION} · made with Claude`);
+  d.setText(`${name || appName()} ${ND_VERSION} · made with Claude`);
 }
 /** Settings helper: numeric text field with range check. */
 function numSetting(setting, obj, key, min, max, save) {

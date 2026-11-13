@@ -89,7 +89,7 @@ class QuickCaptureModal extends Modal {
     this.titleEl.setText('Quick capture');
     const targets = this.plugin.captureTargets();
     if (!targets.length) {
-      this.contentEl.createDiv({ cls: 'nd-muted', text: 'Turn on Neon Tasks, Projects or Time to capture into them.' });
+      this.contentEl.createDiv({ cls: 'nd-muted', text: 'Turn on Tasks, Projects or Time in the settings to capture into them.' });
       return;
     }
     let idx = Math.max(0, targets.findIndex((t) => t.id === this.plugin.lastCaptureTarget));

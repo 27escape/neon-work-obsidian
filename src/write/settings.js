@@ -16,7 +16,7 @@ class NeonWriteSettingTab extends PluginSettingTab {
       .addToggle((t) => t.setValue(s.liftedWindow).onChange((v) => ((s.liftedWindow = v), p.saveSettings(), p.applyLook())));
     new Setting(containerEl)
       .setName('Theme fonts in notes')
-      .setDesc('Body text, headings and code use the fonts of the Neon theme you picked on the dashboard.')
+      .setDesc('Body text, headings and code use the fonts of the theme you picked on the dashboard.')
       .addToggle((t) => t.setValue(s.themeFonts).onChange((v) => ((s.themeFonts = v), p.saveSettings(), p.applyLook())));
     new Setting(containerEl)
       .setName('Styled tables')
@@ -28,13 +28,13 @@ class NeonWriteSettingTab extends PluginSettingTab {
       .addToggle((t) => t.setValue(s.limeDividers).onChange((v) => ((s.limeDividers = v), p.saveSettings(), p.applyLook())));
     new Setting(containerEl)
       .setName('Pattern behind notes')
-      .setDesc('The dashboard pattern, dimmed right down, behind the note you are writing. Needs Neon Deck.')
+      .setDesc('The dashboard pattern, dimmed right down, behind the note you are writing. Needs the Dashboard section on.')
       .addToggle((t) => t.setValue(s.notePattern).onChange((v) => ((s.notePattern = v), p.saveSettings(), p.mountNotePattern())));
     new Setting(containerEl)
       .setName('Pattern strength behind notes')
       .setDesc('Percent of the dashboard pattern. Low values are barely visible.')
       .addSlider((sl) => sl.setLimits(5, 100, 5).setValue(s.patternOpacity).setDynamicTooltip().onChange((v) => ((s.patternOpacity = v), p.saveSettings(), p.applyPatternOpacity())));
-    madeWith(containerEl, 'Neon Write');
+    madeWith(containerEl);
   }
 }
 

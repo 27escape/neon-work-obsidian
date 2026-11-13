@@ -149,7 +149,6 @@ class TimeView extends ItemView {
           if (f instanceof TFile) openFile(this.app, f);
         });
       }
-      if (e.jira) r.createSpan({ cls: 'tm-entry-jira', text: e.jira });
       r.createSpan({ cls: `tm-entry-src s-${e.source}`, text: e.live ? 'live' : e.source });
       const a = r.createDiv('tm-entry-acts');
       if (!e.live) button(a, { icon: 'pencil', cls: 'nd-icon-btn', title: 'Edit', onClick: () => new EntryModal(p, e, false).open() });
@@ -160,7 +159,7 @@ class TimeView extends ItemView {
       const t = this.card(root, 'tm-tomorrow', 'Note for tomorrow', 'sunrise').body;
       t.createDiv({ text: day.tomorrow });
     }
-    madeWith(root.createDiv('tm-foot'), 'Neon Time');
+    madeWith(root.createDiv('tm-foot'));
     sc.scrollTop = scroll;
     if (this.pattern && this.pattern.kick) this.pattern.kick();
   }

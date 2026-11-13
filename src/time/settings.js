@@ -23,14 +23,14 @@ class NeonTimeSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName('Log notes').setHeading();
     new Setting(containerEl)
       .setName('Write a log note per day')
-      .setDesc('Totals, a Done today list and a table of entries, for your AI agent to send to Jira. Neon Time itself never connects to Jira or the network.')
+      .setDesc('Totals, a Done today list and a table of entries, for an AI agent (or you) to read. Nothing is sent anywhere.')
       .addToggle((t) => t.setValue(s.writeNotes).onChange((v) => ((s.writeNotes = v), save())));
     new Setting(containerEl)
       .setName('Log folder')
       .setDesc(`Empty: ${basePath('Time Log')} (in the base folder).`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Time Log')).setValue(s.logFolder).onChange((v) => ((s.logFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'))
       .addExtraButton((b) => b.setIcon('refresh-cw').setTooltip('Write today’s note now').onClick(() => p.writeDay(moment().format('YYYY-MM-DD'), true)));
-    madeWith(containerEl, 'Neon Time');
+    madeWith(containerEl);
   }
 }
 

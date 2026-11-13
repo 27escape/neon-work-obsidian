@@ -12,7 +12,7 @@
   "modules": [
     {
       "id": "neon-deck",
-      "name": "Neon Deck",
+      "name": "Dashboard",
       "desc": "Dashboard, card explorer, graph, themes",
       "cls": "NeonDeck",
       "files": [
@@ -48,11 +48,12 @@
         "src/deck/styles-cards.css",
         "src/deck/styles-graph-motion.css",
         "src/deck/styles-island.css"
-      ]
+      ],
+      "old": "Neon Deck"
     },
     {
       "id": "neon-tasks",
-      "name": "Neon Tasks",
+      "name": "Tasks",
       "desc": "Tasks and global tasks",
       "cls": "NeonTasks",
       "files": [
@@ -68,11 +69,12 @@
       ],
       "css": [
         "src/tasks/styles.css"
-      ]
+      ],
+      "old": "Neon Tasks"
     },
     {
       "id": "neon-time",
-      "name": "Neon Time",
+      "name": "Time",
       "desc": "Time tracking and work day",
       "cls": "NeonTime",
       "files": [
@@ -90,11 +92,12 @@
       ],
       "css": [
         "src/time/styles.css"
-      ]
+      ],
+      "old": "Neon Time"
     },
     {
       "id": "neon-tickets",
-      "name": "Neon Projects",
+      "name": "Projects",
       "desc": "Projects tab and card: your project notes by customer and status",
       "cls": "NeonProjects",
       "files": [
@@ -110,11 +113,12 @@
       "css": [
         "src/tickets/styles-tracker.css",
         "src/tickets/styles-extras.css"
-      ]
+      ],
+      "old": "Neon Tickets"
     },
     {
       "id": "neon-research",
-      "name": "Neon Research",
+      "name": "Research",
       "old": "Neon Research",
       "desc": "Research tab: topic trees from your folders, notes by status, link suggestions",
       "cls": "NeonResearch",
@@ -135,7 +139,7 @@
     },
     {
       "id": "neon-write",
-      "name": "Neon Write",
+      "name": "Write",
       "desc": "Table picker, styled tables, dividers, locked callouts, the pattern behind notes",
       "cls": "NeonWrite",
       "files": [
@@ -149,7 +153,8 @@
       ],
       "css": [
         "src/write/styles.css"
-      ]
+      ],
+      "old": "Neon Write"
     }
   ]
 }

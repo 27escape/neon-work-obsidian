@@ -119,7 +119,7 @@ class ResearchView extends ItemView {
         for (const f of kids.notes) this.noteRow(tree, f, 0);
       }
     }
-    madeWith(root.createDiv('nr-foot'), 'Neon Research');
+    madeWith(root.createDiv('nr-foot'));
     sc.scrollTop = top;
     if (this.pattern && this.pattern.kick) this.pattern.kick();
   }

@@ -48,7 +48,7 @@ const actCount = (x) => x.tasks.length + x.tickets.length + x.time.length + x.no
  */
 const ACTIVITY_STATS = [
   {
-    id: 'workday', label: 'avg workday', accent: 'var(--nd-info)', how: 'Average worked time on days with time (Neon Time); overtime days are past the day target.',
+    id: 'workday', label: 'avg workday', accent: 'var(--nd-info)', how: 'Average worked time on days with tracked time; overtime days are past the day target.',
     get(days, month) {
       const xs = [...days.entries()].filter(([k, x]) => x.worked && moment(k).isSame(month, 'month'));
       if (!xs.length) return null;

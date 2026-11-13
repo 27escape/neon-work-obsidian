@@ -220,7 +220,7 @@ Object.assign(GraphView.prototype, {
       '---',
       `# 🌉 ${strip(wa[0])} × ${strip(wb[0])}`,
       '',
-      '> [!question] Structural gap found by Neon Deck',
+      `> [!question] Structural gap found by ${appName()}`,
       `> How does **${wa.join(', ')}** relate to **${wb.join(', ')}**?`,
       '',
       `## Side A — ${wa.join(' · ')}`,

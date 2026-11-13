@@ -71,13 +71,13 @@ class NeonResearchSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName('Other').setHeading();
     new Setting(containerEl)
       .setName('Count research as work time')
-      .setDesc('Off: new research notes (without a template) get “untracked: true”, so Neon Time never counts them as work.')
+      .setDesc('Off: new research notes (without a template) get “untracked: true”, so time tracking never counts them as work.')
       .addToggle((t) => t.setValue(s.countAsWork).onChange((v) => ((s.countAsWork = v), save())));
     new Setting(containerEl)
       .setName('Link suggestions')
       .setDesc('In research notes, the status bar offers to link words that match other research note titles.')
       .addToggle((t) => t.setValue(s.linkSuggest).onChange((v) => ((s.linkSuggest = v), save(), p.updateLinkHint())));
-    madeWith(containerEl, 'Neon Research');
+    madeWith(containerEl);
   }
 }
 

@@ -50,10 +50,10 @@ Object.assign(NeonTime.prototype, {
       for (const [a, b] of w.breaks) lines.push(`- Break ${hm(a)}–${b == null ? 'now' : hm(b)}${b == null ? '' : ` (${fmtMin(Math.round((b - a) / 60000))})`}`);
       lines.push('');
     }
-    lines.push('## Entries', '| Start | Min | Category | Note | Jira | Source |', '| --- | --- | --- | --- | --- | --- |');
+    lines.push('## Entries', '| Start | Min | Category | Note | Source |', '| --- | --- | --- | --- | --- |');
     for (const e of [...d.entries].sort((a, b) => a.start - b.start)) {
       const note = e.note || (e.path ? `[[${e.path.split('/').pop().replace(/\.md$/, '')}]]` : '');
-      lines.push(`| ${moment(e.start).format('HH:mm')} | ${entryMin(e)} | ${e.cat} | ${cell(note)} | ${cell(e.jira)} | ${e.source} |`);
+      lines.push(`| ${moment(e.start).format('HH:mm')} | ${entryMin(e)} | ${e.cat} | ${cell(note)} | ${e.source} |`);
     }
     return lines.join('\n') + '\n';
   },
@@ -96,15 +96,15 @@ Object.assign(NeonTime.prototype, {
     const text = [
       '# Time Log — format',
       '',
-      'Neon Time writes one note per day here, named `YYYY-MM-DD.md`. It never connects to Jira or the network; an AI agent reads these notes and sends them on.',
+      `${appName()} writes one note per day here, named \`YYYY-MM-DD.md\`. Nothing is sent anywhere; an AI agent (or you) can read these notes.`,
       '',
       '## Properties',
       '- `date` — the day.',
       '- `total_min` — minutes worked: the category minutes added up, or the workday timer (Start day to End day minus breaks) when that is longer.',
       '- `untracked_min` — workday minutes not covered by a category; `break_min` — breaks in the workday (not counted as worked).',
-      '- `projects_min`, `school_min`, `admin_min`, `operations_min`, `other_min` — active minutes per category (`other` = notes without a category).',
+      '- `<customer>_min`, `other_min` — active minutes per category, i.e. per customer (`other` = notes without one).',
       `- \`target_min\` — ${target} on weekdays (${fmtMin(target)}), 0 on weekends. \`overtime_min\` — time past the target.`,
-      '- `synced` — set to `true` once the day has been sent to Jira. Neon Time keeps it, unless entries change afterwards, then it goes back to `false`.',
+      '- `synced` — for your own use (e.g. an agent sets it to `true` once it has processed the day); kept unless entries change afterwards, then it goes back to `false`.',
       '',
       '## Body',
       '- **Done today** — notes worked on, tasks ticked and project changes.',
@@ -112,17 +112,16 @@ Object.assign(NeonTime.prototype, {
       '- **Workday** — when the work timer started and ended, time worked, and each break.',
       '- **Entries** — one row per block of work:',
       '',
-      '| Start | Min | Category | Note | Jira | Source |',
-      '| --- | --- | --- | --- | --- | --- |',
-      '| 09:12 | 47 | projects | [[API migration]] | PROJ-142 | auto |',
-      '| 10:05 | 30 | operations | Customer call |  | manual |',
+      '| Start | Min | Category | Note | Source |',
+      '| --- | --- | --- | --- | --- |',
+      '| 09:12 | 47 | e2i | [[API migration]] | auto |',
+      '| 10:05 | 30 | symca | Customer call | manual |',
       '',
       '`Source` is `auto` (counted while you worked in the note), or `manual` (added by hand).',
-      'The Jira key comes from the note’s `jira` property, or was typed in by hand.',
       '',
       `Auto time counts while a note is the focused tab and you type, scroll or click, also while you are briefly in another app; after ${idle} minute${idle === 1 ? '' : 's'} without input in Obsidian it ends at your last activity and the idle time is dropped. Short bits of work on the same note add up and become an entry once they reach a minute; bits still under a minute are saved when tracking is paused or Obsidian closes. Back-to-back sessions on the same note are merged, and a session past midnight is split between the two days. Notes with \`untracked: true\` are never logged.`,
       '',
-      'These notes are rewritten by Neon Time; edits to them are overwritten (except `synced`). Change entries in the Time tab instead. This README is rewritten too when the Neon Time settings change.',
+      'These notes are rewritten by the plugin; edits to them are overwritten (except `synced`). Change entries in the Time tab instead. This README is rewritten too when the Time settings change.',
       '',
     ].join('\n');
     try {

@@ -87,14 +87,11 @@ class EntryModal extends Modal {
     }
     let cat;
     let note;
-    let jira;
     if (!this.isBreak) {
       cat = pills(field('Category'), timeCats().map((k) => [k, CAT_LABEL[k]]), normCat(e.cat) || 'operations', null, 'tm-cats');
       for (const k of timeCats()) cat.btns.get(k).style.setProperty('--pill-accent', catColor(k));
       note = field('What did you do?').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'e.g. Customer call' } });
       note.value = e.note || '';
-      jira = field('Jira key (optional)').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'e.g. OPS-311' } });
-      jira.value = e.jira || '';
     }
 
     const foot = c.createDiv('nd-modal-row');
@@ -119,7 +116,7 @@ class EntryModal extends Modal {
         return;
       }
       this.close();
-      Object.assign(v, { cat: cat.get() || 'other', note: note.value.trim(), jira: jira.value.trim() });
+      Object.assign(v, { cat: cat.get() || 'other', note: note.value.trim(), jira: e.jira || '' });
       if (this.isNew) p.addEntry({ ...v, path: e.path || '', source: e.source || 'manual' });
       else p.updateEntry(e, v);
     };

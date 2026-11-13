@@ -18,9 +18,9 @@ const NEON_GUARD = {
     console.info(`Neon Deck (read-only): blocked ${what}`);
     if (Date.now() - this.lastGesture < 2000 && Date.now() - this.lastNotice > 5000) {
       this.lastNotice = Date.now();
-      new Notice(`Neon Deck is read-only, so it did not ${what}. Turn off “Read-only” in the plugin’s settings (Protect my notes) to allow changes to your notes.`, 6000);
+      new Notice(`${appName()} is read-only, so it did not ${what}. Turn off “Read-only” in the plugin’s settings (Protect my notes) to allow changes to your notes.`, 6000);
     }
-    const e = new Error(`Neon Deck is read-only: ${what} was blocked`);
+    const e = new Error(`${appName()} is read-only: ${what} was blocked`);
     e.neonReadOnly = true;
     return e;
   },

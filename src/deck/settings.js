@@ -123,7 +123,7 @@ class NeonSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName('Graph').setHeading();
     num(new Setting(containerEl).setName('Max notes').setDesc('The graph shows up to twice this many notes.'), 'graphMaxNodes', 20, 400);
-    madeWith(containerEl, 'Neon Deck');
+    madeWith(containerEl);
   }
 }
 

@@ -11,6 +11,7 @@ class NeonMother extends Plugin {
     this.moduleTabs = new Map(); // fork: id -> the module's settings tab, shown inside this plugin's one settings page
     neonMother = this;
     this.failed = new Map(); // id -> error message
+    NEON_APP.name = this.manifest.name; // fork: the UI names the plugin by its manifest name
     this.state = Object.assign({ off: {}, starting: false, safe: false, readOnly: true }, await this.readState());
     // fork: modules get a write-guarded app; only the plugin's own folder may be written while read-only
     NEON_GUARD.allowDir = normalizePath(this.manifest.dir);
@@ -40,7 +41,7 @@ class NeonMother extends Plugin {
     this.addSettingTab(new NeonModulesTab(this.app, this));
     this.addCommand({ id: 'safe-mode', name: 'Restart in safe mode (modules off)', callback: () => this.setSafe(true) });
     if (crashed || this.state.safe) {
-      new Notice(crashed ? 'Neon Deck did not finish starting last time: safe mode, modules are off. Turn safe mode off in the plugin’s settings.' : 'Neon Deck safe mode: modules are off.', 0);
+      new Notice(crashed ? `${appName()} did not finish starting last time: safe mode, modules are off. Turn safe mode off in the plugin’s settings.` : `${appName()} safe mode: modules are off.`, 0);
     } else for (const m of NEON_MODULES) await this.start(m);
     // modules finish starting asynchronously: only call the start done once the workspace is ready
     this.app.workspace.onLayoutReady(() => {
@@ -80,13 +81,14 @@ class NeonMother extends Plugin {
     // the old separate plugin is still on: never run two copies
     if (m.id !== 'neon-deck' && this.enabled.has(m.id)) {
       this.failed.set(m.id, `turn off the old "${m.old}" plugin, then reload`);
-      new Notice(`${m.name} is now part of Neon Deck. Turn off the old ${m.old} plugin in Community plugins, then reload.`, 0);
+      new Notice(`${m.name} is now part of ${appName()}. Turn off the old ${m.old} plugin in Community plugins, then reload.`, 0);
       return;
     }
     const dir = m.id === 'neon-deck' ? this.manifest.dir : `${this.manifest.dir}/${m.id.replace('neon-', '')}`;
     try {
       await this.adoptData(m.id, dir);
-      const child = new m.cls(this.guardedApp, { ...this.manifest, id: m.id, name: m.name, dir });
+      // fork: a module is named "<plugin name> – <section>" (command palette, notices)
+      const child = new m.cls(this.guardedApp, { ...this.manifest, id: m.id, name: `${this.manifest.name} – ${SECTION_LABEL[m.id] || m.name}`, dir });
       // fork: a module's settings appear as a section of this plugin's settings page, not a page of their own
       child.addSettingTab = (tab) => {
         this.moduleTabs.set(m.id, tab);
@@ -100,7 +102,7 @@ class NeonMother extends Plugin {
         } catch (e) {
           console.error(`Neon Deck: ${m.name} failed to start`, e);
           this.failed.set(m.id, String((e && e.message) || e));
-          new Notice(`Neon Deck: ${m.name} failed to start and was stopped. Details in the console.`);
+          new Notice(`${appName()}: ${m.name} failed to start and was stopped. Details in the console.`);
           window.setTimeout(() => this.stop(m.id), 0);
         }
       };
@@ -130,12 +132,12 @@ class NeonMother extends Plugin {
     this.state.readOnly = on;
     NEON_GUARD.readOnly = on;
     await this.writeState();
-    new Notice(on ? 'Neon Deck: read-only on. Nothing in your vault will be changed.' : 'Neon Deck: read-only off. Features that write to notes now work.');
+    new Notice(on ? `${appName()}: read-only on. Nothing in your vault will be changed.` : `${appName()}: read-only off. Features that write to notes now work.`);
   }
   async setSafe(on) {
     this.state.safe = on;
     await this.writeState();
-    new Notice(on ? 'Neon Deck: safe mode on. Reload Obsidian (or the plugin) to apply.' : 'Neon Deck: safe mode off. Reload to start the modules.');
+    new Notice(on ? `${appName()}: safe mode on. Reload Obsidian (or the plugin) to apply.` : `${appName()}: safe mode off. Reload to start the modules.`);
   }
   /** First start of a module: copy the settings of the old separate plugin (never move or delete it). */
   async adoptData(id, dir) {
