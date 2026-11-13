@@ -386,6 +386,7 @@ const noteQueue = new Map(); // path -> last pending write
  */
 function writeNote(app, file, fn) {
   const run = () => {
+    if (NEON_GUARD.readOnly) throw NEON_GUARD.block('change', file.path); // fork: read-only guard (src/shared/guard.js)
     const leaf = app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === file && l.view.editor && l.view.getMode() === 'source');
     if (!leaf) return app.vault.process(file, fn);
     const ed = leaf.view.editor;

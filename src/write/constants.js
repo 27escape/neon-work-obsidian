@@ -10,7 +10,7 @@ const NW_DEFAULTS = {
   liftedWindow: true,
   themeFonts: true,
   styledTables: true,
-  moveImages: true,
+  moveImages: false, // fork: off by default, images stay where Obsidian puts them
   notePattern: true,
   limeDividers: true, // --- dividers as a lime dotted line (item 27)
   patternOpacity: 35, // percent of the dashboard pattern's strength (already faint by design)

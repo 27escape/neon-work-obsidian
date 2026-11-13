@@ -2,7 +2,8 @@
   "header": "src/kernel/_header.js",
   "manifest": "src/kernel/manifest.json",
   "shared": [
-    "src/shared/shared.js"
+    "src/shared/shared.js",
+    "src/shared/guard.js"
   ],
   "kernel": [
     "src/kernel/mother.js"

@@ -118,7 +118,7 @@ class NeonWrite extends Plugin {
     this.addCommand({ id: 'insert-page-break', name: 'Insert page break (PDF)', editorCallback: (ed) => insertPageBreak(ed) });
     // --- typed under a line of text stays a divider
     this.registerDomEvent(document, 'keyup', (e) => {
-      if (e.key !== 'Enter' || !this.settings.limeDividers) return;
+      if (e.key !== 'Enter' || !this.settings.limeDividers || NEON_GUARD.readOnly) return; // fork: no automatic edits while read-only
       const v = this.app.workspace.getActiveViewOfType(MarkdownView);
       if (v && v.getMode() === 'source' && v.editor.hasFocus()) keepDivider(v.editor);
     });
@@ -216,6 +216,7 @@ class NeonWrite extends Plugin {
   lockLine(cm, line) {
     const t = toggleLockMeta(line.text) ?? toggleMathLock(line.text);
     if (t == null) return false;
+    if (NEON_GUARD.readOnly) return void NEON_GUARD.block('change', this.app.workspace.getActiveFile()?.path); // fork: read-only guard
     cm.dispatch({ changes: { from: line.from, to: line.to, insert: t }, annotations: lockAnno.of(true) });
     return true;
   }

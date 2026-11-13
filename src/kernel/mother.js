@@ -3,14 +3,18 @@
  * Obsidian's own Plugin/Component lifecycle removes everything a child registered when it
  * stops, so a module can be switched off at runtime without leaks. NEON_MODULES is filled
  * in by the build (tools/build.mjs). */
-const KERNEL_FILE = 'modules.json'; // { off: { 'neon-time': true }, starting: bool, safe: bool }
+const KERNEL_FILE = 'modules.json'; // { off: { 'neon-time': true }, starting: bool, safe: bool, readOnly: bool }
 
 class NeonMother extends Plugin {
   async onload() {
     this.modules = new Map(); // id -> running child plugin
     neonMother = this;
     this.failed = new Map(); // id -> error message
-    this.state = Object.assign({ off: {}, starting: false, safe: false }, await this.readState());
+    this.state = Object.assign({ off: {}, starting: false, safe: false, readOnly: true }, await this.readState());
+    // fork: modules get a write-guarded app; only the plugin's own folder may be written while read-only
+    NEON_GUARD.allowDir = normalizePath(this.manifest.dir);
+    NEON_GUARD.readOnly = this.state.readOnly !== false;
+    this.guardedApp = guardApp(this.app);
     const crashed = this.state.starting; // the last start never finished
     this.state.starting = true;
     if (crashed) this.state.safe = true; // stays on until turned off in settings
@@ -60,7 +64,7 @@ class NeonMother extends Plugin {
     const dir = m.id === 'neon-deck' ? this.manifest.dir : `${this.manifest.dir}/${m.id.replace('neon-', '')}`;
     try {
       await this.adoptData(m.id, dir);
-      const child = new m.cls(this.app, { ...this.manifest, id: m.id, name: m.name, dir });
+      const child = new m.cls(this.guardedApp, { ...this.manifest, id: m.id, name: m.name, dir });
       // a failing start stops only this module
       const load = child.onload;
       child.onload = async () => {
@@ -94,6 +98,12 @@ class NeonMother extends Plugin {
     const m = NEON_MODULES.find((x) => x.id === id);
     if (on) await this.start(m);
     else this.stop(id);
+  }
+  async setReadOnly(on) {
+    this.state.readOnly = on;
+    NEON_GUARD.readOnly = on;
+    await this.writeState();
+    new Notice(on ? 'Neon Deck: read-only on. Nothing in your vault will be changed.' : 'Neon Deck: read-only off. Features that write to notes now work.');
   }
   async setSafe(on) {
     this.state.safe = on;
@@ -136,6 +146,11 @@ class NeonModulesTab extends PluginSettingTab {
     const el = this.containerEl;
     el.empty();
     el.addClass('nd-settings');
+    new Setting(el).setName('Protect my notes').setHeading();
+    new Setting(el)
+      .setName('Read-only')
+      .setDesc('On: Neon Deck only reads your vault. It never creates, changes, moves, renames or deletes notes, folders or images; features that would write show a notice instead. Its own settings are still saved.')
+      .addToggle((t) => t.setValue(p.state.readOnly !== false).onChange((v) => p.setReadOnly(v)));
     new Setting(el).setName('Modules').setHeading();
     for (const m of NEON_MODULES) {
       const why = p.failed.get(m.id);

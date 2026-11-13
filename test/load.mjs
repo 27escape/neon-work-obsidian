@@ -10,10 +10,11 @@ const obsidian = new Proxy({ moment, debounce: (f) => f, normalizePath: (p) => p
 /** id: module id, e.g. 'neon-write'. Loads the shared helpers plus that module's files. */
 export function load(id, names) {
   const m = o.modules.find((x) => x.id === id);
-  const code = [...o.shared, ...m.files].map((f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8')).join('\n') + `\n;({ ${names.join(', ')} })`;
+  // fork: the read-only guard is on by default; unit tests of write logic run with it off (test/guard.test.mjs turns it on)
+  const code = [...o.shared, ...m.files].map((f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8')).join('\n') + `\n;NEON_GUARD.readOnly = false;\n;({ ${names.join(', ')} })`;
   const require = (r) => {
     if (r === 'obsidian') return obsidian;
     throw new Error('no ' + r);
   };
-  return vm.runInNewContext(code, { require, module: {}, window: { setTimeout, clearTimeout }, document: {}, console, setTimeout, clearTimeout });
+  return vm.runInNewContext(code, { require, module: {}, window: { setTimeout, clearTimeout }, document: {}, console: { ...console, info() {} }, setTimeout, clearTimeout });
 }
