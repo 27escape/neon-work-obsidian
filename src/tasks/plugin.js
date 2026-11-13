@@ -24,6 +24,16 @@ class NeonTasks extends Plugin {
     this.buildStatus();
 
     const changed = debounce(() => this.emit(), 250, true);
+    // fork: finished tasks come from the notes; rescan when a note with ticked tasks changes
+    const rescan = debounce(() => this.scanDone().catch((e) => console.error('Neon Deck (fork) done tasks', e)), 1000, true);
+    this.registerEvent(this.app.metadataCache.on('changed', (f, _d, cache) => (cache && cache.listItems && cache.listItems.some((li) => li.task === 'x' || li.task === 'X')) || (this.doneTasks || []).some((x) => x.path === f.path) ? rescan() : null));
+    this.registerEvent(this.app.vault.on('delete', rescan));
+    this.registerEvent(this.app.vault.on('rename', rescan));
+    const doneRef = this.app.metadataCache.on('resolved', () => {
+      this.app.metadataCache.offref(doneRef);
+      rescan();
+    });
+    this.registerEvent(doneRef);
     // Only notes that feed the Tasks widget trigger a refresh.
     this.registerEvent(
       this.app.metadataCache.on('changed', (f, _d, cache) => {
@@ -48,7 +58,8 @@ class NeonTasks extends Plugin {
       this.updateBar();
       this.offerGlobalMove();
       // fork: no Global tasks backup (they are the Todo note); a new day moves tasks between groups
-      this.registerInterval(window.setInterval(() => this.dayKey !== (this.dayKey = moment().format('YYYY-MM-DD')) && this.emit(), 10 * 60 * 1000));
+      this.registerInterval(window.setInterval(() => this.dayKey !== (this.dayKey = moment().format('YYYY-MM-DD')) && (this.emit(), rescan()), 10 * 60 * 1000));
+      rescan();
     });
   }
   onunload() {
@@ -98,14 +109,8 @@ class NeonTasks extends Plugin {
     api.registerWidget({ id: 'global', slot: 'global', title: 'Todo', icon: 'star', sub: this.quickPath(), mount: (card) => this.mountGlobal(card) });
     api.registerAction({ id: 'tasks', icon: 'list-checks', label: 'Tasks', order: 15, view: VIEW_TASKS, run: () => this.openTab() });
     api.registerCapture({ id: 'task', label: 'Todo task', short: 'Todo', icon: 'square-check', order: 10, run: (v) => this.addQuickTask(v) });
-    // Recently done on the dashboard: tasks ticked in the widgets (doneLog keeps 120 days)
-    if (api.registerActivity)
-      api.registerActivity('tasks', () =>
-        this.settings.doneLog.map((x) => {
-          const f = x.src && x.src !== 'global' ? this.app.vault.getAbstractFileByPath(x.src) : null;
-          return { t: x.t, kind: 'task', text: x.text, due: x.due || null, src: x.src === 'global' ? 'Todo' : f ? f.basename : '', open: f ? (e) => openFile(this.app, f, e) : null };
-        }),
-      );
+    // Recently done on the dashboard (fork): tasks ticked anywhere, read from their ✅ dates in your notes
+    if (api.registerActivity) api.registerActivity('tasks', () => this.doneActivity());
     api.registerFacts('tasks', () => {
       const out = [];
       if (this.openCount != null) out.push({ v: this.openCount, l: 'open tasks' });
@@ -114,15 +119,14 @@ class NeonTasks extends Plugin {
       return out;
     });
     api.registerWeekLine('tasks', (start, end) => {
-      const n = this.settings.doneLog.filter((d) => d.t >= start.valueOf() && d.t < end.valueOf()).length;
+      const n = this.doneBetween(start, end);
       return n ? [`${n} task${n === 1 ? '' : 's'} done`] : [];
     });
     api.provide('newNote', (folder) => this.newNote(folder));
     api.registerExcluded('tasks', () => []);
   }
   doneOn(m) {
-    const k = m.format('YYYY-MM-DD');
-    return this.settings.doneLog.filter((d) => dayKey(d.t) === k).length;
+    return this.doneBetween(m.clone().startOf('day'), m.clone().startOf('day').add(1, 'day'));
   }
   logDone(text, src, due) {
     const log = this.settings.doneLog;

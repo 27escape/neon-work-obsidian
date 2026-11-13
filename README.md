@@ -17,6 +17,7 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 ### Dashboard
 
 - **Cards** on one page: Totals, Vault pulse, Recently done, Activity (month calendar and week timeline), Tasks, Todo, Projects, Time today and the **Claude card** (notes whose `claude` property asks for Claude's work, and notes Claude changed for you to review).
+- **Recently done:** the last 14 days of finished work, read from your notes: tasks ticked with a ✅ date (in the editor, the Tasks plugin or these cards) and projects with a `completed` or `cancelled` date. Works in read-only mode.
 - **Ticker and pin board:** a live line of facts at the top that opens into a pin board. Drop a note, a file or some text on it to pin it; pins live in one note, one line each.
 - **Quick capture:** type a thought and send it to an **Inbox note** (a new note in your inbox folder, from your inbox template), the **Todo** note, a new **Project**, a **Time entry** or the pin board.
 - **Card explorer** (sidebar or tab): your folders and notes as cards, coloured by customer, with filter chips per customer.

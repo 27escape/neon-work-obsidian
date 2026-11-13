@@ -118,8 +118,8 @@ Object.assign(DashboardView.prototype, {
       tile(tasks, 'tasks done', 'var(--nd-go)', `${tasksMonth} in ${month}`, 'Tasks ticked since time tracking started counting');
     } else {
       const ts = neonPlugin(this.app, 'neon-tasks');
-      const log = ts && ts.settings && ts.settings.doneLog;
-      if (log) tile(log.length, 'tasks done', 'var(--nd-go)', `${log.filter((x) => thisMonth(x.t)).length} in ${month}`, 'Tasks ticked in the last 120 days');
+      const done = ts && ts.doneTasks; // fork: ✅ dates in your notes
+      if (done) tile(done.length, 'tasks done', 'var(--nd-go)', `${done.filter((x) => thisMonth(moment(x.date, 'YYYY-MM-DD').valueOf())).length} in ${month}`, 'Tasks ticked in the last 6 weeks, by their ✅ date');
     }
 
     // projects (Neon Projects)

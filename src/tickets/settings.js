@@ -50,7 +50,7 @@ class NeonProjectsSettingTab extends PluginSettingTab {
     for (const k of ['done', 'waiting', 'in-progress'])
       new Setting(containerEl)
         .setName(`Recently done: ${PROJECT_KIND_LABEL[k].toLowerCase()}`)
-        .setDesc(k === 'done' ? 'Projects set to a status in this group appear in the dashboard’s Recently done card.' : '')
+        .setDesc(k === 'done' ? 'Projects closed in the last 14 days (by their completed or cancelled date, however the status was changed) appear in the dashboard’s Recently done card.' : '')
         .addToggle((t) =>
           t.setValue(s.activityStatuses.includes(k)).onChange((v) => {
             s.activityStatuses = v ? [...new Set([...s.activityStatuses, k])] : s.activityStatuses.filter((x) => x !== k);

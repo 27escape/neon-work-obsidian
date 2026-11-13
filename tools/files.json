@@ -68,7 +68,8 @@
         "src/tasks/props.js",
         "src/tasks/widget-global.js",
         "src/tasks/widget-tasks.js",
-        "src/tasks/collect.js"
+        "src/tasks/collect.js",
+        "src/tasks/done.js"
       ],
       "css": [
         "src/tasks/styles.css"

@@ -1,5 +1,5 @@
 Object.assign(DashboardView.prototype, {
-  /** Top of Recently done / touched: ticked tasks and tickets set to Done/Waiting, last 14 days, by day. */
+  /** Top of Recently done / touched: tasks ticked (✅ date) and projects closed (completed / cancelled date) in your notes, last 14 days, by day. */
   renderDoneLog(b) {
     const cut = moment().startOf('day').subtract(13, 'days').valueOf();
     const items = [];
@@ -15,7 +15,7 @@ Object.assign(DashboardView.prototype, {
     this.recent.badge.setText(today ? `${today} today` : '');
     if (!this.plugin.activity.size) return; // Tasks and Tickets both off: only the notes list
     const box = b.createDiv('nd-done-log');
-    if (!items.length) return void box.createDiv({ cls: 'nd-done-empty', text: 'Nothing done yet today' });
+    if (!items.length) return void box.createDiv({ cls: 'nd-done-empty', text: 'Nothing finished in the last 14 days' });
     let day = '';
     const seen = this.doneSeen; // rows drawn last time: only new ones slide in
     this.doneSeen = new Set();
@@ -32,9 +32,9 @@ Object.assign(DashboardView.prototype, {
       const r = box.createDiv('nd-done-row' + (x.open ? ' is-clickable' : '') + (seen && !seen.has(key) ? ' is-new' : ''));
       icon(r, x.kind === 'ticket' ? 'briefcase' : 'check', 'nd-ico nd-done-ico');
       r.createSpan({ cls: 'nd-done-text', text: x.text });
-      if (x.status) r.createSpan({ cls: `nd-done-chip is-${x.status}`, text: x.status === 'done' ? 'Done' : 'Waiting' });
+      if (x.status) r.createSpan({ cls: `nd-done-chip is-${x.status}`, text: x.label || (x.status === 'done' ? 'Done' : 'Waiting') });
       if (x.src) r.createSpan({ cls: 'nd-done-src', text: x.src });
-      r.createSpan({ cls: 'nd-done-at', text: m.format('HH:mm') });
+      if (!x.allDay) r.createSpan({ cls: 'nd-done-at', text: m.format('HH:mm') });
       tip(r, x.text);
       if (x.open) r.addEventListener('click', (e) => x.open(e));
     }

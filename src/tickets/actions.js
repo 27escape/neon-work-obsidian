@@ -24,7 +24,26 @@ Object.assign(NeonProjects.prototype, {
     if (kind === 'done') new Notice(`✓ ${t.title} — ${value}`);
     return true;
   },
-  /** Recently done / touched on the dashboard: projects set to a status group chosen in settings. */
+  /**
+   * Recently done on the dashboard (fork): projects closed in the last 14 days, read from their `completed` /
+   * `cancelled` date, however the status was changed; plus projects put on hold from these menus (still logged).
+   */
+  closedActivity() {
+    const cut = moment().startOf('day').subtract(13, 'days');
+    const out = [];
+    const open = (path) => () => {
+      const f = this.app.vault.getAbstractFileByPath(path);
+      if (f instanceof TFile) this.openProject(f);
+    };
+    if (this.settings.activityStatuses.includes('done'))
+      for (const t of this.collectProjects())
+        if (t.status === 'done' && t.completed && !t.completed.isBefore(cut))
+          out.push({ t: t.completed.clone().startOf('day').valueOf(), allDay: true, kind: 'ticket', text: t.title, src: t.customer || '', status: 'done', label: t.statusRaw || 'Closed', open: open(t.file.path) });
+    for (const x of this.settings.statusLog)
+      if (projectKind(x.status) === 'waiting' && this.settings.activityStatuses.includes('waiting')) out.push({ t: x.t, kind: 'ticket', text: x.title, src: '', status: 'waiting', label: x.status, open: open(x.path) });
+    return out;
+  },
+  /** Projects set to a status group chosen in settings, from these menus (only 'on hold' is shown; closed comes from the notes). */
   logStatus(t, kind, value) {
     if (!this.settings.activityStatuses.includes(kind)) return;
     const log = this.settings.statusLog;

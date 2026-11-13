@@ -43,6 +43,8 @@ class NeonProjects extends Plugin {
     const dirty = () => {
       this.cache = null;
       this.emitSoon();
+      const api = deckApi(this.app);
+      if (api && api.activityChanged) api.activityChanged(); // Recently done reads the closed dates
     };
     const known = (path) => !!(this.cache && this.cache.paths.has(path));
     this.registerEvent(this.app.metadataCache.on('changed', (f, _d, cache) => (isProjectCache(cache) || known(f.path)) && dirty()));
@@ -98,19 +100,7 @@ class NeonProjects extends Plugin {
     api.registerCapture({ id: 'ticket', label: 'Project', short: 'Project', icon: 'briefcase', order: 20, allowEmpty: true, run: (v) => this.newProject({ title: v }) });
     api.registerAction({ id: 'tickets', icon: 'briefcase', label: 'Projects', order: 20, view: VIEW_TICKETS, run: () => this.openTracker() });
     if (api.registerActivity)
-      api.registerActivity('tickets', () =>
-        this.settings.statusLog.map((x) => ({
-          t: x.t,
-          kind: 'ticket',
-          text: x.title,
-          src: '',
-          status: x.status,
-          open: () => {
-            const f = this.app.vault.getAbstractFileByPath(x.path);
-            if (f instanceof TFile) this.openProject(f);
-          },
-        })),
-      );
+      api.registerActivity('tickets', () => this.closedActivity());
     api.registerFacts('tickets', () => {
       const act = this.activeProjects();
       const week = act.filter((t) => t.due && t.daysLeft >= 0 && t.daysLeft <= 7).length;
