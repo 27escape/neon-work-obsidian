@@ -1,0 +1,22 @@
+{
+  "quickTasksPath": "",
+  "taskTag": "#task",
+  "askOnCreate": false,
+  "stampDone": true,
+  "showTimeline": true,
+  "timelineZoom": "3m",
+  "carryDays": 14,
+  "showNoCategoryBar": false,
+  "meetingsFolder": "Meetings",
+  "peopleFolder": "People",
+  "researchFolder": "Research",
+  "noCustomerFolder": "2.Resources",
+  "noteTemplate": "2.Resources/templates/note_template.md",
+  "meetingTemplate": "2.Resources/templates/meeting_template.md",
+  "personTemplate": "2.Resources/templates/person_template.md",
+  "researchTemplate": "2.Resources/templates/research_template.md",
+  "installedAt": 1794584248351,
+  "globalTasks": [],
+  "doneLog": [],
+  "lastBackup": ""
+}

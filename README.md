@@ -85,6 +85,10 @@ The **base folder** (asked on first start) is where the plugin keeps what it mak
 
 ![Settings, one page with a section per part](docs/screenshots/settings.png)
 
+## Try it first
+
+The repo includes a **sample vault** (`sample vault/`) with made-up customers, projects, meetings, people, research and tasks, and the plugin already installed and set up (read-only off). In Obsidian choose **Open folder as vault**, pick the `sample vault` folder, and trust its plugins when asked. Your own vaults are not touched.
+
 ## Install
 
 1. Build it (`node tools/build.mjs`) or take the three files from a release: `main.js`, `manifest.json`, `styles.css`.

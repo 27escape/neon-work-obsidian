@@ -1,0 +1,60 @@
+{
+  "tracking": true,
+  "logFolder": "",
+  "writeNotes": true,
+  "dayHours": 8,
+  "idleMin": 30,
+  "workIdleH": 2,
+  "wrapLead": 30,
+  "installedAt": 1794584248363,
+  "days": {
+    "2026-11-13": {
+      "entries": [
+        {
+          "id": "mwf635wx1",
+          "start": 1794584350041,
+          "end": 1794584356821,
+          "ms": 6780,
+          "cat": "acme widgets",
+          "note": "",
+          "path": "1.Customers/Acme Widgets/Meetings/2026-11-12 ERP Steering Group.md",
+          "jira": "",
+          "source": "auto"
+        },
+        {
+          "id": "mwf635wx2",
+          "start": 1794584361202,
+          "end": 1794584364207,
+          "ms": 3005,
+          "cat": "acme widgets",
+          "note": "",
+          "path": "1.Customers/Acme Widgets/People/@Lena Novak.md",
+          "jira": "",
+          "source": "auto"
+        },
+        {
+          "id": "mwf635wx0",
+          "start": 1794584377923,
+          "end": 1794585859095,
+          "ms": 1481172,
+          "cat": "contoso",
+          "note": "",
+          "path": "4.Archive/Printer Fleet Replacement.md",
+          "jira": "",
+          "source": "auto"
+        }
+      ],
+      "done": [
+        {
+          "t": 1794585862833,
+          "kind": "note",
+          "ref": "4.Archive/Printer Fleet Replacement.md",
+          "text": "Printer Fleet Replacement"
+        }
+      ],
+      "tomorrow": "",
+      "wrapped": false
+    }
+  },
+  "idleRule": 2
+}

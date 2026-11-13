@@ -1,0 +1,5 @@
+{
+  "folder": "2.Resources/Dailynotes",
+  "format": "YYYY/YYYY-ww",
+  "template": "2.Resources/templates/weekly_template.md"
+}

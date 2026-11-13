@@ -1,0 +1,14 @@
+{
+  "roots": [
+    {
+      "name": "Research",
+      "path": "2.Resources/Research"
+    },
+    {
+      "name": "Customers",
+      "path": "1.Customers/*/Research"
+    }
+  ],
+  "activeRoot": 0,
+  "noteTemplate": "2.Resources/templates/research_template.md"
+}

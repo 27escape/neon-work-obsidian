@@ -4,3 +4,12 @@ data.json
 modules.json
 tools/neon-check-log.jsonl
 node_modules/
+
+# sample vault: keep its plugin settings (data.json, modules.json above are ignored elsewhere),
+# but not the files Obsidian writes when you open it
+!/sample vault/.obsidian/plugins/neon-work/data.json
+!/sample vault/.obsidian/plugins/neon-work/*/data.json
+!/sample vault/.obsidian/plugins/neon-work/modules.json
+/sample vault/.obsidian/workspace*.json
+/sample vault/.obsidian/graph.json
+/sample vault/.trash/

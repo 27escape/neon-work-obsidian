@@ -114,7 +114,7 @@ Object.assign(NeonTime.prototype, {
       '',
       '| Start | Min | Category | Note | Source |',
       '| --- | --- | --- | --- | --- |',
-      '| 09:12 | 47 | e2i | [[API migration]] | auto |',
+      '| 09:12 | 47 | acme widgets | [[API migration]] | auto |',
       '| 10:05 | 30 | symca | Customer call | manual |',
       '',
       '`Source` is `auto` (counted while you worked in the note), or `manual` (added by hand).',

@@ -33,7 +33,8 @@ function projectConfig(s) {
 /** Customer of a note: its `customer` property, else the folder under the customers folder. */
 function projectCustomer(path, fm, customersFolder) {
   const c = fm && fm.customer;
-  if (c != null && typeof c !== 'object' && String(c).trim()) return String(c).trim();
+  // the property, shown as the customer folder's name when it matches one (customer: acme widgets → Acme Widgets)
+  if (c != null && typeof c !== 'object' && String(c).trim()) return CAT_LABEL[String(c).trim().toLowerCase()] || String(c).trim();
   const root = normalizePath(customersFolder || '');
   if (!root || !path.startsWith(root + '/')) return '';
   const rest = path.slice(root.length + 1).split('/');
