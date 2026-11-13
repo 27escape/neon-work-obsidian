@@ -1,1 +1,1 @@
-Read `context.md` and `CLAUDE.md` before changing this project. Follow the build, test, Graphify, local-only, and test-vault rules there.
+Read `CLAUDE.md`, `docs/architecture.md` and `FORK.md` before changing this project (`context.md` has a short summary). Follow the build, test, read-only and local-only rules there.

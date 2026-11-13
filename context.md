@@ -1,19 +1,18 @@
-# Kimi context
+# Context for coding agents
 
-Neon Deck is one local-only Obsidian desktop plugin with six modules. Start with `CLAUDE.md`, `docs/architecture.md`, and `MAP.md`; those remain the canonical project documentation.
+Neon Deck (fork) is one local-only Obsidian desktop plugin: a kernel and six modules (Dashboard, Tasks, Projects, Research, Time, Write). Start with `CLAUDE.md`, `docs/architecture.md`, `FORK.md` and `MAP.md`; those are the canonical project documentation.
 
 ## Working setup
 
-- Repository: `~/Documents/neon-deck`.
-- Use `graphify query "..."` in `~/.claude/graphify/neon-deck` before reading implementation code. After code changes run `./sync.sh && graphify update` there.
-- Build: `node tools/build.mjs`.
+- Branch: `claudeai`.
+- Build: `node tools/build.mjs` → `dist/neon-deck-fork/`.
 - Tests: `node --test test/*.test.mjs`.
 - Static checks: `node tools/check.mjs dist`.
 - After adding a source file, register it in `tools/files.json` and run `node tools/map.mjs`.
-- Commit and push requested work. Do not publish a release unless explicitly requested.
+- Commit requested work; push or publish a release only when asked.
 
 ## Live verification
 
-Use only `~/Documents/neon-test-vault` with made-up data. Install a build by copying `dist/neon-deck/{main.js,manifest.json,styles.css}` into its `.obsidian/plugins/neon-deck/` directory. The CDP helpers are in `~/Documents/Projects/Core/Neon/Dev/cdp`; select the test vault with `VAULT=neon-test-vault`. Exercise the actual controls, clean up fixtures, close dialogs, and restore test settings.
+Install a build by copying `dist/neon-deck-fork/{main.js,manifest.json,styles.css}` into a vault's `.obsidian/plugins/neon-deck-fork/` and switching the plugin off and on. Prefer a test vault with made-up data. In a real vault keep read-only on, or commit the vault first so every change shows in `git status`.
 
-Keep the plugin offline, dependency-free at runtime, and within the existing module/file conventions. Do not use the real Projects vault for testing.
+Keep the plugin offline, dependency-free at runtime, read-only by default, and within the existing module and file conventions.

@@ -24,22 +24,24 @@ To rename the plugin, change `id` and `name` in `src/kernel/manifest.json`, alon
 | Change | What it means |
 |---|---|
 | **Own plugin id and name** | Installs next to, not over, the original. If the original Neon Deck is also on, the fork refuses to start (they share views and commands). |
-| **Read-only, on by default** | Neon Deck only reads the vault: every create, change, move, rename or delete is refused, apart from its own settings files. Background jobs are refused quietly; a notice appears when a write follows your click or key press. Switch it off in *Overview*. |
+| **Read-only, on by default** | The plugin only reads the vault: every create, change, move, rename or delete is refused, apart from its own settings files. Background jobs are refused quietly; a notice appears when a write follows your click or key press. Switch it off in *Overview*. |
 | **One settings page** | Sections for Overview, Dashboard, Tasks, Projects, Research, Time and Write. Folder and file fields suggest vault paths as you type. |
-| **No `Core` folder, a base folder instead** | Nothing is moved, ever. Asked once on first start: the folder where Neon keeps what it makes for itself (Projects without a customer, Reviews, Time Log, `Todo.md`, the pin board, Bridges). Every location can also be set on its own. Nothing is created until a feature needs it. |
+| **No `Core` folder, a base folder instead** | Nothing is moved, ever. Asked once on first start: the folder where the plugin keeps what it makes for itself (Projects without a customer, Reviews, Time Log, `Todo.md`, the pin board, Bridges). Every location can also be set on its own. Nothing is created until a feature needs it. |
 | **Projects, not tickets** | Notes tagged `project` are the projects. Your own status values in four groups (not started, active, on hold, closed); customer from the `customer` property or the customer folder; `stage`, `note`, `started`, `due` shown. Status changes write properties only (`completed` / `cancelled` dates). New projects go in `<customer>/Projects/` from your template. All upstream ticket features (ticket view, templates, PDF export, screenshots, priority, Jira, filing) are removed. |
-| **Tasks as in the Tasks plugin** | Any checkbox line with `#task` is a task; `[/]` counts as open; grouped by 📅 due or ⏳ scheduled. The Todo card is your Todo note: new tasks go at its head as `- [ ] #task … ➕ date`. |
-| **Daily and weekly notes** | Folder, format and template come from the core Daily notes plugin while it is on (Neon's own settings, copied from it, otherwise). Formats with folders (`YYYY/YYYY-ww`) work. |
+| **Tasks as in the Tasks plugin** | Any checkbox line with `#task` is a task; `[/]` counts as open; grouped by 📅 due or ⏳ scheduled. A **Tasks tab** in the sidebar list shows them full size next to the Todo card. The Todo card is your Todo note: new tasks go at its head as `- [ ] #task … ➕ date`. |
+| **Daily and weekly notes** | Folder, format and template come from the core Daily notes plugin while it is on (the plugin's own settings, copied from it, otherwise). Formats with folders (`YYYY/YYYY-ww`) work. |
 | **Research, not Study** | Sections are folders you choose (a `*` pattern such as `1.Customers/*/Research` gathers every customer's folder); notes grouped by their `status` property; new notes from a template. Quizzes and flashcards are removed. |
 | **Customers are the categories** | Colours, card explorer chips and time tracking use the folders in the customers folder. |
 | **New note by customer and kind** | Note, meeting, person (`@Name` with aliases), project or research, filed under `<customer>/<Meetings, People, Research>/` from a template per kind. |
 | **Claude card** | Dashboard card listing notes by their `claude` property: waiting for Claude (`process`, `refine`) and to review (`updated`). Read only. |
+| **Weekly review template** | *Create / open this week's review* starts from a template note you choose (`{{weekLine}}`, `{{weekNotes}}`, `{{date:…}}`, `{{weekEnd:…}}`). |
 | **Inbox capture** | Quick capture can save a thought as a new note in your inbox folder, from your inbox template. Templater's `tp.file.title` and `tp.date.now()` are filled in. |
-| **Trimmed** | Neon Write keeps the table picker, styled tables, dividers, locked callouts and the note pattern; the slash menu, selection toolbar and image moving are gone. The Revisit feature for "school" notes is gone. Templates folders and top-level archive folders are left out of stats, tasks and projects. |
+| **Trimmed** | Write keeps the table picker, styled tables, dividers, locked callouts and the note pattern; the slash menu, selection toolbar and image moving are gone. The Revisit feature for "school" notes is gone. Time has no Jira field or column. Templates folders and top-level archive folders are left out of stats, tasks and projects. The lifted writing window is full width when *Readable line length* is off. |
+| **Naming** | The UI names the plugin by its manifest name and the parts by their section (Dashboard, Tasks, Projects, Research, Time, Write); commands read "Neon Deck (fork) – Tasks: …". Module ids and folders keep upstream's names, so saved data carries on. |
 
 ## How the read-only guard works
 
-`src/shared/guard.js`. The kernel gives every module a stand-in for Obsidian's `app` whose `vault`, `fileManager` and `vault.adapter` refuse write calls while read-only is on. `writeNote` (which can edit an open note through the editor) and Neon Write's automatic edits check it too. Obsidian's real `app` is untouched, so other plugins are unaffected. `test/guard.test.mjs` checks every write path.
+`src/shared/guard.js`. The kernel gives every module a stand-in for Obsidian's `app` whose `vault`, `fileManager` and `vault.adapter` refuse write calls while read-only is on. `writeNote` (which can edit an open note through the editor) and Write's automatic edits check it too. Obsidian's real `app` is untouched, so other plugins are unaffected. `test/guard.test.mjs` checks every write path.
 
 ## Build and install
 
@@ -57,8 +59,9 @@ Copy the three files from `dist/neon-deck-fork/` into `<vault>/.obsidian/plugins
 |---|---|---|
 | Overview | Base folder | `2.Resources` |
 | Dashboard | Inbox folder / Inbox template | `2.Resources/Inbox` / `2.Resources/templates/inbox_template.md` |
+| Dashboard | Weekly review template | `2.Resources/templates/weekly_review_template.md` |
 | Tasks | Folder for notes without a customer | `2.Resources` |
-| Tasks | Person / Research template | `2.Resources/templates/person_template.md` / `research_template.md` |
+| Tasks | Note / Meeting / Person / Research template | `2.Resources/templates/note_template.md` / `meeting_template.md` / `person_template.md` / `research_template.md` |
 | Projects | Project template | `2.Resources/templates/project_template.md` |
 | Research | Sections | `2.Resources/Research` and `1.Customers/*/Research` |
 | Research | Template note | `2.Resources/templates/research_template.md` |
