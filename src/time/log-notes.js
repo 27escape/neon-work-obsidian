@@ -1,7 +1,7 @@
 Object.assign(NeonTime.prototype, {
   /* ---- log notes --------------------------------------------------------- */
   dayNotePath(key) {
-    return normalizePath(`${this.settings.logFolder || 'Core/Time Log'}/${key}.md`);
+    return normalizePath(`${this.settings.logFolder || 'Neon/Time Log'}/${key}.md`);
   },
   async openDayNote(key) {
     await this.writeDay(key, true);

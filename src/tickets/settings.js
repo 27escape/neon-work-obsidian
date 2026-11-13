@@ -16,7 +16,11 @@ class NeonTicketsSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('Ticket folder')
       .setDesc('Where new tickets go. Any note with “type: ticket” or the #ticket tag counts as a ticket, wherever it lives.')
-      .addText((t) => t.setValue(s.ticketFolder).onChange((v) => ((s.ticketFolder = v.trim() || 'Core/Tickets'), save(), reloadTpl())));
+      .addText((t) => t.setValue(s.ticketFolder).onChange((v) => ((s.ticketFolder = v.trim() || 'Neon/Tickets'), save(), reloadTpl())));
+    new Setting(containerEl)
+      .setName('Screenshot folder')
+      .setDesc('Where screenshots pasted or dropped on a ticket are saved.')
+      .addText((t) => t.setPlaceholder('Neon/Images/Tickets').setValue(s.screenshotFolder).onChange((v) => ((s.screenshotFolder = normalizePath(v.trim() || 'Neon/Images/Tickets')), save())));
     new Setting(containerEl)
       .setName('File done tickets')
       .setDesc('Done tickets move to <ticket folder>/Done/YYYY-MM/, and back when reopened. Links keep working.')

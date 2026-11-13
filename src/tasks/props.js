@@ -7,7 +7,8 @@ Object.assign(NeonTasks.prototype, {
   isSystemPath(path) {
     const deck = neonPlugin(this.app, 'neon-deck');
     const time = neonPlugin(this.app, 'neon-time');
-    const dirs = [...SYSTEM_FOLDERS, deck && deck.settings && deck.settings.reviewFolder, time && time.settings && time.settings.logFolder].filter(Boolean);
+    const tickets = neonPlugin(this.app, 'neon-tickets');
+    const dirs = [...SYSTEM_FOLDERS, deck && deck.settings && deck.settings.reviewFolder, time && time.settings && time.settings.logFolder, tickets && tickets.settings && tickets.settings.ticketFolder].filter(Boolean);
     return dirs.some((p) => path === p || path.startsWith(p + '/'));
   },
   onCreate(f) {

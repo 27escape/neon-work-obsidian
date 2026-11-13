@@ -1,7 +1,7 @@
 Object.assign(NeonTickets.prototype, {
   /* filing done tickets ----------------------------------------------------- */
   ticketRoot() {
-    return normalizePath(this.settings.ticketFolder || 'Core/Tickets');
+    return normalizePath(this.settings.ticketFolder || 'Neon/Tickets');
   },
   doneRoot() {
     return normalizePath(`${this.ticketRoot()}/${this.settings.doneFolder || 'Done'}`);
@@ -74,11 +74,9 @@ Object.assign(NeonTickets.prototype, {
 
   /* ---- screenshots ---- */
   shotFolder() {
-    const deck = neonPlugin(this.app, 'neon-deck');
-    const core = (deck && deck.settings && deck.settings.coreFolder) || 'Core';
-    return normalizePath(`${core}/Images/Tickets`);
+    return normalizePath(this.settings.screenshotFolder || 'Neon/Images/Tickets');
   },
-  /** Save image files into Core/Images/Tickets and link them under ## Screenshots. */
+  /** Save image files into the screenshot folder and link them under ## Screenshots. */
   async addScreenshots(t, files) {
     if (!files.length) return;
     const dir = this.shotFolder();

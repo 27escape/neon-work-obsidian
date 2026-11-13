@@ -7,7 +7,7 @@ const VIEW_TIME = 'neon-time';
 const TIME_CATS = [...CATS, 'other'];
 const TIME_DEFAULTS = {
   tracking: true,
-  logFolder: 'Core/Time Log',
+  logFolder: 'Neon/Time Log', // fork: no Core folder
   writeNotes: true,
   dayHours: 8,
   idleMin: 30,

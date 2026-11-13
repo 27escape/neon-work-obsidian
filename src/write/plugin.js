@@ -122,7 +122,7 @@ class NeonWrite extends Plugin {
       const v = this.app.workspace.getActiveViewOfType(MarkdownView);
       if (v && v.getMode() === 'source' && v.editor.hasFocus()) keepDivider(v.editor);
     });
-    this.addCommand({ id: 'move-images', name: 'Move existing images to Core/Images', callback: () => this.moveExistingImages() });
+    this.addCommand({ id: 'move-images', name: 'Move existing images to the image folder', callback: () => this.moveExistingImages() });
     this.applyLook();
     this.addSettingTab(new NeonWriteSettingTab(this.app, this));
   }
@@ -247,11 +247,9 @@ class NeonWrite extends Plugin {
     this.picker = new TablePicker(editor, caretRect(editor));
   }
 
-  /* images into Core/Images ------------------------------------------------ */
+  /* images into the image folder (a setting) -------------------------------- */
   imageFolder() {
-    const deck = neonPlugin(this.app, 'neon-deck');
-    const core = (deck && deck.settings && deck.settings.coreFolder) || 'Core';
-    return normalizePath(`${core}/Images`);
+    return normalizePath(this.settings.imageFolder || 'Neon/Images');
   }
   isLooseImage(f) {
     const dir = this.imageFolder();

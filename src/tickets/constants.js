@@ -19,7 +19,8 @@ const TICKET_BUCKETS = [
   ['done', 'Done'],
 ];
 const TICKETS_DEFAULTS = {
-  ticketFolder: 'Core/Tickets',
+  ticketFolder: 'Neon/Tickets', // fork: no Core folder
+  screenshotFolder: 'Neon/Images/Tickets', // fork: was <Core folder>/Images/Tickets
   doneFolder: 'Done',
   autoFile: true,
   openInTicketView: true,

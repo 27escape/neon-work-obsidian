@@ -1,6 +1,6 @@
 Object.assign(NeonTickets.prototype, {
   /* ---- export ---- */
-  /** Build a report note for the ticket (Core/Tickets/Exports) and open Obsidian's PDF export for it. */
+  /** Build a report note for the ticket (<ticket folder>/Exports) and open Obsidian's PDF export for it. */
   async exportTicket(t) {
     const text = await this.app.vault.read(t.file);
     const b = parseTicketBody(stripFrontmatter(text));
@@ -48,7 +48,7 @@ Object.assign(NeonTickets.prototype, {
       `_Exported ${moment().format('D MMM YYYY, HH:mm')} from Neon Tickets._`,
       '',
     ].join('\n');
-    const dir = normalizePath(`${this.settings.ticketFolder || 'Core/Tickets'}/Exports`);
+    const dir = normalizePath(`${this.settings.ticketFolder || 'Neon/Tickets'}/Exports`);
     await ensureFolder(this.app, dir);
     const path = normalizePath(`${dir}/${safeName(`${t.id ? t.id + ' ' : ''}${t.title}`) || 'Ticket'} report.md`);
     const existing = this.app.vault.getAbstractFileByPath(path);

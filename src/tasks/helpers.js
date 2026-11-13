@@ -4,8 +4,8 @@
 /* ------------------------------------------------------------------ */
 
 const TASKS_DEFAULTS = {
-  quickTasksPath: 'Core/Quick tasks.md',
-  backupPath: 'Core/Neon/Global tasks backup.md',
+  quickTasksPath: 'Neon/Quick tasks.md', // fork: no Core folder
+  backupPath: 'Neon/Global tasks backup.md',
   askOnCreate: true,
   stampDone: true,
   carryDays: 14,
@@ -15,7 +15,7 @@ const TASKS_DEFAULTS = {
   doneLog: [],
   lastBackup: '',
 };
-const SYSTEM_FOLDERS = ['Time Log', 'Neon', 'Templates', 'Core/Time Log', 'Core/Neon', 'Core/Templates'];
+const SYSTEM_FOLDERS = ['Neon']; // fork: plus the review, time log and ticket folders from settings (see isSystemPath)
 const PROP_ORDER = [
   'type', 'title', 'ticket', 'status', 'priority', 'tags', 'aliases',
   'projects', 'school', 'admin', 'operations', 'untracked',

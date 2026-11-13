@@ -16,7 +16,7 @@ class NeonTasksSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('Quick tasks note')
       .setDesc('Where the quick-add box writes. Items stay until you tick them.')
-      .addText((t) => t.setValue(s.quickTasksPath).onChange((v) => ((s.quickTasksPath = v.trim() || 'Core/Quick tasks.md'), save())));
+      .addText((t) => t.setValue(s.quickTasksPath).onChange((v) => ((s.quickTasksPath = v.trim() || 'Neon/Quick tasks.md'), save())));
     numSetting(new Setting(containerEl).setName('Carry over unfinished daily tasks (days)').setDesc('Open tasks from earlier daily notes show under Today. 0 = only today’s note.'), s, 'carryDays', 0, 90, save);
     new Setting(containerEl)
       .setName('Stamp completion date')

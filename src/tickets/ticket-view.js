@@ -260,7 +260,7 @@ class TicketCard {
     }
     if (!b.steps.length) ss.createDiv({ cls: 'tk-faint', text: 'No steps yet — the + adds one, Enter adds the next.' });
 
-    // screenshots: paste (Ctrl+V), drop files on the ticket, or + to pick; saved in Core/Images/Tickets
+    // screenshots: paste (Ctrl+V), drop files on the ticket, or + to pick; saved in the screenshot folder
     const shs = sec('Screenshots', b.shots.length ? String(b.shots.length) : '', () => this.pickShots(t), 'Add screenshots');
     if (b.shots.length) {
       const grid = shs.createDiv('tk-shots');
