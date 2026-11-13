@@ -404,3 +404,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* fork: the Timeline button shows whether the chart is on */
+.tk-mode.is-active {
+  border-color: var(--nd-accent);
+  color: var(--nd-accent);
+}
+.tk-timeline {
+  max-width: 980px;
+  margin: 0 auto;
+}

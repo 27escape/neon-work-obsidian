@@ -37,7 +37,7 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 - **Projects tab and card:** notes with `project` in their tags, grouped by customer (or status, due date and more). The customer is the `customer` property, else the customer folder the note is in.
 - **Your status values** in four groups: not started (`init`), active (`inprogress`, `ongoing`), on hold (`paused`, `blocked`) and closed (`completed`, `cancelled`). Changing a status only updates properties: `status`, plus today's date in `completed` (or `cancelled`).
 - Each row shows the status, customer, `stage`, start date, `note` and a due-date bar. Postpone, set the due date or a reminder, or edit the note property from the row's menu.
-- **Timeline:** switch the Projects tab from *List* to *Timeline* for a Mermaid Gantt chart, one section per customer: a bar from `started` to `due` (or to `completed` once closed), coloured by status group, with a marker for today. Zoom (3 months, 12 months, all) and *Copy as Mermaid* to paste the chart into a note.
+- **Timeline:** a Mermaid Gantt chart above the list on the Projects tab (the *Timeline* button or a setting hides it), one section per customer: a bar from `started` to `due` (or to `completed` once closed), coloured by status group, with a marker for today. Zoom (3 months, 12 months, all) and *Copy as Mermaid* to paste the chart into a note.
 - **New project:** a name and a customer; the note goes in `<customer>/Projects/` from your project template.
 - **Reminders** appear inside Obsidian, once a day per project, when a project is overdue, due soon or past its remind date.
 

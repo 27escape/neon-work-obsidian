@@ -42,12 +42,18 @@ class ProjectsView extends ItemView {
       });
       this.segBtns[k] = b;
     }
-    // fork: List or Timeline (a Mermaid Gantt chart above the list)
-    this.modeSeg = pills(tools, [['list', 'List'], ['timeline', 'Timeline']], this.plugin.settings.tabMode || 'list', (v) => {
-      this.plugin.settings.tabMode = v;
-      this.plugin.saveSettings();
-      this.render();
-    }, 'tk-mode');
+    // fork: the timeline (a Mermaid Gantt chart above the list), on unless switched off here or in settings
+    this.timelineBtn = button(tools, {
+      icon: 'calendar-range',
+      text: 'Timeline',
+      cls: 'tk-mode',
+      title: 'Show or hide the timeline',
+      onClick: () => {
+        this.plugin.settings.showTimeline = this.plugin.settings.showTimeline === false;
+        this.plugin.saveSettings();
+        this.render();
+      },
+    });
     const sort = tools.createEl('select', { cls: 'dropdown tk-sort', attr: { 'aria-label': 'Sort or group projects' } });
     for (const [k, label] of PROJECT_SORTS) sort.createEl('option', { value: k, text: label });
     sort.value = this.plugin.settings.tabSort;
@@ -131,7 +137,8 @@ class ProjectsView extends ItemView {
     else if (this.filter === 'done') items = all.filter((t) => t.status === 'done');
     if (this.query) items = items.filter((t) => `${t.title} ${t.file.path} ${t.statusRaw} ${t.customer} ${t.stage} ${t.note}`.toLowerCase().includes(this.query));
     // fork: the timeline shows the same projects as the list below it
-    const timeline = p.settings.tabMode === 'timeline';
+    const timeline = p.settings.showTimeline !== false;
+    this.timelineBtn.toggleClass('is-active', timeline);
     this.timelineEl.toggle(timeline);
     if (timeline) this.showTimeline(items);
     this.listEl.empty();
