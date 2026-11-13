@@ -146,9 +146,12 @@ class NeonModulesTab extends PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
-    // its own id: the Deck module's settings tab already uses 'neon-deck'
-    this.id = 'neon-deck-modules';
-    this.name = 'Neon Deck modules';
+    // Obsidian opens a plugin's settings (its row in Community plugins, the ⋮ → Options entry) by the
+    // plugin's own id. Upstream the Deck module's tab has that id ('neon-deck'); in the fork the plugin id
+    // differs, so this tab takes it — otherwise the plugin shows a blank "No results found" page.
+    const fork = plugin.manifest.id !== 'neon-deck';
+    this.id = fork ? plugin.manifest.id : 'neon-deck-modules';
+    this.name = fork ? plugin.manifest.name : 'Neon Deck modules';
   }
   display() {
     const p = this.plugin;
@@ -161,6 +164,7 @@ class NeonModulesTab extends PluginSettingTab {
       .setDesc('On: Neon Deck only reads your vault. It never creates, changes, moves, renames or deletes notes, folders or images; features that would write show a notice instead. Its own settings are still saved.')
       .addToggle((t) => t.setValue(p.state.readOnly !== false).onChange((v) => p.setReadOnly(v)));
     new Setting(el).setName('Modules').setHeading();
+    el.createEl('p', { cls: 'setting-item-description', text: `Each running module has its own settings page (locations, options) in the sidebar under Community plugins: ${NEON_MODULES.map((m) => m.name).join(', ')}.` });
     for (const m of NEON_MODULES) {
       const why = p.failed.get(m.id);
       const state = p.modules.has(m.id) ? 'running' : why ? `stopped: ${why}` : p.state.safe ? 'off (safe mode)' : 'off';
