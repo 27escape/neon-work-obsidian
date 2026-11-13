@@ -1,5 +1,7 @@
 # ✦ Neon Deck
 
+> **27escape fork:** read-only by default, never moves files into `Core`, every location is a setting. See [FORK.md](FORK.md).
+
 One Obsidian plugin that works as a personal command centre: a dashboard, tasks, tickets, automatic time tracking, research notes and writing tools, in a neon look with live background patterns.
 
 Everything runs **100% locally**: no network calls, no telemetry, no remote fonts or code, no `eval`. Files are only written when you do something that writes.
