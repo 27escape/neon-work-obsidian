@@ -52,6 +52,7 @@ const DEFAULT_SETTINGS = {
   coreTidied: true, // unused: the move into Core was removed
   // fork: '' = the default name inside the base folder (Neon Deck (fork) → Base folder)
   reviewFolder: '',
+  reviewTemplate: '', // fork: template note for weekly reviews ({{weekLine}}, {{weekNotes}}, {{weekEnd}})
   inboxPath: '', // unused
   inboxFolder: '', // fork: Quick capture can save a new note here ('' = off)
   inboxTemplate: '', // fork: template for those notes

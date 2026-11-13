@@ -77,7 +77,10 @@ Object.assign(NeonDeck.prototype, {
     const line = this.weekLine(m, end);
 
     let tpl = '';
-    const tf = this.app.metadataCache.getFirstLinkpathDest('Templates/Weekly Review', '');
+    // fork: the template note from settings; else upstream's "Templates/Weekly Review"
+    const want = (this.settings.reviewTemplate || '').trim();
+    const tf = want ? this.app.metadataCache.getFirstLinkpathDest(want.replace(/\.md$/, ''), '') || this.app.vault.getAbstractFileByPath(normalizePath(want)) : this.app.metadataCache.getFirstLinkpathDest('Templates/Weekly Review', '');
+    if (want && !(tf instanceof TFile)) new Notice(`Weekly review template “${want}” not found: using the built-in layout`);
     if (tf) tpl = await this.app.vault.read(tf);
     if (!tpl) tpl = '# Week {{date:GGGG-[W]WW}}\n\n> {{weekLine}}\n\n## Notes\n{{weekNotes}}\n';
     else if (!/{{\s*weekLine\s*}}/.test(tpl)) tpl = tpl.replace(/^(#[^\n]*\n)?/, (h) => `${h || ''}\n> {{weekLine}}\n\n`);

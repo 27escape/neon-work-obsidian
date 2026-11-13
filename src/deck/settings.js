@@ -45,7 +45,11 @@ class NeonSettingTab extends PluginSettingTab {
         .setName(name)
         .setDesc(desc)
         .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath(def)).setValue(s[key]).onChange((v) => ((s[key] = v.trim() ? normalizePath(v.trim()) : ''), (p._ex = null), save())), kind));
-    loc('Weekly review folder', 'Optional template: a note named Weekly Review in your templates folder with {{weekLine}} and {{weekNotes}}.', 'reviewFolder', 'Reviews', 'folder');
+    loc('Weekly review folder', 'Where “Create / open this week’s review” saves the review.', 'reviewFolder', 'Reviews', 'folder');
+    new Setting(containerEl)
+      .setName('Weekly review template')
+      .setDesc('Note the weekly review starts from. {{weekLine}} (the week in numbers), {{weekNotes}} (new and edited notes), {{date:…}} and {{weekEnd:…}} are filled in.')
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder('templates/weekly_review_template.md').setValue(s.reviewTemplate).onChange((v) => ((s.reviewTemplate = v.trim()), save())), 'file'));
     loc('Pin board note', 'One pin per line. Made the first time you pin something.', 'pinBoardPath', 'Pin board.md', 'file');
     loc('Pinned files folder', 'Where files dropped onto the pin board from outside Obsidian are saved.', 'pinnedFolder', 'Pinned', 'folder');
     loc('Bridge note folder', 'Where the graph saves bridge notes.', 'bridgeFolder', 'Bridges', 'folder');
