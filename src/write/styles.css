@@ -149,7 +149,8 @@
 
 /* ---- lifted writing window: the note is a raised card over the page ---- */
 /* the readable line width grows with the pane (70% of it, 700–1020px), so text fills the wider card;
-   Obsidian applies --file-line-width in several places, so change the variable rather than each box */
+   Obsidian applies --file-line-width in several places, so change the variable rather than each box.
+   fork: this only matters with Obsidian's "Readable line length" on; off, the card fills the pane */
 body.nw-lifted .workspace-leaf-content[data-type='markdown'] > .view-content {
   container-type: inline-size;
 }
@@ -174,8 +175,20 @@ body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-v
     0 1px 0 color-mix(in srgb, white 5%, transparent) inset,
     0 18px 50px -24px rgba(0, 0, 0, 0.6),
     0 2px 8px -2px rgba(0, 0, 0, 0.25);
-  /* the line width plus the card's own padding, never wider than the pane */
+  /* fork: with "Readable line length" off the card fills the pane (see below) */
+  max-width: 100% !important;
+}
+/* "Readable line length" on: the line width plus the card's own padding, never wider than the pane */
+body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6.is-readable-line-width .cm-sizer,
+body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-view.is-readable-line-width .markdown-preview-sizer {
   max-width: min(calc(var(--file-line-width, 700px) + 80px), 100%) !important;
+}
+/* fork: "Readable line length" off: full width, the same small gap on both sides */
+body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6:not(.is-readable-line-width) .cm-sizer,
+body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-view:not(.is-readable-line-width) .markdown-preview-sizer {
+  width: auto !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
 }
 /* the editor's own empty space below the text shouldn't stretch the card forever */
 body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-sizer {
