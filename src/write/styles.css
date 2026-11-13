@@ -186,7 +186,10 @@ body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-v
 /* fork: "Readable line length" off: full width, the same small gap on both sides */
 body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6:not(.is-readable-line-width) .cm-sizer,
 body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-view:not(.is-readable-line-width) .markdown-preview-sizer {
-  width: auto !important;
+  /* the editor's sizer is a flex item: make it take the whole row (auto width shrank it to the text) */
+  flex: 1 1 auto;
+  width: 100% !important;
+  box-sizing: border-box;
   margin-left: 0 !important;
   margin-right: 0 !important;
 }
