@@ -96,4 +96,3 @@ Settings that several modules need live in small shared objects, filled by which
 ## Open
 
 - **Note index for the rest of the dashboard:** stats, the graph and the card explorer still list notes themselves (cheap, but they could use the index too).
-- **Screenshots** in `docs/screenshots/` are from upstream and out of date; new ones from the sample vault are to replace them (README links them once they exist).

@@ -10,6 +10,8 @@ The fork sits on top of a vault you already have:
 
 Everything runs **100% locally**: no network calls, no telemetry, no remote fonts or code, no `eval`. [FORK.md](FORK.md) lists everything that differs from the original plugin; [docs/architecture.md](docs/architecture.md) describes how it is built.
 
+![The Neon Work dashboard](docs/screenshots/dashboard.png)
+
 ## What it does
 
 The plugin has six parts. Each can be switched off in the settings, and the others keep working. A list at the top of the left sidebar (Dashboard, Cards, Tasks, Projects, Time, Research, Graph) switches what the main pane shows; notes open in the same pane, and Back / Forward move between them.
@@ -25,12 +27,18 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 - **Weekly review** (*Create / open this week's review*): a note from your review template with the week in numbers and the notes you created or edited.
 - **Themes and patterns:** nine themes, each in light and dark, with a live pattern behind the dashboard; chosen in *Settings → Dashboard*.
 
+![Quick capture and the pin board](docs/screenshots/quick-capture.png)
+
 ### Tasks
 
 - **Tasks tab and card:** every open `#task` line across the vault (`[ ]` and `[/]`), grouped Overdue · Today · Later by 📅 due or ⏳ scheduled date. Tick, edit or open each one in place; the date and note sit on a small line under the task text. Notes tagged `tasks` and recent daily or weekly notes count every checkbox.
 - **Todo card:** the open tasks of your Todo note in file order. New tasks go at the head of that note as `- [ ] #task … ➕ date`; ticking writes `[x] … ✅ date`, as the Tasks plugin does.
 - **Timeline:** a card on the Tasks tab draws dated tasks as a Mermaid Gantt chart, one section per note: a bar from 🛫 start to 📅 due, otherwise a milestone on the due date; overdue tasks in red, `[/]` tasks as active. Zoom (3 months, 12 months, all) and *Copy as Mermaid*. Can be switched off in settings.
 - **New note:** pick a customer and a kind (note, meeting, person, project, research); the note goes in `<customer>/<Meetings | People | Research>/` from that kind's template. People notes are named `@Name` with an `aliases` property.
+
+![The Tasks tab with its timeline](docs/screenshots/tasks-tab.png)
+
+![New note by customer and kind](docs/screenshots/new-note.png)
 
 ### Projects
 
@@ -41,6 +49,8 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 - **New project:** a name and a customer; the note goes in `<customer>/Projects/` from your project template.
 - **Reminders** appear inside Obsidian, once a day per project, when a project is overdue, due soon or past its remind date.
 
+![The Projects tab with its timeline](docs/screenshots/projects-tab.png)
+
 ### Research
 
 - **Research tab:** each section is a folder shown as a topic tree. A pattern such as `1.Customers/*/Research` gathers every customer's research folder into one section, labelled by customer.
@@ -48,11 +58,15 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 - **Link suggestions:** the status bar offers to link words that match the titles of other research notes.
 - New research notes start from your research template.
 
+![The Research tab](docs/screenshots/research-tab.png)
+
 ### Time
 
 - **Automatic time** per customer while you work in a note, plus manual entries, breaks, a workday timer and overtime.
 - **Time tab** and a **Time today** card; *Wrap up the day* at the end.
 - An optional **daily time log note** with totals per customer and a table of entries, for you or an AI agent to read. Nothing is sent anywhere.
+
+![The Time tab](docs/screenshots/time-tab.png)
 
 ### Write
 
@@ -68,6 +82,8 @@ Everything is on one page, *Settings → Neon Work*, with a section per part:
 - **Dashboard, Tasks, Projects, Research, Time, Write:** that part's options. Folder and file fields suggest matching vault paths as you type.
 
 The **base folder** (asked on first start) is where the plugin keeps what it makes for itself when a location is left empty: Projects without a customer, Reviews, Time Log, `Todo.md`, the pin board and graph bridges.
+
+![Settings, one page with a section per part](docs/screenshots/settings.png)
 
 ## Install
 

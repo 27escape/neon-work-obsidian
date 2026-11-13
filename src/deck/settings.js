@@ -19,7 +19,7 @@ class NeonSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName('Look').setHeading();
     new Setting(containerEl)
       .setName('Theme')
-      .setDesc('Also in the dashboard header. Every theme has a light and a dark version.')
+      .setDesc('Every theme has a light and a dark version.')
       .addDropdown((d) => d.addOptions(THEME_LABEL).setValue(s.theme).onChange((v) => p.setLook({ theme: v })));
     new Setting(containerEl)
       .setName('Pattern')
