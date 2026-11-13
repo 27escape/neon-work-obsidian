@@ -31,7 +31,6 @@ const SLASH_ITEMS = [
     run: (ed) => insertDivider(ed),
   },
   { id: 'pagebreak', icon: 'file-minus', label: 'Page break', hint: 'PDF: new page', keys: ['pagebreak', 'umbruch', 'page', 'break'], run: (ed) => insertPageBreak(ed) },
-  { id: 'flashcard', icon: 'layers', label: 'Flashcard', hint: 'question :: answer', keys: ['flashcard', 'card', 'quiz'], run: (ed, p) => p.app.commands.executeCommandById('neon-research:add-flashcard') || new FlashcardInsertModal(p.app, ed).open() },
   { id: 'link', icon: 'link', label: 'Link to note', hint: '[[', keys: ['link', 'note', 'wiki'], run: (ed) => ed.replaceSelection('[[') },
   { id: 'date', icon: 'calendar', label: 'Today’s date', hint: moment().format('YYYY-MM-DD'), keys: ['date', 'today'], run: (ed) => ed.replaceSelection(moment().format('YYYY-MM-DD')) },
 ];

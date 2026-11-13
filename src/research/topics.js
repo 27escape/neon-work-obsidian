@@ -9,6 +9,7 @@ Object.assign(NeonResearch.prototype, {
         const name = safeName(v);
         if (!name) return;
         const base = parent ? parent.path : this.root;
+        if (!base) return new Notice('Choose a folder for this section first');
         await ensureFolder(this.app, base);
         const path = normalizePath(`${base}/${name}`);
         if (this.app.vault.getAbstractFileByPath(path)) return new Notice(`“${name}” already exists here`);
@@ -25,8 +26,7 @@ Object.assign(NeonResearch.prototype, {
       cta: 'Create',
       onSubmit: async (v) => {
         if (!v.trim()) return;
-        const body = this.settings.countAsWork ? '' : '---\nuntracked: true\n---\n';
-        const f = await createUnique(this.app, folder.path, v, body);
+        const f = await createUnique(this.app, folder.path, v, await this.newNoteBody(v.trim()));
         this.toggleOpen(folder.path, true);
         openFile(this.app, f);
       },
@@ -70,24 +70,42 @@ Object.assign(NeonResearch.prototype, {
     }).open();
   },
   onRename(f, old) {
-    if (this.cardText.has(old)) (this.cardText.set(f.path, this.cardText.get(old)), this.cardText.delete(old));
-    // quiz history and open folders follow a rename or move (also of a parent folder)
+    // open folders follow a rename or move (also of a parent folder)
     const move = (p) => (p === old ? f.path : p.startsWith(old + '/') ? f.path + p.slice(old.length) : p);
-    const cards = this.settings.cards;
-    for (const id of Object.keys(cards)) {
-      const [path, ...q] = id.split('|');
-      const np = move(path);
-      if (np !== path) ((cards[[np, ...q].join('|')] = cards[id]), delete cards[id]);
-    }
-    for (const k of [...this.cardText.keys()]) {
-      const nk = move(k);
-      if (nk !== k) (this.cardText.set(nk, this.cardText.get(k)), this.cardText.delete(k));
-    }
     this.settings.open = this.settings.open.map(move);
     this.saveSoon();
     this.emitSoon();
-    // moved into a section from outside: no card text yet, and a rename fires no 'changed'
-    if (f instanceof TFile && f.extension === 'md' && this.inRoot(f) && !this.cardText.has(f.path)) this.app.vault.cachedRead(f).then((t) => this.noteText(f, t));
+  },
+  /**
+   * Text of a note made from the Research tab (fork). With a template note set: its text, with
+   * {{title}}, {{date}} and {{time}} filled in (Templater, if you use it, runs on the new file as usual).
+   * Without one: properties in the vault's usual shape (title, created, modified, status, tags).
+   */
+  async newNoteBody(title) {
+    const s = this.settings;
+    const now = moment();
+    if (s.noteTemplate) {
+      const tf = this.app.metadataCache.getFirstLinkpathDest(s.noteTemplate.replace(/\.md$/, ''), '') || this.app.vault.getAbstractFileByPath(normalizePath(s.noteTemplate));
+      try {
+        if (tf instanceof TFile) return applyTemplate(await this.app.vault.read(tf), now, title);
+      } catch (e) {
+        console.error('Neon Research: could not read the template', e);
+      }
+      new Notice(`Research template “${s.noteTemplate}” not found: using the standard properties`);
+    }
+    return researchFrontmatter(title, now.format('YYYY-MM-DD'), s);
   },
 
 });
+
+/** Properties for a new research note without a template (fork). */
+function researchFrontmatter(title, day, s) {
+  const q = (v) => (/^[\w .-]+$/.test(v) && !/^\s|\s$/.test(v) ? v : JSON.stringify(v));
+  const lines = ['---', `title: ${q(title)}`, `created: ${day}`, `modified: ${day}`];
+  if (s.newStatus) lines.push(`${s.statusProperty || 'status'}: ${q(s.newStatus)}`);
+  const tags = statusList(s.newNoteTags);
+  if (tags.length) lines.push('tags:', ...tags.map((t) => `  - ${q(t.replace(/^#/, ''))}`));
+  if (!s.countAsWork) lines.push('untracked: true');
+  lines.push('---', '');
+  return lines.join('\n');
+}

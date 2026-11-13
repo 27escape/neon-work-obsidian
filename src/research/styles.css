@@ -502,3 +502,39 @@
 .nr-study-verdict { margin-top: 6px; font-weight: 600; }
 .nr-study-verdict.is-match { color: var(--color-green); }
 .nr-study-verdict.is-diff { color: var(--color-orange); }
+
+/* ---- fork: research status (pills in the tree, the By status tab) ---- */
+.nr-status-pill {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+  --nr-st: var(--nd-warn, var(--text-warning));
+  color: var(--nr-st);
+  border: 1px solid color-mix(in srgb, var(--nr-st) 45%, transparent);
+}
+.nr-status-pill.is-done {
+  --nr-st: var(--nd-go, var(--text-success));
+}
+.nr-status-pill.is-none {
+  --nr-st: var(--nd-muted, var(--text-muted));
+  font-weight: 500;
+  font-style: italic;
+}
+.nr-status-group + .nr-status-group {
+  margin-top: 14px;
+}
+.nr-status-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 6px;
+}
+.nr-status-count {
+  color: var(--nd-muted, var(--text-muted));
+  font-size: var(--font-ui-smaller);
+}

@@ -16,7 +16,7 @@ class SectionPickModal extends SuggestModal {
     el.setText(s.create ? `Create folder “${s.path}”` : s.path);
   }
   onChooseSuggestion(s) {
-    this.plugin.addSection(s.path);
+    Promise.resolve(this.plugin.addSection(s.path)).then(() => this.after && this.after());
   }
 }
 
@@ -36,8 +36,8 @@ Object.assign(NeonResearch.prototype, {
     await ensureFolder(this.app, path);
     s.roots.push({ name: path.split('/').pop(), path });
     s.activeRoot = s.roots.length - 1;
+    s.root = s.roots[0].path;
     await this.saveSettings();
-    await this.refreshCardText(); // quiz cards of the new section
     this.emitSoon();
   },
   /** Right-click on a section: rename it, or take it out of the switch (its notes stay). */
@@ -60,17 +60,16 @@ Object.assign(NeonResearch.prototype, {
         }).open(),
       ),
     );
-    if (s.roots.length > 1)
-      m.addItem((it) =>
+    m.addItem((it) =>
         it.setTitle('Remove from the switch (notes stay)').setIcon('x').onClick(async () => {
           s.roots.splice(i, 1);
           if (s.activeRoot >= s.roots.length || s.activeRoot === i) s.activeRoot = 0;
           else if (s.activeRoot > i) s.activeRoot--;
-          s.root = s.roots[0].path;
+          s.root = s.roots.length ? s.roots[0].path : '';
           await this.saveSettings();
           this.emitSoon();
         }),
-      );
+    );
     m.showAtMouseEvent(e);
   },
 });

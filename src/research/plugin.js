@@ -4,42 +4,19 @@ class NeonResearch extends Plugin {
     const raw = (await this.loadData()) || {};
     this.settings = Object.assign({}, NR_DEFAULTS, raw);
     if (!Array.isArray(this.settings.open)) this.settings.open = [];
-    this.settings.researchTopics = normalizeResearchTopics(this.settings.researchTopics);
-    if (!this.settings.cards || typeof this.settings.cards !== 'object') this.settings.cards = {};
     const s = this.settings;
-    if (!Array.isArray(s.roots) || !s.roots.length) s.roots = [{ name: 'Research', path: normalizePath(s.root || NR_DEFAULTS.root) }, { name: 'School', path: 'Learning/School' }];
+    // fork: sections come only from settings; an old single `root` (1.x data) becomes the first section
+    if (!Array.isArray(s.roots)) s.roots = s.root ? [{ name: 'Research', path: normalizePath(s.root) }] : [];
     s.roots = s.roots.filter((r) => r && typeof r.path === 'string' && r.path.trim()).map((r) => ({ name: String(r.name || r.path.split('/').pop()), path: normalizePath(r.path) }));
-    if (!s.roots.length) s.roots = [{ name: 'Research', path: NR_DEFAULTS.root }];
     if (!(s.activeRoot >= 0 && s.activeRoot < s.roots.length)) s.activeRoot = 0;
-    s.root = s.roots[0].path;
-    this.cardCache = new Map(); // path -> { text, cards }: each note is parsed once per change
+    s.root = s.roots.length ? s.roots[0].path : '';
     this.listeners = new Set();
-    this.cardText = new Map();
     this.registerView(VIEW_RESEARCH, (leaf) => new ResearchView(leaf, this));
-    this.addRibbonIcon('library', 'Study', () => this.openTab());
-    this.addCommand({ id: 'open-research', name: 'Open the Study tab', callback: () => this.openTab() });
-    this.addCommand({ id: 'new-topic', name: 'New topic', callback: () => this.newTopic(this.rootFolder()) });
-    this.addCommand({ id: 'quiz-all', name: 'Quiz me…', callback: () => new QuizPickModal(this).open() });
-    const cardCmd = (id, name, exercise) =>
-      this.addCommand({
-        id,
-        name,
-        checkCallback: (checking) => {
-          const f = this.app.workspace.getActiveFile();
-          if (!f || f.extension !== 'md' || !this.inRoot(f)) return false;
-          if (!checking) new FlashcardModal(this, f, exercise).open();
-          return true;
-        },
-      });
-    cardCmd('add-flashcard', 'Add flashcard to this note', false);
-    cardCmd('add-exercise', 'Add exercise to this note', true);
-    // cards live in a neon-cards block: in the file, never on the page (issue 56)
+    this.addRibbonIcon('library', 'Research', () => this.openTab());
+    this.addCommand({ id: 'open-research', name: 'Open the Research tab', callback: () => this.openTab() });
+    this.addCommand({ id: 'new-topic', name: 'New topic', callback: () => (this.rootFolder() ? this.newTopic(this.rootFolder()) : this.pickSection()) });
+    // old flashcard blocks (quizzes were removed in the fork) stay off the page
     this.registerMarkdownCodeBlockProcessor(CARD_BLOCK, (src, el) => el.addClass('nr-cards-block'));
-    // the cards menu and side button of notes inside a section
-    this.registerEvent(this.app.workspace.on('file-open', () => this.syncButtons()));
-    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.syncButtons()));
-    this.app.workspace.onLayoutReady(() => this.syncButtons());
-    this.register(() => this.app.workspace.getLeavesOfType('markdown').forEach((l) => this.dropCardButtons(l.view)));
     this.addCommand({ id: 'link-suggestions', name: 'Suggest links in this note', callback: () => this.showLinkSuggestions(true) });
     this.addSettingTab(new NeonResearchSettingTab(this.app, this));
 
@@ -50,11 +27,11 @@ class NeonResearch extends Plugin {
     this.linkEl.hide();
     const hint = debounce(() => this.updateLinkHint(), 800, true);
     this.registerEvent(this.app.workspace.on('active-leaf-change', hint));
-    // quiz-card text cache, kept current from the change event (it hands over the note's text)
+    // a research note changed (its status may have): redraw, and refresh the link hint
     this.registerEvent(
-      this.app.metadataCache.on('changed', (f, data) => {
+      this.app.metadataCache.on('changed', (f) => {
         if (!this.inRoot(f)) return;
-        this.noteText(f, data);
+        this.emitSoon();
         hint();
       }),
     );
@@ -62,9 +39,7 @@ class NeonResearch extends Plugin {
     this.registerEvent(this.app.vault.on('create', anyChange));
     this.registerEvent(
       this.app.vault.on('delete', (f) => {
-        for (const p of [...this.cardText.keys()]) if (p === f.path || p.startsWith(f.path + '/')) (this.cardText.delete(p), this.cardCache.delete(p));
-        // forget quiz history of deleted notes, and the open state of deleted folders
-        for (const id of Object.keys(this.settings.cards)) if (id.startsWith(f.path + '|') || id.startsWith(f.path + '/')) delete this.settings.cards[id];
+        // forget the open state of deleted folders
         this.settings.open = this.settings.open.filter((x) => x !== f.path && !x.startsWith(f.path + '/'));
         this.saveSoon();
         this.emitSoon();
@@ -75,8 +50,6 @@ class NeonResearch extends Plugin {
     this.app.workspace.onLayoutReady(async () => {
       this.hookDeck();
       this.updateLinkHint();
-      await this.refreshCardText();
-      this.syncButtons(); // card counts are known now
       this.emitSoon();
     });
   }
@@ -92,9 +65,6 @@ class NeonResearch extends Plugin {
     if (!this._save) this._save = debounce(() => this.saveData(this.settings), 1500, true);
     this._save();
   }
-  syncButtons(file) {
-    for (const l of this.app.workspace.getLeavesOfType('markdown')) if (!file || l.view.file === file) this.syncCardButton(l.view);
-  }
   onChange(fn) {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
@@ -105,7 +75,7 @@ class NeonResearch extends Plugin {
   }
   hookDeck() {
     const api = deckApi(this.app);
-    if (api) api.registerAction({ id: 'research', icon: 'library', label: 'Study', order: 45, view: VIEW_RESEARCH, run: () => this.openTab() });
+    if (api) api.registerAction({ id: 'research', icon: 'library', label: 'Research', order: 45, view: VIEW_RESEARCH, run: () => this.openTab() });
   }
   openTab() {
     return activateView(this.app, VIEW_RESEARCH, 'tab');
@@ -114,9 +84,11 @@ class NeonResearch extends Plugin {
   /* ---- the tree ---- */
   /** Path of the root shown in the tab. */
   get root() {
-    return this.settings.roots[this.settings.activeRoot].path;
+    const r = this.settings.roots[this.settings.activeRoot];
+    return r ? r.path : ''; // fork: no section chosen yet
   }
   rootFolder(path = this.root) {
+    if (!path) return null;
     const f = this.app.vault.getAbstractFileByPath(path);
     return f instanceof TFolder ? f : null;
   }

@@ -116,22 +116,20 @@
     },
     {
       "id": "neon-research",
-      "name": "Neon Study",
+      "name": "Neon Research",
       "old": "Neon Research",
-      "desc": "Study tab: research and school sections, research list, flashcards",
+      "desc": "Research tab: topic trees from your folders, notes by status, link suggestions",
       "cls": "NeonResearch",
       "files": [
         "src/research/constants.js",
         "src/research/link-suggest.js",
-        "src/research/quiz.js",
         "src/research/tree-view.js",
         "src/research/settings.js",
         "src/research/plugin.js",
         "src/research/sections.js",
         "src/research/topics.js",
-        "src/research/research-list.js",
-        "src/research/links.js",
-        "src/research/cards.js"
+        "src/research/status.js",
+        "src/research/links.js"
       ],
       "css": [
         "src/research/styles.css"

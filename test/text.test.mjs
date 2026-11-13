@@ -187,53 +187,6 @@ test('time start field accepts loose clock input (issue 32)', () => {
   for (const x of ['', '24', '9:60', '12345', 'abc', '2400']) assert.equal(parseClock(x), null);
 });
 
-test('research topic data is normalized without malformed or duplicate rows', () => {
-  const { normalizeResearchTopics } = load('neon-research', ['normalizeResearchTopics']);
-  const raw = [
-    { text: '  Quantum   gravity ', done: true },
-    { text: 'quantum gravity', done: false },
-    { text: ' ' },
-    { text: 42 },
-    null,
-    { text: 'x'.repeat(201) },
-  ];
-  assert.deepEqual([...normalizeResearchTopics(raw)].map((x) => ({ ...x })), [{ text: 'Quantum gravity', done: true }]);
-  assert.deepEqual([...normalizeResearchTopics(null)], []);
-});
-
-test('research topics validate additions and save check/remove changes', () => {
-  const { NeonResearch } = load('neon-research', ['NeonResearch']);
-  const p = Object.assign(Object.create(NeonResearch.prototype), {
-    settings: { researchTopics: [] },
-    saves: 0,
-    saveSoon() { this.saves++; },
-  });
-  // views hear about research changes at once, tagged 'research' (no debounce: the row shows on the same frame)
-  const heard = [];
-  p.listeners = new Set([(f) => heard.push(f)]);
-  assert.equal(p.addResearchTopic('  '), false);
-  assert.equal(p.addResearchTopic('x'.repeat(201)), false);
-  assert.equal(p.addResearchTopic('  Neural   networks '), true);
-  assert.equal(p.addResearchTopic('neural networks'), false);
-  assert.equal(p.settings.researchTopics.length, 1);
-  assert.equal(p.settings.researchTopics[0].text, 'Neural networks');
-  const topic = p.settings.researchTopics[0];
-  p.toggleResearchTopic(topic);
-  assert.equal(topic.done, true);
-  p.toggleResearchTopic(topic);
-  assert.equal(topic.done, false);
-  p.removeResearchTopic({});
-  assert.equal(p.settings.researchTopics.length, 1);
-  p.removeResearchTopic(topic);
-  assert.equal(p.settings.researchTopics.length, 0);
-  assert.equal(p.saves, 4);
-  assert.deepEqual(heard, ['research', 'research', 'research', 'research']);
-  // a pasted list adds quietly and notifies once
-  heard.length = 0;
-  assert.equal(p.addResearchTopic('a', true), true);
-  assert.equal(heard.length, 0);
-});
-
 test('time entries are logged as From / Until instead of minutes', () => {
   const { entryRange } = load('neon-time', ['entryRange']);
   const src = readFileSync(new URL('../src/time/entry-modal.js', import.meta.url), 'utf8');
@@ -279,16 +232,6 @@ test('Radar and Blackwall are removed, Black ICE is available, saved settings fa
   const q = Object.assign(Object.create(NeonDeck.prototype), { loadData: async () => ({ settingsVersion: 3, theme: 'cyberpunk', pattern: 'blackwall' }) });
   await q.loadSettings();
   assert.equal(q.settings.pattern, 'auto');
-});
-
-test('research add explains duplicates and keeps the box (issues 37, 38; laggy adding)', () => {
-  const source = readFileSync(new URL('../src/research/research-list.js', import.meta.url), 'utf8');
-  const view = readFileSync(new URL('../src/research/tree-view.js', import.meta.url), 'utf8');
-  assert.match(source, /is already on the list/);
-  assert.match(source, /addEventListener\('paste'/);
-  // a research change redraws only the rows, never the whole view (that rebuilt the add box and lagged ~280 ms)
-  assert.match(view, /f === 'research' \? this\.refreshResearch\(\)/);
-  assert.doesNotMatch(source.slice(source.indexOf('researchChanged()'), source.indexOf('addResearchTopic(')), /emitSoon/);
 });
 
 test('dashboard redraws when the day changes while it stays open (issue 31)', () => {
@@ -365,28 +308,3 @@ test('Tickets sort by status by default: not started first, then Waiting, In pro
   ]);
 });
 
-test('flashcards off the page: neon-cards block, exercises, moving keeps ids (issue 56)', () => {
-  const { NeonResearch, addToCardBlock, setCardLine, moveCardsToBlock } = load('neon-research', ['NeonResearch', 'addToCardBlock', 'setCardLine', 'moveCardsToBlock']);
-  const plain = (v) => JSON.parse(JSON.stringify(v));
-  const parse = (t) => NeonResearch.prototype.parseCards.call({}, { path: 'S/n.md' }, t);
-  const note = '---\ntags: x\n---\n# N\nA :: 1\n```js\nB :: 2\n```\n- A :: 3\n';
-  const before = parse(note);
-  assert.deepEqual(plain(before.map((c) => c.id)), ['S/n.md|A', 'S/n.md|A#2']); // code fences still make no cards
-  assert.equal(before[0].ln, 4);
-  // a new card goes into a block at the end; a second one is appended inside it
-  let t = addToCardBlock('# N\n', 'Q :: a');
-  assert.equal(t, '# N\n\n```neon-cards\nQ :: a\n```\n');
-  t = addToCardBlock(t, 'E ::: b');
-  const cards = parse(t);
-  assert.deepEqual(plain(cards.map((c) => [c.q, c.a, c.type, c.hidden])), [['Q', 'a', false, true], ['E', 'b', true, true]]);
-  // edit and delete
-  assert.equal(setCardLine(t, cards[1], 'E ::: c').includes('E ::: c'), true);
-  assert.equal(parse(setCardLine(t, cards[0], null)).length, 1);
-  assert.equal(setCardLine(t, { ln: 0, raw: 'gone :: x' }, null), t); // a card that's no longer there: no change
-  // moving inline cards off the page keeps ids (history) and order
-  const moved = moveCardsToBlock(note, before);
-  const after = parse(moved);
-  assert.deepEqual(plain(after.map((c) => c.id)), plain(before.map((c) => c.id)));
-  assert.ok(after.every((c) => c.hidden));
-  assert.ok(!/^- A :: 3$/m.test(moved) && moved.includes('B :: 2'));
-});

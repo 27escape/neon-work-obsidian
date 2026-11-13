@@ -1,4 +1,4 @@
-/* ---- the Study tab: one topic tree ------------------------------------------ */
+/* ---- the Research tab: one topic tree per section, or the notes by status ------------ */
 class ResearchView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -9,7 +9,7 @@ class ResearchView extends ItemView {
     return VIEW_RESEARCH;
   }
   getDisplayText() {
-    return 'Study';
+    return 'Research';
   }
   getIcon() {
     return 'library';
@@ -29,8 +29,7 @@ class ResearchView extends ItemView {
     this.registerEvent(this.app.workspace.on('neon-deck:core-unloaded', () => this.pattern && (this.pattern.destroy(), (this.pattern = null))));
     const soon = debounce(() => this.render(), 150, true);
     // f: one note's text changed but not its cards, so only its row's "edited" time moves; 'now': a click
-    // 'research': the research list changed, so only its rows redraw (the add box keeps focus and text)
-    this.register(this.plugin.onChange((f) => (f === 'now' ? this.render() : f === 'research' ? this.refreshResearch() : f ? this.touchRow(f) : soon())));
+    this.register(this.plugin.onChange((f) => (f === 'now' ? this.render() : f ? this.touchRow(f) : soon())));
     // hidden tabs skip redraws and catch up when shown
     // checked a frame later: the event fires before the tab is actually shown
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.stale && window.requestAnimationFrame(() => this.stale && this.isShown() && this.render())));
@@ -61,32 +60,30 @@ class ResearchView extends ItemView {
       this.first = false;
       window.setTimeout(() => root.removeClass('is-entering'), 900);
     }
-    const research = this.tab === 'research';
+    const byStatus = this.tab === 'status';
     const rootFolder = p.rootFolder();
     const hero = root.createDiv('nd-hero nr-hero');
     const l = hero.createDiv('nr-hero-l');
     const roots = p.settings.roots;
-    l.createDiv({ cls: 'nd-hero-greet', text: roots[p.settings.activeRoot].name });
-    if (research) {
-      const remaining = p.settings.researchTopics.filter((t) => !t.done).length;
-      const done = p.settings.researchTopics.length - remaining;
-      this.researchSub = l.createDiv({ cls: 'nr-hero-sub', text: `${remaining} to research · ${done} researched` });
-    } else {
-      const nTopics = rootFolder ? rootFolder.children.filter((c) => c instanceof TFolder).length : 0;
+    const cur = roots[p.settings.activeRoot];
+    l.createDiv({ cls: 'nd-hero-greet', text: cur ? cur.name : 'Research' });
+    if (rootFolder) {
+      const nTopics = rootFolder.children.filter((c) => c instanceof TFolder).length;
       const nNotes = p.researchNotes().length;
       l.createDiv({ cls: 'nr-hero-sub', text: `${nTopics} topic${nTopics === 1 ? '' : 's'} · ${nNotes} note${nNotes === 1 ? '' : 's'}` });
+      l.createDiv({ cls: 'nr-hero-sub', text: statusLine(p.statusSummary(rootFolder)) });
       const acts = hero.createDiv('nr-acts');
-      const due = p.dueCards(p.cardsUnder(rootFolder)).length;
-      button(acts, { icon: 'graduation-cap', text: due ? `Quiz me (${due})` : 'Quiz me', title: 'Choose a topic to quiz', onClick: () => new QuizPickModal(p).open() });
       button(acts, { icon: 'folder-plus', text: 'Topic', cls: 'mod-cta', title: 'New topic', onClick: () => p.newTopic(rootFolder) });
+    } else {
+      l.createDiv({ cls: 'nr-hero-sub', text: cur ? `Folder “${cur.path}” not found` : 'No section yet: choose a folder to start' });
     }
-    pills(root, [['topics', 'Topics'], ['research', 'Research']], research ? 'research' : 'topics', (v) => {
+    pills(root, [['topics', 'Topics'], ['status', 'By status']], byStatus ? 'status' : 'topics', (v) => {
       if (v === this.tab || (v === 'topics' && !this.tab)) return;
-      this.switchDir = v === 'research' ? 1 : -1;
+      this.switchDir = v === 'status' ? 1 : -1;
       this.tab = v;
       this.render();
     }, 'nr-view-tabs');
-    if (!research) {
+    {
       // section switch on its own row under the title: click to switch, right-click to rename/remove, + to add
       const sw = pills(hero, roots.map((r, i) => [i, r.name]), p.settings.activeRoot, (i) => p.setActiveRoot(i), 'nr-roots');
       for (const [i, btn] of sw.btns) {
@@ -106,10 +103,13 @@ class ResearchView extends ItemView {
       panel.style.setProperty('--dir', String(this.switchDir));
       this.switchDir = 0;
     }
-    if (research) {
-      this.renderResearchList(panel);
+    if (!rootFolder) {
+      const e = panel.createDiv('nr-empty');
+      button(e, { icon: 'folder-search', text: roots.length ? 'Choose another folder' : 'Choose a research folder', cls: 'mod-cta', onClick: () => p.pickSection() });
+    } else if (byStatus) {
+      this.renderStatus(panel);
     } else {
-      const kids = rootFolder ? this.childrenOf(rootFolder) : { folders: [], notes: [] };
+      const kids = this.childrenOf(rootFolder);
       if (!kids.folders.length && !kids.notes.length) {
         const e = panel.createDiv('nr-empty');
         button(e, { icon: 'folder-plus', text: 'Add your first topic', cls: 'mod-cta', onClick: () => p.newTopic(rootFolder) });
@@ -119,7 +119,7 @@ class ResearchView extends ItemView {
         for (const f of kids.notes) this.noteRow(tree, f, 0);
       }
     }
-    madeWith(root.createDiv('nr-foot'), 'Neon Study');
+    madeWith(root.createDiv('nr-foot'), 'Neon Research');
     sc.scrollTop = top;
     if (this.pattern && this.pattern.kick) this.pattern.kick();
   }
@@ -147,13 +147,13 @@ class ResearchView extends ItemView {
     // right-hand columns have fixed widths so they line up from row to row
     const n = p.notesUnder(folder).length;
     row.createSpan({ cls: 'nr-col nr-c-count', text: `${n} note${n === 1 ? '' : 's'}` });
-    const due = p.dueCards(p.cardsUnder(folder)).length;
+    const toResearch = p.statusSummary(folder).open;
     const dc = row.createSpan('nr-col nr-c-due');
-    if (due) dc.createSpan({ cls: 'nr-due', text: `${due} to quiz` });
+    if (toResearch) dc.createSpan({ cls: 'nr-due', text: `${toResearch} to research` });
     row.createSpan('nr-col nr-c-when');
     const acts = row.createDiv('nr-row-acts');
     button(acts, { icon: 'plus', cls: 'nd-icon-btn', title: 'Add a subtopic or a note', onClick: (e) => (e.stopPropagation(), this.addMenu(folder, e)) });
-    button(acts, { icon: 'more-horizontal', cls: 'nd-icon-btn', title: 'Rename, quiz, delete', onClick: (e) => (e.stopPropagation(), this.folderMenu(folder, e)) });
+    button(acts, { icon: 'more-horizontal', cls: 'nd-icon-btn', title: 'Rename, delete', onClick: (e) => (e.stopPropagation(), this.folderMenu(folder, e)) });
     const fill = () => {
       const kids = this.childrenOf(folder);
       const box = wrap.createDiv('nr-kids');
@@ -184,9 +184,10 @@ class ResearchView extends ItemView {
     row.createSpan('nr-chev-space');
     icon(row, 'file-text', 'nd-ico nr-note-ico');
     row.createSpan({ cls: 'nr-name', text: file.basename });
-    const cards = p.cardsIn(file).length;
-    row.createSpan({ cls: 'nr-col nr-c-count', text: cards ? `${cards} card${cards === 1 ? '' : 's'}` : '' });
-    row.createSpan('nr-col nr-c-due');
+    const st = p.statusOf(file);
+    row.createSpan('nr-col nr-c-count');
+    const sc = row.createSpan('nr-col nr-c-due');
+    if (st) sc.createSpan({ cls: `nr-status-pill is-${statusKind(st, p.doneStatuses())}`, text: st });
     const when = row.createSpan({ cls: 'nr-col nr-c-when', text: shortAgo(file.stat.mtime) });
     this.rows.set(file.path, when);
     tip(when, `Edited ${moment(file.stat.mtime).format('D MMM YYYY, HH:mm')}`);
@@ -208,7 +209,6 @@ class ResearchView extends ItemView {
     m.addItem((i) => i.setTitle('New subtopic').setIcon('folder-plus').onClick(() => p.newTopic(folder)));
     m.addItem((i) => i.setTitle('New note').setIcon('file-plus').onClick(() => p.newNote(folder)));
     m.addSeparator();
-    m.addItem((i) => i.setTitle('Quiz this topic').setIcon('graduation-cap').onClick(() => p.quiz(folder, folder.name)));
     m.addItem((i) => i.setTitle('Rename…').setIcon('pencil').onClick(() => p.rename(folder)));
     m.addItem((i) => i.setTitle('Delete topic…').setIcon('trash-2').setWarning(true).onClick(() => p.remove(folder)));
     m.showAtMouseEvent(e);
@@ -223,3 +223,12 @@ class ResearchView extends ItemView {
   }
 }
 
+
+/** Open (true) or close a folder's children with a short height slide; a closed box is removed. */
+function slide(el, open) {
+  if (prefersReducedMotion()) return open || el.remove();
+  const h = el.scrollHeight;
+  const a = el.animate(open ? [{ height: '0px', opacity: 0 }, { height: `${h}px`, opacity: 1 }] : [{ height: `${h}px`, opacity: 1 }, { height: '0px', opacity: 0 }], { duration: open ? 200 : 160, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+  el.style.overflow = 'hidden';
+  a.onfinish = () => (open ? (el.style.overflow = '') : el.remove());
+}
