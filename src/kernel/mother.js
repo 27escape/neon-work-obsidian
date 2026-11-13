@@ -15,6 +15,9 @@ class NeonMother extends Plugin {
     NEON_GUARD.allowDir = normalizePath(this.manifest.dir);
     NEON_GUARD.readOnly = this.state.readOnly !== false;
     this.guardedApp = guardApp(this.app);
+    const gesture = () => (NEON_GUARD.lastGesture = Date.now());
+    this.registerDomEvent(document, 'pointerdown', gesture, true);
+    this.registerDomEvent(document, 'keydown', gesture, true);
     const crashed = this.state.starting; // the last start never finished
     this.state.starting = true;
     if (crashed) this.state.safe = true; // stays on until turned off in settings

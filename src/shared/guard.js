@@ -10,11 +10,13 @@ const NEON_GUARD = {
   readOnly: true, // set from modules.json by the kernel on start; true until then
   allowDir: '', // the plugin's own folder: settings writes there are always allowed
   lastNotice: 0,
-  /** Refuse a write: a short notice (at most one every 5 s), a console line, and an error for the caller. */
+  lastGesture: 0, // last click or key press: a blocked write right after one was asked for by you, so it gets a notice
+  /** Refuse a write: a console line and an error for the caller, plus a short notice (at most one every 5 s) when you just
+   * clicked or typed. Background writes (startup jobs, timers) are refused quietly. */
   block(op, path) {
     const what = `${op}${path ? ` “${path}”` : ''}`;
     console.info(`Neon Deck (read-only): blocked ${what}`);
-    if (Date.now() - this.lastNotice > 5000) {
+    if (Date.now() - this.lastGesture < 2000 && Date.now() - this.lastNotice > 5000) {
       this.lastNotice = Date.now();
       new Notice(`Neon Deck is read-only, so it did not ${what}. Turn read-only off in Settings → Neon Deck modules to allow changes to your notes.`, 6000);
     }
