@@ -18,7 +18,7 @@
 }
 .nt-task {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 6px 2px;
   min-width: 0;
@@ -30,6 +30,7 @@
 }
 .nt-check {
   flex: none;
+  margin-top: 1px;
   width: 17px;
   height: 17px;
   border: 1.6px solid var(--nd-muted, var(--text-muted));
@@ -51,6 +52,26 @@
 }
 .nt-task.is-done {
   opacity: 0.6;
+}
+.nt-body {
+  flex: 1;
+  min-width: 0;
+}
+.nt-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 1px;
+  line-height: 1.3;
+}
+.nt-meta .nt-due {
+  font-size: 10px;
+}
+.nt-meta .nt-src {
+  flex: 0 1 auto;
+  max-width: none;
+  font-size: 10px;
 }
 .nt-text {
   flex: 1;

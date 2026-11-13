@@ -71,13 +71,17 @@ Object.assign(NeonTasks.prototype, {
     row.style.setProperty('--i', String(Math.min(i, 20)));
     const box = row.createDiv('nt-check');
     tip(box, 'Done');
-    const txt = row.createDiv({ cls: 'nt-text', text: t.display || t.raw });
+    // fork: the text gets the full width; the date and note sit on a smaller line underneath
+    const body = row.createDiv('nt-body');
+    const txt = body.createDiv({ cls: 'nt-text', text: t.display || t.raw });
+    const meta = body.createDiv('nt-meta');
     if (t.due) {
       const d = moment(t.due);
-      row.createSpan({ cls: `nt-due is-${t.group}`, text: t.group === 'today' ? 'today' : d.format('D MMM') });
-    } else if (t.carried) row.createSpan({ cls: 'nt-due is-carried', text: `from ${t.carried.format('ddd')}` });
+      meta.createSpan({ cls: `nt-due is-${t.group}`, text: t.group === 'today' ? 'today' : d.format('D MMM') });
+    } else if (t.carried) meta.createSpan({ cls: 'nt-due is-carried', text: `from ${t.carried.format('ddd')}` });
     if (t.doing) tip(box, 'In progress · click when done');
-    const src = row.createSpan({ cls: 'nt-src', text: inTodo ? '' : t.quick ? 'Todo' : t.file.basename });
+    const src = meta.createSpan({ cls: 'nt-src', text: inTodo ? '' : t.quick ? 'Todo' : t.file.basename });
+    if (!meta.textContent) meta.remove();
     tip(src, t.file.path);
     const edit = row.createDiv('nt-del nt-edit-btn');
     setIcon(edit, 'pencil');

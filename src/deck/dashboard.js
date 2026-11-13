@@ -195,25 +195,7 @@ class DashboardView extends ItemView {
     this.dateEl = hero.createDiv('nd-hero-date');
     this.clockEl = hero.createDiv('nd-hero-clock');
     this.actionsEl = hero.createDiv('nd-hero-actions');
-    const looks = hero.createDiv('nd-hero-looks');
-    const sel = (label, opts, get, set) => {
-      const wrap = looks.createEl('label', { cls: 'nd-look-select' });
-      wrap.createSpan({ cls: 'nd-look-k', text: label });
-      const s = wrap.createEl('select', { cls: 'dropdown' });
-      for (const [v, l] of opts) s.createEl('option', { value: v, text: l });
-      s.value = get();
-      s.addEventListener('change', () => set(s.value));
-      return s;
-    };
-    const p = this.plugin;
-    this.themeSel = sel('Theme', THEMES.map((t) => [t, THEME_LABEL[t]]), () => p.settings.theme, (v) => p.setLook({ theme: v }));
-    this.patSel = sel(
-      'Pattern',
-      [['auto', 'Theme default'], ...PATTERNS.map((x) => [x, PATTERN_LABEL[x]])],
-      () => p.settings.pattern,
-      (v) => p.setLook({ pattern: v }),
-    );
-    this.strSel = sel('Strength', STRENGTHS.map((x) => [x, STRENGTH_LABEL[x]]), () => p.settings.patternStrength, (v) => p.setLook({ patternStrength: v }));
+    // fork: theme, pattern and strength live in settings only (the selectors here took too much room)
     this.registerEvent(this.app.workspace.on('css-change', () => this.syncLook()));
     this.updateClock();
     this.registerInterval(window.setInterval(() => this.updateClock(), 1000));
