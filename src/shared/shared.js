@@ -325,16 +325,32 @@ async function activateView(app, type, where = 'tab') {
 }
 
 /* ---- daily notes ------------------------------------------------------ */
-// Daily notes settings from <configDir>/daily-notes.json (public file API); each call refreshes the copy in the background
+// fork: the folder, file name format and template come from Obsidian's core Daily notes plugin
+// (<configDir>/daily-notes.json) while that plugin is on. When it is off (core-plugins.json), Neon Deck's
+// own Daily notes settings are used instead (NEON_DAILY_FALLBACK, set by the Deck module).
+// Each call refreshes the copies in the background.
 let dailyCache = {};
+let coreOn = {}; // core plugin id -> on/off, from core-plugins.json
+const NEON_DAILY_FALLBACK = { folder: '', format: 'YYYY-MM-DD', template: '' };
 function readDailyOpts(app) {
-  const p = normalizePath(`${app.vault.configDir}/daily-notes.json`);
-  return app.vault.adapter.read(p).then((t) => (dailyCache = JSON.parse(t) || {}), () => (dailyCache = {}));
+  const dir = app.vault.configDir;
+  const json = (name) => app.vault.adapter.read(normalizePath(`${dir}/${name}`)).then((t) => JSON.parse(t), () => null);
+  return Promise.all([json('daily-notes.json'), json('core-plugins.json')]).then(([d, c]) => {
+    dailyCache = d || {};
+    // older Obsidian: a list of the plugins that are on; newer: { id: true/false }
+    coreOn = Array.isArray(c) ? Object.fromEntries(c.map((id) => [id, true])) : c && typeof c === 'object' ? c : {};
+  });
+}
+/** Is a core plugin on? The live app knows best; the saved file is the fallback. Unknown counts as on. */
+function corePluginOn(app, id) {
+  const ip = app.internalPlugins && app.internalPlugins.getPluginById ? app.internalPlugins.getPluginById(id) : null;
+  if (ip && typeof ip.enabled === 'boolean') return ip.enabled;
+  return coreOn[id] !== false;
 }
 function dailyOpts(app) {
   readDailyOpts(app);
-  const o = dailyCache;
-  return { folder: (o.folder || '').trim(), format: o.format || 'YYYY-MM-DD', template: (o.template || '').trim() };
+  const o = corePluginOn(app, 'daily-notes') ? dailyCache : NEON_DAILY_FALLBACK;
+  return { folder: (o.folder || '').trim(), format: (o.format || '').trim() || 'YYYY-MM-DD', template: (o.template || '').trim() };
 }
 function dailyPath(app, m) {
   const o = dailyOpts(app);
@@ -344,13 +360,20 @@ function dailyFile(app, m) {
   const f = app.vault.getAbstractFileByPath(dailyPath(app, m));
   return f instanceof TFile ? f : null;
 }
-/** Date of a daily note, or null when the file isn't one. */
+/**
+ * Date of a daily (or weekly) note, or null when the file isn't one. A format with folders in it
+ * (e.g. YYYY/YYYY-ww → 2026/2026-46.md) is matched against the path inside the notes folder.
+ */
 function dailyDateOf(app, file) {
-  const o = dailyOpts(app);
+  return noteDateOf(dailyOpts(app), file.path);
+}
+function noteDateOf(o, path) {
   const folder = o.folder ? normalizePath(o.folder) : '';
-  const parent = file.parent && file.parent.path !== '/' ? file.parent.path : '';
-  if (folder && parent !== folder && !parent.startsWith(folder + '/')) return null;
-  const m = moment(file.basename, o.format, true);
+  if (folder && !path.startsWith(folder + '/')) return null;
+  if (!/\.md$/i.test(path)) return null;
+  const rel = path.slice(folder ? folder.length + 1 : 0).replace(/\.md$/i, '');
+  const name = o.format.includes('/') ? rel : rel.split('/').pop();
+  const m = moment(name, o.format, true);
   return m.isValid() ? m : null;
 }
 async function ensureToday(app) {

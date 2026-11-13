@@ -10,24 +10,22 @@ class NeonTasksSettingTab extends PluginSettingTab {
     const save = () => p.saveSettings();
     containerEl.empty();
     containerEl.addClass('nd-settings');
-    new Setting(containerEl).setName('Tasks widget').setHeading();
+    new Setting(containerEl).setName('Tasks').setHeading();
+    new Setting(containerEl).setDesc('The Tasks card shows open tasks ([ ] and [/]) across your notes, grouped by 📅 due or ⏳ scheduled date: checkbox lines with the task tag anywhere, every checkbox in notes tagged “tasks” and in recent daily notes. Excluded folders are skipped.');
     new Setting(containerEl)
-      .setDesc('Shows open tasks from notes with “tasks” in their tags property, today’s daily note and the quick-add note. Ticket notes are always skipped.');
-    new Setting(containerEl)
-      .setName('Quick tasks note')
-      .setDesc('Where the quick-add box writes. Items stay until you tick them.')
-      .addText((t) => t.setValue(s.quickTasksPath).onChange((v) => ((s.quickTasksPath = v.trim() || 'Neon/Quick tasks.md'), save())));
-    numSetting(new Setting(containerEl).setName('Carry over unfinished daily tasks (days)').setDesc('Open tasks from earlier daily notes show under Today. 0 = only today’s note.'), s, 'carryDays', 0, 90, save);
+      .setName('Task tag')
+      .setDesc('A checkbox line with this tag is a task wherever it is, as in the Tasks plugin. Empty: only tagged notes, daily notes and the Todo note.')
+      .addText((t) => t.setPlaceholder('#task').setValue(s.taskTag).onChange((v) => ((s.taskTag = v.trim() && !v.trim().startsWith('#') ? '#' + v.trim() : v.trim()), save(), p.emit())));
+    numSetting(new Setting(containerEl).setName('Carry over unfinished daily-note tasks (days)').setDesc('Open tasks from earlier daily or weekly notes show under Today. 0 = only the current note.'), s, 'carryDays', 0, 90, save);
     new Setting(containerEl)
       .setName('Stamp completion date')
       .setDesc('Adds ✅ YYYY-MM-DD when you tick a task on the dashboard (Tasks-plugin compatible).')
       .addToggle((t) => t.setValue(s.stampDone).onChange((v) => ((s.stampDone = v), save())));
-    new Setting(containerEl).setName('Global tasks').setHeading();
+    new Setting(containerEl).setName('Todo').setHeading();
     new Setting(containerEl)
-      .setName('Backup note')
-      .setDesc('Global tasks live in plugin data. A read-only copy is written here daily and when they change.')
-      .addText((t) => t.setValue(s.backupPath).onChange((v) => ((s.backupPath = v.trim() || TASKS_DEFAULTS.backupPath), save())))
-      .addExtraButton((b) => b.setIcon('save').setTooltip('Back up now').onClick(() => p.writeBackup(true)));
+      .setName('Todo note')
+      .setDesc('Its open tasks fill the Todo card. Tasks you add on the dashboard go at the head of this note as “- [ ] #task … ➕ date”.')
+      .addText((t) => t.setPlaceholder('Todo.md').setValue(s.quickTasksPath).onChange((v) => ((s.quickTasksPath = v.trim() || TASKS_DEFAULTS.quickTasksPath), save(), p.emit())));
     new Setting(containerEl).setName('New notes').setHeading();
     new Setting(containerEl)
       .setName('Ask a few questions when I create a note')

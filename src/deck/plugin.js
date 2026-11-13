@@ -14,6 +14,10 @@ class NeonDeck extends Plugin {
     this.actions = new Map();
     this.weekLines = new Map();
     this.excludes = new Map();
+    // fork: templates folders (core Templates, Templater) are left out of stats, tasks and projects
+    this.tplFolders = [];
+    this.excludes.set('templates', () => (this.settings.excludeTemplates ? this.tplFolders : []));
+    this.readTemplateFolders();
     this.services = new Map();
     this.dragging = null;
     this.api = this.buildApi();
@@ -136,6 +140,20 @@ class NeonDeck extends Plugin {
     if (s.pattern === 'circuit' || s.pattern === 'shard') s.pattern = 'prism'; // 2.0.4: Circuit (and the short-lived Shard) became Prism
     if (s.pattern !== 'auto' && !PATTERNS.includes(s.pattern)) s.pattern = 'auto';
     if (!STRENGTHS.includes(s.patternStrength)) s.patternStrength = 'subtle';
+    this.applyDailyFallback();
+  }
+  /** fork: Neon's own daily-note settings, used while the core Daily notes plugin is off. */
+  applyDailyFallback() {
+    const s = this.settings;
+    Object.assign(NEON_DAILY_FALLBACK, { folder: s.dailyFolder || '', format: s.dailyFormat || 'YYYY-MM-DD', template: s.dailyTemplate || '' });
+  }
+  /** fork: the templates folders of the core Templates plugin and of Templater (read only). */
+  async readTemplateFolders() {
+    const read = (p) => this.app.vault.adapter.read(normalizePath(p)).then((t) => JSON.parse(t), () => null);
+    const dir = this.app.vault.configDir;
+    const [core, tp] = await Promise.all([read(`${dir}/templates.json`), read(`${dir}/plugins/templater-obsidian/data.json`)]);
+    this.tplFolders = [core && core.folder, tp && tp.templates_folder].filter((x) => typeof x === 'string' && x.trim() && x.trim() !== '/').map((x) => normalizePath(x.trim()));
+    this._ex = null;
   }
   async saveSettings() {
     await this.saveData(this.settings);

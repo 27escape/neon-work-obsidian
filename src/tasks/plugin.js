@@ -23,7 +23,7 @@ class NeonTasks extends Plugin {
       },
     });
     this.addCommand({ id: 'fix-properties-folder', name: 'Fix properties in a folder…', callback: () => this.pickFolderToFix() });
-    this.addCommand({ id: 'add-global-task', name: 'Add a Global task', callback: () => new PromptModal(this.app, { title: 'Global task', placeholder: 'Important · not tied to notes', cta: 'Add', onSubmit: (v) => this.addGlobal(v) }).open() });
+    this.addCommand({ id: 'add-global-task', name: 'Add a task to Todo', callback: () => new PromptModal(this.app, { title: 'Add to Todo', placeholder: 'Goes at the top of your Todo note', cta: 'Add', onSubmit: (v) => this.addQuickTask(v) }).open() });
     this.addCommand({ id: 'uncategorised', name: 'Show new notes without a category', callback: () => new UncategorisedModal(this, this.uncategorised()).open() });
     this.registerEvent(
       this.app.workspace.on('file-menu', (menu, file) => {
@@ -38,7 +38,7 @@ class NeonTasks extends Plugin {
     // Only notes that feed the Tasks widget trigger a refresh.
     this.registerEvent(
       this.app.metadataCache.on('changed', (f, _d, cache) => {
-        if (!this.sourcePaths || this.sourcePaths.has(f.path) || this.isTaskSource(f, cache) || f.path === this.quickPath() || dailyDateOf(this.app, f)) changed();
+        if (!this.sourcePaths || this.sourcePaths.has(f.path) || this.mayHoldTasks(f, cache) || f.path === this.quickPath()) changed();
       }),
     );
     this.registerEvent(this.app.vault.on('delete', changed));
@@ -57,15 +57,14 @@ class NeonTasks extends Plugin {
       this.registerEvent(this.app.vault.on('create', (f) => this.onCreate(f)));
       this.hookCore();
       this.updateBar();
-      this.maybeRestore();
       // after Obsidian has read every note's properties
       window.setTimeout(() => this.migrateCategories(), 5000);
-      this.dailyBackup();
-      this.registerInterval(window.setInterval(() => this.dailyBackup(), 60 * 60 * 1000));
+      this.offerGlobalMove();
+      // fork: no Global tasks backup (they are the Todo note); a new day moves tasks between groups
+      this.registerInterval(window.setInterval(() => this.dayKey !== (this.dayKey = moment().format('YYYY-MM-DD')) && this.emit(), 10 * 60 * 1000));
     });
   }
   onunload() {
-    this.writeBackup();
     const api = deckApi(this.app);
     if (api) {
       api.unregisterWidget('tasks');
@@ -104,16 +103,15 @@ class NeonTasks extends Plugin {
   hookCore() {
     const api = deckApi(this.app);
     if (!api) return;
-    api.registerWidget({ id: 'tasks', slot: 'tasks', title: 'Tasks', icon: 'list-checks', sub: 'Tagged notes · today · quick', mount: (card) => this.mountTasks(card) });
-    api.registerWidget({ id: 'global', slot: 'global', title: 'Global tasks', icon: 'star', sub: 'Important · not tied to notes', mount: (card) => this.mountGlobal(card) });
-    api.registerCapture({ id: 'task', label: 'Task', short: 'Task', icon: 'square-check', order: 10, run: (v) => this.addQuickTask(v) });
-    api.registerCapture({ id: 'global', label: 'Global task', short: 'Global', icon: 'star', order: 11, run: (v) => this.addGlobal(v) });
+    api.registerWidget({ id: 'tasks', slot: 'tasks', title: 'Tasks', icon: 'list-checks', sub: `${this.settings.taskTag || 'Tasks'} across your notes · by date`, mount: (card) => this.mountTasks(card) });
+    api.registerWidget({ id: 'global', slot: 'global', title: 'Todo', icon: 'star', sub: this.quickPath(), mount: (card) => this.mountGlobal(card) });
+    api.registerCapture({ id: 'task', label: 'Todo task', short: 'Todo', icon: 'square-check', order: 10, run: (v) => this.addQuickTask(v) });
     // Recently done on the dashboard: tasks ticked in the widgets (doneLog keeps 120 days)
     if (api.registerActivity)
       api.registerActivity('tasks', () =>
         this.settings.doneLog.map((x) => {
           const f = x.src && x.src !== 'global' ? this.app.vault.getAbstractFileByPath(x.src) : null;
-          return { t: x.t, kind: 'task', text: x.text, due: x.due || null, src: x.src === 'global' ? 'Global' : f ? f.basename : '', open: f ? (e) => openFile(this.app, f, e) : null };
+          return { t: x.t, kind: 'task', text: x.text, due: x.due || null, src: x.src === 'global' ? 'Todo' : f ? f.basename : '', open: f ? (e) => openFile(this.app, f, e) : null };
         }),
       );
     api.registerFacts('tasks', () => {
@@ -128,7 +126,7 @@ class NeonTasks extends Plugin {
       return n ? [`${n} task${n === 1 ? '' : 's'} done`] : [];
     });
     api.provide('newNote', (folder) => this.newNote(folder));
-    api.registerExcluded('tasks', () => [this.settings.backupPath]);
+    api.registerExcluded('tasks', () => []);
   }
   doneOn(m) {
     const k = m.format('YYYY-MM-DD');

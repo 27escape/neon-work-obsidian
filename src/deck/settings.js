@@ -51,8 +51,26 @@ class NeonSettingTab extends PluginSettingTab {
     loc('Bridge note folder', 'Where the graph saves bridge notes.', 'bridgeFolder', 'Neon/Bridges');
     new Setting(containerEl)
       .setName('Excluded folders')
-      .setDesc('Comma-separated, e.g. your templates folder. Ignored by stats and the graph.')
-      .addText((t) => t.setValue(s.excludeFolders).onChange((v) => ((s.excludeFolders = v), save())));
+      .setDesc('Comma-separated, e.g. an archive folder. Ignored by stats, the graph, tasks and projects.')
+      .addText((t) => t.setPlaceholder('4.Archive').setValue(s.excludeFolders).onChange((v) => ((s.excludeFolders = v), (p._ex = null), save())));
+    new Setting(containerEl)
+      .setName('Ignore the templates folder')
+      .setDesc(`The folders set in the core Templates plugin and Templater${p.tplFolders.length ? ` (${p.tplFolders.join(', ')})` : ''}, so template tasks and properties never count.`)
+      .addToggle((t) => t.setValue(s.excludeTemplates).onChange((v) => ((s.excludeTemplates = v), (p._ex = null), save())));
+
+    new Setting(containerEl).setName('Daily notes').setHeading();
+    const coreDaily = corePluginOn(p.app, 'daily-notes');
+    containerEl.createEl('p', {
+      cls: 'setting-item-description',
+      text: coreDaily
+        ? `Obsidian’s core Daily notes plugin is on, so its settings are used (folder “${dailyOpts(p.app).folder || '/'}”, format “${dailyOpts(p.app).format}”). The settings below apply only when it is off.`
+        : 'Obsidian’s core Daily notes plugin is off, so these settings are used. A format may include folders, e.g. YYYY/YYYY-ww for weekly notes.',
+    });
+    const daily = (name, key, ph) =>
+      new Setting(containerEl).setName(name).addText((t) => t.setPlaceholder(ph).setValue(s[key]).onChange((v) => ((s[key] = v.trim()), p.applyDailyFallback(), save())));
+    daily('Folder', 'dailyFolder', 'e.g. Daily');
+    daily('File name format', 'dailyFormat', 'YYYY-MM-DD');
+    daily('Template', 'dailyTemplate', 'e.g. templates/daily.md');
 
     new Setting(containerEl).setName('Card explorer').setHeading();
     new Setting(containerEl)

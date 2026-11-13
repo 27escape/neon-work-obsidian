@@ -4,8 +4,10 @@
 /* ------------------------------------------------------------------ */
 
 const TASKS_DEFAULTS = {
-  quickTasksPath: 'Neon/Quick tasks.md', // fork: no Core folder
-  backupPath: 'Neon/Global tasks backup.md',
+  // fork: one Todo note replaces both "Quick tasks" and the Global tasks list kept in plugin data
+  quickTasksPath: 'Todo.md', // the Todo note: new tasks go at its head; its open tasks fill the Todo card
+  taskTag: '#task', // fork: a checkbox line with this tag is a task wherever it is (Tasks-plugin style); empty = off
+  backupPath: 'Neon/Global tasks backup.md', // unused since the fork (Global tasks are the Todo note)
   askOnCreate: true,
   stampDone: true,
   carryDays: 14,
@@ -21,12 +23,31 @@ const PROP_ORDER = [
   'projects', 'school', 'admin', 'operations', 'untracked',
   'created', 'due', 'remind', 'completed', 'waiting_on', 'follow_up', 'waiting_since', 'jira', 'cover',
 ];
-const TASK_LINE_RE = /^\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[ \]\s+(.*)$/;
+// fork: "[/]" (in progress, Tasks plugin) is an open task too
+const TASK_LINE_RE = /^\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[[ /]\]\s+(.*)$/;
+const OPEN_BOX_RE = /\[[ /]\]/;
+const escTag = (tag) => tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Does a task's text carry the task tag (e.g. #task, not #tasks or #task/sub)? */
+function hasTaskTag(raw, tag) {
+  if (!tag) return false;
+  return new RegExp(`(^|\\s)${escTag(tag)}(?=$|\\s)`, 'iu').test(raw);
+}
+/** A note's text with a new task line at its head: after the properties, above the first task there. */
+function addTaskAtHead(text, line) {
+  const fm = text.match(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/);
+  const head = fm ? fm[0] : '';
+  let rest = text.slice(head.length);
+  const blank = rest.match(/^(?:[ \t]*\r?\n)*/)[0];
+  rest = rest.slice(blank.length);
+  const nextIsTask = TASK_LINE_RE.test(rest.split('\n')[0] || '') || /^\s*[-*+]\s+\[[^\]]\]/.test(rest);
+  return head + (head ? '\n' : '') + line + '\n' + (rest && !nextIsTask ? '\n' : '') + rest;
+}
 
-/** Clean display text of a task line (Tasks-plugin emoji stripped). */
-function taskDisplay(raw) {
+/** Clean display text of a task line (Tasks-plugin emoji and the task tag stripped). */
+function taskDisplay(raw, tag = '#task') {
   return excerptOf(
     raw
+      .replace(tag ? new RegExp(`(^|\\s)${escTag(tag)}(?=$|\\s)`, 'giu') : /$^/, '$1')
       .replace(/(?:📅|⏳|🛫|✅|➕)\s*\d{4}-\d{2}-\d{2}/gu, '')
       .replace(/🔁[^📅⏳🛫✅➕]*/gu, '')
       .replace(/[⏫🔼🔽🔺⏬]/gu, ''),
@@ -34,10 +55,17 @@ function taskDisplay(raw) {
   );
 }
 
-/** Group of a task: by its 📅 date, else Today for a daily note, else Later. */
+/**
+ * Group of a task: by its 📅 due date; else ⏳ scheduled on or before today → Today (fork);
+ * else Today for a daily note; else Later. `due` is the date shown (due, else scheduled).
+ */
 function taskGroup(raw, daily, todayKey) {
-  const due = (raw.match(/📅\s*(\d{4}-\d{2}-\d{2})/u) || [])[1] || null;
-  return { due, group: due ? (due < todayKey ? 'overdue' : due === todayKey ? 'today' : 'later') : daily ? 'today' : 'later' };
+  const date = (e) => (raw.match(new RegExp(`${e}\\s*(\\d{4}-\\d{2}-\\d{2})`, 'u')) || [])[1] || null;
+  const due = date('📅');
+  if (due) return { due, group: due < todayKey ? 'overdue' : due === todayKey ? 'today' : 'later' };
+  const sched = date('⏳');
+  if (sched) return { due: sched, group: sched <= todayKey ? 'today' : 'later' };
+  return { due: null, group: daily ? 'today' : 'later' };
 }
 /** Quick shake, e.g. Enter on an empty add box. */
 function shake(el) {

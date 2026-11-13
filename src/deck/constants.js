@@ -56,6 +56,11 @@ const DEFAULT_SETTINGS = {
   pinnedFolder: 'Neon/Pinned', // files dropped onto the pin board from outside Obsidian
   bridgeFolder: 'Neon/Bridges',
   excludeFolders: '',
+  excludeTemplates: true, // fork: also ignore the templates folder(s) of the core Templates plugin and Templater
+  // fork: daily notes when Obsidian's core Daily notes plugin is off (otherwise its own settings are used)
+  dailyFolder: '',
+  dailyFormat: 'YYYY-MM-DD',
+  dailyTemplate: '',
   cardsInSidebar: true,
   replaceFileExplorer: true,
   showCapture: false, // the Quick capture card (the capture command works either way)

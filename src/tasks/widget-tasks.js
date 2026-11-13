@@ -2,35 +2,19 @@ Object.assign(NeonTasks.prototype, {
   /* tasks widget --------------------------------------------------------- */
   mountTasks(card) {
     const body = card.body;
+    // fork: tasks from across your notes; the Todo note has its own card (with the add box)
     const list = body.createDiv('nt-list');
-    const add = body.createDiv('nt-add');
-    const input = add.createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'Add a task… (Enter → Quick tasks)' } });
-    input.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter' || e.isComposing) return;
-      if (!input.value.trim()) return shake(add);
-      const v = input.value;
-      input.value = '';
-      this.addQuickTask(v);
-    });
-    button(card.actions, { icon: 'calendar-days', cls: 'nd-icon-btn', title: 'Open today’s note', onClick: async () => openFile(this.app, await ensureToday(this.app)) });
+    button(card.actions, { icon: 'calendar-days', cls: 'nd-icon-btn', title: 'Open this period’s daily / weekly note', onClick: async () => openFile(this.app, await ensureToday(this.app)) });
     let token = 0;
     let first = true; // the first draw shows rows without the "new" animation
     let count = 0;
     const render = async () => {
       const my = ++token;
-      const items = await this.collectTasks();
+      const all = await this.collectTasks();
       if (my !== token || !list.isConnected) return;
       if (editingIn(list)) return; // redrawn when the edit ends
-      // quick tasks typed a moment ago that the index hasn't seen yet
-      const quick = this.quickPath();
-      const have = new Set(items.filter((t) => t.quick).map((t) => t.raw));
-      const todayKey = moment().format('YYYY-MM-DD');
-      this.pendingQuick = (this.pendingQuick || []).filter((p) => !have.has(p.text) && Date.now() - p.at < 10000);
-      for (const p of this.pendingQuick) {
-        const file = this.app.vault.getAbstractFileByPath(quick) || { path: quick, basename: 'Quick tasks' };
-        items.push({ file, line: -1, raw: p.text, ...taskGroup(p.text, null, todayKey), carried: null, display: taskDisplay(p.text), quick: true, pending: true });
-      }
-      this.openCount = items.length;
+      this.openCount = all.length;
+      const items = all.filter((t) => !t.quick); // Todo tasks are in the Todo card
       countUp(card.badge, count, items.length, (v) => (Math.round(v) ? String(Math.round(v)) : ''), 300);
       count = items.length;
       const old = new Map([...list.children].filter((el) => el.dataset.key && !el.hasClass('is-leaving')).map((el) => [el.dataset.key, el]));
@@ -41,7 +25,7 @@ Object.assign(NeonTasks.prototype, {
           e = emptyState(list, 'All clear ✦ no open tasks');
           e.addClass('nt-fade-in');
           e.dataset.key = 'empty';
-          e.createDiv({ cls: 'nt-empty-hint', text: 'Tasks come from notes tagged “tasks”, today’s daily note and the box below.' });
+          e.createDiv({ cls: 'nt-empty-hint', text: `Tasks are checkbox lines with ${this.settings.taskTag || 'the task tag'} in any note (Todo has its own card), plus notes tagged “tasks” and recent daily notes.` });
         }
         want.push(e);
       }
@@ -59,7 +43,7 @@ Object.assign(NeonTasks.prototype, {
           const n = dup.get(base) || 0;
           dup.set(base, n + 1);
           const key = `${base}#${n}`;
-          const sig = `${t.group}|${t.due}|${t.carried ? t.carried.format('YYYY-MM-DD') : ''}|${t.display}|${t.pending ? 1 : 0}`;
+          const sig = `${t.group}|${t.due}|${t.carried ? t.carried.format('YYYY-MM-DD') : ''}|${t.display}|${t.doing ? 1 : 0}`;
           let row = old.get(key);
           if (row && row.dataset.sig === sig) row._t = t;
           else {
@@ -81,8 +65,8 @@ Object.assign(NeonTasks.prototype, {
     render();
     return { destroy: off };
   },
-  taskRow(list, t, i) {
-    const row = list.createDiv('nt-task' + (t.pending ? ' is-pending' : ''));
+  taskRow(list, t, i, inTodo) {
+    const row = list.createDiv('nt-task' + (t.pending ? ' is-pending' : '') + (t.doing ? ' is-doing' : ''));
     row._t = t; // handlers read the latest task: a kept row may have moved to another line
     row.style.setProperty('--i', String(Math.min(i, 20)));
     const box = row.createDiv('nt-check');
@@ -92,7 +76,8 @@ Object.assign(NeonTasks.prototype, {
       const d = moment(t.due);
       row.createSpan({ cls: `nt-due is-${t.group}`, text: t.group === 'today' ? 'today' : d.format('D MMM') });
     } else if (t.carried) row.createSpan({ cls: 'nt-due is-carried', text: `from ${t.carried.format('ddd')}` });
-    const src = row.createSpan({ cls: 'nt-src', text: t.quick ? 'quick' : t.file.basename });
+    if (t.doing) tip(box, 'In progress · click when done');
+    const src = row.createSpan({ cls: 'nt-src', text: inTodo ? '' : t.quick ? 'Todo' : t.file.basename });
     tip(src, t.file.path);
     const edit = row.createDiv('nt-del nt-edit-btn');
     setIcon(edit, 'pencil');
@@ -122,7 +107,7 @@ Object.assign(NeonTasks.prototype, {
         const v = inp.value.trim();
         inp.replaceWith(txt);
         if (save && v && v !== row._t.raw) {
-          txt.setText(taskDisplay(v));
+          txt.setText(taskDisplay(v, this.settings.taskTag));
           try {
             if (!(await this.editTask(row._t, v))) txt.setText(row._t.display || row._t.raw);
           } catch (e) {
