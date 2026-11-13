@@ -47,13 +47,15 @@ const DEFAULT_SETTINGS = {
   settingsVersion: 3,
   pinnedFolders: [],
   folderColors: {}, // folder path -> icon colour chosen by hand (beats the category colour)
-  coreFolder: 'Core',
-  coreTidied: false,
-  reviewFolder: 'Core/Reviews',
-  inboxPath: 'Core/Inbox.md',
-  pinBoardPath: 'Core/Pin board.md',
-  bridgeFolder: 'Core/Bridges',
-  excludeFolders: 'Core/Templates',
+  // fork: no Core folder. Every location is its own setting; nothing is created until a feature that needs it is used.
+  coreFolder: '', // unused (kept so older data files load)
+  coreTidied: true, // unused: the move into Core was removed
+  reviewFolder: 'Neon/Reviews',
+  inboxPath: 'Neon/Inbox.md', // unused
+  pinBoardPath: 'Neon/Pin board.md',
+  pinnedFolder: 'Neon/Pinned', // files dropped onto the pin board from outside Obsidian
+  bridgeFolder: 'Neon/Bridges',
+  excludeFolders: '',
   cardsInSidebar: true,
   replaceFileExplorer: true,
   showCapture: false, // the Quick capture card (the capture command works either way)

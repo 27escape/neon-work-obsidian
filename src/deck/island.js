@@ -43,7 +43,7 @@ Object.assign(NeonDeck.prototype, {
     });
   },
   boardPath() {
-    return normalizePath(this.settings.pinBoardPath || `${this.settings.coreFolder || 'Core'}/Pin board.md`);
+    return normalizePath(this.settings.pinBoardPath || 'Neon/Pin board.md');
   },
   async pinBoard(create) {
     const p = this.boardPath();
@@ -268,7 +268,7 @@ Object.assign(NeonDeck.prototype, {
     const items = this.droppedItems(dt);
     try {
       if (dragged instanceof TFile) await this.pinFiles([dragged]);
-      else if (dt && dt.files && dt.files.length) await this.pinFiles((await this.importFiles(dt, normalizePath(`${this.settings.coreFolder || 'Core'}/Pinned`))) || []);
+      else if (dt && dt.files && dt.files.length) await this.pinFiles((await this.importFiles(dt, normalizePath(this.settings.pinnedFolder || 'Neon/Pinned'))) || []);
       else if (items.length) await this.pinFiles(items.filter((f) => f instanceof TFile));
       else if (text.trim()) await this.pinText(text);
     } catch (err) {

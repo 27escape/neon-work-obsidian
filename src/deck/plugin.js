@@ -39,7 +39,6 @@ class NeonDeck extends Plugin {
       ['next-theme', 'Next theme', () => this.setLook({ theme: THEMES[(THEMES.indexOf(this.settings.theme) + 1) % THEMES.length] }, true)],
       ['next-pattern', 'Next pattern', () => this.setLook({ pattern: PATTERNS[(PATTERNS.indexOf(this.activePattern()) + 1) % PATTERNS.length] }, true)],
       ['weekly-review', 'Create / open this week’s review', () => this.weeklyReview()],
-      ['tidy-core', 'Move Neon files into the Core folder', () => this.tidyIntoCore(true)],
     ];
     for (const [id, name, callback] of cmds) this.addCommand({ id, name, callback });
     // hidden while Neon Tasks is on: it brings its own New note command

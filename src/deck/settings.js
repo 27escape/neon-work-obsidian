@@ -38,19 +38,20 @@ class NeonSettingTab extends PluginSettingTab {
       .addText((t) => t.setValue(s.name).onChange((v) => ((s.name = v.trim()), save())));
     new Setting(containerEl).setName('Open dashboard on startup').addToggle((t) => t.setValue(s.openDashboardOnStartup).onChange((v) => ((s.openDashboardOnStartup = v), save())));
 
-    new Setting(containerEl).setName('Notes').setHeading();
-    new Setting(containerEl)
-      .setName('Core folder')
-      .setDesc('Tickets, time log, reviews, quick tasks, daily notes and templates live in here. Your own folders sit next to it.')
-      .addText((t) => t.setValue(s.coreFolder).onChange((v) => ((s.coreFolder = normalizePath(v.trim() || 'Core')), save())))
-      .addExtraButton((b) => b.setIcon('folder-input').setTooltip('Move Neon files into this folder now').onClick(() => p.tidyIntoCore(true)));
-    new Setting(containerEl)
-      .setName('Weekly review folder')
-      .setDesc('Optional template: a note named Weekly Review in your templates folder with {{weekLine}} and {{weekNotes}}.')
-      .addText((t) => t.setValue(s.reviewFolder).onChange((v) => ((s.reviewFolder = v.trim() || 'Core/Reviews'), save())));
+    new Setting(containerEl).setName('Locations').setHeading();
+    containerEl.createEl('p', { cls: 'setting-item-description', text: 'Each location is used only when you use that feature; nothing is created or moved in advance. Paths are relative to the vault root. Ticket, time log, quick tasks and image locations are in each module’s own settings.' });
+    const loc = (name, desc, key, def) =>
+      new Setting(containerEl)
+        .setName(name)
+        .setDesc(desc)
+        .addText((t) => t.setPlaceholder(def).setValue(s[key]).onChange((v) => ((s[key] = normalizePath(v.trim() || def)), save())));
+    loc('Weekly review folder', 'Optional template: a note named Weekly Review in your templates folder with {{weekLine}} and {{weekNotes}}.', 'reviewFolder', 'Neon/Reviews');
+    loc('Pin board note', 'One pin per line. Made the first time you pin something.', 'pinBoardPath', 'Neon/Pin board.md');
+    loc('Pinned files folder', 'Where files dropped onto the pin board from outside Obsidian are saved.', 'pinnedFolder', 'Neon/Pinned');
+    loc('Bridge note folder', 'Where the graph saves bridge notes.', 'bridgeFolder', 'Neon/Bridges');
     new Setting(containerEl)
       .setName('Excluded folders')
-      .setDesc('Comma-separated. Ignored by stats and the graph.')
+      .setDesc('Comma-separated, e.g. your templates folder. Ignored by stats and the graph.')
       .addText((t) => t.setValue(s.excludeFolders).onChange((v) => ((s.excludeFolders = v), save())));
 
     new Setting(containerEl).setName('Card explorer').setHeading();
@@ -73,7 +74,6 @@ class NeonSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName('Graph').setHeading();
     num(new Setting(containerEl).setName('Max notes').setDesc('The graph shows up to twice this many notes.'), 'graphMaxNodes', 20, 400);
-    new Setting(containerEl).setName('Bridge note folder').addText((t) => t.setValue(s.bridgeFolder).onChange((v) => ((s.bridgeFolder = v.trim()), save())));
     madeWith(containerEl, 'Neon Deck');
   }
 }
