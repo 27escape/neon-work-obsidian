@@ -5,7 +5,7 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.7.0';
+const ND_VERSION = '1.0.0'; // set from the manifest by tools/build.mjs
 // Categories colour notes and split tracked time. Upstream: four fixed ones (UPSTREAM_CATS).
 // fork: your customers instead — one per folder in the customers folder (1.Customers), keyed in lower case;
 // a note's category is its customer property, else the customer folder it is in. CATS, CAT_LABEL and

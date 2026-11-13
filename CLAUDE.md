@@ -1,4 +1,4 @@
-# Neon Deck (fork) — notes for Claude
+# Neon Work — notes for Claude
 
 Obsidian plugin: a kernel and six modules (Dashboard, Tasks, Projects, Research, Time, Write), forked from Neon Deck 2.2.0 by Yobzs. Plain JavaScript, no runtime dependencies, no bundler: `tools/build.mjs` joins `src/` files in the order listed in `tools/files.json`. Work on the `claudeai` branch.
 
@@ -15,10 +15,10 @@ Obsidian plugin: a kernel and six modules (Dashboard, Tasks, Projects, Research,
 - Styles: `src/<module>/styles*.css` (listed per module in `tools/files.json`); the build concatenates them and embeds the fonts from `src/deck/fonts/`.
 
 ## Build and test
-- `node tools/build.mjs` → `dist/neon-deck-fork/{main.js,styles.css,manifest.json}` (and copies the manifest to the repo root).
+- `node tools/build.mjs` → `dist/neon-work/{main.js,styles.css,manifest.json}` (and copies the manifest to the repo root).
 - `node --test test/*.test.mjs` runs the unit tests (real source files, a small Obsidian stand-in in `test/load.mjs`).
 - `node tools/check.mjs dist`: local-only rules, cleanup, timers, writes, CSS, file sizes.
-- To try a build, copy the three files into `<vault>/.obsidian/plugins/neon-deck-fork/` and switch the plugin off and on. Keep read-only on in a real vault, and commit the vault before switching it off, so `git status` shows every change.
+- To try a build, copy the three files into `<vault>/.obsidian/plugins/neon-work/` and switch the plugin off and on. Keep read-only on in a real vault, and commit the vault before switching it off, so `git status` shows every change.
 
 ## Rules
 - **Don't change the user's notes unasked.** Read-only is on by default; every module gets the guarded `app`. Write only for an action the user takes, never move or rename notes on your own, and never write a `Core` or `Neon/` folder.

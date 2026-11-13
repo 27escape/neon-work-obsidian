@@ -1,6 +1,6 @@
-# Neon Deck (fork) — architecture
+# Neon Work — architecture
 
-One Obsidian plugin (`neon-deck-fork`) made of a kernel and six modules. This page is the current design; `MAP.md` lists every file and function, `FORK.md` what differs from upstream Neon Deck 2.2.0.
+One Obsidian plugin (`neon-work`) made of a kernel and six modules. This page is the current design; `MAP.md` lists every file and function, `FORK.md` what differs from upstream Neon Deck 2.2.0.
 
 ## Shape
 

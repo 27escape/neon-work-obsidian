@@ -1,9 +1,9 @@
 {
-  "id": "neon-deck-fork",
-  "name": "Neon Deck (fork)",
-  "version": "2.2.0",
+  "id": "neon-work",
+  "name": "Neon Work",
+  "version": "1.0.0",
   "minAppVersion": "1.5.0",
-  "description": "Fork of Neon Deck: dashboard, projects, tasks, time tracking and research notes for a vault organised by customer; read-only by default.",
+  "description": "Dashboard, projects, tasks, time tracking and research notes for a vault organised by customer; read-only by default. Based on Neon Deck by Yobzs.",
   "author": "Yobzs, {{CO_AUTHOR}}",
   "authorUrl": "{{REPO_URL}}",
   "isDesktopOnly": true

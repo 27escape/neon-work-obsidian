@@ -50,7 +50,7 @@ const DEFAULT_SETTINGS = {
   // fork: no Core folder. Every location is its own setting; nothing is created until a feature that needs it is used.
   coreFolder: '', // unused (kept so older data files load)
   coreTidied: true, // unused: the move into Core was removed
-  // fork: '' = the default name inside the base folder (Neon Deck (fork) → Base folder)
+  // fork: '' = the default name inside the base folder (Neon Work → Base folder)
   reviewFolder: '',
   reviewTemplate: '', // fork: template note for weekly reviews ({{weekLine}}, {{weekNotes}}, {{weekEnd}})
   inboxPath: '', // unused

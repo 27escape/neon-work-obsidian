@@ -1,4 +1,4 @@
-# ✦ Neon Deck (fork)
+# ✦ Neon Work
 
 A command centre for an Obsidian vault: a dashboard, projects, tasks, time tracking, research notes and a few writing touches, in a neon look with live background patterns. Fork by {{CO_AUTHOR}} ({{REPO_URL}}) of [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.
 
@@ -62,7 +62,7 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 
 ## Settings
 
-Everything is on one page, *Settings → Neon Deck (fork)*, with a section per part:
+Everything is on one page, *Settings → Neon Work*, with a section per part:
 
 - **Overview:** read-only, the base folder, the switches for each part, and safe mode.
 - **Dashboard, Tasks, Projects, Research, Time, Write:** that part's options. Folder and file fields suggest matching vault paths as you type.
@@ -72,20 +72,20 @@ The **base folder** (asked on first start) is where the plugin keeps what it mak
 ## Install
 
 1. Build it (`node tools/build.mjs`) or take the three files from a release: `main.js`, `manifest.json`, `styles.css`.
-2. Put them in `<your vault>/.obsidian/plugins/neon-deck-fork/` (create the folder if needed).
-3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable **Neon Deck (fork)**.
+2. Put them in `<your vault>/.obsidian/plugins/neon-work/` (create the folder if needed).
+3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable **Neon Work**.
 4. On first start it asks for a **base folder** (for example `2.Resources`). Read-only stays on until you switch it off in *Overview*; commit or back up your vault first, so you can see exactly what changes.
 
-**Updating:** copy the three files over the ones in `.obsidian/plugins/neon-deck-fork/` and switch the plugin off and on. Keep the folder: it also holds your settings.
+**Updating:** copy the three files over the ones in `.obsidian/plugins/neon-work/` and switch the plugin off and on. Keep the folder: it also holds your settings.
 
 **Safe mode:** if the plugin fails while starting, the next start keeps every part off; switch them back on in *Overview*.
 
-**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. Commands are listed as "Neon Deck (fork) – Tasks: …", "… – Projects: …" and so on.
+**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. Commands are listed as "Neon Work – Tasks: …", "… – Projects: …" and so on.
 
 ## For developers
 
 - **Sources** are in `src/` (one job per file); `MAP.md` lists every file with its functions, `docs/architecture.md` explains the design and `CLAUDE.md` has the working rules.
-- **Build:** `node tools/build.mjs` → `dist/neon-deck-fork/` (no dependencies).
+- **Build:** `node tools/build.mjs` → `dist/neon-work/` (no dependencies).
 - **Check:** `node --test test/*.test.mjs` (unit tests) and `node tools/check.mjs dist` (local-only rules, cleanup, timers, writes, CSS…).
 - **Saved data** (`data.json`, `modules.json`) is personal and isn't in this repo.
 

@@ -25,7 +25,7 @@ class NeonTasks extends Plugin {
 
     const changed = debounce(() => this.emit(), 250, true);
     // fork: finished tasks come from the notes; rescan when a note with ticked tasks changes
-    const rescan = debounce(() => this.scanDone().catch((e) => console.error('Neon Deck (fork) done tasks', e)), 1000, true);
+    const rescan = debounce(() => this.scanDone().catch((e) => console.error('Neon Work done tasks', e)), 1000, true);
     this.registerEvent(this.app.metadataCache.on('changed', (f, _d, cache) => (cache && cache.listItems && cache.listItems.some((li) => li.task === 'x' || li.task === 'X')) || (this.doneTasks || []).some((x) => x.path === f.path) ? rescan() : null));
     this.registerEvent(this.app.vault.on('delete', rescan));
     this.registerEvent(this.app.vault.on('rename', rescan));

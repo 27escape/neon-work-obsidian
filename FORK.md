@@ -1,6 +1,6 @@
-# Neon Deck (fork)
+# Neon Work
 
-**Plugin id:** `neon-deck-fork` · **Name:** Neon Deck (fork) — placeholder, to be renamed before any release
+**Plugin id:** `neon-work` · **Name:** Neon Work · **Version:** 1.0.0 (its own numbering, starting again from upstream Neon Deck 2.2.0)
 **Fork by:** {{CO_AUTHOR}}, with Claude
 **Repository:** {{REPO_URL}}
 **Based on:** [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs, version 2.2.0 (CC BY-NC-SA 4.0). The same licence applies to this fork; the changes are listed below.
@@ -39,7 +39,7 @@ To rename the plugin, change `id` and `name` in `src/kernel/manifest.json`, alon
 | **Weekly review template** | *Create / open this week's review* starts from a template note you choose (`{{weekLine}}`, `{{weekNotes}}`, `{{date:…}}`, `{{weekEnd:…}}`). |
 | **Inbox capture** | Quick capture can save a thought as a new note in your inbox folder, from your inbox template. Templater's `tp.file.title` and `tp.date.now()` are filled in. |
 | **Trimmed** | Write keeps the table picker, styled tables, dividers, locked callouts and the note pattern; the slash menu, selection toolbar and image moving are gone. The Revisit feature for "school" notes is gone. Time has no Jira field or column. Templates folders and top-level archive folders are left out of stats, tasks and projects. The lifted writing window is full width when *Readable line length* is off. "Fix properties" and the automatic category rename are removed (they deleted empty template properties). |
-| **Naming** | The UI names the plugin by its manifest name and the parts by their section (Dashboard, Tasks, Projects, Research, Time, Write); commands read "Neon Deck (fork) – Tasks: …". Module ids and folders keep upstream's names, so saved data carries on. |
+| **Naming** | The UI names the plugin by its manifest name and the parts by their section (Dashboard, Tasks, Projects, Research, Time, Write); commands read "Neon Work – Tasks: …". Module ids and folders keep upstream's names, so saved data carries on. |
 
 ## How the read-only guard works
 
@@ -48,12 +48,12 @@ To rename the plugin, change `id` and `name` in `src/kernel/manifest.json`, alon
 ## Build and install
 
 ```bash
-node tools/build.mjs              # → dist/neon-deck-fork/{main.js,manifest.json,styles.css}
+node tools/build.mjs              # → dist/neon-work/{main.js,manifest.json,styles.css}
 node --test test/*.test.mjs       # unit tests
 node tools/check.mjs dist         # project checks
 ```
 
-Copy the three files from `dist/neon-deck-fork/` into `<vault>/.obsidian/plugins/neon-deck-fork/`, then enable **Neon Deck (fork)** in Community plugins (or reload it). Before turning read-only off, commit the vault so `git status` shows exactly what changed.
+Copy the three files from `dist/neon-work/` into `<vault>/.obsidian/plugins/neon-work/`, then enable **Neon Work** in Community plugins (or reload it). Before turning read-only off, commit the vault so `git status` shows exactly what changed.
 
 ## Settings for the E2I vault
 
