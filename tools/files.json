@@ -56,6 +56,7 @@
       "desc": "Tasks and global tasks",
       "cls": "NeonTasks",
       "files": [
+        "src/tasks/tasks-view.js",
         "src/tasks/helpers.js",
         "src/tasks/settings.js",
         "src/tasks/plugin.js",

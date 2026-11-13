@@ -450,3 +450,33 @@ body:not(.nd-themed) .nd-empty {
     transition: none;
   }
 }
+
+/* fork: the Tasks tab — the Tasks and Todo cards side by side, full height */
+.nt-view.view-content {
+  background: var(--nd-bg);
+}
+.nt-view *,
+.nt-view *::before {
+  box-sizing: border-box;
+}
+.nt-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  z-index: 1;
+}
+.nt-view-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 14px;
+  max-width: 1200px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 16px 20px 32px;
+  align-items: start;
+}
+@media (max-width: 800px) {
+  .nt-view-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

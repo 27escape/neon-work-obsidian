@@ -12,6 +12,9 @@ class NeonTasks extends Plugin {
     this.selfCreated = new Set();
     this.listeners = new Set();
 
+    // fork: a Tasks tab in the main pane, listed in the Neon sidebar like Projects, Time and Research
+    this.registerView(VIEW_TASKS, (leaf) => new TasksView(leaf, this));
+    this.addCommand({ id: 'open-tasks', name: 'Open the Tasks tab', callback: () => this.openTab() });
     this.addCommand({ id: 'new-note', name: 'New note', callback: () => this.newNote(this.currentFolder()) });
     this.addCommand({
       id: 'fix-properties',
@@ -69,6 +72,7 @@ class NeonTasks extends Plugin {
     const api = deckApi(this.app);
     if (api) {
       api.unregisterWidget('tasks');
+      api.unregisterAction('tasks');
       api.unregisterWidget('global');
       api.unregisterCapture('task');
       api.unregisterCapture('global');
@@ -92,6 +96,9 @@ class NeonTasks extends Plugin {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
   }
+  openTab() {
+    return activateView(this.app, VIEW_TASKS, 'tab');
+  }
   currentFolder() {
     const f = this.app.workspace.getActiveFile();
     return f && f.parent ? f.parent.path : '/';
@@ -106,6 +113,7 @@ class NeonTasks extends Plugin {
     if (!api) return;
     api.registerWidget({ id: 'tasks', slot: 'tasks', title: 'Tasks', icon: 'list-checks', sub: `${this.settings.taskTag || 'Tasks'} across your notes · by date`, mount: (card) => this.mountTasks(card) });
     api.registerWidget({ id: 'global', slot: 'global', title: 'Todo', icon: 'star', sub: this.quickPath(), mount: (card) => this.mountGlobal(card) });
+    api.registerAction({ id: 'tasks', icon: 'list-checks', label: 'Tasks', order: 15, view: VIEW_TASKS, run: () => this.openTab() });
     api.registerCapture({ id: 'task', label: 'Todo task', short: 'Todo', icon: 'square-check', order: 10, run: (v) => this.addQuickTask(v) });
     // Recently done on the dashboard: tasks ticked in the widgets (doneLog keeps 120 days)
     if (api.registerActivity)
