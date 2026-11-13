@@ -3,7 +3,7 @@
  * create, change, move, rename or delete anything in the vault. Every module gets a guarded
  * `app` (see guardApp) instead of Obsidian's own: its vault, fileManager and vault.adapter
  * refuse writes. The only writes still allowed are Neon Deck's own settings files inside its
- * plugin folder (.obsidian/plugins/neon-deck/...). writeNote checks the guard as well, because
+ * plugin folder (.obsidian/plugins/<plugin id>/...). writeNote checks the guard as well, because
  * it can edit an open note through the editor rather than the vault.
  * Obsidian's real `app` is never changed, so other plugins and Obsidian itself are unaffected. */
 const NEON_GUARD = {

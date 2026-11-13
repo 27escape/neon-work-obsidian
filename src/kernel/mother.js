@@ -28,6 +28,12 @@ class NeonMother extends Plugin {
     } catch (e) {
       this.enabled = new Set();
     }
+    // fork: upstream Neon Deck uses the same views, commands and module ids, so the two must never run together
+    if (this.manifest.id !== 'neon-deck' && this.enabled.has('neon-deck')) {
+      new Notice(`${this.manifest.name}: the original Neon Deck plugin is also on. Turn one of them off in Community plugins, then reload.`, 0);
+      await this.startDone(); // not a crash: no safe mode next time
+      return;
+    }
     await readDailyOpts(this.app);
     this.addSettingTab(new NeonModulesTab(this.app, this));
     this.addCommand({ id: 'safe-mode', name: 'Restart in safe mode (modules off)', callback: () => this.setSafe(true) });

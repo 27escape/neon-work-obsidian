@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: node tools/build.mjs
-      - run: cd dist && zip -r neon-deck.zip neon-deck
-      - run: gh release upload "${{ inputs.tag }}" dist/neon-deck.zip --clobber
+      - run: cd dist && zip -r neon-deck-fork.zip neon-deck-fork
+      - run: gh release upload "${{ inputs.tag }}" dist/neon-deck-fork.zip --clobber
         env:
           GH_TOKEN: ${{ github.token }}

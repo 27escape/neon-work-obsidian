@@ -1,6 +1,6 @@
 # ✦ Neon Deck
 
-> **27escape fork:** read-only by default, never moves files into `Core`, every location is a setting. See [FORK.md](FORK.md).
+> **Neon Deck (fork)** by {{CO_AUTHOR}}, based on Neon Deck by Yobzs: read-only by default, never moves files into `Core`, every location is a setting. Plugin id `neon-deck-fork`, repo {{REPO_URL}}. See [FORK.md](FORK.md). The install steps below are upstream's; for this fork use the `neon-deck-fork` folder.
 
 One Obsidian plugin that works as a personal command centre: a dashboard, tasks, tickets, automatic time tracking, research notes and writing tools, in a neon look with live background patterns.
 

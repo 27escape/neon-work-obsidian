@@ -1,10 +1,10 @@
 {
-  "id": "neon-deck",
-  "name": "Neon Deck",
+  "id": "neon-deck-fork",
+  "name": "Neon Deck (fork)",
   "version": "2.2.0",
   "minAppVersion": "1.5.0",
-  "description": "Dashboard, tasks, time tracking, tickets, research notes and writing tools in one themed workspace.",
-  "author": "Yobzs",
-  "authorUrl": "https://github.com/Yobzs",
+  "description": "Fork of Neon Deck: dashboard, tasks, time tracking, tickets, research notes and writing tools, read-only by default and with every location a setting.",
+  "author": "Yobzs, {{CO_AUTHOR}}",
+  "authorUrl": "{{REPO_URL}}",
   "isDesktopOnly": true
 }

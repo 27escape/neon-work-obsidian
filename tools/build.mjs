@@ -1,4 +1,4 @@
-// Build Neon Deck: join src/ files (order in tools/files.json) into dist/neon-deck/{main.js,styles.css,manifest.json}.
+// Build Neon Deck: join src/ files (order in tools/files.json) into dist/<manifest id>/{main.js,styles.css,manifest.json}.
 // No dependencies. node tools/build.mjs
 // Each module is wrapped in its own function scope (its top-level names can't clash with another
 // module's); a "/* @src <path> */" line before every file leads from a main.js line back to its file.
@@ -24,7 +24,7 @@ const fonts = [['Unbounded', 'Unbounded.woff2'], ['Space Grotesk', 'SpaceGrotesk
 const fontLicense = read('src/deck/fonts/OFL.txt');
 const css = [`/*\n${fontLicense}\n*/\n${fonts}`, ...o.modules.map((m) => `/* @src ${m.id}/styles.css */\n${m.css.map((f) => `/* @css ${f} */\n${read(f)}`).join('\n')}`)].join('\n');
 
-const dir = 'dist/neon-deck';
+const dir = `dist/${manifest.id}`; // fork: the folder follows the plugin id (was dist/neon-deck)
 fs.rmSync(dir, { recursive: true, force: true });
 fs.mkdirSync(dir, { recursive: true });
 fs.writeFileSync(`${dir}/main.js`, js.join('\n') + '\n');
