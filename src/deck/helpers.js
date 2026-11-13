@@ -5,9 +5,10 @@ function bangFirst(cmp) {
   return (a, b) => bangs(b) - bangs(a) || cmp(a, b);
 }
 /** Everything that happened per day in a month: tasks, tickets, time entries, notes. Map 'YYYY-MM-DD' -> lists. */
-function actDays(p, d, month) {
-  const from = month.clone().startOf('month').startOf('isoWeek').valueOf();
-  const to = month.clone().endOf('month').endOf('isoWeek').valueOf();
+function actDays(p, d, month, week) {
+  // a month's calendar weeks, or one week (fork: week chips may fall outside the month)
+  const from = (week ? week.clone().startOf('isoWeek') : month.clone().startOf('month').startOf('isoWeek')).valueOf();
+  const to = (week ? week.clone().endOf('isoWeek') : month.clone().endOf('month').endOf('isoWeek')).valueOf();
   const days = new Map();
   const day = (t) => {
     const k = dayKey(t);

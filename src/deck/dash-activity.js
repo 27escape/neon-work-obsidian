@@ -39,13 +39,12 @@ Object.assign(DashboardView.prototype, {
       if (x.open) r.addEventListener('click', (e) => x.open(e));
     }
   },
-  /** Activity: a Month view (stats + calendar) and a Week view per week of the month (each day's entries). */
+  /** Activity: a Month view (stats + calendar) and five Week views (each day's entries): this week and two either side (fork). */
   renderHeat(d) {
     const b = this.heat.body;
     b.empty();
     const p = this.plugin;
     const month = (this.actMonth = this.actMonth || moment().startOf('month'));
-    const days = actDays(p, d, month);
     // header: month switch + Month / week chips
     const acts = this.heat.actions;
     acts.empty();
@@ -54,15 +53,18 @@ Object.assign(DashboardView.prototype, {
     button(acts, { icon: 'chevron-right', cls: 'nd-icon-btn', title: 'Next month', onClick: () => ((this.actMonth = month.clone().add(1, 'month')), (this.actView = 'month'), this.renderHeat(d)) });
     const weeks = [];
     for (let w = month.clone().startOf('isoWeek'); w.isBefore(month.clone().endOf('month')); w.add(1, 'week')) weeks.push(w.clone());
-    const view = this.actView == null || (this.actView !== 'month' && !weeks[this.actView]) ? 'month' : this.actView;
+    // fork: five week chips, centred on this week (on the 15th's week when another month is shown)
+    const focus = (month.isSame(moment(), 'month') ? moment() : month.clone().date(15)).startOf('isoWeek');
+    const chips = [-2, -1, 0, 1, 2].map((n) => focus.clone().add(n, 'weeks'));
+    const view = this.actView == null || (this.actView !== 'month' && !chips[this.actView]) ? 'month' : this.actView;
     // rise-in only when the month or view changes, not on every data refresh
     const animKey = `${month.format('YYYY-MM')}|${view}`;
     b.toggleClass('is-anim', this.actAnimKey !== animKey);
     this.actAnimKey = animKey;
-    const tabs = pills(acts, [['month', 'Month'], ...weeks.map((w, i) => [i, `W${w.isoWeek()}`])], view, (v) => ((this.actView = v), this.renderHeat(d)), 'nd-act-tabs');
+    const tabs = pills(acts, [['month', 'Month'], ...chips.map((w, i) => [i, `W${w.isoWeek()}`])], view, (v) => ((this.actView = v), this.renderHeat(d)), 'nd-act-tabs');
     acts.prepend(tabs.el);
-    if (view === 'month') this.renderActMonth(b, month, days, weeks);
-    else this.renderActWeek(b, weeks[view], days);
+    if (view === 'month') this.renderActMonth(b, month, actDays(p, d, month), weeks);
+    else this.renderActWeek(b, chips[view], actDays(p, d, month, chips[view]));
   },
   renderActMonth(b, month, days, weeks) {
     const wrap = b.createDiv('nd-act-monthview');
