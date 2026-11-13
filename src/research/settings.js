@@ -13,7 +13,7 @@ class NeonResearchSettingTab extends PluginSettingTab {
     containerEl.addClass('nd-settings');
     new Setting(containerEl)
       .setName('Sections')
-      .setDesc('Each section is a folder shown as its own tree (folders are topics, notes are notes). Switch between them at the top of the tab. Removing a section never touches its notes.');
+      .setDesc('Each section is a folder shown as its own tree (folders are topics, notes are notes). Switch between them at the top of the tab. A * in the path stands for any one folder, so 1.Customers/*/Research gathers every customer’s Research folder into one section. Removing a section never touches its notes.');
     // only re-read notes once the user stops typing a folder path
     const rescan = debounce(async () => {
       s.root = s.roots.length ? s.roots[0].path : '';
@@ -24,7 +24,7 @@ class NeonResearchSettingTab extends PluginSettingTab {
     s.roots.forEach((r, i) => {
       const row = new Setting(containerEl)
         .addText((t) => t.setPlaceholder('Name').setValue(r.name).onChange((v) => ((r.name = v.trim() || r.path.split('/').pop()), save(), p.emitSoon())))
-        .addText((t) => t.setPlaceholder('Folder, e.g. 2.Resources/Research').setValue(r.path).onChange((v) => ((r.path = normalizePath(v.trim() || r.path)), rescan())));
+        .addText((t) => t.setPlaceholder('Folder, or a pattern like 1.Customers/*/Research').setValue(r.path).onChange((v) => ((r.path = normalizePath(v.trim() || r.path)), rescan())));
       row.addExtraButton((b) =>
           b.setIcon('trash-2').setTooltip('Remove this section (its notes stay)').onClick(() => {
             s.roots.splice(i, 1);

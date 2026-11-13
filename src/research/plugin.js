@@ -87,14 +87,30 @@ class NeonResearch extends Plugin {
     const r = this.settings.roots[this.settings.activeRoot];
     return r ? r.path : ''; // fork: no section chosen yet
   }
+  /**
+   * The section's folder. fork: a path with an asterisk standing for one folder name (for example
+   * "1.Customers/ * /Research" without the spaces) is a pattern: its folder is a stand-in whose children
+   * are every matching folder (one per customer), shown by the name the asterisk matched.
+   */
   rootFolder(path = this.root) {
     if (!path) return null;
+    if (path.includes('*')) {
+      const kids = globFolders(this.app.vault.getRoot(), path);
+      return kids.length ? { path, name: path.split('/').pop(), children: kids, isPattern: true } : null;
+    }
     const f = this.app.vault.getAbstractFileByPath(path);
     return f instanceof TFolder ? f : null;
   }
   /** The root a file lives in (any root, not only the shown one), or null. */
   rootOf(f) {
-    return (f && this.settings.roots.find((r) => f.path.startsWith(r.path + '/'))) || null;
+    if (!f) return null;
+    return this.settings.roots.find((r) => (r.path.includes('*') ? !!patternBase(r.path, f.path) : f.path.startsWith(r.path + '/'))) || null;
+  }
+  /** fork: a folder's name in the tree — a pattern section shows the * part (e.g. the customer). */
+  folderLabel(folder) {
+    const r = this.settings.roots[this.settings.activeRoot];
+    if (r && r.path.includes('*') && patternBase(r.path, folder.path + '/x') === folder.path) return patternStar(r.path, folder.path) || folder.name;
+    return folder.name;
   }
   inRoot(f) {
     return !!this.rootOf(f);
@@ -139,4 +155,31 @@ class NeonResearch extends Plugin {
     this.saveSoon();
     this.emitSoon();
   }
+}
+
+/* ---- section patterns (fork) ---- */
+/** Folders matching a path pattern where * stands for any one folder name (pure, vault tree in). */
+function globFolders(root, pattern) {
+  let level = [root];
+  for (const seg of pattern.split('/').filter(Boolean)) {
+    const next = [];
+    for (const fd of level)
+      for (const c of fd.children || []) if (c instanceof TFolder && (seg === '*' || c.name === seg)) next.push(c);
+    level = next;
+  }
+  return level.sort((a, b) => a.path.localeCompare(b.path, undefined, { sensitivity: 'base' }));
+}
+/** The matching folder a path is inside, for a pattern (or ''). */
+function patternBase(pattern, path) {
+  const segs = pattern.split('/').filter(Boolean);
+  const parts = path.split('/');
+  if (parts.length <= segs.length) return '';
+  for (let i = 0; i < segs.length; i++) if (segs[i] !== '*' && segs[i] !== parts[i]) return '';
+  return parts.slice(0, segs.length).join('/');
+}
+/** The names the * parts matched, joined (e.g. the customer). */
+function patternStar(pattern, folderPath) {
+  const segs = pattern.split('/').filter(Boolean);
+  const parts = folderPath.split('/');
+  return segs.map((s, i) => (s === '*' ? parts[i] : null)).filter(Boolean).join(' · ');
 }

@@ -29,3 +29,16 @@ test('new research note properties follow the settings', () => {
   const t = R.researchFrontmatter('A: B', '2026-11-13', { ...s, newStatus: '', newNoteTags: '', countAsWork: false });
   assert.equal(t, '---\ntitle: "A: B"\ncreated: 2026-11-13\nmodified: 2026-11-13\nuntracked: true\n---\n');
 });
+
+test('pattern sections: * matches one folder name', () => {
+  const P = load('neon-research', ['globFolders', 'patternBase', 'patternStar', 'TFolder']);
+  const fd = (name, path, children = []) => Object.assign(new P.TFolder(), { name, path, children });
+  const sym = fd('Research', '1.Customers/SYMCA/Research');
+  const e2i = fd('Research', '1.Customers/E2I/Research');
+  const root = fd('', '/', [fd('1.Customers', '1.Customers', [fd('SYMCA', '1.Customers/SYMCA', [sym, fd('Projects', '1.Customers/SYMCA/Projects')]), fd('E2I', '1.Customers/E2I', [e2i])]), fd('2.Resources', '2.Resources')]);
+  assert.deepEqual(JSON.parse(JSON.stringify(P.globFolders(root, '1.Customers/*/Research').map((f) => f.path))), ['1.Customers/E2I/Research', '1.Customers/SYMCA/Research']);
+  assert.equal(P.patternBase('1.Customers/*/Research', '1.Customers/SYMCA/Research/AI/x.md'), '1.Customers/SYMCA/Research');
+  assert.equal(P.patternBase('1.Customers/*/Research', '1.Customers/SYMCA/Projects/x.md'), '');
+  assert.equal(P.patternBase('1.Customers/*/Research', '1.Customers/SYMCA/Research'), '');
+  assert.equal(P.patternStar('1.Customers/*/Research', '1.Customers/SYMCA/Research'), 'SYMCA');
+});

@@ -13,7 +13,7 @@ class SectionPickModal extends SuggestModal {
     return out;
   }
   renderSuggestion(s, el) {
-    el.setText(s.create ? `Create folder “${s.path}”` : s.path);
+    el.setText(s.path.includes('*') ? `Use the pattern “${s.path}” (${globFolders(this.app.vault.getRoot(), s.path).length} folders)` : s.create ? `Create folder “${s.path}”` : s.path);
   }
   onChooseSuggestion(s) {
     Promise.resolve(this.plugin.addSection(s.path)).then(() => this.after && this.after());
@@ -33,7 +33,7 @@ Object.assign(NeonResearch.prototype, {
     // nested sections would claim the same notes twice (quiz counts, history)
     const clash = s.roots.find((r) => path.startsWith(r.path + '/') || r.path.startsWith(path + '/'));
     if (clash) return new Notice(`“${path}” overlaps the section “${clash.name}” (${clash.path})`);
-    await ensureFolder(this.app, path);
+    if (!path.includes('*')) await ensureFolder(this.app, path); // fork: a pattern is not a folder to make
     s.roots.push({ name: path.split('/').pop(), path });
     s.activeRoot = s.roots.length - 1;
     s.root = s.roots[0].path;

@@ -143,7 +143,7 @@ class ResearchView extends ItemView {
     row.style.setProperty('--depth', String(depth));
     const chev = icon(row, open ? 'chevron-down' : 'chevron-right', 'nd-ico nr-chev');
     const fico = icon(row, open ? 'folder-open' : 'folder', 'nd-ico nr-folder-ico');
-    row.createSpan({ cls: 'nr-name', text: folder.name });
+    row.createSpan({ cls: 'nr-name', text: p.folderLabel(folder) });
     // right-hand columns have fixed widths so they line up from row to row
     const n = p.notesUnder(folder).length;
     row.createSpan({ cls: 'nr-col nr-c-count', text: `${n} note${n === 1 ? '' : 's'}` });

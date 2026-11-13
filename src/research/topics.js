@@ -10,6 +10,7 @@ Object.assign(NeonResearch.prototype, {
         if (!name) return;
         const base = parent ? parent.path : this.root;
         if (!base) return new Notice('Choose a folder for this section first');
+        if (base.includes('*')) return new Notice('This section covers several folders: use + on one of them (e.g. a customer) to add a topic there');
         await ensureFolder(this.app, base);
         const path = normalizePath(`${base}/${name}`);
         if (this.app.vault.getAbstractFileByPath(path)) return new Notice(`“${name}” already exists here`);

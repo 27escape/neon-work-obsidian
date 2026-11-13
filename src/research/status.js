@@ -81,7 +81,10 @@ Object.assign(ResearchView.prototype, {
         row.createSpan('nr-chev-space');
         icon(row, 'file-text', 'nd-ico nr-note-ico');
         row.createSpan({ cls: 'nr-name', text: f.basename });
-        const where = f.parent && folder && f.parent.path !== folder.path ? f.parent.path.slice(folder.path.length + 1) : '';
+        // fork: in a pattern section the path starts at the matched folder, shown by its label (e.g. the customer)
+        const base = folder && folder.isPattern ? patternBase(folder.path, f.path) : folder && folder.path;
+        const rel = f.parent && base && f.parent.path !== base ? f.parent.path.slice(base.length + 1) : '';
+        const where = folder && folder.isPattern ? [patternStar(folder.path, base), rel].filter(Boolean).join(' / ') : rel;
         row.createSpan({ cls: 'nr-col nr-c-count', text: where });
         const when = row.createSpan({ cls: 'nr-col nr-c-when', text: shortAgo(f.stat.mtime) });
         tip(when, `Edited ${moment(f.stat.mtime).format('D MMM YYYY, HH:mm')}`);
