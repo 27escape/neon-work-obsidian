@@ -5,7 +5,6 @@ import { readFileSync } from 'node:fs';
 import { load } from './load.mjs';
 
 const W = load('neon-write', ['toggleMark', 'toggleMergeCell', 'toggleLockMeta']);
-const T = load('neon-tickets', ['addToSection']);
 const K = load('neon-tasks', ['taskGroup']);
 const D = load('neon-deck', ['bangFirst']);
 
@@ -46,73 +45,6 @@ test('callout lock metadata (item 31)', () => {
   assert.equal(W.toggleLockMeta('> plain quote'), null);
 });
 
-test('ticket log lines go on top (item 13)', () => {
-  assert.equal(T.addToSection('## Log\n- old\n', 'log', '- new'), '## Log\n- new\n- old\n');
-  assert.equal(T.addToSection('## Steps\n- [ ] a\n', 'steps', '- [ ] b'), '## Steps\n- [ ] a\n- [ ] b\n');
-});
-
-test('removing a ticket step removes its completion log entry', async () => {
-  const { NeonTickets } = load('neon-tickets', ['NeonTickets']);
-  const text = '## Next steps\n- [x] Ship ✅ 2026-01-01 10:00\n\n## Log\n- 2026-01-01 10:00 — Step done: Ship\n- 2026-01-01 09:00 — Step done: Other\n';
-  let out;
-  const app = {
-    workspace: { getLeavesOfType: () => [] },
-    vault: { process: async (file, fn) => (out = fn(text)) },
-  };
-  const p = Object.assign(Object.create(NeonTickets.prototype), { app });
-  await p.removeStep({ file: { path: 'ticket.md' } }, { line: 1, text: 'Ship' });
-  assert.equal(out, '## Next steps\n\n## Log\n- 2026-01-01 09:00 — Step done: Other\n');
-});
-
-test('ticket templates are notes: format round-trips and parses hand edits (issues 49, 51)', () => {
-  const { templateMarkdown, parseTemplateNote } = load('neon-tickets', ['templateMarkdown', 'parseTemplateNote']);
-  const tpl = { id: 'tpl-1', name: 'Laptop setup', description: 'Prepare the laptop\n- for the new hire', priority: 'high', dueDays: 2, steps: ['Install tools', 'Test access'] };
-  const back = parseTemplateNote('Laptop setup', templateMarkdown(tpl));
-  assert.deepEqual({ ...back, steps: [...back.steps] }, tpl);
-  const none = parseTemplateNote('X', templateMarkdown({ ...tpl, dueDays: null, priority: 'normal', description: '' }));
-  assert.equal(none.dueDays, null);
-  assert.equal(none.description, '');
-  // hand-written note: quoted type, unknown priority, extra sections and ticked steps
-  const hand = parseTemplateNote('Mine', '---\ntype: "ticket-template"\npriority: whenever\n---\n# Mine\n## Steps\n- [x] One\n- [ ] Two\n## Notes\nfree text\n');
-  assert.deepEqual([...hand.steps], ['One', 'Two']);
-  assert.equal(hand.priority, 'normal');
-  assert.equal(hand.id, '');
-  // old export snapshots and ordinary notes are not templates
-  assert.equal(parseTemplateNote('Old', '---\ntype: ticket-template-export\n---\n'), null);
-  assert.equal(parseTemplateNote('Note', 'just text'), null);
-});
-
-test('ticket templates move from plugin data into notes once, and the folder is made in a fresh vault', async () => {
-  const { NeonTickets, TFile } = load('neon-tickets', ['NeonTickets', 'TFile']);
-  const files = new Map();
-  const folders = new Set();
-  const mk = (path, text) => Object.assign(Object.create(TFile.prototype), { path, basename: path.split('/').pop().replace(/\.md$/, ''), text });
-  const app = {
-    vault: {
-      getAbstractFileByPath: (p) => files.get(p) || (folders.has(p) ? { path: p } : null),
-      createFolder: async (p) => folders.add(p),
-      create: async (p, text) => (files.set(p, mk(p, text)), files.get(p)),
-      getMarkdownFiles: () => [...files.values()],
-      cachedRead: async (f) => f.text,
-      read: async (f) => f.text,
-      modify: async (f, text) => (f.text = text),
-      process: async (f, fn) => (f.text = fn(f.text)),
-    },
-    workspace: { getActiveViewOfType: () => null, iterateAllLeaves: () => {} },
-  };
-  const old = [{ id: 'a', name: 'Onboarding', steps: ['Account'], description: '', priority: 'normal', dueDays: null }];
-  let saves = 0;
-  const p = Object.assign(Object.create(NeonTickets.prototype), { app, settings: { ticketFolder: 'Core/Tickets', templates: old, templatesMigrated: false }, saveSettings: async () => saves++, emitSoon() {} });
-  await p.initTemplates();
-  assert.ok(folders.has('Core/Tickets/Templates'));
-  assert.deepEqual(JSON.parse(JSON.stringify(p.templates.map((t) => [t.id, t.name, t.path]))), [['a', 'Onboarding', 'Core/Tickets/Templates/Onboarding.md']]);
-  assert.equal(p.settings.templates, old); // backup kept
-  // a template deleted as a note doesn't come back on the next start
-  files.clear();
-  await p.initTemplates();
-  assert.equal(p.templates.length, 0);
-  assert.equal(saves, 1);
-});
 test('task groups by due date', () => {
   assert.deepEqual({ ...K.taskGroup('x 📅 2026-01-01', null, '2026-01-02') }, { due: '2026-01-01', group: 'overdue' });
   assert.deepEqual({ ...K.taskGroup('x', {}, '2026-01-02') }, { due: null, group: 'today' });
@@ -200,23 +132,6 @@ test('recently done log has no height cap or trailing separator (issue 27)', () 
   assert.match(source, /\.nd-w-recent \.nd-done-log \{[^}]*max-height: none;[^}]*margin-bottom: 0;[^}]*padding-bottom: 0;[^}]*border-bottom: 0;[^}]*\}/);
 });
 
-test('ticket step text stays plain text with click and keyboard toggling (issue 30)', () => {
-  const source = readFileSync(new URL('../src/tickets/ticket-view.js', import.meta.url), 'utf8');
-  assert.match(source, /const label = r\.createSpan\(\{ cls: 'tk-step-text', text: step\.text, attr: \{ role: 'button', tabindex: '0', 'aria-pressed': String\(step\.done\) \} \}\);/);
-  assert.match(source, /box\.addEventListener\('click', tick\);\s*label\.addEventListener\('click', tick\);/);
-  assert.match(source, /label\.addEventListener\('keydown',[\s\S]*?e\.key !== 'Enter' && e\.key !== ' '[\s\S]*?if \(!e\.repeat\) tick\(\);/);
-});
-
-test('Complete all animates open steps from top to bottom before saving', () => {
-  const source = readFileSync(new URL('../src/tickets/ticket-view.js', import.meta.url), 'utf8');
-  assert.match(source, /const rows = \[\.\.\.ss\.querySelectorAll\('\.tk-step:not\(\.is-done\)'\)\];[\s\S]*?const delay = prefersReducedMotion\(\) \? 0 : Math\.min\(80, 480 \/ rows\.length\);[\s\S]*?for \(const r of rows\)[\s\S]*?r\.addClass\('is-done', 'is-pop'\);[\s\S]*?if \(delay\) await new Promise\(\(resolve\) => window\.setTimeout\(resolve, delay\)\);[\s\S]*?await this\.plugin\.completeAllSteps\(t\);/);
-});
-
-test('ticket write queues release settled note entries', () => {
-  const source = readFileSync(new URL('../src/tickets/actions.js', import.meta.url), 'utf8');
-  assert.equal((source.match(/next\.then\(\(\) => this\.writeQ\.get\(key\) === next && this\.writeQ\.delete\(key\)\);/g) || []).length, 3);
-});
-
 test('Radar and Blackwall are removed, Black ICE is available, saved settings fall back', async () => {
   const { NeonDeck, PATTERNS, THEME_PATTERN } = load('neon-deck', ['NeonDeck', 'PATTERNS', 'THEME_PATTERN']);
   assert.equal(PATTERNS.includes('radar'), false);
@@ -292,19 +207,5 @@ test('workday timer counts toward the day total; breaks are shown but not counte
   Object.assign(t.days[key].work, { end: null, last: start + 3 * h, breaks: [] });
   t.days[key].entries = [];
   assert.equal(t.summary(key, false).total, 180);
-});
-
-test('Status grouping: not started first, then Waiting, In progress, Open, Done (issue 59)', () => {
-  const { ticketGroups, TICKETS_DEFAULTS } = load('neon-tickets', ['ticketGroups', 'TICKETS_DEFAULTS']);
-  assert.equal(TICKETS_DEFAULTS.tabSort, 'customer'); // fork: projects group by customer by default
-  const tk = (title, status, started) => ({ title, status, started, priority: 'normal', bucket: 'nodate', due: null });
-  const groups = ticketGroups([tk('a', 'done', true), tk('b', 'open', true), tk('c', 'in-progress', true), tk('d', 'waiting', true), tk('e', 'open', false)], 'status');
-  assert.deepEqual(JSON.parse(JSON.stringify(groups.map(([k, , g]) => [k, g.map((t) => t.title).join('')]))), [
-    ['status-new', 'e'],
-    ['status-waiting', 'd'],
-    ['status-in-progress', 'c'],
-    ['status-open', 'b'],
-    ['status-done', 'a'],
-  ]);
 });
 

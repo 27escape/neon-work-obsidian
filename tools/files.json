@@ -94,27 +94,19 @@
       "id": "neon-tickets",
       "name": "Neon Projects",
       "desc": "Projects tab and card: your project notes by customer and status",
-      "cls": "NeonTickets",
+      "cls": "NeonProjects",
       "files": [
         "src/tickets/constants.js",
-        "src/tickets/sections.js",
-        "src/tickets/modals.js",
-        "src/tickets/ticket-view.js",
         "src/tickets/tracker.js",
         "src/tickets/settings.js",
         "src/tickets/plugin.js",
-        "src/tickets/widget-reminders.js",
-        "src/tickets/export-templates.js",
-        "src/tickets/template-export.js",
-        "src/tickets/filing.js",
-        "src/tickets/actions.js",
+        "src/tickets/projects.js",
         "src/tickets/model.js",
-        "src/tickets/projects.js"
+        "src/tickets/actions.js",
+        "src/tickets/widget.js"
       ],
       "css": [
-        "src/tickets/styles-view.css",
         "src/tickets/styles-tracker.css",
-        "src/tickets/styles-card-popup.css",
         "src/tickets/styles-extras.css"
       ]
     },

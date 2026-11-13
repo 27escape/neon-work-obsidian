@@ -85,11 +85,11 @@ class NeonTime extends Plugin {
     );
     this.registerEvent(this.app.workspace.on('neon:task-done', (v) => v && this.addDone({ kind: 'task', text: v.text })));
     this.registerEvent(
-      this.app.workspace.on('neon:ticket-changed', (v) => {
+      this.app.workspace.on('neon:project-changed', (v) => {
         if (!v) return;
-        // keyed by ticket id so a ticket that moves to Done/ and back stays one line
+        // fork: a project changed (its properties); one line per project per day
         const path = (v.file && v.file.path) || '';
-        this.addDone({ kind: 'ticket', ref: v.id || path || v.title, path, text: `${v.id ? v.id + ' ' : ''}${v.title || ''}`.trim(), change: v.change });
+        this.addDone({ kind: 'ticket', ref: path || v.title, path, text: String(v.title || '').trim(), change: v.change });
       }),
     );
     this.registerEvent(

@@ -1,29 +1,30 @@
-// Fork: tickets are projects — your status values, customers from folders, properties-only status changes.
+// Fork: the Projects module — your status values, customers from folders, properties-only status changes.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 
-const P = load('neon-tickets', ['projectConfig', 'projectCustomer', 'projectTitle', 'projectStatusPatch', 'TICKETS_DEFAULTS', 'ticketGroups', 'normTicketStatus', 'NEON_PROJECTS', 'isTicketCache', 'isProjectCache']);
+const P = load('neon-tickets', ['projectConfig', 'projectCustomer', 'projectTitle', 'projectStatusPatch', 'PROJECTS_DEFAULTS', 'projectGroups', 'projectKind', 'NEON_PROJECTS', 'isProjectCache']);
 const plain = (x) => JSON.parse(JSON.stringify(x));
 
 test('status groups from the settings', () => {
-  const cfg = P.projectConfig(P.TICKETS_DEFAULTS);
+  const cfg = P.projectConfig(P.PROJECTS_DEFAULTS);
   assert.equal(cfg.tag, 'project');
   assert.deepEqual(plain(cfg.order), ['init', 'created', 'inprogress', 'ongoing', 'paused', 'blocked', 'completed', 'cancelled']);
   assert.equal(cfg.kinds.paused, 'waiting');
   assert.equal(cfg.kinds.cancelled, 'done');
   Object.assign(P.NEON_PROJECTS, cfg);
-  assert.equal(P.normTicketStatus('Ongoing'), 'in-progress');
-  assert.equal(P.normTicketStatus('blocked'), 'waiting');
-  assert.equal(P.normTicketStatus('init'), 'open');
+  assert.equal(P.projectKind('Ongoing'), 'in-progress');
+  assert.equal(P.projectKind('blocked'), 'waiting');
+  assert.equal(P.projectKind('init'), 'open');
+  assert.equal(P.projectKind(''), 'open');
 });
 
-test('project notes are found by their tags property', () => {
-  Object.assign(P.NEON_PROJECTS, P.projectConfig(P.TICKETS_DEFAULTS));
-  assert.equal(P.isTicketCache({ frontmatter: { tags: ['project'] } }), true);
-  assert.equal(P.isTicketCache({ frontmatter: { tags: 'research, project' } }), true);
-  assert.equal(P.isProjectCache({ frontmatter: { tags: ['projects'] } }), false); // (isTicketCache would go on to #ticket tags)
-  assert.equal(P.isTicketCache({ frontmatter: { type: 'ticket' } }), true);
+test('project notes are found by their tags property only', () => {
+  Object.assign(P.NEON_PROJECTS, P.projectConfig(P.PROJECTS_DEFAULTS));
+  assert.equal(P.isProjectCache({ frontmatter: { tags: ['project'] } }), true);
+  assert.equal(P.isProjectCache({ frontmatter: { tags: 'research, project' } }), true);
+  assert.equal(P.isProjectCache({ frontmatter: { tags: ['projects'] } }), false);
+  assert.equal(P.isProjectCache({ frontmatter: { type: 'ticket' } }), false); // upstream tickets no longer count
 });
 
 test('customer: property first, else the customer folder', () => {
@@ -35,7 +36,7 @@ test('customer: property first, else the customer folder', () => {
 });
 
 test('status changes write only the right properties', () => {
-  const cfg = P.projectConfig(P.TICKETS_DEFAULTS);
+  const cfg = P.projectConfig(P.PROJECTS_DEFAULTS);
   const done = P.projectStatusPatch('completed', 'in-progress', '2026-11-13', cfg);
   assert.equal(done.kind, 'done');
   assert.equal(done.patch.completed, '2026-11-13');
@@ -51,8 +52,10 @@ test('status changes write only the right properties', () => {
   assert.equal('completed' in hold.patch, false);
 });
 
-test('group by customer: A–Z, no customer last, open before closed', () => {
-  const tk = (title, customer, status) => ({ title, customer, status, started: true, priority: 'normal', bucket: 'nodate', due: null, created: { valueOf: () => 0 }, file: { stat: { mtime: 0 } } });
-  const g = P.ticketGroups([tk('a', 'SYMCA', 'done'), tk('b', 'E2I', 'open'), tk('c', '', 'open'), tk('d', 'SYMCA', 'open')], 'customer');
-  assert.deepEqual(plain(g.map(([k, l, items]) => [l, items.map((t) => t.title).join('')])), [['E2I', 'b'], ['SYMCA', 'da'], ['No customer', 'c']]);
+test('group by customer and by status', () => {
+  const tk = (title, customer, status) => ({ title, customer, status, bucket: 'nodate', due: null, created: { valueOf: () => 0 }, file: { stat: { mtime: 0 } } });
+  const g = P.projectGroups([tk('a', 'SYMCA', 'done'), tk('b', 'E2I', 'open'), tk('c', '', 'open'), tk('d', 'SYMCA', 'open')], 'customer');
+  assert.deepEqual(plain(g.map(([, l, items]) => [l, items.map((t) => t.title).join('')])), [['E2I', 'b'], ['SYMCA', 'da'], ['No customer', 'c']]);
+  const s = P.projectGroups([tk('a', '', 'done'), tk('b', '', 'waiting'), tk('c', '', 'in-progress')], 'status');
+  assert.deepEqual(plain(s.map(([, l, items]) => [l, items.length])), [['Not started', 0], ['Active', 1], ['On hold', 1], ['Closed', 1]]);
 });

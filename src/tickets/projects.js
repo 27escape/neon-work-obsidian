@@ -1,5 +1,5 @@
 /* ---- projects (fork) --------------------------------------------------------
- * In this fork the Tickets module tracks projects: notes tagged `project` (setting) with the vault's own
+ * In this fork the Projects module (upstream: Tickets) tracks projects: notes tagged `project` (setting) with the vault's own
  * properties: status (values from settings, grouped into not started / active / on hold / closed),
  * started, due, completed, cancelled, stage, note and customer. The customer comes from the `customer`
  * property, else from the folder under the customers folder (1.Customers/<customer>/...). */
@@ -59,7 +59,7 @@ function projectStatusPatch(value, prevKind, today, cfg) {
   return { kind, patch };
 }
 
-Object.assign(NeonTickets.prototype, {
+Object.assign(NeonProjects.prototype, {
   applyProjectSettings() {
     Object.assign(NEON_PROJECTS, projectConfig(this.settings));
     refreshCategories(this.app, this.settings.customersFolder); // fork: customers are the categories too
@@ -70,7 +70,7 @@ Object.assign(NeonTickets.prototype, {
     return NEON_PROJECTS.order.filter((v) => !kind || NEON_PROJECTS.kinds[v.toLowerCase()] === kind);
   },
   statusKind(value) {
-    return NEON_PROJECTS.kinds[String(value || '').toLowerCase()] || normTicketStatus(value);
+    return projectKind(value);
   },
   /** Folders under the customers folder, A–Z. */
   customers() {
@@ -88,6 +88,10 @@ Object.assign(NeonTickets.prototype, {
       onSubmit: (v) => this.patch(t, { note: v.trim() || null }),
     }).open();
   },
+  /** Where projects without a customer go: the setting, else <base folder>/Projects. */
+  projectFolder() {
+    return locPath(this.settings.projectFolder, 'Projects');
+  },
   newProject(opts = {}) {
     new NewProjectModal(this, opts).open();
   },
@@ -95,7 +99,7 @@ Object.assign(NeonTickets.prototype, {
   async createProject(title, customer) {
     const s = this.settings;
     const day = moment();
-    const folder = customer ? normalizePath(`${s.customersFolder}/${customer}/${s.projectsFolderName || 'Projects'}`) : this.ticketRoot();
+    const folder = customer ? normalizePath(`${s.customersFolder}/${customer}/${s.projectsFolderName || 'Projects'}`) : this.projectFolder();
     let body = '';
     if (s.projectTemplate) {
       const tf = this.app.metadataCache.getFirstLinkpathDest(s.projectTemplate.replace(/\.md$/, ''), '') || this.app.vault.getAbstractFileByPath(normalizePath(s.projectTemplate));
@@ -137,7 +141,7 @@ class NewProjectModal extends Modal {
     const want = this.opts.customer || guess;
     sel.value = list.includes(want) ? want : list[0] || '';
     const where = el.createDiv({ cls: 'setting-item-description' });
-    const show = () => where.setText(`Goes in ${sel.value ? `${p.settings.customersFolder}/${sel.value}/${p.settings.projectsFolderName || 'Projects'}` : p.ticketRoot()}/`);
+    const show = () => where.setText(`Goes in ${sel.value ? `${p.settings.customersFolder}/${sel.value}/${p.settings.projectsFolderName || 'Projects'}` : p.projectFolder()}/`);
     sel.addEventListener('change', show);
     show();
     const go = async () => {

@@ -9,8 +9,8 @@ Object.assign(NeonTasks.prototype, {
   isSystemPath(path) {
     const deck = neonPlugin(this.app, 'neon-deck');
     const time = neonPlugin(this.app, 'neon-time');
-    const tickets = neonPlugin(this.app, 'neon-tickets');
-    const dirs = [...SYSTEM_FOLDERS, deck && deck.settings && deck.settings.reviewFolder, time && time.settings && time.settings.logFolder, tickets && tickets.settings && tickets.settings.ticketFolder].filter(Boolean);
+    const projects = neonPlugin(this.app, 'neon-tickets');
+    const dirs = [...SYSTEM_FOLDERS, deck && deck.reviewFolder && deck.reviewFolder(), time && time.logFolder && time.logFolder(), projects && projects.projectFolder && projects.projectFolder()].filter(Boolean);
     return dirs.some((p) => path === p || path.startsWith(p + '/'));
   },
   onCreate(f) {
@@ -100,7 +100,6 @@ Object.assign(NeonTasks.prototype, {
   },
   async fixProps(file) {
     const cache = this.app.metadataCache.getFileCache(file);
-    const ticket = isTicketCache(cache);
     let changed = false;
     await this.app.fileManager.processFrontMatter(file, (fm) => {
       const before = JSON.stringify(fm);
@@ -133,11 +132,6 @@ Object.assign(NeonTasks.prototype, {
         if (fm[c] === false || fm[c] === 'false' || fm[c] === 'no') delete fm[c];
       }
       if (!fm.created) fm.created = moment(file.stat.ctime).format('YYYY-MM-DD');
-      if (ticket) {
-        if (!fm.type) fm.type = 'ticket';
-        if (!fm.status) fm.status = 'open';
-        if (!fm.priority) fm.priority = 'normal';
-      }
       for (const [k, v] of Object.entries(fm)) {
         if (v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length)) delete fm[k];
       }

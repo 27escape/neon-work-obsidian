@@ -368,7 +368,6 @@ if (SRC) {
   if (!(amp < 0.25)) add('pattern', 'FAIL', `Black ICE corner drift is ${amp}: at .25 or more a triangle can flip over (facets pop, edges vanish)`);
   if ((ice.match(/iceV\(/g) || []).length > 2) add('perf', 'FAIL', 'blackice() calls iceV() more than twice: compute the 16 shared corners once per pixel');
   if (!/if \(!e\.isAfter\(s\)\) e\.add\(1, 'day'\)/.test(src('time/entry-modal.js'))) add('time', 'FAIL', 'entryRange no longer rolls Until past midnight: 23:30 → 00:30 would be rejected');
-  if (!/f \? f\.parent\.path : dir/.test(src('tickets/export-templates.js'))) add('tickets', 'FAIL', 'writeTemplateNote must rename a template inside its own folder (a changed ticket folder lost edits)');
   if (!/now === orig/.test(src('write/editor-helpers.js'))) add('write', 'FAIL', 'placeCards must not overwrite a cursor line that changed while the flashcard popup was open');
 }
 

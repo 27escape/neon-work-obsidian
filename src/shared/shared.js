@@ -181,9 +181,8 @@ function fmTags(fm) {
   return arr.filter(Boolean).map((t) => String(t).replace(/^#/, '').toLowerCase());
 }
 /**
- * fork: projects are what upstream calls tickets. A project is a note with the project tag in its tags
- * property (default `project`, a Neon Projects setting). Upstream ticket notes (`type: ticket` or a
- * #ticket tag) still count. Status values and their groups come from the same settings.
+ * fork: projects (upstream had "tickets"). A project is a note with the project tag in its tags property
+ * (default `project`, a Neon Projects setting). Status values and their groups come from the same settings.
  */
 const NEON_PROJECTS = {
   tag: 'project',
@@ -196,18 +195,9 @@ function isProjectCache(cache) {
   const fm = cache && cache.frontmatter;
   return !!fm && !!NEON_PROJECTS.tag && fmTags(fm).includes(NEON_PROJECTS.tag.replace(/^#/, '').toLowerCase());
 }
-function isTicketCache(cache) {
-  if (!cache) return false;
-  if (isProjectCache(cache)) return true;
-  const fm = cache.frontmatter;
-  if (fm && /^ticket$/i.test(String(fm.type || '').trim())) return true;
-  const tags = getAllTags(cache) || [];
-  return tags.some((t) => /^#ticket(\/|$)/i.test(t));
-}
 /**
  * Time category of a note: first checked checkbox property (projects, school,
- * admin, operations; old `ops` still counts), else a short tag with the same name,
- * else Operations for tickets.
+ * admin, operations; old `ops` still counts), else a short tag with the same name.
  * Returns 'untracked' for `untracked: true`, or null when nothing is set.
  */
 function noteCategory(cache, path) {
@@ -227,7 +217,6 @@ function noteCategory(cache, path) {
     if (CATS.includes(c)) return c;
   }
   for (const c of CATS) if (tags.includes(c)) return c;
-  if (isTicketCache(cache)) return 'operations';
   return null;
 }
 function fileCategory(app, file) {
@@ -520,5 +509,52 @@ function numSetting(setting, obj, key, min, max, save) {
       }
     });
   });
+}
+/* ---- base folder (fork) ------------------------------------------------
+ * Where Neon Deck keeps what it makes for itself (reviews, time log, pin board, projects without a
+ * customer…). Asked once on first start; '' = the vault root. Each location can still be set on its own;
+ * an empty location setting means "<base folder>/<default name>". */
+const NEON_BASE = { folder: '' };
+/** <base folder>/<name>, or just <name> at the vault root. */
+function basePath(name) {
+  const b = (NEON_BASE.folder || '').replace(/^\/+|\/+$/g, '');
+  return normalizePath(b ? `${b}/${name}` : name);
+}
+/** A location setting, or its default inside the base folder when the setting is empty. */
+const locPath = (value, name) => normalizePath(String(value || '').trim() || basePath(name));
+
+/* ---- path suggestions (fork) ----------------------------------------------
+ * As you type in a folder or file setting, matching vault paths drop down (Obsidian's own suggest UI). */
+const PathSuggestBase = obsidian.AbstractInputSuggest || null;
+class PathSuggest extends (PathSuggestBase || class {}) {
+  /** kind: 'folder' | 'file' (markdown notes) */
+  constructor(app, inputEl, kind, onPick) {
+    super(app, inputEl);
+    this.inputEl = inputEl;
+    this.kind = kind;
+    this.onPick = onPick;
+  }
+  getSuggestions(q) {
+    const t = String(q || '').trim().toLowerCase();
+    const all = this.kind === 'folder' ? this.app.vault.getAllLoadedFiles().filter((f) => f instanceof TFolder && f.path !== '/') : this.app.vault.getMarkdownFiles();
+    return all
+      .filter((f) => f.path.toLowerCase().includes(t))
+      .sort((a, b) => a.path.length - b.path.length || a.path.localeCompare(b.path))
+      .slice(0, 50);
+  }
+  renderSuggestion(f, el) {
+    el.setText(f.path);
+  }
+  selectSuggestion(f) {
+    this.inputEl.value = f.path;
+    this.inputEl.dispatchEvent(new Event('input'));
+    if (this.onPick) this.onPick(f.path);
+    this.close();
+  }
+}
+/** Attach folder/file suggestions to a Setting text field (no-op on Obsidian versions without the API). */
+function suggestPaths(app, text, kind) {
+  if (PathSuggestBase && text && text.inputEl) new PathSuggest(app, text.inputEl, kind);
+  return text;
 }
 /* ---- end shared ------------------------------------------------------- */

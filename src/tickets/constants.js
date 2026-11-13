@@ -1,90 +1,65 @@
-
 /* ------------------------------------------------------------------ */
-/* Neon Tickets                                                        */
+/* Neon Projects (fork; upstream's Neon Tickets module, rewritten)     */
 /* ------------------------------------------------------------------ */
+// The module keeps upstream's id (neon-tickets) and view type, so its data folder and saved layouts carry on.
 
 const VIEW_TICKETS = 'neon-deck-tickets';
-const VIEW_TICKET = 'neon-ticket';
-const TICKET_STATUS = ['open', 'in-progress', 'waiting', 'done'];
-const TICKET_STATUS_LABEL = { open: 'Not started', 'in-progress': 'In progress', waiting: 'On hold', done: 'Closed' }; // fork: project wording
-const TICKET_PRIOS = ['low', 'normal', 'high', 'urgent'];
-const TICKET_PRIO_RANK = { urgent: 0, high: 1, normal: 2, low: 3 };
-const TICKET_BUCKETS = [
-  ['followup', 'Follow up'],
+/** The four status groups: how a project is counted and coloured. */
+const PROJECT_KINDS = ['open', 'in-progress', 'waiting', 'done'];
+const PROJECT_KIND_LABEL = { open: 'Not started', 'in-progress': 'Active', waiting: 'On hold', done: 'Closed' };
+const PROJECT_BUCKETS = [
   ['overdue', 'Overdue'],
   ['today', 'Due today'],
   ['week', 'Next 7 days'],
   ['later', 'Later'],
   ['nodate', 'No due date'],
-  ['done', 'Done'],
+  ['done', 'Closed'],
 ];
-const TICKETS_DEFAULTS = {
-  // fork: projects. Which notes are projects, their status values (comma lists, in the order offered),
-  // and where new ones go: <customers folder>/<customer>/<projects folder>/, from a template note.
+const PROJECTS_DEFAULTS = {
+  // which notes are projects, and their status values (comma lists, in the order offered)
   projectTag: 'project',
   statusNotStarted: 'init, created',
   statusActive: 'inprogress, ongoing',
   statusOnHold: 'paused, blocked',
   statusClosed: 'completed, cancelled',
   statusCancelled: 'cancelled', // closing with this value writes a `cancelled` date instead of `completed`
+  // where new projects go: <customers folder>/<customer>/<projects folder name>/, else the project folder
   customersFolder: '1.Customers',
   projectsFolderName: 'Projects',
+  projectFolder: '', // projects without a customer; '' = <base folder>/Projects
   projectTemplate: '',
-  writeLog: false, // fork: status changes only update properties; on = also a dated line under ## Log
-  ticketFolder: 'Neon/Tickets', // fork: no Core folder (used for upstream tickets and templates)
-  screenshotFolder: 'Neon/Images/Tickets', // fork: was <Core folder>/Images/Tickets
-  doneFolder: 'Done',
-  autoFile: false, // fork: projects stay where they are
-  openInTicketView: false, // fork: projects open as plain notes
-  popup: false, // fork
-  defaultDays: 7,
-  defaultCategory: 'operations',
+  // the tracker and reminders
+  tabSort: 'customer',
   reminders: true,
   remindDays: 1,
-  autoFollowUpDays: 3,
   notified: {},
-  migrated: false,
-  // old ticket templates { id, name, steps[], description, priority, dueDays }: moved once into notes in <ticketFolder>/Templates
-  // (templatesMigrated), kept here only as a backup
-  templates: [],
-  templatesMigrated: false,
-  tabSort: 'customer', // Tickets tab sort / group (TICKET_SORTS); fork: by customer
-  statusLog: [], // { t, id, title, status, path }: tickets set to a status below (Recently done on the dashboard)
+  statusLog: [], // { t, title, status, path }: projects set to a status below (Recently done on the dashboard)
   activityStatuses: ['done', 'waiting'],
 };
-const DUE_CHIPS = [[1, '1d'], [3, '3d'], [7, '1w'], [14, '2w'], [30, '1m']];
-const SEC = {
-  description: { re: /^#{1,6}\s+(description|summary)\s*$/i, head: '## Description' },
-  steps: { re: /^#{1,6}\s+(next steps|steps|first steps)\s*$/i, head: '## Next steps' },
-  log: { re: /^#{1,6}\s+log\s*$/i, head: '## Log' },
-  time: { re: /^#{1,6}\s+time( logged)?\s*$/i, head: '## Time' },
-  shots: { re: /^#{1,6}\s+(screenshots|images|attachments)\s*$/i, head: '## Screenshots' },
-};
-const SEC_ORDER = ['description', 'steps', 'shots', 'log', 'time'];
-const IMG_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
-const STAMP = () => moment().format('YYYY-MM-DD HH:mm');
+const PROJECT_SORTS = [
+  ['customer', 'Customer'],
+  ['status', 'Status'],
+  ['due', 'Due date'],
+  ['newest', 'Newest first'],
+  ['oldest', 'Oldest first'],
+  ['changed', 'Recently changed'],
+  ['title', 'Title A–Z'],
+];
 
-function normTicketStatus(v) {
-  // fork: the project status groups from settings come first (NEON_PROJECTS, src/shared/shared.js)
+/** Status group of a value: from the settings (NEON_PROJECTS), else a few common words, else not started. */
+function projectKind(v) {
   const k = NEON_PROJECTS.kinds[String(v == null ? '' : v).trim().toLowerCase()];
   if (k) return k;
-  const s = String(v || 'open').trim().toLowerCase().replace(/[\s_]+/g, '-');
-  if (/^(done|closed|resolved|completed?|cancell?ed|erledigt)$/.test(s)) return 'done';
-  if (/^(in-?progress|doing|active|wip|started)$/.test(s)) return 'in-progress';
-  if (/^(waiting|blocked|on-?hold|pending|wartet)$/.test(s)) return 'waiting';
+  const s = String(v || '').trim().toLowerCase().replace(/[\s_]+/g, '-');
+  if (/^(done|closed|resolved|completed?|cancell?ed)$/.test(s)) return 'done';
+  if (/^(in-?progress|doing|active|wip|started|ongoing)$/.test(s)) return 'in-progress';
+  if (/^(waiting|blocked|on-?hold|paused|pending)$/.test(s)) return 'waiting';
   return 'open';
 }
-function normTicketPrio(v) {
-  const s = String(v || 'normal').trim().toLowerCase();
-  if (/^(urgent|critical|p0|p1|asap)$/.test(s)) return 'urgent';
-  if (/^(high|p2)$/.test(s)) return 'high';
-  if (/^(low|p4|p5)$/.test(s)) return 'low';
-  return 'normal';
-}
 const daysFromToday = (m) => m.clone().startOf('day').diff(moment().startOf('day'), 'days');
-function ticketDueText(t) {
-  if (t.status === 'done') return t.completed ? `done ${t.completed.format('D MMM')}` : 'done';
-  if (t.bucket === 'followup') return 'follow up';
+/** Short due text for a project row. */
+function projectDueText(t) {
+  if (t.status === 'done') return t.completed ? `${t.statusRaw || 'closed'} ${t.completed.format('D MMM')}` : t.statusRaw || 'closed';
   if (!t.due) return 'no date';
   const d = t.daysLeft;
   if (d < -1) return `${-d}d late`;
@@ -94,66 +69,30 @@ function ticketDueText(t) {
   if (d < 14) return `in ${d}d`;
   return `in ${Math.round(d / 7)}w`;
 }
-function ticketSort(a, b) {
-  if ((a.bucket === 'followup') !== (b.bucket === 'followup')) return a.bucket === 'followup' ? -1 : 1;
-  const ad = a.due ? a.due.valueOf() : null;
-  const bd = b.due ? b.due.valueOf() : null;
-  if (ad !== bd) {
-    if (ad === null) return 1;
-    if (bd === null) return -1;
-    return ad - bd;
-  }
-  return TICKET_PRIO_RANK[a.priority] - TICKET_PRIO_RANK[b.priority] || a.title.localeCompare(b.title);
+/** Default order: open first, then by due date (none last), then title. */
+function projectSort(a, b) {
+  return (a.status === 'done') - (b.status === 'done') || (a.due ? a.due.valueOf() : Infinity) - (b.due ? b.due.valueOf() : Infinity) || a.title.localeCompare(b.title);
 }
-
-/** Sort / group options of the Tickets tab (item 38); 'status' is the default (issue 59), 'due' the due-date buckets. */
-const TICKET_SORTS = [
-  ['customer', 'Customer'], // fork
-  ['status', 'Status'],
-  ['due', 'Due date'],
-  ['priority', 'Priority'],
-  ['newest', 'Newest first'],
-  ['oldest', 'Oldest first'],
-  ['changed', 'Recently changed'],
-  ['title', 'Title A–Z'],
-  ['id', 'Ticket ID'],
-  ['jira', 'Jira key'],
-];
-const byText = (k) => (a, b) => (a[k] || '').localeCompare(b[k] || '', undefined, { numeric: true, sensitivity: 'base' }) || a.title.localeCompare(b.title);
-/** Tickets in sections for a sort mode: [[key, label, tickets]], from data already in memory. */
-function ticketGroups(items, mode) {
-  const label = (s) => s[0].toUpperCase() + s.slice(1);
-  if (mode === 'status') {
-    // untouched tickets first, then Waiting, In progress, started Open ones, Done (issue 59)
-    const of = (f) => items.filter(f).sort(ticketSort);
-    return [
-      ['status-new', 'Not started', of((t) => t.status === 'open' && !t.started)],
-      ['status-waiting', 'On hold', of((t) => t.status === 'waiting')],
-      ['status-in-progress', 'In progress', of((t) => t.status === 'in-progress')],
-      ['status-open', 'Open', of((t) => t.status === 'open' && t.started)],
-      ['status-done', 'Done', of((t) => t.status === 'done')],
-    ];
-  }
+const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
+/** Projects in sections for a sort mode: [[key, label, projects]]. */
+function projectGroups(items, mode) {
   if (mode === 'customer') {
-    // fork: one group per customer (A–Z), projects without one last; open before closed inside a group
     const names = [...new Set(items.map((t) => t.customer || ''))].sort((a, b) => (!a - !b) || a.localeCompare(b, undefined, { sensitivity: 'base' }));
-    const inGroup = (a, b) => (a.status === 'done') - (b.status === 'done') || ticketSort(a, b);
-    return names.map((c) => [`customer-${c || 'none'}`, c || 'No customer', items.filter((t) => (t.customer || '') === c).sort(inGroup)]);
+    return names.map((c) => [`customer-${c || 'none'}`, c || 'No customer', items.filter((t) => (t.customer || '') === c).sort(projectSort)]);
   }
-  if (mode === 'priority') return [...TICKET_PRIOS].reverse().map((pr) => [`prio-${pr}`, label(pr), items.filter((t) => t.priority === pr).sort(ticketSort)]);
+  if (mode === 'status') {
+    return PROJECT_KINDS.map((k) => [`status-${k}`, PROJECT_KIND_LABEL[k], items.filter((t) => t.status === k).sort(projectSort)]);
+  }
   const flat = {
     newest: ['Newest first', (a, b) => b.created.valueOf() - a.created.valueOf()],
     oldest: ['Oldest first', (a, b) => a.created.valueOf() - b.created.valueOf()],
     changed: ['Recently changed', (a, b) => b.file.stat.mtime - a.file.stat.mtime],
-    title: ['Title A–Z', byText('title')],
-    id: ['Ticket ID', byText('id')],
-    jira: ['Jira key', (a, b) => (!a.jira - !b.jira) || byText('jira')(a, b)],
+    title: ['Title A–Z', byTitle],
   }[mode];
   if (flat) return [['flat', flat[0], items.slice().sort(flat[1])]];
-  return TICKET_BUCKETS.map(([bucket, l]) => {
+  return PROJECT_BUCKETS.map(([bucket, l]) => {
     const g = items.filter((t) => t.bucket === bucket);
-    if (bucket === 'done') g.sort((a, b) => (b.completed ? b.completed.valueOf() : b.file.stat.mtime) - (a.completed ? a.completed.valueOf() : a.file.stat.mtime));
+    g.sort(bucket === 'done' ? (a, b) => (b.completed ? b.completed.valueOf() : 0) - (a.completed ? a.completed.valueOf() : 0) : projectSort);
     return [bucket, l, g];
   });
 }
-

@@ -122,13 +122,13 @@ Object.assign(DashboardView.prototype, {
       if (log) tile(log.length, 'tasks done', 'var(--nd-go)', `${log.filter((x) => thisMonth(x.t)).length} in ${month}`, 'Tasks ticked in the last 120 days');
     }
 
-    // tickets (Neon Tickets)
+    // projects (Neon Projects)
     const tk = neonPlugin(this.app, 'neon-tickets');
-    if (tk && tk.collectTickets) {
-      const all = tk.collectTickets();
+    if (tk && tk.collectProjects) {
+      const all = tk.collectProjects();
       const done = all.filter((t) => t.status === 'done');
       const doneMonth = done.filter((t) => t.completed && t.completed.isSame(now, 'month')).length;
-      tile(done.length, 'projects done', 'var(--nd-warn)', `${doneMonth} in ${month} · ${all.length - done.length} open`, 'Projects marked done, by completed date');
+      tile(done.length, 'projects closed', 'var(--nd-warn)', `${doneMonth} in ${month} · ${all.length - done.length} open`, 'Projects closed, by completed or cancelled date');
     }
 
     // notes (vault)
