@@ -186,7 +186,7 @@ class NeonTime extends Plugin {
     api.registerFacts('time', () => {
       const s = this.summary(moment().format('YYYY-MM-DD'), true);
       const out = [];
-      const top = TIME_CATS.filter((k) => s.by[k]).sort((a, b) => s.by[b] - s.by[a]);
+      const top = timeCats().filter((k) => s.by[k]).sort((a, b) => s.by[b] - s.by[a]);
       for (const k of top.slice(0, 2)) out.push({ v: fmtMin(s.by[k]), l: `${CAT_LABEL[k].toLowerCase()} today` });
       const wk = this.balance(moment().startOf('isoWeek'), moment().endOf('isoWeek'));
       if (wk.over) out.push({ v: fmtMin(wk.over), l: 'overtime this week' });
@@ -203,10 +203,10 @@ class NeonTime extends Plugin {
       let over = 0;
       for (let d = start.clone(); d.isBefore(end); d.add(1, 'day')) {
         const s = this.summary(d.format('YYYY-MM-DD'), false);
-        for (const k of TIME_CATS) by[k] = (by[k] || 0) + s.by[k];
+        for (const k of timeCats()) by[k] = (by[k] || 0) + s.by[k];
         over += s.over;
       }
-      const top = TIME_CATS.filter((k) => by[k]).sort((a, b) => by[b] - by[a])[0];
+      const top = timeCats().filter((k) => by[k]).sort((a, b) => by[b] - by[a])[0];
       const out = [];
       if (top) out.push(`mostly ${CAT_LABEL[top]}`);
       if (over) out.push(`${fmtMin(over)} overtime`);

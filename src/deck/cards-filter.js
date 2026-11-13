@@ -94,7 +94,10 @@ Object.assign(CardsView.prototype, {
     const folder = this.folder();
     const scope = this.query ? this.app.vault.getMarkdownFiles() : this.folderInfo(folder).notes;
     const revisit = scope.filter((f) => this.needsRevisit(f)).length;
-    for (const [k, label] of CARD_CHIPS) {
+    // fork: the category chips are the current categories (your customers); Revisit only for upstream "school"
+    const chips = [['all', 'All'], ...CATS.map((c) => [c, CAT_LABEL[c] || c]), ...(CATS.includes('school') ? [['revisit', 'Revisit']] : []), ['untracked', NEON_CATS.customers ? 'No customer' : 'Untracked']];
+    if (!chips.some(([k]) => k === this.chip)) this.chip = 'all';
+    for (const [k, label] of chips) {
       const b = el.createEl('button', { cls: `nd-pill-btn chip-${k}` + (this.chip === k ? ' is-on' : '') });
       if (k === 'revisit') icon(b, 'rotate-ccw');
       b.createSpan({ text: k === 'revisit' && revisit ? `${label} (${revisit})` : label });

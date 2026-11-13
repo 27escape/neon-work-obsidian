@@ -6,13 +6,51 @@ const {
 } = obsidian;
 
 const ND_VERSION = '1.7.0';
-const CATS = ['projects', 'school', 'admin', 'operations'];
+// Categories colour notes and split tracked time. Upstream: four fixed ones (UPSTREAM_CATS).
+// fork: your customers instead — one per folder in the customers folder (1.Customers), keyed in lower case;
+// a note's category is its customer property, else the customer folder it is in. CATS, CAT_LABEL and
+// CAT_SHORT are filled in place by refreshCategories(); with no customers folder the upstream four stay.
+const UPSTREAM_CATS = ['projects', 'school', 'admin', 'operations'];
+const CATS = UPSTREAM_CATS.slice();
 /** Old category names still read from notes and saved data. */
 const CAT_ALIAS = { ops: 'operations' };
-const normCat = (c) => (c == null ? c : CAT_ALIAS[String(c).toLowerCase()] || c);
+const normCat = (c) => (c == null ? c : CAT_ALIAS[String(c).toLowerCase()] || String(c).toLowerCase());
 const CAT_LABEL = { projects: 'Projects', school: 'School', admin: 'Admin', operations: 'Operations', other: 'Other', untracked: 'Untracked' };
 const CAT_SHORT = { projects: 'Proj', school: 'School', admin: 'Admin', operations: 'Operations' };
-const catColor = (c) => `var(--nd-cat-${CATS.includes(c) ? c : 'other'})`;
+const CAT_FALLBACK = ['#c6e651', '#e5506a', '#7fb3c9', '#d9c56a', '#e4e6ea', '#b9a0d6', '#5fcf96', '#e08a5a', '#8f86b8', '#8f95a0'];
+const NEON_CATS = { customers: false, customersFolder: '1.Customers' };
+/** A category's colour: the theme's four category colours first, then the theme palette. */
+function catColor(c) {
+  const i = CATS.indexOf(c);
+  if (i < 0) return 'var(--nd-cat-other)';
+  if (!NEON_CATS.customers) return `var(--nd-cat-${c})`;
+  if (i < UPSTREAM_CATS.length) return `var(--nd-cat-${UPSTREAM_CATS[i]})`;
+  const k = (i - UPSTREAM_CATS.length) % CAT_FALLBACK.length;
+  return `var(--nd-c${k + 1}, ${CAT_FALLBACK[k]})`;
+}
+/** Time categories: the categories plus "other". */
+const timeCats = () => [...CATS, 'other'];
+/** fork: customers as categories (read from the customers folder; nothing is written). */
+function refreshCategories(app, folder) {
+  if (folder != null) NEON_CATS.customersFolder = folder;
+  const root = app.vault.getAbstractFileByPath(normalizePath(NEON_CATS.customersFolder || ''));
+  const names = root instanceof TFolder ? root.children.filter((c) => c instanceof TFolder).map((c) => c.name).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })) : [];
+  NEON_CATS.customers = names.length > 0;
+  const keys = names.length ? names.map((n) => n.toLowerCase()) : UPSTREAM_CATS;
+  CATS.length = 0;
+  CATS.push(...keys);
+  for (const n of names) {
+    CAT_LABEL[n.toLowerCase()] = n;
+    CAT_SHORT[n.toLowerCase()] = n.length > 12 ? n.split(/\s+/).map((w) => w[0]).join('').toUpperCase() : n;
+  }
+}
+/** fork: the customer category of a path: the folder under the customers folder, or null. */
+function pathCustomer(path) {
+  const root = normalizePath(NEON_CATS.customersFolder || '');
+  if (!NEON_CATS.customers || !root || !path || !path.startsWith(root + '/')) return null;
+  const rest = path.slice(root.length + 1).split('/');
+  return rest.length > 1 ? rest[0].toLowerCase() : null;
+}
 
 const pad = (n) => String(n).padStart(2, '0');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -169,10 +207,16 @@ function isTicketCache(cache) {
  * else Operations for tickets.
  * Returns 'untracked' for `untracked: true`, or null when nothing is set.
  */
-function noteCategory(cache) {
+function noteCategory(cache, path) {
   const fm = (cache && cache.frontmatter) || {};
   const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
   if (isTrue(fm.untracked) || isTrue(fm.Untracked) || tags.includes('untracked')) return 'untracked';
+  if (NEON_CATS.customers) {
+    // fork: the customer property, else the customer folder
+    const c = fm.customer != null && typeof fm.customer !== 'object' ? String(fm.customer).trim().toLowerCase() : '';
+    if (c && CATS.includes(c)) return c;
+    return pathCustomer(path);
+  }
   for (const c of CATS) if (isTrue(fm[c])) return c;
   for (const [old, c] of Object.entries(CAT_ALIAS)) if (isTrue(fm[old])) return c;
   if (typeof fm.category === 'string') {
@@ -184,7 +228,7 @@ function noteCategory(cache) {
   return null;
 }
 function fileCategory(app, file) {
-  return file instanceof TFile && file.extension === 'md' ? noteCategory(app.metadataCache.getFileCache(file)) : null;
+  return file instanceof TFile && file.extension === 'md' ? noteCategory(app.metadataCache.getFileCache(file), file.path) : null;
 }
 
 /* ---- modals --------------------------------------------------------- */

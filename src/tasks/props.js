@@ -28,7 +28,7 @@ Object.assign(NeonTasks.prototype, {
     if (!(f instanceof TFile) || f.extension !== 'md') return false;
     if (f.stat.ctime < this.settings.installedAt || this.isSystemPath(f.path) || dailyDateOf(this.app, f)) return false;
     if (f.path === this.quickPath() || f.path === normalizePath(this.settings.backupPath)) return false;
-    return noteCategory(this.app.metadataCache.getFileCache(f)) === null;
+    return noteCategory(this.app.metadataCache.getFileCache(f), f.path) === null;
   },
   uncategorised() {
     return this.app.vault.getMarkdownFiles().filter((f) => this.needsCategory(f)).sort((a, b) => b.stat.ctime - a.stat.ctime);

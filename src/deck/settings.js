@@ -58,6 +58,11 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc(`The folders set in the core Templates plugin and Templater${p.tplFolders.length ? ` (${p.tplFolders.join(', ')})` : ''}, so template tasks and properties never count.`)
       .addToggle((t) => t.setValue(s.excludeTemplates).onChange((v) => ((s.excludeTemplates = v), (p._ex = null), save())));
 
+    new Setting(containerEl)
+      .setName('Ignore archive folders')
+      .setDesc('Top-level folders with “archive” in their name (e.g. 4.Archive).')
+      .addToggle((t) => t.setValue(s.excludeArchive).onChange((v) => ((s.excludeArchive = v), (p._ex = null), save())));
+
     new Setting(containerEl).setName('Daily notes').setHeading();
     const coreDaily = corePluginOn(p.app, 'daily-notes');
     containerEl.createEl('p', {

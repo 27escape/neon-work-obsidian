@@ -12,7 +12,7 @@ Object.assign(NeonTime.prototype, {
     const base = Math.max(sum.target || sum.total, sum.total + (sum.breaks || 0)) || 1;
     const within = Math.min(sum.total, sum.target || sum.total);
     const scale = sum.total ? within / sum.total : 0;
-    const slices = TIME_CATS.filter((k) => sum.by[k]).map((k) => [catColor(k), sum.by[k] * scale]);
+    const slices = timeCats().filter((k) => sum.by[k]).map((k) => [catColor(k), sum.by[k] * scale]);
     if (sum.untracked) slices.push(['var(--nd-cat-untracked, var(--text-faint))', sum.untracked * scale]);
     if (sum.over && sum.target) slices.push(['var(--nd-cat-over, var(--nd-warn))', sum.over, true]);
     // breaks follow the worked time on the ring; they never count as worked
@@ -50,7 +50,7 @@ Object.assign(NeonTime.prototype, {
       const text = { running: `Working since ${moment(w.start).format('HH:mm')}`, paused: 'On a break', ended: `Day ended ${moment(w.end).format('HH:mm')}` }[sum.work];
       el.createDiv({ cls: `tm-work is-${sum.work}`, text: `${text} · timer ${fmtMin(this.workMin(sum.key))}` });
     }
-    for (const k of TIME_CATS) {
+    for (const k of timeCats()) {
       if (!sum.by[k] && k === 'other') continue;
       const r = el.createDiv('tm-leg' + (sum.by[k] ? '' : ' is-zero'));
       r.style.setProperty('--cat', catColor(k));

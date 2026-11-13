@@ -62,6 +62,7 @@ function projectStatusPatch(value, prevKind, today, cfg) {
 Object.assign(NeonTickets.prototype, {
   applyProjectSettings() {
     Object.assign(NEON_PROJECTS, projectConfig(this.settings));
+    refreshCategories(this.app, this.settings.customersFolder); // fork: customers are the categories too
     this.cache = null;
   },
   /** Status values offered (in order); `kind` limits them to one group. */

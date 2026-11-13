@@ -14,10 +14,10 @@ Object.assign(NeonTime.prototype, {
     const s = this.summary(key, false);
     const m = moment(key, 'YYYY-MM-DD');
     const lines = ['---', `date: ${key}`, `total_min: ${s.total}`, `untracked_min: ${s.untracked}`, `break_min: ${s.breaks}`];
-    for (const k of TIME_CATS) lines.push(`${k}_min: ${s.by[k]}`);
+    for (const k of timeCats()) lines.push(`${k.replace(/[^a-z0-9]+/g, '_')}_min: ${s.by[k]}`); // fork: customer names → safe keys
     lines.push(`target_min: ${s.target}`, `overtime_min: ${s.over}`, `synced: ${synced ? 'true' : 'false'}`, '---', '');
     lines.push(`# Time log · ${m.format('ddd D MMM YYYY')}`, '');
-    const split = TIME_CATS.filter((k) => s.by[k]).map((k) => `${CAT_LABEL[k]} ${fmtMin(s.by[k])}`);
+    const split = timeCats().filter((k) => s.by[k]).map((k) => `${CAT_LABEL[k]} ${fmtMin(s.by[k])}`);
     lines.push(`**${fmtMin(s.total)}**${s.target ? ` of ${fmtMin(s.target)}` : ' (weekend)'}${s.over ? ` · +${fmtMin(s.over)} overtime` : ''}${split.length ? ' · ' + split.join(' · ') : ''}`, '');
     lines.push('## Done today');
     const notes = new Map();

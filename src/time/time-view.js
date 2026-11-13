@@ -110,7 +110,7 @@ class TimeView extends ItemView {
       const col = week.createDiv('tm-col' + (d.isSame(this.cursor, 'day') ? ' is-cursor' : ''));
       const bar = col.createDiv('tm-col-bar');
       if (s.target) bar.createDiv('tm-col-target').style.bottom = `${(s.target / max) * 100}%`;
-      for (const k of TIME_CATS) {
+      for (const k of timeCats()) {
         if (!s.by[k]) continue;
         const seg = bar.createDiv('tm-col-seg');
         seg.style.height = `${(s.by[k] / max) * 100}%`;

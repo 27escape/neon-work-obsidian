@@ -17,7 +17,15 @@ class NeonDeck extends Plugin {
     // fork: templates folders (core Templates, Templater) are left out of stats, tasks and projects
     this.tplFolders = [];
     this.excludes.set('templates', () => (this.settings.excludeTemplates ? this.tplFolders : []));
+    this.excludes.set('archive', () => (this.settings.excludeArchive ? this.app.vault.getRoot().children.filter((c) => c instanceof TFolder && /archive/i.test(c.name)).map((c) => c.path) : []));
     this.readTemplateFolders();
+    // fork: customers as categories — read now and whenever a folder changes under the customers folder
+    const cats = debounce(() => (refreshCategories(this.app), this.emitLook && this.emitLook()), 500, true);
+    this.app.workspace.onLayoutReady(() => refreshCategories(this.app));
+    const isFolderEv = (f, old) => f instanceof TFolder || (old && !String(old).endsWith('.md'));
+    this.registerEvent(this.app.vault.on('create', (f) => isFolderEv(f) && cats()));
+    this.registerEvent(this.app.vault.on('delete', (f) => isFolderEv(f) && cats()));
+    this.registerEvent(this.app.vault.on('rename', (f, old) => isFolderEv(f, old) && cats()));
     this.services = new Map();
     this.dragging = null;
     this.api = this.buildApi();

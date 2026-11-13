@@ -107,7 +107,7 @@ Object.assign(CardsView.prototype, {
     const isMd = ext === 'md';
     const isImg = IMG_EXT.has(ext);
     const cache = isMd ? this.app.metadataCache.getFileCache(file) : null;
-    const cat = isMd ? noteCategory(cache) : null;
+    const cat = isMd ? noteCategory(cache, file.path) : null;
     const card = this.baseCard(parent, 'nd-ci-note' + (isImg ? ' is-image' : '') + (isMd ? '' : ' is-other'), i, file.path);
     if (cat && cat !== 'untracked') card.style.setProperty('--ci-accent', catColor(cat));
     if (this.plugin.lastFile && this.plugin.lastFile.path === file.path) card.addClass('is-active');

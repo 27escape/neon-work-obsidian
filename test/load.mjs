@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const o = JSON.parse(fs.readFileSync(new URL('../tools/files.json', import.meta.url), 'utf8'));
 class Stub {}
 const moment = () => ({ format: () => '2026-01-01', subtract: () => ({ format: () => '2025-12-31' }) });
-const obsidian = new Proxy({ moment, debounce: (f) => f, normalizePath: (p) => p }, { get: (t, k) => (k in t ? t[k] : Stub) });
+const obsidian = new Proxy({ moment, debounce: (f) => f, normalizePath: (p) => p, getAllTags: (c) => (c && c.tags ? c.tags.map((t) => t.tag) : []) }, { get: (t, k) => (k in t ? t[k] : Stub) });
 
 /** id: module id, e.g. 'neon-write'. Loads the shared helpers plus that module's files. */
 export function load(id, names) {

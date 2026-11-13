@@ -4,7 +4,7 @@
  * log note per day for your AI agent. Never talks to Jira or the network.
  * ========================================================================= */
 const VIEW_TIME = 'neon-time';
-const TIME_CATS = [...CATS, 'other'];
+// fork: categories can change (customers), so time categories are read when needed: timeCats()
 const TIME_DEFAULTS = {
   tracking: true,
   logFolder: 'Neon/Time Log', // fork: no Core folder

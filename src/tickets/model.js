@@ -36,7 +36,7 @@ Object.assign(NeonTickets.prototype, {
       id: fm.ticket != null && fm.ticket !== '' ? String(fm.ticket) : fm.id != null ? String(fm.id) : '',
       status: normTicketStatus(fm.status),
       priority: normTicketPrio(fm.priority),
-      category: noteCategory(cache) || 'operations',
+      category: noteCategory(cache, f.path) || (NEON_CATS.customers ? 'other' : 'operations'),
       created,
       due,
       remind: parseDay(remindRaw),
