@@ -34,6 +34,7 @@
         "src/deck/settings.js",
         "src/deck/pins.js",
         "src/deck/plugin.js",
+        "src/deck/claude-card.js",
         "src/deck/workspace.js",
         "src/deck/files.js",
         "src/deck/island.js"

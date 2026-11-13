@@ -706,3 +706,13 @@
   padding-bottom: 0;
   border-bottom: 0;
 }
+
+/* fork: the Claude card */
+.nd-claude { display: flex; flex-direction: column; gap: 2px; overflow: auto; min-height: 0; }
+.nd-claude-head { margin: 6px 0 2px; font-size: var(--font-ui-smaller); color: var(--nd-muted, var(--text-muted)); text-transform: uppercase; letter-spacing: 0.06em; }
+.nd-claude-row { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: var(--nd-radius-s, 6px); cursor: pointer; min-width: 0; }
+.nd-claude-row:hover { background: var(--nd-sel, var(--background-modifier-hover)); }
+.nd-claude-v { flex: none; padding: 0 6px; border-radius: 999px; font-size: var(--font-ui-smaller); font-weight: 600; --cl: var(--nd-warn, var(--text-warning)); color: var(--cl); border: 1px solid color-mix(in srgb, var(--cl) 45%, transparent); }
+.nd-claude-v.is-review { --cl: var(--nd-info, var(--text-accent)); }
+.nd-claude-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd-claude-where { flex: none; color: var(--nd-faint, var(--text-faint)); font-size: var(--font-ui-smaller); }

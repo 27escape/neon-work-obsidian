@@ -63,6 +63,16 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc('Top-level folders with “archive” in their name (e.g. 4.Archive).')
       .addToggle((t) => t.setValue(s.excludeArchive).onChange((v) => ((s.excludeArchive = v), (p._ex = null), save())));
 
+    new Setting(containerEl).setName('Claude card').setHeading();
+    new Setting(containerEl)
+      .setName('Show the Claude card')
+      .setDesc('Notes waiting for Claude and notes Claude changed, by a property. Read only.')
+      .addToggle((t) => t.setValue(s.claudeCard).onChange(async (v) => ((s.claudeCard = v), await save(), p.registerClaudeCard())));
+    const cl = (name, key, ph) => new Setting(containerEl).setName(name).addText((t) => t.setPlaceholder(ph).setValue(s[key]).onChange((v) => ((s[key] = v.trim() || ph), save(), p.registerClaudeCard())));
+    cl('Property', 'claudeProperty', 'claude');
+    cl('Waiting for Claude (values)', 'claudeWaiting', 'process, refine');
+    cl('To review (values)', 'claudeReview', 'updated');
+
     new Setting(containerEl).setName('Daily notes').setHeading();
     const coreDaily = corePluginOn(p.app, 'daily-notes');
     containerEl.createEl('p', {
@@ -80,10 +90,11 @@ class NeonSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName('Card explorer').setHeading();
     new Setting(containerEl)
       .setName('Quick capture card')
-      .setDesc('Show the Quick capture card on the dashboard. The capture command works either way.')
+      .setDesc('Show the Quick capture card on the dashboard (in place of the Claude card). The capture command works either way.')
       .addToggle((t) =>
         t.setValue(s.showCapture).onChange(async (v) => {
           s.showCapture = v;
+          p.registerClaudeCard(); // fork: shares the Claude card's place
           await save();
           p.app.workspace.getLeavesOfType(VIEW_DASH).forEach((l) => l.rebuildView());
         }),

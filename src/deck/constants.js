@@ -57,6 +57,11 @@ const DEFAULT_SETTINGS = {
   bridgeFolder: 'Neon/Bridges',
   excludeFolders: '',
   excludeTemplates: true,
+  // fork: the Claude card — notes by their claude property
+  claudeCard: true,
+  claudeProperty: 'claude',
+  claudeWaiting: 'process, refine',
+  claudeReview: 'updated',
   excludeArchive: true, // fork: also ignore top-level folders with “archive” in their name (e.g. 4.Archive) // fork: also ignore the templates folder(s) of the core Templates plugin and Templater
   // fork: daily notes when Obsidian's core Daily notes plugin is off (otherwise its own settings are used)
   dailyFolder: '',

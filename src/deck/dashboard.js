@@ -6,12 +6,12 @@
 const DASH_LAYOUT = [
   ['totals', 'pulse', 'pulse', 'tickets'],
   ['totals', 'tasks', 'global', 'tickets'],
-  ['capture', 'tasks', 'global', 'time'],
+  ['claude', 'tasks', 'global', 'time'], // fork: the Claude card; Quick capture (if on) takes its place otherwise
   ['recent', 'activity', 'activity', 'time'],
 ];
 /** Smallest grid height: the row minimums in styles.css (120 + 150 + 150 + 140) plus 3 gaps of 14. */
 const DASH_GRID_MIN = 752; // the row minimums in styles-dashboard.css plus 3 gaps; Activity needs 290 for six full weeks
-const SLOT_FALLBACK = { tasks: 'global', global: 'tasks', tickets: 'time', time: 'tickets', capture: 'recent' };
+const SLOT_FALLBACK = { tasks: 'global', global: 'tasks', tickets: 'time', time: 'tickets', claude: 'capture', capture: 'recent' };
 
 function dashAreas(present) {
   const resolve = (name) => {
