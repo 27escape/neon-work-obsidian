@@ -2,8 +2,7 @@
 class NeonWrite extends Plugin {
   async onload() {
     this.settings = Object.assign({}, NW_DEFAULTS, (await this.loadData()) || {});
-    this.registerEditorSuggest(new SlashSuggest(this));
-    // tell other Neon plugins they can add slash items now (they also check on their own load)
+    // fork: no slash menu, no selection toolbar and no image moving
     this.addCommand({ id: 'insert-table', name: 'Insert table…', editorCallback: (ed) => this.openTablePicker(ed) });
     this.registerEvent(
       this.app.workspace.on('editor-menu', (menu, editor) => {
@@ -11,23 +10,11 @@ class NeonWrite extends Plugin {
       }),
     );
 
-    this.toolbar = new SelectionToolbar(this);
-    this.register(() => this.toolbar.destroy());
-    const later = () => window.setTimeout(() => this.toolbar.update(), 10);
-    this.registerDomEvent(document, 'mouseup', later);
-    this.registerDomEvent(document, 'keyup', (e) => (e.shiftKey || e.key === 'Shift' || (e.ctrlKey && e.key === 'a') ? later() : this.toolbar.hide()));
-    this.registerDomEvent(document, 'scroll', () => this.toolbar.hide(), true);
-    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.toolbar.hide()));
-
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.mountNotePattern()));
     this.registerEvent(this.app.workspace.on('layout-change', () => this.mountNotePattern()));
     this.registerEvent(this.app.workspace.on('neon-deck:core-ready', () => this.mountNotePattern()));
     this.registerEvent(this.app.workspace.on('neon-deck:core-unloaded', () => this.unmountNotePattern()));
-    this.app.workspace.onLayoutReady(() => {
-      this.mountNotePattern();
-      // registered after startup: Obsidian fires 'create' for every file while it loads the vault
-      this.registerEvent(this.app.vault.on('create', (f) => this.onCreate(f)));
-    });
+    this.app.workspace.onLayoutReady(() => this.mountNotePattern());
     if (cmState) {
       // locked callouts: refuse the user's own edits inside them (typing, delete, paste, drag, undo);
       // background writes from other plugins have no user event and pass, so editor and file never disagree
@@ -122,7 +109,6 @@ class NeonWrite extends Plugin {
       const v = this.app.workspace.getActiveViewOfType(MarkdownView);
       if (v && v.getMode() === 'source' && v.editor.hasFocus()) keepDivider(v.editor);
     });
-    this.addCommand({ id: 'move-images', name: 'Move existing images to the image folder', callback: () => this.moveExistingImages() });
     this.applyLook();
     this.addSettingTab(new NeonWriteSettingTab(this.app, this));
   }
@@ -247,59 +233,6 @@ class NeonWrite extends Plugin {
     this.picker = new TablePicker(editor, caretRect(editor));
   }
 
-  /* images into the image folder (a setting) -------------------------------- */
-  imageFolder() {
-    return normalizePath(this.settings.imageFolder || 'Neon/Images');
-  }
-  isLooseImage(f) {
-    const dir = this.imageFolder();
-    return f instanceof TFile && /^(png|jpe?g)$/i.test(f.extension) && !f.path.startsWith(dir + '/');
-  }
-  onCreate(f) {
-    const deck = neonPlugin(this.app, 'neon-deck');
-    if (deck && deck.placed && deck.placed.delete(f.path)) return; // part of a folder dropped into Cards (issue 55)
-    if (!this.settings.moveImages || !this.isLooseImage(f)) return;
-    // give Obsidian a moment to write the ![[link]] into the note, so the rename updates it too
-    window.setTimeout(async () => {
-      if (this.app.vault.getAbstractFileByPath(f.path) !== f || !this.isLooseImage(f)) return;
-      try {
-        await this.moveImage(f);
-        new Notice(`Image moved to ${this.imageFolder()}`);
-      } catch (e) {
-        console.error('Neon Write: could not move image', e);
-      }
-    }, 1500);
-  }
-  /** Move one image into the Images folder (renamed with a number if the name is taken). Links follow. */
-  async moveImage(f) {
-    const dir = this.imageFolder();
-    await ensureFolder(this.app, dir);
-    let dest = normalizePath(`${dir}/${f.name}`);
-    if (this.app.vault.getAbstractFileByPath(dest)) dest = uniquePath(this.app, dir, f.basename, f.extension);
-    await this.app.fileManager.renameFile(f, dest);
-  }
-  moveExistingImages() {
-    const loose = this.app.vault.getFiles().filter((f) => this.isLooseImage(f));
-    if (!loose.length) return new Notice(`No .png or .jpg images outside ${this.imageFolder()}.`);
-    new ConfirmModal(this.app, {
-      title: 'Move images',
-      text: `Move ${loose.length} image${loose.length === 1 ? '' : 's'} into ${this.imageFolder()}? Links to them are updated.`,
-      cta: 'Move',
-      warning: false,
-      onConfirm: async () => {
-        let n = 0;
-        for (const f of loose) {
-          try {
-            await this.moveImage(f);
-            n++;
-          } catch (e) {
-            console.error('Neon Write: could not move image', f.path, e);
-          }
-        }
-        new Notice(`Moved ${n} image${n === 1 ? '' : 's'} to ${this.imageFolder()}`);
-      },
-    }).open();
-  }
 
   /* pattern behind the active note --------------------------------------- */
   mountNotePattern() {

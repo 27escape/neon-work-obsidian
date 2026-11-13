@@ -70,19 +70,6 @@ class NeonDeck extends Plugin {
       callback: () => (activeDocument !== document ? new QuickCaptureModal(this).open() : this.openIsland({ focus: true })),
     });
     this.addCommand({ id: 'toggle-pin-board', name: 'Toggle pin board', callback: () => this.toggleIsland() });
-    this.addCommand({
-      id: 'mark-revisited',
-      name: 'Mark current note as revisited',
-      checkCallback: (checking) => {
-        const f = this.app.workspace.getActiveFile();
-        if (!f) return false;
-        if (!checking) {
-          this.markSeen(f.path);
-          new Notice('✦ Marked as revisited');
-        }
-        return true;
-      },
-    });
 
     // last, so Alt+1..4 stay Task, Global task, Ticket, Time entry as in the spec
     this.addSettingTab(new NeonSettingTab(this.app, this));
@@ -148,7 +135,20 @@ class NeonDeck extends Plugin {
     if (s.pattern === 'circuit' || s.pattern === 'shard') s.pattern = 'prism'; // 2.0.4: Circuit (and the short-lived Shard) became Prism
     if (s.pattern !== 'auto' && !PATTERNS.includes(s.pattern)) s.pattern = 'auto';
     if (!STRENGTHS.includes(s.patternStrength)) s.patternStrength = 'subtle';
+    // fork: Neon's own daily-note settings start as the core Daily notes plugin's (used only while it is off)
+    if (!s.dailySeeded) {
+      await readDailyOpts(this.app);
+      if (dailyCache && (dailyCache.folder || dailyCache.format || dailyCache.template)) {
+        if (!s.dailyFolder) s.dailyFolder = (dailyCache.folder || '').trim();
+        if (!s.dailyFormat || s.dailyFormat === 'YYYY-MM-DD') s.dailyFormat = (dailyCache.format || '').trim() || 'YYYY-MM-DD';
+        if (!s.dailyTemplate) s.dailyTemplate = (dailyCache.template || '').trim();
+        s.dailySeeded = true;
+        await this.saveData(s);
+      }
+    }
     this.applyDailyFallback();
+    // fork: earlier fork builds saved Neon/… paths; unused ones now follow the base folder
+    if (dropOldDefaults(this.app, s, { reviewFolder: 'Neon/Reviews', pinBoardPath: 'Neon/Pin board.md', pinnedFolder: 'Neon/Pinned', bridgeFolder: 'Neon/Bridges', inboxPath: 'Neon/Inbox.md' })) await this.saveData(s);
   }
   /** fork: Neon's own daily-note settings, used while the core Daily notes plugin is off. */
   applyDailyFallback() {

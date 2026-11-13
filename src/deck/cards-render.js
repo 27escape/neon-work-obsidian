@@ -58,7 +58,7 @@ Object.assign(CardsView.prototype, {
     const weekAgo = Date.now() - 7 * 864e5;
     const files = info.other ? `${info.other} file${info.other === 1 ? '' : 's'}` : '';
     let meta = n || !files ? `${n} note${n === 1 ? '' : 's'}${files ? ` · ${files}` : ''}` : files;
-    if (info.cat === 'school' && n) {
+    if (false) { // fork: Revisit removed
       const fresh = info.notes.filter((f) => !this.needsRevisit(f)).length;
       meta += ` · ${fresh} / ${n} revisited`;
       const bar = main.createDiv('nd-ci-progress');
@@ -227,7 +227,6 @@ Object.assign(CardsView.prototype, {
     if (from.length) pv.createDiv({ cls: 'nd-preview-links', text: `Linked from: ${from.slice(0, 5).join(', ')}${from.length > 5 ? ` +${from.length - 5}` : ''}` });
     const row = pv.createDiv('nd-preview-row');
     button(row, { text: 'Open', cls: 'mod-cta', onClick: (e) => (this.hidePreview(true), openFile(this.app, file, e)) });
-    if (fileCategory(this.app, file) === 'school') button(row, { text: 'Mark revisited', onClick: () => (this.plugin.markSeen(file.path), this.hidePreview(true)) });
     const hr = this.contentEl.getBoundingClientRect();
     const cr = card.getBoundingClientRect();
     const w = 340;

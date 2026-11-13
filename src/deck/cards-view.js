@@ -8,7 +8,6 @@ const CARD_CHIPS = [
   ['projects', 'Projects'],
   ['operations', 'Operations'],
   ['admin', 'Admin'],
-  ['revisit', 'Revisit'],
   ['untracked', 'Untracked'],
 ];
 

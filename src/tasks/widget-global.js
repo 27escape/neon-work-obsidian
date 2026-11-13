@@ -49,7 +49,7 @@ Object.assign(NeonTasks.prototype, {
       onClick: (e) => {
         const f = this.todoFile();
         if (f) openFile(this.app, f, e);
-        else new Notice(`No Todo note at ${this.quickPath()} yet. Set it in Settings → Neon Tasks.`);
+        else new Notice(`No Todo note at ${this.quickPath()} yet. Set it in the plugin’s settings, Tasks section.`);
       },
     });
     let token = 0;

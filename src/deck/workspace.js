@@ -60,7 +60,7 @@ Object.assign(NeonDeck.prototype, {
   async weeklyReview() {
     const m = moment().startOf('isoWeek');
     const end = m.clone().add(7, 'days');
-    const folder = normalizePath(this.settings.reviewFolder || 'Neon/Reviews');
+    const folder = this.reviewFolder();
     const path = normalizePath(`${folder}/${m.format('GGGG-[W]WW')} Review.md`);
     const existing = this.app.vault.getAbstractFileByPath(path);
     if (existing instanceof TFile) return openFile(this.app, existing);
@@ -134,5 +134,12 @@ Object.assign(NeonDeck.prototype, {
     const leaf = ws.getLeavesOfType('search')[0] || ws.getLeftLeaf(false);
     if (!leaf) return;
     leaf.setViewState({ type: 'search', active: true, state: { query: q } }).then(() => ws.revealLeaf(leaf));
+  },
+  /** fork: locations inside the base folder unless set */
+  reviewFolder() {
+    return locPath(this.settings.reviewFolder, 'Reviews');
+  },
+  bridgeFolder() {
+    return locPath(this.settings.bridgeFolder, 'Bridges');
   },
 });

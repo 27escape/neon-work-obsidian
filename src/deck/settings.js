@@ -39,24 +39,24 @@ class NeonSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName('Open dashboard on startup').addToggle((t) => t.setValue(s.openDashboardOnStartup).onChange((v) => ((s.openDashboardOnStartup = v), save())));
 
     new Setting(containerEl).setName('Locations').setHeading();
-    containerEl.createEl('p', { cls: 'setting-item-description', text: 'Each location is used only when you use that feature; nothing is created or moved in advance. Paths are relative to the vault root. Ticket, time log, quick tasks and image locations are in each module’s own settings.' });
-    const loc = (name, desc, key, def) =>
+    containerEl.createEl('p', { cls: 'setting-item-description', text: `Used only when you use that feature; nothing is created or moved in advance. Empty: the name shown, inside the base folder (${NEON_BASE.folder || 'the vault root'}; set it in Overview).` });
+    const loc = (name, desc, key, def, kind) =>
       new Setting(containerEl)
         .setName(name)
         .setDesc(desc)
-        .addText((t) => t.setPlaceholder(def).setValue(s[key]).onChange((v) => ((s[key] = normalizePath(v.trim() || def)), save())));
-    loc('Weekly review folder', 'Optional template: a note named Weekly Review in your templates folder with {{weekLine}} and {{weekNotes}}.', 'reviewFolder', 'Neon/Reviews');
-    loc('Pin board note', 'One pin per line. Made the first time you pin something.', 'pinBoardPath', 'Neon/Pin board.md');
-    loc('Pinned files folder', 'Where files dropped onto the pin board from outside Obsidian are saved.', 'pinnedFolder', 'Neon/Pinned');
-    loc('Bridge note folder', 'Where the graph saves bridge notes.', 'bridgeFolder', 'Neon/Bridges');
+        .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath(def)).setValue(s[key]).onChange((v) => ((s[key] = v.trim() ? normalizePath(v.trim()) : ''), (p._ex = null), save())), kind));
+    loc('Weekly review folder', 'Optional template: a note named Weekly Review in your templates folder with {{weekLine}} and {{weekNotes}}.', 'reviewFolder', 'Reviews', 'folder');
+    loc('Pin board note', 'One pin per line. Made the first time you pin something.', 'pinBoardPath', 'Pin board.md', 'file');
+    loc('Pinned files folder', 'Where files dropped onto the pin board from outside Obsidian are saved.', 'pinnedFolder', 'Pinned', 'folder');
+    loc('Bridge note folder', 'Where the graph saves bridge notes.', 'bridgeFolder', 'Bridges', 'folder');
     new Setting(containerEl)
       .setName('Inbox folder')
       .setDesc('Quick capture can save a thought as a new note here, named after its first line (“Inbox note”, first in the capture choices). Empty: off.')
-      .addText((t) => t.setPlaceholder('2.Resources/Inbox').setValue(s.inboxFolder).onChange((v) => ((s.inboxFolder = v.trim() ? normalizePath(v.trim()) : ''), save(), p.registerInboxCapture())));
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder('e.g. 2.Resources/Inbox').setValue(s.inboxFolder).onChange((v) => ((s.inboxFolder = v.trim() ? normalizePath(v.trim()) : ''), save(), p.registerInboxCapture())), 'folder'));
     new Setting(containerEl)
       .setName('Inbox template')
       .setDesc('Optional template for inbox notes; the captured text goes below it.')
-      .addText((t) => t.setPlaceholder('2.Resources/templates/inbox_template.md').setValue(s.inboxTemplate).onChange((v) => ((s.inboxTemplate = v.trim()), save())));
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder('e.g. templates/inbox_template.md').setValue(s.inboxTemplate).onChange((v) => ((s.inboxTemplate = v.trim()), save())), 'file'));
     new Setting(containerEl)
       .setName('Excluded folders')
       .setDesc('Comma-separated, e.g. an archive folder. Ignored by stats, the graph, tasks and projects.')
@@ -89,11 +89,15 @@ class NeonSettingTab extends PluginSettingTab {
         ? `Obsidian’s core Daily notes plugin is on, so its settings are used (folder “${dailyOpts(p.app).folder || '/'}”, format “${dailyOpts(p.app).format}”). The settings below apply only when it is off.`
         : 'Obsidian’s core Daily notes plugin is off, so these settings are used. A format may include folders, e.g. YYYY/YYYY-ww for weekly notes.',
     });
-    const daily = (name, key, ph) =>
-      new Setting(containerEl).setName(name).addText((t) => t.setPlaceholder(ph).setValue(s[key]).onChange((v) => ((s[key] = v.trim()), p.applyDailyFallback(), save())));
-    daily('Folder', 'dailyFolder', 'e.g. Daily');
+    // fork: filled in from the core Daily notes plugin the first time (see loadSettings)
+    const daily = (name, key, ph, kind) =>
+      new Setting(containerEl).setName(name).addText((t) => {
+        t.setPlaceholder(ph).setValue(s[key]).onChange((v) => ((s[key] = v.trim()), p.applyDailyFallback(), save()));
+        return kind ? suggestPaths(p.app, t, kind) : t;
+      });
+    daily('Folder', 'dailyFolder', 'e.g. Daily', 'folder');
     daily('File name format', 'dailyFormat', 'YYYY-MM-DD');
-    daily('Template', 'dailyTemplate', 'e.g. templates/daily.md');
+    daily('Template', 'dailyTemplate', 'e.g. templates/daily.md', 'file');
 
     new Setting(containerEl).setName('Card explorer').setHeading();
     new Setting(containerEl)
@@ -112,7 +116,6 @@ class NeonSettingTab extends PluginSettingTab {
       .setName('Replace the file explorer')
       .setDesc('Closes the tree-view file explorer on startup. Get it back with “Files: Show file explorer”.')
       .addToggle((t) => t.setValue(s.replaceFileExplorer).onChange((v) => ((s.replaceFileExplorer = v), save())));
-    num(new Setting(containerEl).setName('Revisit school notes after (days)').setDesc('School notes you haven’t opened for this long get a Revisit badge.'), 'revisitDays', 1, 365);
 
     new Setting(containerEl).setName('Graph').setHeading();
     num(new Setting(containerEl).setName('Max notes').setDesc('The graph shows up to twice this many notes.'), 'graphMaxNodes', 20, 400);

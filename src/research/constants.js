@@ -5,7 +5,7 @@
  * ========================================================================= */
 const VIEW_RESEARCH = 'neon-research';
 const NR_DEFAULTS = {
-  // fork: no default sections; you choose the folders (Settings → Neon Research, or + in the tab)
+  // fork: no default sections; you choose the folders (Research section of the settings, or + in the tab)
   root: '', // first section's path, kept for older versions
   roots: null, // [{ name, path }]: each is its own tree (filled on load)
   activeRoot: 0, // index of the section shown in the tab

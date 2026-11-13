@@ -5,9 +5,8 @@
 
 const TASKS_DEFAULTS = {
   // fork: one Todo note replaces both "Quick tasks" and the Global tasks list kept in plugin data
-  quickTasksPath: 'Todo.md', // the Todo note: new tasks go at its head; its open tasks fill the Todo card
+  quickTasksPath: '', // the Todo note ('' = <base folder>/Todo.md): new tasks go at its head; its open tasks fill the Todo card
   taskTag: '#task', // fork: a checkbox line with this tag is a task wherever it is (Tasks-plugin style); empty = off
-  backupPath: 'Neon/Global tasks backup.md', // unused since the fork (Global tasks are the Todo note)
   askOnCreate: false, // fork: off — Templater, daily notes and your own habits make new notes
   stampDone: true,
   carryDays: 14,
@@ -26,7 +25,7 @@ const TASKS_DEFAULTS = {
   doneLog: [],
   lastBackup: '',
 };
-const SYSTEM_FOLDERS = ['Neon']; // fork: plus the review, time log and ticket folders from settings (see isSystemPath)
+const SYSTEM_FOLDERS = []; // fork: the review, time log and project folders come from the settings (see isSystemPath)
 const PROP_ORDER = [
   'type', 'title', 'ticket', 'status', 'priority', 'tags', 'aliases',
   'projects', 'school', 'admin', 'operations', 'untracked',

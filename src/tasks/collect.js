@@ -67,7 +67,7 @@ Object.assign(NeonTasks.prototype, {
   },
   /** The Todo note's path (setting “Todo note”; the old Quick tasks setting). */
   quickPath() {
-    const p = (this.settings.quickTasksPath || TASKS_DEFAULTS.quickTasksPath).trim();
+    const p = locPath(this.settings.quickTasksPath, 'Todo.md');
     return normalizePath(p.endsWith('.md') ? p : p + '.md');
   },
   todoFile() {

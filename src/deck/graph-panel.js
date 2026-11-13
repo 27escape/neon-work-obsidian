@@ -233,7 +233,7 @@ Object.assign(GraphView.prototype, {
       '- ',
       '',
     ].join('\n');
-    const f = await createUnique(this.app, this.plugin.settings.bridgeFolder, title, body);
+    const f = await createUnique(this.app, this.plugin.bridgeFolder(), title, body);
     new Notice('🌉 Bridge note created');
     this.plugin.openFile(f, { ctrlKey: true });
   },

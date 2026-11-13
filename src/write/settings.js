@@ -10,17 +10,6 @@ class NeonWriteSettingTab extends PluginSettingTab {
     const s = p.settings;
     containerEl.empty();
     containerEl.addClass('nd-settings');
-    new Setting(containerEl).setName('Slash menu').setDesc('Type / at the start of a line or after a space: table, headings, lists, callout, code, divider, date.').addToggle((t) => t.setValue(s.slashMenu).onChange((v) => ((s.slashMenu = v), p.saveSettings())));
-    new Setting(containerEl).setName('Toolbar on selected text').setDesc('Bold, italic, strikethrough, highlight, code, link, heading and callout.').addToggle((t) => t.setValue(s.toolbar).onChange((v) => ((s.toolbar = v), p.saveSettings(), p.toolbar && p.toolbar.hide())));
-    new Setting(containerEl)
-      .setName('Move new images to the image folder')
-      .setDesc('New .png, .jpg and .jpeg files (pasted, dragged or copied in) move to the image folder below. Links to them keep working. Off by default.')
-      .addToggle((t) => t.setValue(s.moveImages).onChange((v) => ((s.moveImages = v), p.saveSettings())))
-      .addExtraButton((b) => b.setIcon('folder-input').setTooltip('Move existing images there now').onClick(() => p.moveExistingImages()));
-    new Setting(containerEl)
-      .setName('Image folder')
-      .setDesc('Used only by the two image options above.')
-      .addText((t) => t.setPlaceholder('Neon/Images').setValue(s.imageFolder).onChange((v) => ((s.imageFolder = normalizePath(v.trim() || 'Neon/Images')), p.saveSettings())));
     new Setting(containerEl)
       .setName('Lifted writing window')
       .setDesc('The note sits on a rounded, slightly raised card, with the pattern around it.')

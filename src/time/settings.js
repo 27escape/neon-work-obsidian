@@ -27,7 +27,8 @@ class NeonTimeSettingTab extends PluginSettingTab {
       .addToggle((t) => t.setValue(s.writeNotes).onChange((v) => ((s.writeNotes = v), save())));
     new Setting(containerEl)
       .setName('Log folder')
-      .addText((t) => t.setValue(s.logFolder).onChange((v) => ((s.logFolder = normalizePath(v.trim() || 'Neon/Time Log')), save())))
+      .setDesc(`Empty: ${basePath('Time Log')} (in the base folder).`)
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Time Log')).setValue(s.logFolder).onChange((v) => ((s.logFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'))
       .addExtraButton((b) => b.setIcon('refresh-cw').setTooltip('Write today’s note now').onClick(() => p.writeDay(moment().format('YYYY-MM-DD'), true)));
     madeWith(containerEl, 'Neon Time');
   }

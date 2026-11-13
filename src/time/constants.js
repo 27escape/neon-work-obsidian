@@ -7,7 +7,7 @@ const VIEW_TIME = 'neon-time';
 // fork: categories can change (customers), so time categories are read when needed: timeCats()
 const TIME_DEFAULTS = {
   tracking: true,
-  logFolder: 'Neon/Time Log', // fork: no Core folder
+  logFolder: '', // fork: '' = <base folder>/Time Log
   writeNotes: true,
   dayHours: 8,
   idleMin: 30,

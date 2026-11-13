@@ -5,7 +5,6 @@ Object.assign(CardsView.prototype, {
       ['created-prop', 'Created property'],
       ['modified', 'Recently modified'],
       ['created', 'Recently created (file)'],
-      ['revisit', 'Revisit first'],
       ['name', 'Name A → Z'],
       ['name-desc', 'Name Z → A'],
     ];
@@ -28,7 +27,6 @@ Object.assign(CardsView.prototype, {
     if (s === 'name') cmp = byName;
     else if (s === 'name-desc') cmp = (a, b) => byName(b, a);
     else if (s === 'created') cmp = (a, b) => b.stat.ctime - a.stat.ctime;
-    else if (s === 'revisit') cmp = (a, b) => this.revisitAge(b) - this.revisitAge(a) || b.stat.mtime - a.stat.mtime;
     else if (s === 'created-prop') {
       const keys = (this.createdSeen = new Map()); // one date per note per sort; also lets 'changed' spot a new date
       const key = (f) => (keys.has(f.path) ? keys.get(f.path) : keys.set(f.path, createdOf(this.app, f)).get(f.path));
@@ -36,14 +34,12 @@ Object.assign(CardsView.prototype, {
     }
     return bangFirst(cmp);
   },
-  /** Days since the note was last opened (or marked revisited); -1 when it isn't a school note. */
-  revisitAge(f) {
-    if (!(f instanceof TFile) || f.extension !== 'md' || fileCategory(this.app, f) !== 'school') return -1;
-    const seen = Math.max(this.plugin.settings.seen[f.path] || 0, f.stat.ctime);
-    return Math.floor((Date.now() - seen) / 864e5);
+  /** fork: the Revisit feature (for upstream "school" notes) is removed; kept as stubs for the callers. */
+  revisitAge() {
+    return -1;
   },
-  needsRevisit(f) {
-    return this.revisitAge(f) >= this.plugin.settings.revisitDays;
+  needsRevisit() {
+    return false;
   },
   matchQuery(f) {
     const q = this.query;
@@ -95,7 +91,7 @@ Object.assign(CardsView.prototype, {
     const scope = this.query ? this.app.vault.getMarkdownFiles() : this.folderInfo(folder).notes;
     const revisit = scope.filter((f) => this.needsRevisit(f)).length;
     // fork: the category chips are the current categories (your customers); Revisit only for upstream "school"
-    const chips = [['all', 'All'], ...CATS.map((c) => [c, CAT_LABEL[c] || c]), ...(CATS.includes('school') ? [['revisit', 'Revisit']] : []), ['untracked', NEON_CATS.customers ? 'No customer' : 'Untracked']];
+    const chips = [['all', 'All'], ...CATS.map((c) => [c, CAT_LABEL[c] || c]), ['untracked', NEON_CATS.customers ? 'No customer' : 'Untracked']];
     if (!chips.some(([k]) => k === this.chip)) this.chip = 'all';
     for (const [k, label] of chips) {
       const b = el.createEl('button', { cls: `nd-pill-btn chip-${k}` + (this.chip === k ? ' is-on' : '') });

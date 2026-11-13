@@ -136,6 +136,7 @@ class NeonTime extends Plugin {
     const data = (await this.loadData()) || {};
     this.settings = Object.assign({}, TIME_DEFAULTS, data);
     if (!this.settings.days || typeof this.settings.days !== 'object') this.settings.days = {};
+    if (dropOldDefaults(this.app, this.settings, { logFolder: 'Neon/Time Log' })) await this.saveData(this.settings); // fork: base folder
     if (!this.settings.installedAt) {
       this.settings.installedAt = Date.now();
       await this.saveData(this.settings);
@@ -182,7 +183,7 @@ class NeonTime extends Plugin {
     api.registerWidget({ id: 'time', slot: 'time', title: 'Time today', icon: 'clock', sub: this.widgetSub(), mount: (card) => this.mountWidget(card) });
     api.registerCapture({ id: 'time', label: 'Time entry', short: 'Time', icon: 'clock', order: 30, allowEmpty: true, run: (v) => this.newEntry({ note: v }) });
     api.registerAction({ id: 'time', icon: 'clock', label: 'Time', order: 40, view: VIEW_TIME, run: () => this.openTab() });
-    api.registerExcluded('time', () => [this.settings.logFolder || 'Neon/Time Log']);
+    api.registerExcluded('time', () => [this.logFolder()]);
     api.registerFacts('time', () => {
       const s = this.summary(moment().format('YYYY-MM-DD'), true);
       const out = [];

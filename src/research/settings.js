@@ -24,7 +24,7 @@ class NeonResearchSettingTab extends PluginSettingTab {
     s.roots.forEach((r, i) => {
       const row = new Setting(containerEl)
         .addText((t) => t.setPlaceholder('Name').setValue(r.name).onChange((v) => ((r.name = v.trim() || r.path.split('/').pop()), save(), p.emitSoon())))
-        .addText((t) => t.setPlaceholder('Folder, or a pattern like 1.Customers/*/Research').setValue(r.path).onChange((v) => ((r.path = normalizePath(v.trim() || r.path)), rescan())));
+        .addText((t) => suggestPaths(p.app, t.setPlaceholder('Folder, or a pattern like 1.Customers/*/Research').setValue(r.path).onChange((v) => ((r.path = normalizePath(v.trim() || r.path)), rescan())), 'folder'));
       row.addExtraButton((b) =>
           b.setIcon('trash-2').setTooltip('Remove this section (its notes stay)').onClick(() => {
             s.roots.splice(i, 1);
@@ -58,7 +58,7 @@ class NeonResearchSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('Template note')
       .setDesc('Optional: a note whose text new research notes start from. {{title}}, {{date}} and {{time}} are filled in. Empty: title, created, modified, status and tags properties.')
-      .addText((t) => t.setPlaceholder('2.Resources/templates/research_template.md').setValue(s.noteTemplate).onChange((v) => ((s.noteTemplate = v.trim()), save())));
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder('templates/research_template.md').setValue(s.noteTemplate).onChange((v) => ((s.noteTemplate = v.trim()), save())), 'file'));
     new Setting(containerEl)
       .setName('Status for new notes')
       .setDesc('Used when there is no template. Empty: no status property.')

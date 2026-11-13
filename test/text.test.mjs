@@ -138,13 +138,17 @@ test('Radar and Blackwall are removed, Black ICE is available, saved settings fa
   assert.equal(PATTERNS.includes('blackwall'), false);
   assert.equal(PATTERNS.includes('blackice'), true);
   assert.equal(THEME_PATTERN.blueprint, 'hex');
+  // fork: loadSettings also reads the daily-notes settings and checks old default paths
+  const app = { vault: { configDir: '.obsidian', adapter: { read: async () => { throw new Error('none'); } }, getAbstractFileByPath: () => null } };
   const p = Object.assign(Object.create(NeonDeck.prototype), {
+    app,
+    saveData: async () => {},
     loadData: async () => ({ settingsVersion: 3, theme: 'blueprint', pattern: 'radar' }),
   });
   await p.loadSettings();
   assert.equal(p.settings.pattern, 'auto');
   assert.equal(p.activePattern(), 'hex');
-  const q = Object.assign(Object.create(NeonDeck.prototype), { loadData: async () => ({ settingsVersion: 3, theme: 'cyberpunk', pattern: 'blackwall' }) });
+  const q = Object.assign(Object.create(NeonDeck.prototype), { app, saveData: async () => {}, loadData: async () => ({ settingsVersion: 3, theme: 'cyberpunk', pattern: 'blackwall' }) });
   await q.loadSettings();
   assert.equal(q.settings.pattern, 'auto');
 });

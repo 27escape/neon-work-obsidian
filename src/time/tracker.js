@@ -1,7 +1,7 @@
 Object.assign(NeonTime.prototype, {
   /* ---- tracking -------------------------------------------------------- */
   isLogFile(f) {
-    const folder = normalizePath(this.settings.logFolder || 'Neon/Time Log');
+    const folder = this.logFolder();
     return !!f && (f.path === folder || f.path.startsWith(folder + '/'));
   },
   /** Category a file's time goes to, or null when it must not be logged. */

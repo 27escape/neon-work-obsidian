@@ -50,13 +50,14 @@ const DEFAULT_SETTINGS = {
   // fork: no Core folder. Every location is its own setting; nothing is created until a feature that needs it is used.
   coreFolder: '', // unused (kept so older data files load)
   coreTidied: true, // unused: the move into Core was removed
-  reviewFolder: 'Neon/Reviews',
-  inboxPath: 'Neon/Inbox.md', // unused
+  // fork: '' = the default name inside the base folder (Neon Deck (fork) → Base folder)
+  reviewFolder: '',
+  inboxPath: '', // unused
   inboxFolder: '', // fork: Quick capture can save a new note here ('' = off)
   inboxTemplate: '', // fork: template for those notes
-  pinBoardPath: 'Neon/Pin board.md',
-  pinnedFolder: 'Neon/Pinned', // files dropped onto the pin board from outside Obsidian
-  bridgeFolder: 'Neon/Bridges',
+  pinBoardPath: '',
+  pinnedFolder: '', // files dropped onto the pin board from outside Obsidian
+  bridgeFolder: '',
   excludeFolders: '',
   excludeTemplates: true,
   // fork: the Claude card — notes by their claude property
@@ -69,12 +70,13 @@ const DEFAULT_SETTINGS = {
   dailyFolder: '',
   dailyFormat: 'YYYY-MM-DD',
   dailyTemplate: '',
+  dailySeeded: false, // fork: the three above were filled in once from the core Daily notes plugin
   cardsInSidebar: true,
   replaceFileExplorer: true,
   showCapture: false, // the Quick capture card (the capture command works either way)
   cardSort: 'created-prop',
   cardMode: 'cards',
-  revisitDays: 14,
+  revisitDays: 14, // unused: Revisit was removed in the fork
   seen: {},
   graphMaxNodes: 120,
   graphWindow: 4,

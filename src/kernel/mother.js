@@ -8,12 +8,14 @@ const KERNEL_FILE = 'modules.json'; // { off: { 'neon-time': true }, starting: b
 class NeonMother extends Plugin {
   async onload() {
     this.modules = new Map(); // id -> running child plugin
+    this.moduleTabs = new Map(); // fork: id -> the module's settings tab, shown inside this plugin's one settings page
     neonMother = this;
     this.failed = new Map(); // id -> error message
     this.state = Object.assign({ off: {}, starting: false, safe: false, readOnly: true }, await this.readState());
     // fork: modules get a write-guarded app; only the plugin's own folder may be written while read-only
     NEON_GUARD.allowDir = normalizePath(this.manifest.dir);
     NEON_GUARD.readOnly = this.state.readOnly !== false;
+    NEON_BASE.folder = this.state.baseFolder || ''; // fork: asked on first start (see BaseFolderModal)
     this.guardedApp = guardApp(this.app);
     const gesture = () => (NEON_GUARD.lastGesture = Date.now());
     this.registerDomEvent(document, 'pointerdown', gesture, true);
@@ -38,10 +40,21 @@ class NeonMother extends Plugin {
     this.addSettingTab(new NeonModulesTab(this.app, this));
     this.addCommand({ id: 'safe-mode', name: 'Restart in safe mode (modules off)', callback: () => this.setSafe(true) });
     if (crashed || this.state.safe) {
-      new Notice(crashed ? 'Neon Deck did not finish starting last time: safe mode, modules are off. Turn safe mode off in Settings → Neon Deck modules.' : 'Neon Deck safe mode: modules are off.', 0);
+      new Notice(crashed ? 'Neon Deck did not finish starting last time: safe mode, modules are off. Turn safe mode off in the plugin’s settings.' : 'Neon Deck safe mode: modules are off.', 0);
     } else for (const m of NEON_MODULES) await this.start(m);
     // modules finish starting asynchronously: only call the start done once the workspace is ready
-    this.app.workspace.onLayoutReady(() => (this.doneTimer = window.setTimeout(() => this.startDone(), 3000)));
+    this.app.workspace.onLayoutReady(() => {
+      this.doneTimer = window.setTimeout(() => this.startDone(), 3000);
+      // fork: first start — ask where Neon Deck may keep what it makes for itself
+      if (this.state.baseFolder === undefined) new BaseFolderModal(this).open();
+    });
+  }
+  /** fork: the base folder for everything Neon Deck makes for itself ('' = vault root). */
+  async setBaseFolder(path) {
+    const v = String(path || '').trim().replace(/^\/+|\/+$/g, '');
+    this.state.baseFolder = v ? normalizePath(v) : '';
+    NEON_BASE.folder = this.state.baseFolder;
+    await this.writeState();
   }
   onunload() {
     // a normal unload (quit, reload, switched off) is not a crash, however soon after the start
@@ -74,6 +87,11 @@ class NeonMother extends Plugin {
     try {
       await this.adoptData(m.id, dir);
       const child = new m.cls(this.guardedApp, { ...this.manifest, id: m.id, name: m.name, dir });
+      // fork: a module's settings appear as a section of this plugin's settings page, not a page of their own
+      child.addSettingTab = (tab) => {
+        this.moduleTabs.set(m.id, tab);
+        child.register(() => this.moduleTabs.get(m.id) === tab && this.moduleTabs.delete(m.id));
+      };
       // a failing start stops only this module
       const load = child.onload;
       child.onload = async () => {
@@ -138,50 +156,5 @@ class NeonMother extends Plugin {
   }
   async writeState() {
     await this.app.vault.adapter.write(`${this.manifest.dir}/${KERNEL_FILE}`, JSON.stringify(this.state, null, 2));
-  }
-}
-
-/** Settings: one switch per module, with its state. Each module keeps its own settings tab. */
-class NeonModulesTab extends PluginSettingTab {
-  constructor(app, plugin) {
-    super(app, plugin);
-    this.plugin = plugin;
-    // Obsidian opens a plugin's settings (its row in Community plugins, the ⋮ → Options entry) by the
-    // plugin's own id. Upstream the Deck module's tab has that id ('neon-deck'); in the fork the plugin id
-    // differs, so this tab takes it — otherwise the plugin shows a blank "No results found" page.
-    const fork = plugin.manifest.id !== 'neon-deck';
-    this.id = fork ? plugin.manifest.id : 'neon-deck-modules';
-    this.name = fork ? plugin.manifest.name : 'Neon Deck modules';
-  }
-  display() {
-    const p = this.plugin;
-    const el = this.containerEl;
-    el.empty();
-    el.addClass('nd-settings');
-    new Setting(el).setName('Protect my notes').setHeading();
-    new Setting(el)
-      .setName('Read-only')
-      .setDesc('On: Neon Deck only reads your vault. It never creates, changes, moves, renames or deletes notes, folders or images; features that would write show a notice instead. Its own settings are still saved.')
-      .addToggle((t) => t.setValue(p.state.readOnly !== false).onChange((v) => p.setReadOnly(v)));
-    new Setting(el).setName('Modules').setHeading();
-    el.createEl('p', { cls: 'setting-item-description', text: `Each running module has its own settings page (locations, options) in the sidebar under Community plugins: ${NEON_MODULES.map((m) => m.name).join(', ')}.` });
-    for (const m of NEON_MODULES) {
-      const why = p.failed.get(m.id);
-      const state = p.modules.has(m.id) ? 'running' : why ? `stopped: ${why}` : p.state.safe ? 'off (safe mode)' : 'off';
-      new Setting(el)
-        .setName(m.name)
-        .setDesc(`${m.desc} · ${state}`)
-        .addToggle((t) =>
-          t.setValue(p.isOn(m.id)).onChange(async (v) => {
-            await p.setOn(m.id, v);
-            this.display();
-          }),
-        );
-    }
-    new Setting(el)
-      .setName('Safe mode')
-      .setDesc('Start with every module off. Turns on by itself if Neon Deck crashed while starting.')
-      .addToggle((t) => t.setValue(p.state.safe).onChange((v) => p.setSafe(v)));
-    madeWith(el, 'Neon Deck');
   }
 }

@@ -24,19 +24,26 @@ class NeonTasksSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName('Todo').setHeading();
     new Setting(containerEl)
       .setName('Todo note')
-      .setDesc('Its open tasks fill the Todo card. Tasks you add on the dashboard go at the head of this note as “- [ ] #task … ➕ date”.')
-      .addText((t) => t.setPlaceholder('Todo.md').setValue(s.quickTasksPath).onChange((v) => ((s.quickTasksPath = v.trim() || TASKS_DEFAULTS.quickTasksPath), save(), p.emit())));
+      .setDesc(`Its open tasks fill the Todo card. Tasks you add on the dashboard go at the head of this note as “- [ ] #task … ➕ date”. Empty: ${basePath('Todo.md')}.`)
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Todo.md')).setValue(s.quickTasksPath).onChange((v) => ((s.quickTasksPath = v.trim()), save(), p.emit())), 'file'));
     new Setting(containerEl).setName('New notes').setHeading();
-    containerEl.createEl('p', { cls: 'setting-item-description', text: 'With a customers folder (Neon Projects settings), New note asks for a customer and a kind and files the note in <customers folder>/<customer>/<kind folder>/. Templates fill {{title}}, {{date}} and {{time}}; without one the note gets title, created, modified, customer and tags properties.' });
-    const txt = (name, key, ph, desc) => new Setting(containerEl).setName(name).setDesc(desc || '').addText((t) => t.setPlaceholder(ph).setValue(s[key]).onChange((v) => ((s[key] = v.trim()), save())));
-    txt('Meetings folder', 'meetingsFolder', 'Meetings');
+    containerEl.createEl('p', { cls: 'setting-item-description', text: 'With a customers folder (Projects section), New note asks for a customer and a kind and files the note in <customers folder>/<customer>/<kind folder>/. Templates fill {{title}}, {{date}} and {{time}}; without one the note gets title, created, modified, customer and tags properties.' });
+    const txt = (name, key, ph, desc, kind) =>
+      new Setting(containerEl)
+        .setName(name)
+        .setDesc(desc || '')
+        .addText((t) => {
+          t.setPlaceholder(ph).setValue(s[key]).onChange((v) => ((s[key] = v.trim()), save()));
+          return kind ? suggestPaths(p.app, t, kind) : t;
+        });
+    txt('Meetings folder', 'meetingsFolder', 'Meetings', 'Folder name inside each customer folder.');
     txt('People folder', 'peopleFolder', 'People', 'People notes are named @Name and get an aliases property.');
     txt('Research folder', 'researchFolder', 'Research');
-    txt('Folder for notes without a customer', 'noCustomerFolder', '2.Resources', 'Empty: the vault root.');
-    txt('Note template', 'noteTemplate', '');
-    txt('Meeting template', 'meetingTemplate', '');
-    txt('Person template', 'personTemplate', '2.Resources/templates/person_template.md');
-    txt('Research template', 'researchTemplate', '2.Resources/templates/research_template.md');
+    txt('Folder for notes without a customer', 'noCustomerFolder', 'e.g. 2.Resources', 'Empty: the vault root.', 'folder');
+    txt('Note template', 'noteTemplate', '', '', 'file');
+    txt('Meeting template', 'meetingTemplate', '', '', 'file');
+    txt('Person template', 'personTemplate', 'templates/person_template.md', '', 'file');
+    txt('Research template', 'researchTemplate', 'templates/research_template.md', '', 'file');
     new Setting(containerEl)
       .setName('Ask a few questions when I create a note')
       .setDesc('Name, kind and category. Close the card to skip it.')

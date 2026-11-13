@@ -522,6 +522,16 @@ function basePath(name) {
 }
 /** A location setting, or its default inside the base folder when the setting is empty. */
 const locPath = (value, name) => normalizePath(String(value || '').trim() || basePath(name));
+/** Saved settings from earlier versions hold the old default paths (Neon/…): clear those that were never used. */
+function dropOldDefaults(app, s, olds) {
+  let changed = false;
+  for (const [key, old] of Object.entries(olds))
+    if (s[key] === old && !app.vault.getAbstractFileByPath(normalizePath(old))) {
+      s[key] = '';
+      changed = true;
+    }
+  return changed;
+}
 
 /* ---- path suggestions (fork) ----------------------------------------------
  * As you type in a folder or file setting, matching vault paths drop down (Obsidian's own suggest UI). */
