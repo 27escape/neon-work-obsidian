@@ -30,6 +30,8 @@ const PROJECTS_DEFAULTS = {
   projectTemplate: '',
   // the tracker and reminders
   tabSort: 'customer',
+  tabMode: 'list', // fork: 'list' or 'timeline' (a Mermaid Gantt above the list)
+  timelineZoom: '12m',
   reminders: true,
   remindDays: 1,
   notified: {},

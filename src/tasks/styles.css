@@ -480,3 +480,6 @@ body:not(.nd-themed) .nd-empty {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.nt-view-timeline {
+  grid-column: 1 / -1;
+}

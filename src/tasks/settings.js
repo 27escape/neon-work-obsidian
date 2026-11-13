@@ -21,6 +21,10 @@ class NeonTasksSettingTab extends PluginSettingTab {
       .setName('Stamp completion date')
       .setDesc('Adds ✅ YYYY-MM-DD when you tick a task on the dashboard (Tasks-plugin compatible).')
       .addToggle((t) => t.setValue(s.stampDone).onChange((v) => ((s.stampDone = v), save())));
+    new Setting(containerEl)
+      .setName('Timeline on the Tasks tab')
+      .setDesc('A Gantt chart (Mermaid) of open tasks with a due date: bars where a task also has a 🛫 start date. “Copy as Mermaid” pastes it into a note.')
+      .addToggle((t) => t.setValue(s.showTimeline !== false).onChange((v) => ((s.showTimeline = v), save())));
     new Setting(containerEl).setName('Todo').setHeading();
     new Setting(containerEl)
       .setName('Todo note')

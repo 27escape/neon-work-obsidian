@@ -4,7 +4,8 @@
   "shared": [
     "src/shared/shared.js",
     "src/shared/guard.js",
-    "src/shared/note-index.js"
+    "src/shared/note-index.js",
+    "src/shared/gantt.js"
   ],
   "kernel": [
     "src/kernel/mother.js",
@@ -59,6 +60,7 @@
       "cls": "NeonTasks",
       "files": [
         "src/tasks/tasks-view.js",
+        "src/tasks/timeline.js",
         "src/tasks/helpers.js",
         "src/tasks/settings.js",
         "src/tasks/plugin.js",
@@ -104,6 +106,7 @@
       "files": [
         "src/tickets/constants.js",
         "src/tickets/tracker.js",
+        "src/tickets/timeline.js",
         "src/tickets/settings.js",
         "src/tickets/plugin.js",
         "src/tickets/projects.js",

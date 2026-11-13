@@ -9,6 +9,8 @@ const TASKS_DEFAULTS = {
   taskTag: '#task', // fork: a checkbox line with this tag is a task wherever it is (Tasks-plugin style); empty = off
   askOnCreate: false, // fork: off — Templater, daily notes and your own habits make new notes
   stampDone: true,
+  showTimeline: true, // fork: the timeline card on the Tasks tab
+  timelineZoom: '3m',
   carryDays: 14,
   showNoCategoryBar: false, // fork: off
   // fork: New note with customers (1.Customers/<customer>/<folder>/), a template per kind

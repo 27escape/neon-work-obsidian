@@ -262,3 +262,10 @@ body.nd-themed .workspace-tab-header.is-active {
 /* fork: the one settings page — section buttons */
 .nd-settings-sections { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
 .nd-settings-sections .nd-pill-btn.is-off { opacity: 0.5; }
+
+/* fork: Mermaid timelines (Projects and Tasks tabs) */
+.nd-timeline { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 14px; }
+.nd-timeline-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.nd-timeline-copy { margin-left: auto; }
+.nd-timeline-chart { overflow-x: auto; min-height: 60px; }
+.nd-timeline-chart .mermaid svg { max-width: none; }

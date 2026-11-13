@@ -42,6 +42,12 @@ class ProjectsView extends ItemView {
       });
       this.segBtns[k] = b;
     }
+    // fork: List or Timeline (a Mermaid Gantt chart above the list)
+    this.modeSeg = pills(tools, [['list', 'List'], ['timeline', 'Timeline']], this.plugin.settings.tabMode || 'list', (v) => {
+      this.plugin.settings.tabMode = v;
+      this.plugin.saveSettings();
+      this.render();
+    }, 'tk-mode');
     const sort = tools.createEl('select', { cls: 'dropdown tk-sort', attr: { 'aria-label': 'Sort or group projects' } });
     for (const [k, label] of PROJECT_SORTS) sort.createEl('option', { value: k, text: label });
     sort.value = this.plugin.settings.tabSort;
@@ -57,6 +63,7 @@ class ProjectsView extends ItemView {
       this.render();
     });
     button(tools, { icon: 'plus', text: 'New project', cls: 'mod-cta', onClick: () => this.plugin.newProject() });
+    this.timelineEl = inner.createDiv('tk-timeline');
     this.listEl = inner.createDiv('tk-list');
     this.fitIsland = () => {
       const h = Math.ceil(inner.offsetHeight);
@@ -123,6 +130,10 @@ class ProjectsView extends ItemView {
     else if (this.filter === 'waiting') items = active.filter((t) => t.status === 'waiting');
     else if (this.filter === 'done') items = all.filter((t) => t.status === 'done');
     if (this.query) items = items.filter((t) => `${t.title} ${t.file.path} ${t.statusRaw} ${t.customer} ${t.stage} ${t.note}`.toLowerCase().includes(this.query));
+    // fork: the timeline shows the same projects as the list below it
+    const timeline = p.settings.tabMode === 'timeline';
+    this.timelineEl.toggle(timeline);
+    if (timeline) this.showTimeline(items);
     this.listEl.empty();
     const calm = !!this.rendered && !this.filterChanged;
     this.listEl.toggleClass('is-calm', calm);

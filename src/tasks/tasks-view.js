@@ -25,6 +25,7 @@ class TasksView extends ItemView {
     this.contentEl.addClass('nd-root', 'nd-pattern-host', 'nt-view');
     this.scroller = this.contentEl.createDiv('nt-scroll');
     const grid = this.scroller.createDiv('nt-view-grid');
+    if (p.settings.showTimeline !== false) this.mountTimeline(grid); // fork: Mermaid Gantt of due-dated tasks
     const tasks = widget(grid, 'nt-view-card nt-view-tasks', 'Tasks', 'list-checks', `${p.settings.taskTag || 'Tasks'} across your notes · by date`);
     const todo = widget(grid, 'nt-view-card nt-view-todo', 'Todo', 'star', p.quickPath());
     this.handles.push(p.mountTasks(tasks), p.mountGlobal(todo));
