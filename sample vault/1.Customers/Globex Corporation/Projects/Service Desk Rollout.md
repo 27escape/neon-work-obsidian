@@ -21,6 +21,7 @@ What it shows:
 - done, in progress, cancelled, ready, waiting and blocked tasks (blocked: waiting on an overdue task, here the service levels);
 - an overdue task (📅 13 Nov) and one due soon (📅 19 Nov);
 - a milestone (tagged `#milestone`), a task estimated at 0 days and a duration in weeks (`1w`);
+- priorities as the Tasks plugin writes them (⏫ high, 🔽 low): shown on cards, bars and in the List, highest first on the board;
 - owners (`[owner:: [[@Sofia Reyes]]]`): filter the view by person, group the board by person, and see a warning when someone has more than five days of work in a week;
 - markers: an issue (service levels), a decision (choosing the tool) and a risk (the mailbox), tagged `#issue`, `#decision`, `#risk`;
 - a forecast finish against the `due` property, and **Baseline** in the Planning view to see slippage later;
@@ -35,7 +36,7 @@ What it shows:
 
 ### 2. Tool selection
 
-- [ ] Shortlist three service desk tools [duration:: 2d] [owner:: [[@Sofia Reyes]]] 🆔 sdr-t1 ⛔ sdr-d2 📅 2026-11-19 #task
+- [ ] Shortlist three service desk tools [duration:: 2d] [owner:: [[@Sofia Reyes]]] 🆔 sdr-t1 ⛔ sdr-d2 📅 2026-11-19 ⏫ #task
 - [ ] Demo the shortlisted tools to the team [duration:: 3d] [owner:: [[@Sofia Reyes]]] 🆔 sdr-t2 ⛔ sdr-t1 #task
 - [ ] Choose the tool [duration:: 1d] 🆔 sdr-t3 ⛔ sdr-t2,glx-quote #task #decision
 
@@ -44,12 +45,12 @@ What it shows:
 - [ ] Set up the tool and user accounts [duration:: 3d] [owner:: [[@Marcus Hale]]] 🆔 sdr-b1 ⛔ sdr-t3 #task
 - [ ] Import the ticket categories [duration:: 1d] 🆔 sdr-b2 ⛔ sdr-b1,sdr-d2 #task
 - [ ] Connect the support mailbox [duration:: 2d] [owner:: [[@Marcus Hale]]] 🆔 sdr-b3 ⛔ sdr-b1 #task #risk
-- [ ] Write the starter knowledge base articles [duration:: 1w] [owner:: [[@Sofia Reyes]]] 🆔 sdr-b4 ⛔ sdr-d3 #task
+- [ ] Write the starter knowledge base articles [duration:: 1w] [owner:: [[@Sofia Reyes]]] 🆔 sdr-b4 ⛔ sdr-d3 🔽 #task
 - [ ] Set up service level alerts [duration:: 1d] 🆔 sdr-b5 ⛔ sdr-b1,sdr-d3 #task
 
 ### 4. Training and go-live
 
-- [ ] Draft the communications plan [duration:: 2d] [owner:: [[@Sofia Reyes]]] 🆔 sdr-g0 #task
+- [ ] Draft the communications plan [duration:: 2d] [owner:: [[@Sofia Reyes]]] 🆔 sdr-g0 🔽 #task
 - [ ] Book the training room 📅 2026-11-27 #task
 - [ ] Train the service desk team [duration:: 2d] [owner:: [[@Sofia Reyes]]] 🆔 sdr-g1 ⛔ sdr-b2,sdr-b3 #task
 - [ ] Pilot with the finance department [duration:: 1w] 🆔 sdr-g2 ⛔ sdr-g1,sdr-b4,sdr-b5,sdr-g0 #task

@@ -27,6 +27,7 @@ class PlanTaskModal extends Modal {
       milestone: !!(t && t.milestone),
       flagged: !!(t && t.flagged),
       marks: t ? [...(t.marks || [])] : [],
+      priority: t ? t.priority ?? 2 : 2,
       start: (t && t.start) || null,
       scheduled: (t && t.scheduled) || null,
       due: (t && t.due) || null,
@@ -69,6 +70,11 @@ class PlanTaskModal extends Modal {
     for (const [b, label] of choices) status.createEl('option', { text: label, attr: { value: b } });
     status.value = f.box;
     status.addEventListener('change', () => ((f.box = status.value), this.update()));
+    sp.createSpan({ cls: 'np-ed-sub', text: 'Priority' });
+    const pri = sp.createEl('select', { cls: 'dropdown' });
+    for (const [n, e, label] of PLAN_PRIORITIES) pri.createEl('option', { text: e ? `${e} ${label}` : label, attr: { value: String(n) } });
+    pri.value = String(f.priority);
+    pri.addEventListener('change', () => ((f.priority = +pri.value), this.update()));
     sp.createSpan({ cls: 'np-ed-sub', text: 'Phase' });
     const phase = sp.createEl('select', { cls: 'dropdown' });
     phase.createEl('option', { text: '(end of the note)', attr: { value: '' } });

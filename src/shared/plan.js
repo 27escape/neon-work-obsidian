@@ -7,6 +7,22 @@
 const PLAN_BOX_RE = /^\s*(?:[-*+]|\d+[.)])\s+\[(.)\]\s+(.*)$/u;
 // a Dataview field [key:: value]; the value may hold links: [owner:: [[@Sam Taylor]], [[@Alex]]]
 const PLAN_FIELD_RE = /\[[\w-]+::\s*(?:\[\[[^\]]*\]\]|[^\]\[])*\]/gu;
+// the Tasks plugin's priorities, highest first: [level, emoji, label]; no emoji is Normal
+const PLAN_PRIORITIES = [
+  [5, '🔺', 'Highest'],
+  [4, '⏫', 'High'],
+  [3, '🔼', 'Medium'],
+  [2, '', 'Normal'],
+  [1, '🔽', 'Low'],
+  [0, '⏬', 'Lowest'],
+];
+/** A task text's priority level (pure): 5 highest … 2 normal … 0 lowest. */
+function planPriority(raw) {
+  for (const [n, e] of PLAN_PRIORITIES) if (e && String(raw || '').includes(e)) return n;
+  return 2;
+}
+/** The emoji for a level ('' for normal). */
+const planPrioritySign = (n) => (PLAN_PRIORITIES.find((p) => p[0] === n) || [])[1] || '';
 const PLAN_OWNER_RE = /\[owner::\s*((?:\[\[[^\]]*\]\]|[^\]\[])*)\]/iu;
 
 /**
@@ -42,7 +58,7 @@ function planTask(line, at = {}) {
   const milestone = /(^|\s)#milestone(?=\s|$)/iu.test(raw); // fork: a milestone is tagged, not just 0 days
   const flagged = /(^|\s)#blocked(?=\s|$)/iu.test(raw); // blocked by something outside the plan (a supplier, an approval)
   const marks = ['risk', 'issue', 'decision'].filter((k) => new RegExp(`(^|\\s)#${k}(?=\\s|$)`, 'iu').test(raw)); // markers
-  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, marks, owners: planOwners(raw), due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
+  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, marks, owners: planOwners(raw), priority: planPriority(raw), due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
 }
 
 /** Does the text carry one of the task tags ("#task, #todo"); whole tags, any case. */
@@ -240,15 +256,28 @@ function planLoad(rows) {
     const t = r.task;
     if (t.external || planClosed(t) || !(t.owners || []).length) continue;
     for (const o of t.owners) {
-      const me = out.get(o.key) || out.set(o.key, { name: o.name, weeks: new Map() }).get(o.key);
-      for (let d = r.es; d < r.ef; d++) me.weeks.set(Math.floor(d / 5), (me.weeks.get(Math.floor(d / 5)) || 0) + 1);
+      const me = out.get(o.key) || out.set(o.key, { name: o.name, weeks: new Map(), rows: new Map() }).get(o.key);
+      for (let d = r.es; d < r.ef; d++) {
+        const w = Math.floor(d / 5);
+        me.weeks.set(w, (me.weeks.get(w) || 0) + 1);
+        const list = me.rows.get(w) || me.rows.set(w, []).get(w);
+        if (!list.includes(r)) list.push(r);
+      }
     }
   }
   return out;
 }
-/** [{ name, week, days }] where someone has more than `cap` days of work in a week. */
+/**
+ * [{ name, week, days, lowest }] where someone has more than `cap` days of work in a week. lowest: their task that
+ * week that could move most easily: the lowest priority, then the most slack, then the latest start.
+ */
 function planOverloads(rows, cap = 5) {
   const out = [];
-  for (const { name, weeks } of planLoad(rows).values()) for (const [week, days] of weeks) if (days > cap) out.push({ name, week, days });
+  for (const { name, weeks, rows: byWeek } of planLoad(rows).values())
+    for (const [week, days] of weeks) {
+      if (days <= cap) continue;
+      const pick = [...byWeek.get(week)].sort((a, b) => (a.task.priority ?? 2) - (b.task.priority ?? 2) || b.slack - a.slack || b.es - a.es)[0];
+      out.push({ name, week, days, lowest: pick ? pick.task : null });
+    }
   return out.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
 }

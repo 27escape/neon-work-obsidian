@@ -974,6 +974,22 @@ function timelinePanel(app, parent, component, { build, zoom = '12m', onZoom, em
 const PLAN_BOX_RE = /^\s*(?:[-*+]|\d+[.)])\s+\[(.)\]\s+(.*)$/u;
 // a Dataview field [key:: value]; the value may hold links: [owner:: [[@Sam Taylor]], [[@Alex]]]
 const PLAN_FIELD_RE = /\[[\w-]+::\s*(?:\[\[[^\]]*\]\]|[^\]\[])*\]/gu;
+// the Tasks plugin's priorities, highest first: [level, emoji, label]; no emoji is Normal
+const PLAN_PRIORITIES = [
+  [5, '🔺', 'Highest'],
+  [4, '⏫', 'High'],
+  [3, '🔼', 'Medium'],
+  [2, '', 'Normal'],
+  [1, '🔽', 'Low'],
+  [0, '⏬', 'Lowest'],
+];
+/** A task text's priority level (pure): 5 highest … 2 normal … 0 lowest. */
+function planPriority(raw) {
+  for (const [n, e] of PLAN_PRIORITIES) if (e && String(raw || '').includes(e)) return n;
+  return 2;
+}
+/** The emoji for a level ('' for normal). */
+const planPrioritySign = (n) => (PLAN_PRIORITIES.find((p) => p[0] === n) || [])[1] || '';
 const PLAN_OWNER_RE = /\[owner::\s*((?:\[\[[^\]]*\]\]|[^\]\[])*)\]/iu;
 
 /**
@@ -1009,7 +1025,7 @@ function planTask(line, at = {}) {
   const milestone = /(^|\s)#milestone(?=\s|$)/iu.test(raw); // fork: a milestone is tagged, not just 0 days
   const flagged = /(^|\s)#blocked(?=\s|$)/iu.test(raw); // blocked by something outside the plan (a supplier, an approval)
   const marks = ['risk', 'issue', 'decision'].filter((k) => new RegExp(`(^|\\s)#${k}(?=\\s|$)`, 'iu').test(raw)); // markers
-  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, marks, owners: planOwners(raw), due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
+  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, marks, owners: planOwners(raw), priority: planPriority(raw), due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
 }
 
 /** Does the text carry one of the task tags ("#task, #todo"); whole tags, any case. */
@@ -1207,16 +1223,29 @@ function planLoad(rows) {
     const t = r.task;
     if (t.external || planClosed(t) || !(t.owners || []).length) continue;
     for (const o of t.owners) {
-      const me = out.get(o.key) || out.set(o.key, { name: o.name, weeks: new Map() }).get(o.key);
-      for (let d = r.es; d < r.ef; d++) me.weeks.set(Math.floor(d / 5), (me.weeks.get(Math.floor(d / 5)) || 0) + 1);
+      const me = out.get(o.key) || out.set(o.key, { name: o.name, weeks: new Map(), rows: new Map() }).get(o.key);
+      for (let d = r.es; d < r.ef; d++) {
+        const w = Math.floor(d / 5);
+        me.weeks.set(w, (me.weeks.get(w) || 0) + 1);
+        const list = me.rows.get(w) || me.rows.set(w, []).get(w);
+        if (!list.includes(r)) list.push(r);
+      }
     }
   }
   return out;
 }
-/** [{ name, week, days }] where someone has more than `cap` days of work in a week. */
+/**
+ * [{ name, week, days, lowest }] where someone has more than `cap` days of work in a week. lowest: their task that
+ * week that could move most easily: the lowest priority, then the most slack, then the latest start.
+ */
 function planOverloads(rows, cap = 5) {
   const out = [];
-  for (const { name, weeks } of planLoad(rows).values()) for (const [week, days] of weeks) if (days > cap) out.push({ name, week, days });
+  for (const { name, weeks, rows: byWeek } of planLoad(rows).values())
+    for (const [week, days] of weeks) {
+      if (days <= cap) continue;
+      const pick = [...byWeek.get(week)].sort((a, b) => (a.task.priority ?? 2) - (b.task.priority ?? 2) || b.slack - a.slack || b.es - a.es)[0];
+      out.push({ name, week, days, lowest: pick ? pick.task : null });
+    }
   return out.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
 }
 /* @src src/shared/plan-scope.js */
@@ -7993,6 +8022,8 @@ Object.assign(NeonTasks.prototype, {
     const body = row.createDiv('nt-body');
     const txt = body.createDiv({ cls: 'nt-text', text: t.display || t.raw });
     const meta = body.createDiv('nt-meta');
+    const pri = planPriority(t.raw); // fork: the Tasks plugin's priority, shown as its emoji
+    if (pri !== 2) tip(meta.createSpan({ cls: 'nt-pri', text: planPrioritySign(pri) }), `${PLAN_PRIORITIES.find((p) => p[0] === pri)[2]} priority`);
     if (t.due) {
       const d = moment(t.due);
       meta.createSpan({ cls: `nt-due is-${t.group}`, text: t.group === 'today' ? 'today' : d.format('D MMM') });
@@ -8114,11 +8145,13 @@ Object.assign(NeonTasks.prototype, {
           doing: li.task === '/',
           carried: daily && !daily.isSame(today, 'day') ? daily : null,
           display: taskDisplay(raw, tag),
+          priority: planPriority(raw), // fork: the Tasks plugin's priority
           quick: f.path === todo,
         });
       }
     }
-    out.sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || b.file.stat.mtime - a.file.stat.mtime || a.line - b.line);
+    // fork: by date, then highest priority first, then the most recently changed note
+    out.sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || b.priority - a.priority || b.file.stat.mtime - a.file.stat.mtime || a.line - b.line);
     this.sourcePaths = new Set(sources.keys());
     return out;
   },
@@ -10983,7 +11016,8 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
       const when = t.milestone ? `${start}, 0d` : !relative && t.start && t.due && t.due >= t.start ? `${start}, ${ymdAdd(t.due, 1)}` : `${start}, ${days ? `${days}d` : '4h'}`; // 0 days: a thin bar
       lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), bar.id].join(', ')}, ${when}`);
-      drawn.push({ bar, label: sign + (t.external ? '↗ ' : '') + planText(t.raw), who, milestone: !!t.milestone, thin: !t.milestone && !days });
+      const pri = planPrioritySign(t.priority ?? 2);
+      drawn.push({ bar, label: (pri ? `${pri} ` : '') + sign + (t.external ? '↗ ' : '') + planText(t.raw), who, milestone: !!t.milestone, thin: !t.milestone && !days });
     }
     if (phases && mine.length) {
       // one bar for the phase: first start to last finish, its worst task's colour
@@ -11114,6 +11148,7 @@ class PlanView extends ItemView {
     this.lanes = 'phase'; // board rows: by phase or by person
     this.ganttPhases = false; // Gantt: one bar per phase (plan-forecast.js)
     this.markFilter = null; // List: only risks, issues or decisions
+    this.listOrder = 'plan'; // List: the plan's order, or by priority within each phase
     this.selKey = null; // the selected task (planKey): New task follows it
     this.tasks = [];
     this.paths = new Set();
@@ -11184,6 +11219,8 @@ class PlanView extends ItemView {
       this.render();
     });
     this.newBtn = button(tools, { icon: 'plus', text: 'New task', cls: 'np-new', title: 'Add a task: after the selected task (the last one you opened), depending on it', onClick: () => this.newTask() });
+    this.orderEl = pills(tools, [['plan', 'Plan order'], ['priority', 'By priority']], this.listOrder, (v) => ((this.listOrder = v || 'plan'), this.render()));
+    tip(this.orderEl.el, 'List: the plan’s order, or highest priority first within each phase');
     this.markEl = pills(tools, PLAN_MARKS.map(([k, sign, label]) => [k, `${sign} ${label}s`]), this.markFilter, (v) => ((this.markFilter = v || null), this.render()), 'can-clear');
     tip(this.markEl.el, 'Only risks, issues or decisions (click again for all)');
     this.clearSelBtn = button(tools, { icon: 'x', cls: 'nd-icon-btn is-hidden', title: 'New tasks at the end of the plan instead (clear the selection)', onClick: () => this.select(null) });
@@ -11310,6 +11347,7 @@ class PlanView extends ItemView {
     }
     this.renderLegend(bars);
     this.markEl.el.toggleClass('is-hidden', this.mode !== 'list' || !this.tasks.some((t) => (t.marks || []).length));
+    this.orderEl.el.toggleClass('is-hidden', this.mode !== 'list');
     window.setTimeout(() => this.syncSelection(), 0); // after the chart or list is drawn
     if (this.mode === 'list') return this.renderList(sched, weeks);
     if (this.mode === 'board') return this.renderBoard();
@@ -11379,17 +11417,25 @@ class PlanView extends ItemView {
     const table = this.bodyEl.createEl('table', { cls: 'np-table' });
     const hr = table.createEl('thead').createEl('tr');
     const slips = !!this.baseline();
-    for (const h of ['', 'Task', 'Owner', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack', ...(slips ? ['Slip'] : [])]) hr.createEl('th', { text: h });
+    for (const h of ['', 'Task', 'Owner', 'Priority', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack', ...(slips ? ['Slip'] : [])]) hr.createEl('th', { text: h });
     const body = table.createEl('tbody');
     let phase = null;
+    // by priority: highest first within each phase (phases keep their order)
+    const phaseAt = new Map();
     for (const r of sched.rows) {
+      const k = r.task.external ? PLAN_OUTSIDE : r.task.phase || 'Tasks';
+      if (!phaseAt.has(k)) phaseAt.set(k, phaseAt.size);
+    }
+    const ph = (r) => phaseAt.get(r.task.external ? PLAN_OUTSIDE : r.task.phase || 'Tasks');
+    const ordered = this.listOrder === 'priority' ? sched.rows.map((r, i) => [r, i]).sort((a, b) => ph(a[0]) - ph(b[0]) || (b[0].task.priority ?? 2) - (a[0].task.priority ?? 2) || a[1] - b[1]).map(([r]) => r) : sched.rows;
+    for (const r of ordered) {
       const t = r.task;
       if (!this.shows(t)) continue;
       if (this.markFilter && !(t.marks || []).includes(this.markFilter)) continue;
       const ph = t.external ? PLAN_OUTSIDE : t.phase || 'Tasks';
       if (ph !== phase) {
         phase = ph;
-        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: slips ? '11' : '10' } });
+        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: slips ? '12' : '11' } });
       }
       const st = planState(t, byId, this.today);
       const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}`, attr: { 'data-key': planKey(t) } });
@@ -11407,6 +11453,8 @@ class PlanView extends ItemView {
       });
       if (t.external) name.createSpan({ cls: 'np-file', text: ` · ${t.file.basename}` });
       tr.createEl('td', { cls: 'np-owner', text: (t.owners || []).map((o) => o.name).join(', ') });
+      const pr = PLAN_PRIORITIES.find((p) => p[0] === (t.priority ?? 2));
+      tr.createEl('td', { cls: 'np-owner', text: pr[0] === 2 ? '' : `${pr[1]} ${pr[2]}` });
       const kind = this.kinds.get(t) || st;
       const chip = tr.createEl('td').createSpan({ cls: `np-state is-${st}`, text: PLAN_STATE_LABEL[st] });
       planFill(chip, st === 'blocked' || st === 'waiting' ? st : kind);
@@ -11666,6 +11714,20 @@ function planSetSign(rest, sign, value) {
   const at = tags ? tags.index : rest.length;
   return `${rest.slice(0, at)} ${sign} ${value}${rest.slice(at)}`;
 }
+/** The Tasks plugin's priority emoji set to a level (2, normal: none): in place of the old one, else before the tags. */
+function planSetPriority(rest, level) {
+  const sign = planPrioritySign(level);
+  const m = rest.match(/\s*[🔺⏫🔼🔽⏬]\uFE0F?/u);
+  if (m) {
+    const before = rest.slice(0, m.index);
+    const after = rest.slice(m.index + m[0].length).replace(/\s*[🔺⏫🔼🔽⏬]\uFE0F?/gu, '');
+    return sign ? `${before} ${sign}${after}` : `${before}${after}`;
+  }
+  if (!sign) return rest;
+  const tags = rest.match(/(?:\s+#[\w/-]+)+\s*$/u);
+  const at = tags ? tags.index : rest.length;
+  return `${rest.slice(0, at)} ${sign}${rest.slice(at)}`;
+}
 /** A tag on (added at the end) or off. */
 function planSetTag(rest, tag, on) {
   const re = new RegExp(`(^|\\s)#${tag}(?=\\s|$)`, 'iu');
@@ -11697,6 +11759,7 @@ function planApplyForm(rest, box, f, today) {
   r = planSetTag(r, 'milestone', !!f.milestone);
   r = planSetTag(r, 'blocked', !!f.flagged);
   if (f.marks) for (const k of ['risk', 'issue', 'decision']) r = planSetTag(r, k, f.marks.includes(k));
+  if (f.priority != null) r = planSetPriority(r, f.priority);
   if (f.tag) r = planSetTag(r, f.tag.replace(/^#/, ''), true);
   const nb = f.box != null ? f.box : box;
   if (nb === 'x' || nb === 'X') {
@@ -11884,6 +11947,7 @@ class PlanTaskModal extends Modal {
       milestone: !!(t && t.milestone),
       flagged: !!(t && t.flagged),
       marks: t ? [...(t.marks || [])] : [],
+      priority: t ? t.priority ?? 2 : 2,
       start: (t && t.start) || null,
       scheduled: (t && t.scheduled) || null,
       due: (t && t.due) || null,
@@ -11926,6 +11990,11 @@ class PlanTaskModal extends Modal {
     for (const [b, label] of choices) status.createEl('option', { text: label, attr: { value: b } });
     status.value = f.box;
     status.addEventListener('change', () => ((f.box = status.value), this.update()));
+    sp.createSpan({ cls: 'np-ed-sub', text: 'Priority' });
+    const pri = sp.createEl('select', { cls: 'dropdown' });
+    for (const [n, e, label] of PLAN_PRIORITIES) pri.createEl('option', { text: e ? `${e} ${label}` : label, attr: { value: String(n) } });
+    pri.value = String(f.priority);
+    pri.addEventListener('change', () => ((f.priority = +pri.value), this.update()));
     sp.createSpan({ cls: 'np-ed-sub', text: 'Phase' });
     const phase = sp.createEl('select', { cls: 'dropdown' });
     phase.createEl('option', { text: '(end of the note)', attr: { value: '' } });
@@ -12388,7 +12457,9 @@ Object.assign(PlanView.prototype, {
       for (const [key, , box] of PLAN_COLUMNS) {
         const cell = board.createDiv({ cls: `np-cell is-${key}` });
         if (box !== null) cell.dataset.box = box; // a drop target (Waiting has none)
-        for (const t of list.filter((x) => column(x) === key)) this.card(cell, t, byId);
+        // highest priority first (the plan's order otherwise)
+        const cards = list.filter((x) => column(x) === key).map((t, i) => [t, i]).sort((a, b) => (b[0].priority ?? 2) - (a[0].priority ?? 2) || a[1] - b[1]);
+        for (const [t] of cards) this.card(cell, t, byId);
       }
     }
   },
@@ -12398,6 +12469,7 @@ Object.assign(PlanView.prototype, {
     planFill(c, kind); // same colours as the Gantt bars and graph boxes
     c.createDiv({ cls: 'np-card-text', text: planText(t.raw) });
     const meta = c.createDiv('np-card-meta');
+    if (planPrioritySign(t.priority ?? 2)) tip(meta.createSpan({ cls: 'np-pri', text: planPrioritySign(t.priority) }), `${PLAN_PRIORITIES.find((p) => p[0] === t.priority)[2]} priority`);
     if (t.id) meta.createSpan({ cls: 'np-id', text: t.id });
     meta.createSpan({ text: t.milestone ? '◆ milestone' : `${planDays(t)}d` });
     if (this.ownerText(t)) meta.createSpan({ text: this.ownerText(t) });
@@ -12538,9 +12610,10 @@ Object.assign(PlanView.prototype, {
   /** "Marcus Hale has 7 days of work in the week of Mon 23 Nov (5 available)". */
   loadLines(sched) {
     const weeks = this.weeks || !this.base;
-    return planOverloads(sched.rows).map(({ name, week, days }) => {
+    return planOverloads(sched.rows).map(({ name, week, days, lowest }) => {
       const when = weeks ? `Wk ${week + 1}` : `the week of ${planDayLabel(week * 5, this.base, false)}`;
-      return `${name} has ${days} days of work in ${when} (5 available)`;
+      const move = lowest ? `; the easiest to move: ${lowest.id || planClip(planText(lowest.raw), 30)}${lowest.priority !== 2 ? ` (${PLAN_PRIORITIES.find((p) => p[0] === lowest.priority)[2].toLowerCase()} priority)` : ''}` : '';
+      return `${name} has ${days} days of work in ${when} (5 available)${move}`;
     });
   },
   /** "👤 Marcus, Sofia" for a card or row, or ''. */

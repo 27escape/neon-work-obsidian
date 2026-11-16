@@ -46,5 +46,23 @@ test('workload: more than five days in a week for one person is flagged', () => 
   const tasks = [T('- [ ] A [duration:: 4d] [owner:: Sam] 🆔 a'), T('- [ ] B [duration:: 3d] [owner:: Sam]'), T('- [ ] C [duration:: 5d] [owner:: Alex]'), T('- [x] D [duration:: 5d] [owner:: Sam]')];
   const over = J(P.planOverloads(P.planSchedule(tasks).rows));
   assert.equal(over.length, 1);
-  assert.deepEqual(over[0], { name: 'Sam', week: 0, days: 7 });
+  assert.deepEqual({ name: over[0].name, week: over[0].week, days: over[0].days }, { name: 'Sam', week: 0, days: 7 });
+});
+
+const PP = load('neon-tickets', ['planTask', 'planSchedule', 'planOverloads', 'planApplyForm', 'planPriority', 'planGanttText']);
+
+test('priority: the Tasks plugin emoji read, set in place, cleared; the easiest task to move when someone is overloaded', () => {
+  assert.equal(PP.planPriority('a ⏫ #task'), 4);
+  assert.equal(PP.planPriority('a 🔺'), 5);
+  assert.equal(PP.planPriority('a ⏬'), 0);
+  assert.equal(PP.planPriority('a'), 2);
+  const f = (o) => Object.assign({ desc: 'A', box: ' ', days: 2, id: 'a', deps: [] }, o);
+  assert.equal(PP.planApplyForm('A [duration:: 2d] 🆔 a ⏫ #task', ' ', f({ priority: 1 }), 'x').rest, 'A [duration:: 2d] 🆔 a 🔽 #task');
+  assert.equal(PP.planApplyForm('A [duration:: 2d] 🆔 a ⏫ #task', ' ', f({ priority: 2 }), 'x').rest, 'A [duration:: 2d] 🆔 a #task');
+  assert.equal(PP.planApplyForm('A [duration:: 2d] 🆔 a #task', ' ', f({ priority: 5 }), 'x').rest, 'A [duration:: 2d] 🆔 a 🔺 #task');
+  const tasks = [PP.planTask('- [ ] Big [duration:: 4d] [owner:: Sam] 🆔 big ⏫'), PP.planTask('- [ ] Small [duration:: 3d] [owner:: Sam] 🆔 small 🔽')];
+  const over = PP.planOverloads(PP.planSchedule(tasks).rows);
+  assert.equal(over[0].lowest.id, 'small');
+  const g = PP.planGanttText(tasks, {});
+  assert.equal(g.rows.find((r) => r.bar && r.bar.task.id === 'big').label, '⏫ Big');
 });

@@ -76,6 +76,8 @@ Object.assign(NeonTasks.prototype, {
     const body = row.createDiv('nt-body');
     const txt = body.createDiv({ cls: 'nt-text', text: t.display || t.raw });
     const meta = body.createDiv('nt-meta');
+    const pri = planPriority(t.raw); // fork: the Tasks plugin's priority, shown as its emoji
+    if (pri !== 2) tip(meta.createSpan({ cls: 'nt-pri', text: planPrioritySign(pri) }), `${PLAN_PRIORITIES.find((p) => p[0] === pri)[2]} priority`);
     if (t.due) {
       const d = moment(t.due);
       meta.createSpan({ cls: `nt-due is-${t.group}`, text: t.group === 'today' ? 'today' : d.format('D MMM') });

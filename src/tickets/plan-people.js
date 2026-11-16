@@ -50,9 +50,10 @@ Object.assign(PlanView.prototype, {
   /** "Marcus Hale has 7 days of work in the week of Mon 23 Nov (5 available)". */
   loadLines(sched) {
     const weeks = this.weeks || !this.base;
-    return planOverloads(sched.rows).map(({ name, week, days }) => {
+    return planOverloads(sched.rows).map(({ name, week, days, lowest }) => {
       const when = weeks ? `Wk ${week + 1}` : `the week of ${planDayLabel(week * 5, this.base, false)}`;
-      return `${name} has ${days} days of work in ${when} (5 available)`;
+      const move = lowest ? `; the easiest to move: ${lowest.id || planClip(planText(lowest.raw), 30)}${lowest.priority !== 2 ? ` (${PLAN_PRIORITIES.find((p) => p[0] === lowest.priority)[2].toLowerCase()} priority)` : ''}` : '';
+      return `${name} has ${days} days of work in ${when} (5 available)${move}`;
     });
   },
   /** "👤 Marcus, Sofia" for a card or row, or ''. */

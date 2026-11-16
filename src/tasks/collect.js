@@ -58,11 +58,13 @@ Object.assign(NeonTasks.prototype, {
           doing: li.task === '/',
           carried: daily && !daily.isSame(today, 'day') ? daily : null,
           display: taskDisplay(raw, tag),
+          priority: planPriority(raw), // fork: the Tasks plugin's priority
           quick: f.path === todo,
         });
       }
     }
-    out.sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || b.file.stat.mtime - a.file.stat.mtime || a.line - b.line);
+    // fork: by date, then highest priority first, then the most recently changed note
+    out.sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || b.priority - a.priority || b.file.stat.mtime - a.file.stat.mtime || a.line - b.line);
     this.sourcePaths = new Set(sources.keys());
     return out;
   },

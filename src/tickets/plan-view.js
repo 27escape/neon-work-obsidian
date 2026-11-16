@@ -39,6 +39,7 @@ class PlanView extends ItemView {
     this.lanes = 'phase'; // board rows: by phase or by person
     this.ganttPhases = false; // Gantt: one bar per phase (plan-forecast.js)
     this.markFilter = null; // List: only risks, issues or decisions
+    this.listOrder = 'plan'; // List: the plan's order, or by priority within each phase
     this.selKey = null; // the selected task (planKey): New task follows it
     this.tasks = [];
     this.paths = new Set();
@@ -109,6 +110,8 @@ class PlanView extends ItemView {
       this.render();
     });
     this.newBtn = button(tools, { icon: 'plus', text: 'New task', cls: 'np-new', title: 'Add a task: after the selected task (the last one you opened), depending on it', onClick: () => this.newTask() });
+    this.orderEl = pills(tools, [['plan', 'Plan order'], ['priority', 'By priority']], this.listOrder, (v) => ((this.listOrder = v || 'plan'), this.render()));
+    tip(this.orderEl.el, 'List: the plan’s order, or highest priority first within each phase');
     this.markEl = pills(tools, PLAN_MARKS.map(([k, sign, label]) => [k, `${sign} ${label}s`]), this.markFilter, (v) => ((this.markFilter = v || null), this.render()), 'can-clear');
     tip(this.markEl.el, 'Only risks, issues or decisions (click again for all)');
     this.clearSelBtn = button(tools, { icon: 'x', cls: 'nd-icon-btn is-hidden', title: 'New tasks at the end of the plan instead (clear the selection)', onClick: () => this.select(null) });
@@ -235,6 +238,7 @@ class PlanView extends ItemView {
     }
     this.renderLegend(bars);
     this.markEl.el.toggleClass('is-hidden', this.mode !== 'list' || !this.tasks.some((t) => (t.marks || []).length));
+    this.orderEl.el.toggleClass('is-hidden', this.mode !== 'list');
     window.setTimeout(() => this.syncSelection(), 0); // after the chart or list is drawn
     if (this.mode === 'list') return this.renderList(sched, weeks);
     if (this.mode === 'board') return this.renderBoard();
@@ -304,17 +308,25 @@ class PlanView extends ItemView {
     const table = this.bodyEl.createEl('table', { cls: 'np-table' });
     const hr = table.createEl('thead').createEl('tr');
     const slips = !!this.baseline();
-    for (const h of ['', 'Task', 'Owner', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack', ...(slips ? ['Slip'] : [])]) hr.createEl('th', { text: h });
+    for (const h of ['', 'Task', 'Owner', 'Priority', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack', ...(slips ? ['Slip'] : [])]) hr.createEl('th', { text: h });
     const body = table.createEl('tbody');
     let phase = null;
+    // by priority: highest first within each phase (phases keep their order)
+    const phaseAt = new Map();
     for (const r of sched.rows) {
+      const k = r.task.external ? PLAN_OUTSIDE : r.task.phase || 'Tasks';
+      if (!phaseAt.has(k)) phaseAt.set(k, phaseAt.size);
+    }
+    const ph = (r) => phaseAt.get(r.task.external ? PLAN_OUTSIDE : r.task.phase || 'Tasks');
+    const ordered = this.listOrder === 'priority' ? sched.rows.map((r, i) => [r, i]).sort((a, b) => ph(a[0]) - ph(b[0]) || (b[0].task.priority ?? 2) - (a[0].task.priority ?? 2) || a[1] - b[1]).map(([r]) => r) : sched.rows;
+    for (const r of ordered) {
       const t = r.task;
       if (!this.shows(t)) continue;
       if (this.markFilter && !(t.marks || []).includes(this.markFilter)) continue;
       const ph = t.external ? PLAN_OUTSIDE : t.phase || 'Tasks';
       if (ph !== phase) {
         phase = ph;
-        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: slips ? '11' : '10' } });
+        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: slips ? '12' : '11' } });
       }
       const st = planState(t, byId, this.today);
       const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}`, attr: { 'data-key': planKey(t) } });
@@ -332,6 +344,8 @@ class PlanView extends ItemView {
       });
       if (t.external) name.createSpan({ cls: 'np-file', text: ` · ${t.file.basename}` });
       tr.createEl('td', { cls: 'np-owner', text: (t.owners || []).map((o) => o.name).join(', ') });
+      const pr = PLAN_PRIORITIES.find((p) => p[0] === (t.priority ?? 2));
+      tr.createEl('td', { cls: 'np-owner', text: pr[0] === 2 ? '' : `${pr[1]} ${pr[2]}` });
       const kind = this.kinds.get(t) || st;
       const chip = tr.createEl('td').createSpan({ cls: `np-state is-${st}`, text: PLAN_STATE_LABEL[st] });
       planFill(chip, st === 'blocked' || st === 'waiting' ? st : kind);

@@ -66,6 +66,20 @@ function planSetSign(rest, sign, value) {
   const at = tags ? tags.index : rest.length;
   return `${rest.slice(0, at)} ${sign} ${value}${rest.slice(at)}`;
 }
+/** The Tasks plugin's priority emoji set to a level (2, normal: none): in place of the old one, else before the tags. */
+function planSetPriority(rest, level) {
+  const sign = planPrioritySign(level);
+  const m = rest.match(/\s*[🔺⏫🔼🔽⏬]\uFE0F?/u);
+  if (m) {
+    const before = rest.slice(0, m.index);
+    const after = rest.slice(m.index + m[0].length).replace(/\s*[🔺⏫🔼🔽⏬]\uFE0F?/gu, '');
+    return sign ? `${before} ${sign}${after}` : `${before}${after}`;
+  }
+  if (!sign) return rest;
+  const tags = rest.match(/(?:\s+#[\w/-]+)+\s*$/u);
+  const at = tags ? tags.index : rest.length;
+  return `${rest.slice(0, at)} ${sign}${rest.slice(at)}`;
+}
 /** A tag on (added at the end) or off. */
 function planSetTag(rest, tag, on) {
   const re = new RegExp(`(^|\\s)#${tag}(?=\\s|$)`, 'iu');
@@ -97,6 +111,7 @@ function planApplyForm(rest, box, f, today) {
   r = planSetTag(r, 'milestone', !!f.milestone);
   r = planSetTag(r, 'blocked', !!f.flagged);
   if (f.marks) for (const k of ['risk', 'issue', 'decision']) r = planSetTag(r, k, f.marks.includes(k));
+  if (f.priority != null) r = planSetPriority(r, f.priority);
   if (f.tag) r = planSetTag(r, f.tag.replace(/^#/, ''), true);
   const nb = f.box != null ? f.box : box;
   if (nb === 'x' || nb === 'X') {

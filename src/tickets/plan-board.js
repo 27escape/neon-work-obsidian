@@ -58,7 +58,9 @@ Object.assign(PlanView.prototype, {
       for (const [key, , box] of PLAN_COLUMNS) {
         const cell = board.createDiv({ cls: `np-cell is-${key}` });
         if (box !== null) cell.dataset.box = box; // a drop target (Waiting has none)
-        for (const t of list.filter((x) => column(x) === key)) this.card(cell, t, byId);
+        // highest priority first (the plan's order otherwise)
+        const cards = list.filter((x) => column(x) === key).map((t, i) => [t, i]).sort((a, b) => (b[0].priority ?? 2) - (a[0].priority ?? 2) || a[1] - b[1]);
+        for (const [t] of cards) this.card(cell, t, byId);
       }
     }
   },
@@ -68,6 +70,7 @@ Object.assign(PlanView.prototype, {
     planFill(c, kind); // same colours as the Gantt bars and graph boxes
     c.createDiv({ cls: 'np-card-text', text: planText(t.raw) });
     const meta = c.createDiv('np-card-meta');
+    if (planPrioritySign(t.priority ?? 2)) tip(meta.createSpan({ cls: 'np-pri', text: planPrioritySign(t.priority) }), `${PLAN_PRIORITIES.find((p) => p[0] === t.priority)[2]} priority`);
     if (t.id) meta.createSpan({ cls: 'np-id', text: t.id });
     meta.createSpan({ text: t.milestone ? '◆ milestone' : `${planDays(t)}d` });
     if (this.ownerText(t)) meta.createSpan({ text: this.ownerText(t) });
