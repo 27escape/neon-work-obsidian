@@ -101,13 +101,20 @@ async function planPaint(el, bars, onBar = null) {
     rect.style.fill = c;
     rect.style.stroke = b.crit ? edge : c;
     rect.style.strokeWidth = b.crit ? '2px' : '1px';
-    if (onBar) {
+    if (b.mark) {
+      // a #risk / #issue / #decision task: a dashed outline in the marker's colour
+      const m = PLAN_MARKS.find(([k]) => k === b.mark);
+      rect.style.stroke = planCssHex(m[3], m[4]);
+      rect.style.strokeWidth = '3px';
+      rect.style.strokeDasharray = '6 3';
+    }
+    if (onBar && b.task) {
       rect.style.cursor = 'pointer';
       rect.addEventListener('click', (e) => onBar(e, b));
     }
     const label = svg.querySelector(`text[id="${b.id}-text"], text[id$="-${b.id}-text"]`);
     if (label && !/Outside/i.test(label.getAttribute('class') || '')) label.style.fill = planInk(b.kind);
-    if (label && onBar) {
+    if (label && onBar && b.task) {
       label.style.cursor = 'pointer';
       label.addEventListener('click', (e) => onBar(e, b));
     }

@@ -15,8 +15,15 @@ Object.assign(NeonProjects.prototype, {
     if (!this.planCache) this.planCache = new Map();
     if (!this.planCache.has(key)) {
       const today = moment().format('YYYY-MM-DD');
+      const ymd = (m) => (m && m.format ? m.format('YYYY-MM-DD') : null);
       const job = planCollect(this.app, scope, { neighbours: false })
-        .then((tasks) => planCounts(tasks, today))
+        .then((tasks) => {
+          const c = planCounts(tasks, today);
+          // the forecast finish against the due date, when the project has a started date
+          const base = ymd(t.startedOn);
+          const g = base && c.total ? planGanttText(tasks, { base, today, due: ymd(t.due) }) : null;
+          return Object.assign(c, { end: g ? g.end : null, late: g ? g.late : 0, due: ymd(t.due) });
+        })
         .catch((e) => {
           console.error('Projects: could not read the project tasks', e);
           return null;
@@ -28,9 +35,11 @@ Object.assign(NeonProjects.prototype, {
   /** Adds the counts to a row once read; short: only overdue and due this week. */
   renderPlanSummary(el, t, short = false) {
     this.planSummary(t).then((c) => {
-      const text = planSummaryText(c, short);
-      if (!text || !el.isConnected) return;
-      const s = el.createSpan({ cls: `tk-age tk-plan${c.overdue ? ' is-overdue' : ''}${short ? ' is-short' : ''}`, text: short ? ` · ${text}` : text });
+      if (!c || !el.isConnected) return;
+      const late = c.late ? `${c.late} working day${c.late === 1 ? '' : 's'} late` : '';
+      const text = short ? [planSummaryText(c, true), late].filter(Boolean).join(' · ') : [planSummaryText(c), planForecastText(c.end, c.due, c.late)].filter(Boolean).join(' · ');
+      if (!text) return;
+      const s = el.createSpan({ cls: `tk-age tk-plan${c.overdue || c.late ? ' is-overdue' : ''}${short ? ' is-short' : ''}`, text: short ? ` · ${text}` : text });
       tip(s, 'This project’s tasks (ready: nothing it depends on is still open)');
     });
   },

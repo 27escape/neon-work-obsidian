@@ -5466,11 +5466,11 @@ body:not(.nd-themed) .nd-empty {
 .np-plan .np-swatch {
   width: 12px;
   height: 12px;
-  border-radius: 3px;
+  border-radius: var(--radius-s);
 }
 .np-plan .np-key-crit {
   border: 2px solid var(--text-normal);
-  border-radius: 3px;
+  border-radius: var(--radius-s);
   padding: 0 5px;
 }
 
@@ -5507,7 +5507,7 @@ body:not(.nd-themed) .nd-empty {
 .np-plan .np-cell {
   min-height: 34px;
   padding: 4px;
-  border-radius: 6px;
+  border-radius: var(--radius-s);
   background: color-mix(in srgb, var(--nd-line) 25%, transparent);
   display: flex;
   flex-direction: column;
@@ -5523,7 +5523,7 @@ body:not(.nd-themed) .nd-empty {
   background: var(--background-primary);
   border: 1px solid var(--nd-line);
   border-left: 4px solid var(--nd-line);
-  border-radius: 6px;
+  border-radius: var(--radius-s);
   padding: 6px 8px;
   cursor: grab;
   font-size: 0.9em;
@@ -5590,7 +5590,7 @@ body:not(.nd-themed) .nd-empty {
   pointer-events: none;
   opacity: 0.9;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-s);
   font-size: var(--font-ui-small);
   box-shadow: var(--shadow-s);
 }
@@ -5640,6 +5640,51 @@ body:not(.nd-themed) .nd-empty {
 .np-plan .np-owner {
   white-space: nowrap;
   color: var(--nd-faint);
+}
+
+/* forecast, baseline, markers */
+.np-plan .np-sum.is-late {
+  color: var(--color-red);
+}
+.np-plan .np-baseline.is-on {
+  color: var(--nd-accent);
+}
+.np-plan .np-num.is-late {
+  color: var(--color-red);
+  font-weight: 600;
+}
+.np-plan .np-key-mark {
+  border: 2px dashed var(--nd-line);
+  border-radius: var(--radius-s);
+  padding: 0 5px;
+}
+.np-plan .np-mark {
+  margin-top: 4px;
+  font-size: 0.8em;
+  font-weight: 600;
+  padding: 0 6px;
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  display: inline-block;
+}
+.np-plan .np-mark.is-risk {
+  border: 1px dashed var(--color-orange);
+}
+.np-plan .np-mark.is-issue {
+  border: 1px dashed var(--color-red);
+}
+.np-plan .np-mark.is-decision {
+  border: 1px dashed var(--color-green);
+}
+.np-plan .np-mark-sign.is-risk {
+  color: var(--color-orange);
+}
+.np-plan .np-mark-sign.is-issue {
+  color: var(--color-red);
+}
+.np-plan .np-mark-sign.is-decision {
+  color: var(--color-green);
 }
 /* @css src/tickets/styles-plan-editor.css */
 /* the task editor */
@@ -5737,7 +5782,7 @@ body:not(.nd-themed) .nd-empty {
 .np-editor .np-swatch {
   width: 10px;
   height: 10px;
-  border-radius: 3px;
+  border-radius: var(--radius-s);
   flex: none;
 }
 .np-editor .np-id,

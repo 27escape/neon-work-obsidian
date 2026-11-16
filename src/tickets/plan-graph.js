@@ -6,7 +6,8 @@
 /** Text for a box: quotes and brackets Mermaid would read as syntax swapped out, clipped. */
 const planNodeLabel = (t, max = 40) => {
   const who = t.owners ? planOwnerShort(t) : '';
-  const text = planClip(((t.external ? '↗ ' : '') + planText(t.raw)).replace(/"/g, "'").replace(/[[\]{}<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'Untitled', max);
+  const mark = t.marks ? planMark(t) : null;
+  const text = planClip(((mark ? `${mark[1]} ` : '') + (t.external ? '↗ ' : '') + planText(t.raw)).replace(/"/g, "'").replace(/[[\]{}<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'Untitled', max);
   return who ? `${text} · ${who}` : text;
 };
 
@@ -59,6 +60,10 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   }
   const critIds = sched.rows.filter((r) => r.crit && !r.task.external && !planClosed(r.task)).map((r) => ids.get(r.task));
   if (critIds.length) lines.push(`  classDef crit stroke:${edge},stroke-width:3px`, `  class ${critIds.join(',')} crit`);
+  for (const [k, , , , fb] of PLAN_MARKS) {
+    const list = tasks.filter((t) => (t.marks || []).includes(k)).map((t) => ids.get(t));
+    if (list.length) lines.push(`  classDef ${k} stroke:${colours[`mark-${k}`] || fb},stroke-width:3px,stroke-dasharray:6 3`, `  class ${list.join(',')} ${k}`);
+  }
   const dim = show ? tasks.filter((t) => !show(t)).map((t) => ids.get(t)) : [];
   if (dim.length) lines.push('  classDef dim opacity:0.25', `  class ${dim.join(',')} dim`); // not this person's: greyed
   return { text: tasks.length ? lines.join('\n') : '', nodes: tasks.map((t) => ({ id: ids.get(t), task: t })) };
@@ -67,7 +72,7 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
 Object.assign(PlanView.prototype, {
   /** Draw the graph and make each box open its task. */
   renderGraph(sched) {
-    const colours = Object.fromEntries(PLAN_KINDS.map(([k]) => [k, planColour(k)]));
+    const colours = Object.fromEntries([...PLAN_KINDS.map(([k]) => [k, planColour(k)]), ...PLAN_MARKS.map(([k, , , v, fb]) => [`mark-${k}`, planCssHex(v, fb)])]);
     const edge = planCssHex('--text-normal', '#222222');
     const { dir, phases, fit } = this.graph;
     const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases, show: this.who ? (t) => this.shows(t) : null });

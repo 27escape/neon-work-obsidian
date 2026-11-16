@@ -1006,7 +1006,8 @@ function planTask(line, at = {}) {
   const days = du ? Math.max(0, Math.round(parseFloat(du[1]) * (/^w/i.test(du[2] || '') ? 5 : 1))) : null;
   const milestone = /(^|\s)#milestone(?=\s|$)/iu.test(raw); // fork: a milestone is tagged, not just 0 days
   const flagged = /(^|\s)#blocked(?=\s|$)/iu.test(raw); // blocked by something outside the plan (a supplier, an approval)
-  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, owners: planOwners(raw), due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
+  const marks = ['risk', 'issue', 'decision'].filter((k) => new RegExp(`(^|\\s)#${k}(?=\\s|$)`, 'iu').test(raw)); // markers
+  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, marks, owners: planOwners(raw), due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
 }
 
 /** Does the text carry one of the task tags ("#task, #todo"); whole tags, any case. */
@@ -9386,6 +9387,7 @@ const PROJECT_BUCKETS = [
   ['done', 'Closed'],
 ];
 const PROJECTS_DEFAULTS = {
+  planBaselines: {}, // fork: Planning baselines per project: { path: { saved, end, tasks: { id: finish } } }
   // which notes are projects, and their status values (comma lists, in the order offered)
   projectTag: 'project',
   statusNotStarted: 'init, created',
@@ -10475,8 +10477,15 @@ Object.assign(NeonProjects.prototype, {
     if (!this.planCache) this.planCache = new Map();
     if (!this.planCache.has(key)) {
       const today = moment().format('YYYY-MM-DD');
+      const ymd = (m) => (m && m.format ? m.format('YYYY-MM-DD') : null);
       const job = planCollect(this.app, scope, { neighbours: false })
-        .then((tasks) => planCounts(tasks, today))
+        .then((tasks) => {
+          const c = planCounts(tasks, today);
+          // the forecast finish against the due date, when the project has a started date
+          const base = ymd(t.startedOn);
+          const g = base && c.total ? planGanttText(tasks, { base, today, due: ymd(t.due) }) : null;
+          return Object.assign(c, { end: g ? g.end : null, late: g ? g.late : 0, due: ymd(t.due) });
+        })
         .catch((e) => {
           console.error('Projects: could not read the project tasks', e);
           return null;
@@ -10488,9 +10497,11 @@ Object.assign(NeonProjects.prototype, {
   /** Adds the counts to a row once read; short: only overdue and due this week. */
   renderPlanSummary(el, t, short = false) {
     this.planSummary(t).then((c) => {
-      const text = planSummaryText(c, short);
-      if (!text || !el.isConnected) return;
-      const s = el.createSpan({ cls: `tk-age tk-plan${c.overdue ? ' is-overdue' : ''}${short ? ' is-short' : ''}`, text: short ? ` · ${text}` : text });
+      if (!c || !el.isConnected) return;
+      const late = c.late ? `${c.late} working day${c.late === 1 ? '' : 's'} late` : '';
+      const text = short ? [planSummaryText(c, true), late].filter(Boolean).join(' · ') : [planSummaryText(c), planForecastText(c.end, c.due, c.late)].filter(Boolean).join(' · ');
+      if (!text) return;
+      const s = el.createSpan({ cls: `tk-age tk-plan${c.overdue || c.late ? ' is-overdue' : ''}${short ? ' is-short' : ''}`, text: short ? ` · ${text}` : text });
       tip(s, 'This project’s tasks (ready: nothing it depends on is still open)');
     });
   },
@@ -10519,6 +10530,8 @@ const PLAN_KINDS = [
   ['outside', 'Outside this project', '--text-faint', '#999999'],
 ];
 
+/** "4 Dec" (pure). */
+const planShortDate = (ymd) => `${+ymd.slice(8, 10)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+ymd.slice(5, 7) - 1]}`;
 const planClip = (s, max) => (s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s);
 
 /**
@@ -10533,8 +10546,24 @@ function planBarKind(t, state, today, finish = null) {
   return state === 'doing' || state === 'blocked' || state === 'waiting' ? state : 'ready';
 }
 
-/** { text, sched, bars: [{ id, kind, crit }] }: Mermaid gantt text. base: the project's start date or null. */
-function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null } = {}) {
+// markers for tasks tagged #risk, #issue or #decision: a sign before the name and a dashed outline on the bar
+const PLAN_MARKS = [
+  ['risk', '⚠', 'Risk', '--color-orange', '#e8871e'],
+  ['issue', '‼', 'Issue', '--color-red', '#d93b3b'],
+  ['decision', '⚖', 'Decision', '--color-green', '#2e9e5b'],
+];
+/** The marker of a task (#risk, #issue, #decision; the first one if several), or null. */
+const planMark = (t) => PLAN_MARKS.find(([k]) => (t.marks || []).includes(k)) || null;
+// how bad a state is, for a phase's colour (its worst task)
+const PLAN_WORST = ['overdue', 'blocked', 'soon', 'doing', 'waiting', 'ready', 'outside', 'done'];
+
+/**
+ * { text, sched, bars: [{ id, task, kind, crit, mark, start, end }], end, late }: Mermaid gantt text. base: the
+ * project's start date or null. phases: one bar per phase (its first start to its last finish, coloured by its worst
+ * task). due: the project's due date; with real dates the plan's forecast finish and the due date are drawn as two
+ * milestones, and late says how many working days the forecast is past the due date (0: on time).
+ */
+function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null } = {}) {
   const relative = weeks || !base;
   const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start
@@ -10553,38 +10582,67 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     groups.set(PLAN_OUTSIDE, out);
   }
   const bars = [];
+  let end = null;
   for (const [name, rows] of groups) {
     lines.push(`  section ${mermaidSafe(name)}`);
+    const mine = [];
     for (const r of rows) {
       const t = r.task;
-      const who = planOwnerShort(t);
-      const label = planClip(mermaidSafe((t.external ? '↗ ' : '') + planText(t.raw)), maxName - (who ? who.length + 3 : 0)) + (who ? ` · ${mermaidSafe(who)}` : '');
       const state = planState(t, byId, today);
       const crit = r.crit && !t.external && state !== 'done';
-      const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
-      const id = `np${bars.length + 1}`;
       const days = planDays(t);
-      let when;
-      let finish = null;
-      if (t.milestone) {
-        // a milestone (#milestone) is a diamond on its 📅 date (with real dates), else where the schedule puts it
-        finish = !relative && (t.due || t.start) ? t.due || t.start : relative ? null : planWorkdays(from, r.es);
-        when = `${finish || planWorkdays(from, r.es)}, 0d`;
-      } else if (!relative && t.start && t.due && t.due >= t.start) {
-        when = `${t.start}, ${ymdAdd(t.due, 1)}`;
-        finish = t.due;
-      } else {
-        const start = !relative && t.start ? t.start : planWorkdays(from, r.es);
-        when = `${start}, ${days ? `${days}d` : '4h'}`; // a task estimated at 0 days: a thin bar, so it stays visible
-        if (!relative) finish = planWorkdays(start, Math.max(0, days - 1));
+      let start;
+      let last; // the bar's last day (inclusive)
+      if (t.milestone) start = last = !relative && (t.due || t.start) ? t.due || t.start : planWorkdays(from, r.es);
+      else if (!relative && t.start && t.due && t.due >= t.start) [start, last] = [t.start, t.due];
+      else {
+        start = !relative && t.start ? t.start : planWorkdays(from, r.es);
+        last = planWorkdays(start, Math.max(0, days - 1));
       }
-      bars.push({ id, task: t, kind: planBarKind(t, state, today, finish), crit });
+      const mark = planMark(t);
+      const bar = { id: `np${bars.length + 1}`, task: t, kind: planBarKind(t, state, today, relative ? null : last), crit, mark: mark ? mark[0] : null, start, end: last };
+      bars.push(bar);
+      if (!t.external && !relative && (!end || last > end)) end = last;
       if (show && !show(t)) continue; // filtered out (one person): still in the schedule, not drawn
-      lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), id].join(', ')}, ${when}`);
+      mine.push(bar);
+      if (phases) continue;
+      const who = planOwnerShort(t);
+      const sign = mark ? `${mark[1]} ` : '';
+      const label = planClip(mermaidSafe(sign + (t.external ? '↗ ' : '') + planText(t.raw)), maxName - (who ? who.length + 3 : 0)) + (who ? ` · ${mermaidSafe(who)}` : '');
+      const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
+      const when = t.milestone ? `${start}, 0d` : !relative && t.start && t.due && t.due >= t.start ? `${start}, ${ymdAdd(t.due, 1)}` : `${start}, ${days ? `${days}d` : '4h'}`; // 0 days: a thin bar
+      lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), bar.id].join(', ')}, ${when}`);
+    }
+    if (phases && mine.length) {
+      // one bar for the phase: first start to last finish, its worst task's colour
+      const first = mine.reduce((a, b) => (b.start < a ? b.start : a), mine[0].start);
+      const last = mine.reduce((a, b) => (b.end > a ? b.end : a), mine[0].end);
+      const kind = PLAN_WORST.find((k) => mine.some((b) => b.kind === k)) || 'ready';
+      const crit = mine.some((b) => b.crit);
+      const marks = PLAN_MARKS.filter(([k]) => mine.some((b) => b.mark === k)).map((m) => m[1]).join('');
+      const done = mine.filter((b) => b.kind === 'done').length;
+      const bar = { id: `np${bars.length + 1}`, task: null, phase: name, kind, crit, mark: null, start: first, end: last };
+      bars.push(bar);
+      const label = planClip(mermaidSafe(`${marks ? `${marks} ` : ''}${name} (${done}/${mine.length} done)`), maxName + 10);
+      lines.push(`  ${label} :${[...(kind === 'done' ? ['done'] : crit ? ['crit'] : []), bar.id].join(', ')}, ${first}, ${ymdAdd(last, 1)}`);
+    }
+  }
+  let late = 0;
+  if (!relative && end) {
+    // the project: its forecast finish, and its due date if it has one
+    late = due && end > due ? planWorkdaysBetween(due, end) : 0;
+    lines.push('  section Project');
+    const fin = { id: `np${bars.length + 1}`, task: null, kind: late ? 'overdue' : 'ready', crit: false, mark: null, start: end, end };
+    bars.push(fin);
+    lines.push(`  Forecast finish ${planShortDate(end)} :milestone, ${fin.id}, ${end}, 0d`);
+    if (due) {
+      const d = { id: `np${bars.length + 1}`, task: null, kind: late ? 'overdue' : 'done', crit: false, mark: null, start: due, end: due };
+      bars.push(d);
+      lines.push(`  Due ${planShortDate(due)}${late ? ` (${late} working days late)` : ''} :milestone, ${d.id}, ${due}, 0d`);
     }
   }
   const kept = lines.filter((l, i) => !(l.startsWith('  section ') && (lines[i + 1] === undefined || lines[i + 1].startsWith('  section '))));
-  return { text: kept.some((l) => / :/.test(l)) ? kept.join('\n') : '', sched, bars }; // task lines hold ' :'
+  return { text: kept.some((l) => / :/.test(l)) ? kept.join('\n') : '', sched, bars, end, late }; // task lines hold ' :'
 }
 
 /** "Wk 3" (relative) or "Mon 23 Nov" for a working-day offset from the start. */
@@ -10697,13 +10755,20 @@ async function planPaint(el, bars, onBar = null) {
     rect.style.fill = c;
     rect.style.stroke = b.crit ? edge : c;
     rect.style.strokeWidth = b.crit ? '2px' : '1px';
-    if (onBar) {
+    if (b.mark) {
+      // a #risk / #issue / #decision task: a dashed outline in the marker's colour
+      const m = PLAN_MARKS.find(([k]) => k === b.mark);
+      rect.style.stroke = planCssHex(m[3], m[4]);
+      rect.style.strokeWidth = '3px';
+      rect.style.strokeDasharray = '6 3';
+    }
+    if (onBar && b.task) {
       rect.style.cursor = 'pointer';
       rect.addEventListener('click', (e) => onBar(e, b));
     }
     const label = svg.querySelector(`text[id="${b.id}-text"], text[id$="-${b.id}-text"]`);
     if (label && !/Outside/i.test(label.getAttribute('class') || '')) label.style.fill = planInk(b.kind);
-    if (label && onBar) {
+    if (label && onBar && b.task) {
       label.style.cursor = 'pointer';
       label.addEventListener('click', (e) => onBar(e, b));
     }
@@ -10749,6 +10814,7 @@ class PlanView extends ItemView {
     this.graph = { dir: 'TB', phases: false, fit: false }; // graph layout: Down / Across, phase groups, fit or full size
     this.who = null; // one person's tasks (plan-people.js), or everyone
     this.lanes = 'phase'; // board rows: by phase or by person
+    this.ganttPhases = false; // Gantt: one bar per phase (plan-forecast.js)
     this.tasks = [];
     this.paths = new Set();
     this.src = '';
@@ -10763,7 +10829,7 @@ class PlanView extends ItemView {
     return 'calendar-range';
   }
   getState() {
-    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph, who: this.who, lanes: this.lanes } : {});
+    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph, who: this.who, lanes: this.lanes, ganttPhases: this.ganttPhases } : {});
   }
   async setState(state, result) {
     if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
@@ -10772,6 +10838,7 @@ class PlanView extends ItemView {
     if (state && state.graph && typeof state.graph === 'object') Object.assign(this.graph, state.graph);
     if (state && 'who' in state) this.who = state.who || null;
     if (state && (state.lanes === 'phase' || state.lanes === 'person')) this.lanes = state.lanes;
+    if (state && typeof state.ganttPhases === 'boolean') this.ganttPhases = state.ganttPhases;
     await super.setState(state, result);
     this.build();
     await this.refresh();
@@ -10813,6 +10880,7 @@ class PlanView extends ItemView {
     button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
     this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
     this.buildPeopleTools(tools);
+    this.buildForecastTools(tools);
     const g = this.graph;
     const saveGraph = () => (this.app.workspace.requestSaveLayout(), this.render());
     this.dirEl = pills(tools, [['TB', 'Down'], ['LR', 'Across']], g.dir, (v) => ((g.dir = v || 'TB'), saveGraph()));
@@ -10859,6 +10927,7 @@ class PlanView extends ItemView {
     }
     this.paths = new Set(this.tasks.map((t) => t.file.path));
     this.base = planBaseDate(this.app, this.plan);
+    this.due = planDueDate(this.app, this.plan);
     this.titleEl.setText(planScopeTitle(this.plan));
     this.leaf.updateHeader && this.leaf.updateHeader();
     this.render();
@@ -10868,12 +10937,15 @@ class PlanView extends ItemView {
     if (this.dragActive) return void (this.redrawAfterDrag = true); // a card is being dragged: redraw when it lands
     const weeks = this.weeks || !this.base;
     this.today = moment().format('YYYY-MM-DD');
-    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t) });
+    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t), phases: this.mode === 'gantt' && this.ganttPhases, due: this.due });
+    this.dated = this.datedPlan(); // real dates whatever the switch: forecast, baseline, slip
+    this.ends = new Map(((this.dated && this.dated.bars) || []).filter((b) => b.task).map((b) => [b.task, b.end]));
     this.src = text;
     this.sched = sched;
-    this.kinds = new Map(bars.map((b) => [b.task, b.kind]));
+    this.kinds = new Map(bars.filter((b) => b.task).map((b) => [b.task, b.kind]));
     const own = this.tasks.filter((t) => !t.external);
-    this.sumEl.setText(planSummaryText(planCounts(this.tasks, moment().format('YYYY-MM-DD'))) + (own.length ? ` · about ${Math.ceil(sched.length / 5)} weeks of work` : ''));
+    this.sumEl.setText([planSummaryText(planCounts(this.tasks, this.today)), planMarkText(this.tasks), own.length ? this.forecastSummary() || `about ${Math.ceil(sched.length / 5)} weeks of work` : ''].filter(Boolean).join(' · '));
+    this.sumEl.toggleClass('is-late', !!(this.dated && this.dated.late));
     this.weeksEl.el.toggleClass('is-hidden', this.mode !== 'gantt' && this.mode !== 'list');
     this.weeksEl.set(weeks ? 'weeks' : 'dates');
     this.weeksEl.btns.get('dates').disabled = !this.base;
@@ -10881,6 +10953,7 @@ class PlanView extends ItemView {
     for (const b of [this.copyBtn, this.svgBtn]) b.toggleClass('is-hidden', this.mode !== 'gantt' && this.mode !== 'graph');
     for (const p of [this.dirEl, this.phaseEl, this.fitEl]) p.el.toggleClass('is-hidden', this.mode !== 'graph');
     this.syncPeopleTools();
+    this.syncForecastTools();
     this.renderIssues(sched);
     this.bodyEl.empty();
     if (!own.length) {
@@ -10907,6 +10980,11 @@ class PlanView extends ItemView {
     }
     if (this.mode === 'gantt' && bars.some((b) => b.crit)) el.createSpan({ cls: 'np-key np-key-crit', text: 'Outlined: critical path' });
     if (this.mode === 'graph' && bars.some((b) => b.crit)) el.createSpan({ cls: 'np-key np-key-crit', text: 'Outlined, thick arrows: critical path' });
+    for (const [k, sign, label, v, fb] of PLAN_MARKS) {
+      if (!bars.some((b) => b.mark === k)) continue;
+      const item = el.createSpan({ cls: 'np-key np-key-mark', text: `${sign} ${label}` });
+      item.style.borderColor = planCssHex(v, fb);
+    }
   }
   renderIssues(sched) {
     const el = this.issuesEl;
@@ -10936,7 +11014,8 @@ class PlanView extends ItemView {
     const { byId } = planIndex(this.tasks);
     const table = this.bodyEl.createEl('table', { cls: 'np-table' });
     const hr = table.createEl('thead').createEl('tr');
-    for (const h of ['', 'Task', 'Owner', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack']) hr.createEl('th', { text: h });
+    const slips = !!this.baseline();
+    for (const h of ['', 'Task', 'Owner', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack', ...(slips ? ['Slip'] : [])]) hr.createEl('th', { text: h });
     const body = table.createEl('tbody');
     let phase = null;
     for (const r of sched.rows) {
@@ -10945,13 +11024,15 @@ class PlanView extends ItemView {
       const ph = t.external ? PLAN_OUTSIDE : t.phase || 'Tasks';
       if (ph !== phase) {
         phase = ph;
-        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: '10' } });
+        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: slips ? '11' : '10' } });
       }
       const st = planState(t, byId, this.today);
       const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}` });
       tr.addEventListener('contextmenu', (e) => this.taskMenu(e, t));
       tip(tr.createEl('td', { cls: 'np-crit', text: r.crit && st !== 'done' && !t.external ? '●' : '' }), 'On the critical path');
       const name = tr.createEl('td', { cls: 'np-name' });
+      const mark = planMark(t);
+      if (mark) tip(name.createSpan({ cls: `np-mark-sign is-${mark[0]}`, text: `${mark[1]} ` }), mark[2]);
       const a = name.createEl('a', { text: (t.external ? '↗ ' : '') + planText(t.raw), href: '#' });
       a.addEventListener('click', (e) => {
         e.preventDefault();
@@ -10971,6 +11052,10 @@ class PlanView extends ItemView {
       tr.createEl('td', { text: planDayLabel(r.es, this.base, weeks) });
       tr.createEl('td', { text: planDayLabel(Math.max(r.es, r.ef - 1), this.base, weeks) });
       tr.createEl('td', { cls: 'np-num', text: r.slack ? `${r.slack}d` : '' });
+      if (slips) {
+        const d = this.slip(t);
+        tr.createEl('td', { cls: `np-num${d > 0 ? ' is-late' : ''}`, text: d == null ? '' : d ? `${d > 0 ? '+' : ''}${d}d` : '0' });
+      }
     }
   }
 }
@@ -11235,6 +11320,7 @@ function planApplyForm(rest, box, f, today) {
   r = planSetSign(r, '⛔', f.deps && f.deps.length ? f.deps.join(',') : null);
   r = planSetTag(r, 'milestone', !!f.milestone);
   r = planSetTag(r, 'blocked', !!f.flagged);
+  if (f.marks) for (const k of ['risk', 'issue', 'decision']) r = planSetTag(r, k, f.marks.includes(k));
   if (f.tag) r = planSetTag(r, f.tag.replace(/^#/, ''), true);
   const nb = f.box != null ? f.box : box;
   if (nb === 'x' || nb === 'X') {
@@ -11392,6 +11478,7 @@ class PlanTaskModal extends Modal {
       days: t ? t.days : null,
       milestone: !!(t && t.milestone),
       flagged: !!(t && t.flagged),
+      marks: t ? [...(t.marks || [])] : [],
       start: (t && t.start) || null,
       scheduled: (t && t.scheduled) || null,
       due: (t && t.due) || null,
@@ -11484,6 +11571,17 @@ class PlanTaskModal extends Modal {
     toggle('Milestone (#milestone)', 'milestone', 'A point in time, no length: a diamond on the Gantt chart');
     toggle('Blocked (#blocked)', 'flagged', 'Held up by something outside the plan (a supplier, an approval); everything after it is blocked too');
     num.disabled = unit.disabled = f.milestone;
+    const marks = row('Marker');
+    for (const [k, sign, label] of PLAN_MARKS) {
+      const l = marks.createEl('label', { cls: 'np-ed-check' });
+      const c = l.createEl('input', { attr: { type: 'checkbox' } });
+      c.checked = f.marks.includes(k);
+      l.createSpan({ text: `${sign} ${label} (#${k})` });
+      c.addEventListener('change', () => {
+        f.marks = c.checked ? [...f.marks, k] : f.marks.filter((x) => x !== k);
+        this.update();
+      });
+    }
     // dependencies
     this.depsEl = row('Depends on', 'np-ed-pick');
     this.blocksEl = row('Blocks', 'np-ed-pick');
@@ -11615,7 +11713,7 @@ class PlanTaskModal extends Modal {
   plan() {
     const t = this.ctx.task;
     const used = new Set(this.ctx.tasks.map((x) => x.id).filter(Boolean));
-    const f = Object.assign({}, this.form, { owners: this.owners.slice() });
+    const f = Object.assign({}, this.form, { owners: this.owners.slice(), marks: this.form.marks.slice() });
     const notes = [];
     if (!f.id) {
       f.id = planNextId(used, this.prefix);
@@ -11721,7 +11819,8 @@ function taskTagFirst() {
 /** Text for a box: quotes and brackets Mermaid would read as syntax swapped out, clipped. */
 const planNodeLabel = (t, max = 40) => {
   const who = t.owners ? planOwnerShort(t) : '';
-  const text = planClip(((t.external ? '↗ ' : '') + planText(t.raw)).replace(/"/g, "'").replace(/[[\]{}<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'Untitled', max);
+  const mark = t.marks ? planMark(t) : null;
+  const text = planClip(((mark ? `${mark[1]} ` : '') + (t.external ? '↗ ' : '') + planText(t.raw)).replace(/"/g, "'").replace(/[[\]{}<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'Untitled', max);
   return who ? `${text} · ${who}` : text;
 };
 
@@ -11774,6 +11873,10 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   }
   const critIds = sched.rows.filter((r) => r.crit && !r.task.external && !planClosed(r.task)).map((r) => ids.get(r.task));
   if (critIds.length) lines.push(`  classDef crit stroke:${edge},stroke-width:3px`, `  class ${critIds.join(',')} crit`);
+  for (const [k, , , , fb] of PLAN_MARKS) {
+    const list = tasks.filter((t) => (t.marks || []).includes(k)).map((t) => ids.get(t));
+    if (list.length) lines.push(`  classDef ${k} stroke:${colours[`mark-${k}`] || fb},stroke-width:3px,stroke-dasharray:6 3`, `  class ${list.join(',')} ${k}`);
+  }
   const dim = show ? tasks.filter((t) => !show(t)).map((t) => ids.get(t)) : [];
   if (dim.length) lines.push('  classDef dim opacity:0.25', `  class ${dim.join(',')} dim`); // not this person's: greyed
   return { text: tasks.length ? lines.join('\n') : '', nodes: tasks.map((t) => ({ id: ids.get(t), task: t })) };
@@ -11782,7 +11885,7 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
 Object.assign(PlanView.prototype, {
   /** Draw the graph and make each box open its task. */
   renderGraph(sched) {
-    const colours = Object.fromEntries(PLAN_KINDS.map(([k]) => [k, planColour(k)]));
+    const colours = Object.fromEntries([...PLAN_KINDS.map(([k]) => [k, planColour(k)]), ...PLAN_MARKS.map(([k, , , v, fb]) => [`mark-${k}`, planCssHex(v, fb)])]);
     const edge = planCssHex('--text-normal', '#222222');
     const { dir, phases, fit } = this.graph;
     const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases, show: this.who ? (t) => this.shows(t) : null });
@@ -11887,6 +11990,7 @@ Object.assign(PlanView.prototype, {
     if (t.id) meta.createSpan({ cls: 'np-id', text: t.id });
     meta.createSpan({ text: t.milestone ? '◆ milestone' : `${planDays(t)}d` });
     if (this.ownerText(t)) meta.createSpan({ text: this.ownerText(t) });
+    for (const [k, sign, label] of PLAN_MARKS) if ((t.marks || []).includes(k)) c.createDiv({ cls: `np-mark is-${k}`, text: `${sign} ${label}` });
     if (t.due) meta.createSpan({ cls: kind === 'overdue' || kind === 'soon' ? `is-${kind}` : '', text: `📅 ${moment(t.due, 'YYYY-MM-DD').format('D MMM')}` });
     if (t.status === 'cancelled') meta.createSpan({ text: 'cancelled' });
     const why = planBlockedText(t, byId, this.today);
@@ -12031,6 +12135,113 @@ Object.assign(PlanView.prototype, {
   /** "👤 Marcus, Sofia" for a card or row, or ''. */
   ownerText(t) {
     return (t.owners || []).length ? `👤 ${t.owners.map((o) => o.name).join(', ')}` : '';
+  },
+});
+/* @src src/tickets/plan-forecast.js */
+/* ---- Project plans (fork): forecast finish, baseline, phase bars, markers in the Planning view -----------------------
+ * With the project's started date the plan has a forecast finish; against its due date it is on time or N working
+ * days late (the Gantt draws both as milestones, the Projects rows say so too). Save baseline keeps today's planned
+ * finish of every task with an id in the plugin's own data (not the note); the list then shows how far each has
+ * slipped since. The Gantt can show one bar per phase. Tasks tagged #risk, #issue or #decision get a marker. */
+
+/** The project's due date (its `due` property) as YYYY-MM-DD, or null. */
+function planDueDate(app, scope) {
+  let f = app.vault.getAbstractFileByPath(scope.path);
+  if (scope.kind === 'folder') {
+    const rep = f instanceof TFolder ? projectFolderNote(app, f) : null;
+    f = rep ? rep.file : null;
+  }
+  const fm = f instanceof TFile ? (app.metadataCache.getFileCache(f) || {}).frontmatter || {} : {};
+  const m = String(fm.due || '').match(/^\d{4}-\d{2}-\d{2}/);
+  return m ? m[0] : null;
+}
+/** Working days from a to b, negative when b is earlier (pure). */
+function planSlipDays(a, b) {
+  return b >= a ? planWorkdaysBetween(a, b) : -planWorkdaysBetween(b, a);
+}
+/** "forecast finish 12 Dec, 3 working days late" / "…, 4 days to spare" / "…" (no due date). */
+function planForecastText(end, due, late) {
+  if (!end) return '';
+  if (!due) return `forecast finish ${planShortDate(end)}`;
+  if (late) return `forecast finish ${planShortDate(end)}, ${late} working day${late === 1 ? '' : 's'} after the due date`;
+  const spare = planWorkdaysBetween(end, due);
+  return `forecast finish ${planShortDate(end)}${spare ? `, ${spare} working day${spare === 1 ? '' : 's'} to spare` : ', on the due date'}`;
+}
+/** "2 risks · 1 issue · 3 decisions", or ''. */
+function planMarkText(tasks) {
+  return PLAN_MARKS.map(([k, , label]) => {
+    const n = tasks.filter((t) => !t.external && !planClosed(t) && (t.marks || []).includes(k)).length;
+    return n ? `${n} ${label.toLowerCase()}${n === 1 ? '' : 's'}` : '';
+  })
+    .filter(Boolean)
+    .join(' · ');
+}
+
+Object.assign(PlanView.prototype, {
+  /** Gantt: Tasks / Phases; Save baseline. */
+  buildForecastTools(tools) {
+    this.phasesOnlyEl = pills(tools, [['tasks', 'Tasks'], ['phases', 'Phases']], this.ganttPhases ? 'phases' : 'tasks', (v) => {
+      this.ganttPhases = v === 'phases';
+      this.app.workspace.requestSaveLayout();
+      this.render();
+    });
+    tip(this.phasesOnlyEl.el, 'One bar per phase, or every task');
+    this.baselineBtn = button(tools, { icon: 'flag', text: 'Baseline', cls: 'np-baseline', title: 'Save today’s plan as the baseline, to see later how far tasks slip', onClick: (e) => this.baselineMenu(e) });
+  },
+  syncForecastTools() {
+    this.phasesOnlyEl.el.toggleClass('is-hidden', this.mode !== 'gantt');
+    this.baselineBtn.toggleClass('is-hidden', !this.base);
+    this.baselineBtn.toggleClass('is-on', !!this.baseline());
+  },
+  /** The plan with real dates (whatever the Dates / Weeks switch): forecast, baseline and slip use it. */
+  datedPlan() {
+    if (!this.base) return null;
+    return planGanttText(this.tasks, { base: this.base, today: this.today, due: this.due });
+  },
+  baseline() {
+    const all = this.plugin.settings.planBaselines || {};
+    return (this.plan && all[this.plan.path]) || null;
+  },
+  baselineMenu(e) {
+    const m = new Menu();
+    const b = this.baseline();
+    m.addItem((i) => i.setTitle(b ? `Save a new baseline (the one from ${planShortDate(b.saved)} is replaced)` : 'Save the plan as the baseline').setIcon('flag').onClick(() => this.saveBaseline()));
+    if (b) m.addItem((i) => i.setTitle('Remove the baseline').setIcon('trash-2').onClick(() => this.saveBaseline(true)));
+    m.showAtMouseEvent(e);
+  },
+  async saveBaseline(remove = false) {
+    const s = this.plugin.settings;
+    s.planBaselines = s.planBaselines || {};
+    if (remove) delete s.planBaselines[this.plan.path];
+    else {
+      const dated = this.datedPlan();
+      if (!dated) return new Notice('Set the project’s started date first');
+      const tasks = {};
+      for (const b of dated.bars) if (b.task && b.task.id && !b.task.external) tasks[b.task.id] = b.end;
+      s.planBaselines[this.plan.path] = { saved: this.today, end: dated.end, tasks };
+    }
+    await this.plugin.saveSettings(); // the plugin's own data, not the note
+    new Notice(remove ? 'Baseline removed' : 'Baseline saved');
+    this.render();
+  },
+  /** Working days a task has slipped since the baseline (negative: ahead), or null. */
+  slip(t) {
+    const b = this.baseline();
+    const now = this.ends && this.ends.get(t);
+    const then = b && t.id && b.tasks[t.id];
+    return then && now ? planSlipDays(then, now) : null;
+  },
+  /** The summary line's forecast part. */
+  forecastSummary() {
+    const dated = this.dated;
+    if (!dated || !dated.end) return '';
+    let s = planForecastText(dated.end, this.due, dated.late);
+    const b = this.baseline();
+    if (b && b.end) {
+      const d = planSlipDays(b.end, dated.end);
+      s += d ? ` (${d > 0 ? '+' : ''}${d} since the baseline of ${planShortDate(b.saved)})` : ` (as the baseline of ${planShortDate(b.saved)})`;
+    }
+    return s;
   },
 });
 /* @src src/tickets/plan-actions.js */

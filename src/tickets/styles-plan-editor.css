@@ -93,7 +93,7 @@
 .np-editor .np-swatch {
   width: 10px;
   height: 10px;
-  border-radius: 3px;
+  border-radius: var(--radius-s);
   flex: none;
 }
 .np-editor .np-id,

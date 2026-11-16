@@ -26,6 +26,7 @@ class PlanTaskModal extends Modal {
       days: t ? t.days : null,
       milestone: !!(t && t.milestone),
       flagged: !!(t && t.flagged),
+      marks: t ? [...(t.marks || [])] : [],
       start: (t && t.start) || null,
       scheduled: (t && t.scheduled) || null,
       due: (t && t.due) || null,
@@ -118,6 +119,17 @@ class PlanTaskModal extends Modal {
     toggle('Milestone (#milestone)', 'milestone', 'A point in time, no length: a diamond on the Gantt chart');
     toggle('Blocked (#blocked)', 'flagged', 'Held up by something outside the plan (a supplier, an approval); everything after it is blocked too');
     num.disabled = unit.disabled = f.milestone;
+    const marks = row('Marker');
+    for (const [k, sign, label] of PLAN_MARKS) {
+      const l = marks.createEl('label', { cls: 'np-ed-check' });
+      const c = l.createEl('input', { attr: { type: 'checkbox' } });
+      c.checked = f.marks.includes(k);
+      l.createSpan({ text: `${sign} ${label} (#${k})` });
+      c.addEventListener('change', () => {
+        f.marks = c.checked ? [...f.marks, k] : f.marks.filter((x) => x !== k);
+        this.update();
+      });
+    }
     // dependencies
     this.depsEl = row('Depends on', 'np-ed-pick');
     this.blocksEl = row('Blocks', 'np-ed-pick');
@@ -249,7 +261,7 @@ class PlanTaskModal extends Modal {
   plan() {
     const t = this.ctx.task;
     const used = new Set(this.ctx.tasks.map((x) => x.id).filter(Boolean));
-    const f = Object.assign({}, this.form, { owners: this.owners.slice() });
+    const f = Object.assign({}, this.form, { owners: this.owners.slice(), marks: this.form.marks.slice() });
     const notes = [];
     if (!f.id) {
       f.id = planNextId(used, this.prefix);

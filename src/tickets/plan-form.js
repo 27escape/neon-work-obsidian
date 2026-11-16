@@ -95,6 +95,7 @@ function planApplyForm(rest, box, f, today) {
   r = planSetSign(r, '⛔', f.deps && f.deps.length ? f.deps.join(',') : null);
   r = planSetTag(r, 'milestone', !!f.milestone);
   r = planSetTag(r, 'blocked', !!f.flagged);
+  if (f.marks) for (const k of ['risk', 'issue', 'decision']) r = planSetTag(r, k, f.marks.includes(k));
   if (f.tag) r = planSetTag(r, f.tag.replace(/^#/, ''), true);
   const nb = f.box != null ? f.box : box;
   if (nb === 'x' || nb === 'X') {

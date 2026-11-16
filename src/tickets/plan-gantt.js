@@ -21,6 +21,8 @@ const PLAN_KINDS = [
   ['outside', 'Outside this project', '--text-faint', '#999999'],
 ];
 
+/** "4 Dec" (pure). */
+const planShortDate = (ymd) => `${+ymd.slice(8, 10)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+ymd.slice(5, 7) - 1]}`;
 const planClip = (s, max) => (s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s);
 
 /**
@@ -35,8 +37,24 @@ function planBarKind(t, state, today, finish = null) {
   return state === 'doing' || state === 'blocked' || state === 'waiting' ? state : 'ready';
 }
 
-/** { text, sched, bars: [{ id, kind, crit }] }: Mermaid gantt text. base: the project's start date or null. */
-function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null } = {}) {
+// markers for tasks tagged #risk, #issue or #decision: a sign before the name and a dashed outline on the bar
+const PLAN_MARKS = [
+  ['risk', '⚠', 'Risk', '--color-orange', '#e8871e'],
+  ['issue', '‼', 'Issue', '--color-red', '#d93b3b'],
+  ['decision', '⚖', 'Decision', '--color-green', '#2e9e5b'],
+];
+/** The marker of a task (#risk, #issue, #decision; the first one if several), or null. */
+const planMark = (t) => PLAN_MARKS.find(([k]) => (t.marks || []).includes(k)) || null;
+// how bad a state is, for a phase's colour (its worst task)
+const PLAN_WORST = ['overdue', 'blocked', 'soon', 'doing', 'waiting', 'ready', 'outside', 'done'];
+
+/**
+ * { text, sched, bars: [{ id, task, kind, crit, mark, start, end }], end, late }: Mermaid gantt text. base: the
+ * project's start date or null. phases: one bar per phase (its first start to its last finish, coloured by its worst
+ * task). due: the project's due date; with real dates the plan's forecast finish and the due date are drawn as two
+ * milestones, and late says how many working days the forecast is past the due date (0: on time).
+ */
+function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null } = {}) {
   const relative = weeks || !base;
   const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start
@@ -55,38 +73,67 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     groups.set(PLAN_OUTSIDE, out);
   }
   const bars = [];
+  let end = null;
   for (const [name, rows] of groups) {
     lines.push(`  section ${mermaidSafe(name)}`);
+    const mine = [];
     for (const r of rows) {
       const t = r.task;
-      const who = planOwnerShort(t);
-      const label = planClip(mermaidSafe((t.external ? '↗ ' : '') + planText(t.raw)), maxName - (who ? who.length + 3 : 0)) + (who ? ` · ${mermaidSafe(who)}` : '');
       const state = planState(t, byId, today);
       const crit = r.crit && !t.external && state !== 'done';
-      const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
-      const id = `np${bars.length + 1}`;
       const days = planDays(t);
-      let when;
-      let finish = null;
-      if (t.milestone) {
-        // a milestone (#milestone) is a diamond on its 📅 date (with real dates), else where the schedule puts it
-        finish = !relative && (t.due || t.start) ? t.due || t.start : relative ? null : planWorkdays(from, r.es);
-        when = `${finish || planWorkdays(from, r.es)}, 0d`;
-      } else if (!relative && t.start && t.due && t.due >= t.start) {
-        when = `${t.start}, ${ymdAdd(t.due, 1)}`;
-        finish = t.due;
-      } else {
-        const start = !relative && t.start ? t.start : planWorkdays(from, r.es);
-        when = `${start}, ${days ? `${days}d` : '4h'}`; // a task estimated at 0 days: a thin bar, so it stays visible
-        if (!relative) finish = planWorkdays(start, Math.max(0, days - 1));
+      let start;
+      let last; // the bar's last day (inclusive)
+      if (t.milestone) start = last = !relative && (t.due || t.start) ? t.due || t.start : planWorkdays(from, r.es);
+      else if (!relative && t.start && t.due && t.due >= t.start) [start, last] = [t.start, t.due];
+      else {
+        start = !relative && t.start ? t.start : planWorkdays(from, r.es);
+        last = planWorkdays(start, Math.max(0, days - 1));
       }
-      bars.push({ id, task: t, kind: planBarKind(t, state, today, finish), crit });
+      const mark = planMark(t);
+      const bar = { id: `np${bars.length + 1}`, task: t, kind: planBarKind(t, state, today, relative ? null : last), crit, mark: mark ? mark[0] : null, start, end: last };
+      bars.push(bar);
+      if (!t.external && !relative && (!end || last > end)) end = last;
       if (show && !show(t)) continue; // filtered out (one person): still in the schedule, not drawn
-      lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), id].join(', ')}, ${when}`);
+      mine.push(bar);
+      if (phases) continue;
+      const who = planOwnerShort(t);
+      const sign = mark ? `${mark[1]} ` : '';
+      const label = planClip(mermaidSafe(sign + (t.external ? '↗ ' : '') + planText(t.raw)), maxName - (who ? who.length + 3 : 0)) + (who ? ` · ${mermaidSafe(who)}` : '');
+      const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
+      const when = t.milestone ? `${start}, 0d` : !relative && t.start && t.due && t.due >= t.start ? `${start}, ${ymdAdd(t.due, 1)}` : `${start}, ${days ? `${days}d` : '4h'}`; // 0 days: a thin bar
+      lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), bar.id].join(', ')}, ${when}`);
+    }
+    if (phases && mine.length) {
+      // one bar for the phase: first start to last finish, its worst task's colour
+      const first = mine.reduce((a, b) => (b.start < a ? b.start : a), mine[0].start);
+      const last = mine.reduce((a, b) => (b.end > a ? b.end : a), mine[0].end);
+      const kind = PLAN_WORST.find((k) => mine.some((b) => b.kind === k)) || 'ready';
+      const crit = mine.some((b) => b.crit);
+      const marks = PLAN_MARKS.filter(([k]) => mine.some((b) => b.mark === k)).map((m) => m[1]).join('');
+      const done = mine.filter((b) => b.kind === 'done').length;
+      const bar = { id: `np${bars.length + 1}`, task: null, phase: name, kind, crit, mark: null, start: first, end: last };
+      bars.push(bar);
+      const label = planClip(mermaidSafe(`${marks ? `${marks} ` : ''}${name} (${done}/${mine.length} done)`), maxName + 10);
+      lines.push(`  ${label} :${[...(kind === 'done' ? ['done'] : crit ? ['crit'] : []), bar.id].join(', ')}, ${first}, ${ymdAdd(last, 1)}`);
+    }
+  }
+  let late = 0;
+  if (!relative && end) {
+    // the project: its forecast finish, and its due date if it has one
+    late = due && end > due ? planWorkdaysBetween(due, end) : 0;
+    lines.push('  section Project');
+    const fin = { id: `np${bars.length + 1}`, task: null, kind: late ? 'overdue' : 'ready', crit: false, mark: null, start: end, end };
+    bars.push(fin);
+    lines.push(`  Forecast finish ${planShortDate(end)} :milestone, ${fin.id}, ${end}, 0d`);
+    if (due) {
+      const d = { id: `np${bars.length + 1}`, task: null, kind: late ? 'overdue' : 'done', crit: false, mark: null, start: due, end: due };
+      bars.push(d);
+      lines.push(`  Due ${planShortDate(due)}${late ? ` (${late} working days late)` : ''} :milestone, ${d.id}, ${due}, 0d`);
     }
   }
   const kept = lines.filter((l, i) => !(l.startsWith('  section ') && (lines[i + 1] === undefined || lines[i + 1].startsWith('  section '))));
-  return { text: kept.some((l) => / :/.test(l)) ? kept.join('\n') : '', sched, bars }; // task lines hold ' :'
+  return { text: kept.some((l) => / :/.test(l)) ? kept.join('\n') : '', sched, bars, end, late }; // task lines hold ' :'
 }
 
 /** "Wk 3" (relative) or "Mon 23 Nov" for a working-day offset from the start. */
