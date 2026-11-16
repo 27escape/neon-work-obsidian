@@ -7,6 +7,7 @@ const TASKS_DEFAULTS = {
   // fork: one Todo note replaces both "Quick tasks" and the Global tasks list kept in plugin data
   quickTasksPath: '', // the Todo note ('' = <base folder>/Todo.md): new tasks go at its head; its open tasks fill the Todo card
   taskTag: '#task', // fork: a checkbox line with this tag is a task wherever it is (Tasks-plugin style); empty = off
+  projectTasks: 'none', // fork: tasks in project notes and project folders belong to the project's plan ('all' = show them here too)
   askOnCreate: false, // fork: off — Templater, daily notes and your own habits make new notes
   stampDone: true,
   showTimeline: true, // fork: the timeline card on the Tasks tab

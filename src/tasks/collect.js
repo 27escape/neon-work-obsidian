@@ -28,6 +28,8 @@ Object.assign(NeonTasks.prototype, {
     const sources = new Map();
     for (const { file: f, cache } of noteIndex(app).withOpenTasks()) {
       if (this.isLegacyTicket(cache)) continue;
+      // fork: tasks in a project note or project folder are the project's plan (Projects), not shown here
+      if (this.settings.projectTasks !== 'all' && f.path !== todo && planScopeOf(app, f, cache)) continue;
       if (deck && deck.isExcluded && deck.isExcluded(f)) continue;
       const d = dailyDateOf(app, f);
       const daily = d && !d.isAfter(today) && today.diff(d, 'days') <= this.settings.carryDays ? d : null;

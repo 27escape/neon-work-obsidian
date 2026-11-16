@@ -191,6 +191,7 @@ class ProjectsView extends ItemView {
     });
     if (t.customer && p.settings.tabSort !== 'customer') meta.createSpan({ cls: 'tk-age tk-customer', text: t.customer });
     if (t.stage) meta.createSpan({ cls: 'tk-age', text: `stage: ${t.stage}` });
+    p.renderPlanSummary(meta, t); // fork: the project's tasks
     meta.createSpan({ cls: 'tk-age', text: `${t.startedOn ? 'started' : 'created'} ${(t.startedOn || t.created).format('D MMM')} · ${t.age}d` });
     if (t.remind && t.status !== 'done') meta.createSpan({ cls: 'tk-age', text: `🔔 ${t.remind.format('D MMM')}` });
     if (t.note) tip(main.createDiv({ cls: 'tk-row-note', text: t.note }), 'The project’s note property');

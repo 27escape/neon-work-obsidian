@@ -42,6 +42,7 @@ class NeonProjects extends Plugin {
     // only project notes invalidate the list: typing in other notes costs nothing
     const dirty = () => {
       this.cache = null;
+      this.planCache = null; // fork: plan counts on the rows
       this.emitSoon();
       const api = deckApi(this.app);
       if (api && api.activityChanged) api.activityChanged(); // Recently done reads the closed dates

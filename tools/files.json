@@ -5,7 +5,9 @@
     "src/shared/shared.js",
     "src/shared/guard.js",
     "src/shared/note-index.js",
-    "src/shared/gantt.js"
+    "src/shared/gantt.js",
+    "src/shared/plan.js",
+    "src/shared/plan-scope.js"
   ],
   "kernel": [
     "src/kernel/mother.js",
@@ -116,11 +118,13 @@
         "src/tickets/projects.js",
         "src/tickets/model.js",
         "src/tickets/actions.js",
-        "src/tickets/widget.js"
+        "src/tickets/widget.js",
+        "src/tickets/plan-summary.js"
       ],
       "css": [
         "src/tickets/styles-tracker.css",
-        "src/tickets/styles-extras.css"
+        "src/tickets/styles-extras.css",
+        "src/tickets/styles-plan.css"
       ],
       "old": "Neon Tickets"
     },

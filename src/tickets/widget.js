@@ -24,6 +24,7 @@ Object.assign(NeonProjects.prototype, {
         const txt = r.createDiv('tk-mini-text');
         txt.createSpan({ cls: 'tk-mini-title', text: t.title });
         if (t.customer) txt.createSpan({ cls: 'tk-id', text: ` · ${t.customer}` });
+        p.renderPlanSummary(txt, t, true); // fork: overdue and due-this-week tasks of the project
         if (t.statusRaw) r.createSpan({ cls: `tk-tag-wait s-${t.status}`, text: t.statusRaw });
         r.addEventListener('click', (e) => p.openProject(t.file, e));
         r.addEventListener('contextmenu', (e) => {

@@ -93,6 +93,7 @@ function projectStatusPatch(value, prevKind, today, cfg) {
 Object.assign(NeonProjects.prototype, {
   applyProjectSettings() {
     Object.assign(NEON_PROJECTS, projectConfig(this.settings));
+    NEON_PLAN.folders = this.settings.projectFolders || ''; // fork: project folders are plans too
     NEON_CATS.label = this.settings.groupLabel || 'Customer'; // fork
     NEON_CATS.prop = (this.settings.groupProperty || 'customer').trim() || 'customer';
     NEON_CATS.skip = String(this.settings.groupSkip || '').split(',').map((x) => x.trim()).filter(Boolean); // fork

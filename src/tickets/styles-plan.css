@@ -1,0 +1,8 @@
+/* Project plans (fork): task counts on the project rows */
+.tk-plan.is-overdue {
+  color: var(--nd-accent);
+}
+.tk-plan.is-short {
+  margin-left: 0;
+  font-size: inherit;
+}

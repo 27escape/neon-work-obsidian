@@ -15,7 +15,11 @@ class NeonTasksSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('Task tags')
       .setDesc('A checkbox line with one of these tags is a task wherever it is, as in the Tasks plugin. Several: separate with commas (#task, #todo); new tasks get the first. Empty: only tagged notes, daily notes and the Todo note.')
-      .addText((t) => t.setPlaceholder('#task').setValue(s.taskTag).onChange((v) => ((s.taskTag = taskTags(v).join(', ')), save(), p.emit())));
+      .addText((t) => t.setPlaceholder('#task').setValue(s.taskTag).onChange((v) => ((s.taskTag = taskTags(v).join(', ')), (NEON_PLAN.taskTag = s.taskTag), save(), p.emit())));
+    new Setting(containerEl)
+      .setName('Tasks in projects')
+      .setDesc('Tasks in project notes (and in project folders) belong to the project: its plan and the counts on the Projects card and tab. Show them on the Tasks card and tab as well?')
+      .addDropdown((d) => d.addOption('none', 'No: only in the project').addOption('all', 'Yes: with the other tasks').setValue(s.projectTasks === 'all' ? 'all' : 'none').onChange((v) => ((s.projectTasks = v), save(), p.emit())));
     numSetting(new Setting(containerEl).setName('Carry over unfinished daily-note tasks (days)').setDesc('Open tasks from earlier daily or weekly notes show under Today. 0 = only the current note.'), s, 'carryDays', 0, 90, save);
     new Setting(containerEl)
       .setName('Stamp completion date')

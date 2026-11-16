@@ -1,6 +1,22 @@
 # Project plans: durations, dependencies, Gantt and kanban (design, not built)
 
-Status: proposal, 16 Nov 2026. First used on the E2I note *Pilot - Local AI*. Nothing here is built yet.
+Status: agreed 16 Nov 2026; step 1 built. First used on the E2I note *Pilot - Local AI*.
+
+## Decisions (16 Nov 2026)
+
+- **Tasks in projects are not on the Tasks card.** A task in a project note, or in any note of a project folder, belongs to the project. The Tasks card and tab leave it out (setting *Tasks in projects*: `none`, default, or `all`). Each project's row shows its counts instead (overdue, due this week, ready, in progress, blocked, done), so nothing dated is lost.
+- **Scope of a plan:** a project folder (under *Project folders*) covers every note in it; a project note outside one covers only itself. Outside tasks appear only when linked by a dependency in either direction, greyed out in an "Outside this project" group, without their own chains.
+- **Ids:** looked up inside the project first, then the vault; duplicates are warned about. Ids carry a project prefix by convention (`pla-sc1`).
+- **Views:** a project note gets header buttons (Board, Gantt, Graph, Report) that open one Plan view in a new tab, nothing added to the note. Gantt and Graph are Mermaid (Obsidian's own renderer, no libraries); the board is our own, dragging changes only the checkbox through `writeNote`.
+- **Printing:** views export SVG or PNG (and copy as Mermaid). *Report* writes a snapshot note (summary, Gantt, critical path, status by phase, task list) to a reports folder, printed with Obsidian's Export to PDF. A write the user asks for, so only with read-only off.
+- **Project Planner:** ideas only (MIT, credited in `FORK.md`); no code, since Neon Work has no dependencies.
+
+## Build steps
+
+1. ✅ `src/shared/plan.js` (parse, state, schedule, critical path, working days, counts) and `src/shared/plan-scope.js` (which tasks belong to a project, outside neighbours); Tasks card leaves project tasks out; counts on the project rows (`src/tickets/plan-summary.js`). Tests: `test/plan.test.mjs`.
+2. Plan view (Gantt and List), header buttons on project notes, SVG/PNG export.
+3. Board (drag to change status) and Graph.
+4. Report note, *Durations to dates*, schedule warnings.
 
 ## The problem
 
@@ -95,14 +111,5 @@ Neon Work still builds the thin part: `plan.js`, the actionable filter on the Ta
 4. **Kanban grouping choices** (status by default; also phase, person, note).
 5. **Schedule warnings:** overdue, stalled, and a task starting before something it depends on.
 6. Not borrowed: the dependency graph and costing (Project Planner does them; no need for two).
-
-## Steps
-
-1. `taskDisplay` strips 🆔, ⛔ and `[duration:: …]` (with a unit test).
-2. `src/shared/plan.js` + tests (parse, schedule, cycles, critical path, relative-week Gantt text).
-3. Tasks: the actionable filter and its setting (with migration: default `actionable`).
-4. Projects: plan summary on each row; plan view with the Gantt.
-5. *Durations to dates* command (suggest, then write on acceptance).
-6. Kanban view, unless Project Planner's board is enough; then the optional `neon-plan` code block.
 
 Each new job is a new file, listed in `tools/files.json`, then `node tools/map.mjs`.
