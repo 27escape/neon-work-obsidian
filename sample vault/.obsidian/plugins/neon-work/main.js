@@ -1144,6 +1144,8 @@ const DEFAULT_SETTINGS = {
   inboxFolder: '', // fork: inbox notes go here ('' = <base folder>/Inbox)
   inboxTag: 'inbox', // fork: tag on every inbox note
   inboxStatus: 'waiting', // fork: status on every inbox note
+  inboxCard: true, // fork: Inbox card on the dashboard
+  inboxDone: 'completed, cancelled, stopped, done, closed, processed, filed', // fork: inbox notes with these statuses are dealt with
   inboxTemplate: '', // fork: template for those notes
   pinBoardPath: '',
   pinnedFolder: '', // files dropped onto the pin board from outside Obsidian
@@ -2317,16 +2319,16 @@ class FolderColorModal extends Modal {
 /* ------------------------------------------------------------------ */
 
 /** Default 4×4 layout; satellite slots fall back to their neighbours. */
-// fork: Tasks and Todo on top; Vault pulse (status information) moved below the Activity calendar
+// fork: Inbox, Tasks and Todo on top; status cards (Vault pulse, Totals) on the bottom row
 const DASH_LAYOUT = [
-  ['totals', 'tasks', 'global', 'tickets'],
-  ['totals', 'tasks', 'global', 'tickets'],
+  ['inbox', 'tasks', 'global', 'tickets'],
+  ['inbox', 'tasks', 'global', 'tickets'],
   ['claude', 'activity', 'activity', 'time'], // fork: the Claude card; Quick capture (if on) takes its place otherwise
-  ['recent', 'pulse', 'pulse', 'time'],
+  ['recent', 'pulse', 'pulse', 'totals'],
 ];
 /** Smallest grid height: the row minimums in styles-dashboard.css (150 + 150 + 290 + 140) plus 3 gaps of 14. */
 const DASH_GRID_MIN = 772; // Activity needs 290 for six full weeks
-const SLOT_FALLBACK = { tasks: 'global', global: 'tasks', tickets: 'time', time: 'tickets', claude: 'capture', capture: 'recent' };
+const SLOT_FALLBACK = { inbox: 'tasks', tasks: 'global', global: 'tasks', tickets: 'time', time: 'tickets', claude: 'capture', capture: 'recent' }; // fork: + inbox
 
 function dashAreas(present) {
   const resolve = (name) => {
@@ -2337,8 +2339,8 @@ function dashAreas(present) {
       n = SLOT_FALLBACK[n] || null;
     }
     if (n && present.has(n)) return n;
-    if (name === 'tasks' || name === 'tickets') return 'activity';
-    return null;
+    // fork: last resorts that keep every card a rectangle: the top middle falls back to Activity, the right column to Totals
+    return { tasks: 'activity', global: 'activity', tickets: 'totals', time: 'totals' }[name] || null;
   };
   let rows = DASH_LAYOUT.map((r) => r.map(resolve));
   const cols = rows[0].map((_, c) => rows.some((r) => r[c] !== null));
@@ -2751,8 +2753,9 @@ Object.assign(DashboardView.prototype, {
       if (typeof n === 'number') this.countTo(v, `totals:${label.replace(/s$/, '')}`, n, fmt);
       else v.setText(n);
       t.createDiv({ cls: 'nd-tile-label', text: label });
-      if (sub) t.createDiv({ cls: 'nd-tile-sub', text: sub });
-      if (hint) tip(t, hint);
+      // fork: compact tiles (Totals sits in a small corner now): the sub-line goes in the tooltip
+      const more = [sub, hint].filter(Boolean).join(' · ');
+      if (more) tip(t, more);
     };
     const now = moment();
     const monthStart = now.clone().startOf('month');
@@ -2801,7 +2804,7 @@ Object.assign(DashboardView.prototype, {
       const all = tk.collectProjects();
       const done = all.filter((t) => t.status === 'done');
       const doneMonth = done.filter((t) => t.completed && t.completed.isSame(now, 'month')).length;
-      tile(done.length, 'projects closed', 'var(--nd-warn)', `${doneMonth} in ${month} · ${all.length - done.length} open`, 'Projects closed, by completed or cancelled date');
+      tile(done.length, 'projects done', 'var(--nd-warn)', `${doneMonth} in ${month} · ${all.length - done.length} open`, 'Projects closed, by completed or cancelled date');
     }
 
     // notes (vault)
@@ -4721,6 +4724,11 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc(`Inbox notes go here: from New note’s Inbox button, and from Quick capture (“Inbox note”, named after the first line). Empty: ${basePath('Inbox')}.`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Inbox')).setValue(s.inboxFolder).onChange((v) => ((s.inboxFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'));
     new Setting(containerEl)
+      .setName('Inbox card')
+      .setDesc('Inbox notes not dealt with yet, newest first, with an “Add to Inbox” box. A note is dealt with when its status is one of these (comma-separated).')
+      .addToggle((t) => t.setValue(s.inboxCard !== false).onChange(async (v) => ((s.inboxCard = v), await save(), p.registerInboxCard())))
+      .addText((t) => t.setPlaceholder('completed, cancelled, stopped').setValue(s.inboxDone).onChange((v) => ((s.inboxDone = v), save())));
+    new Setting(containerEl)
       .setName('Inbox tag and status')
       .setDesc('Every inbox note gets this tag and this status property, also when it starts from the template.')
       .addText((t) => t.setPlaceholder('inbox').setValue(s.inboxTag).onChange((v) => ((s.inboxTag = v.trim().replace(/^#/, '')), save())))
@@ -5331,7 +5339,89 @@ function inboxProps(fm, tag, status) {
   return fm;
 }
 
+/** The setting's comma list, lower case (pure). */
+const inboxList = (text) =>
+  String(text || '')
+    .split(',')
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+/** Is an inbox note still open: no status, or one not in the done list (pure)? */
+function inboxOpen(status, doneList) {
+  const v = Array.isArray(status) ? status[0] : status;
+  const s = v == null || typeof v === 'object' ? '' : String(v).trim().toLowerCase();
+  return !s || !doneList.includes(s);
+}
+
 Object.assign(NeonDeck.prototype, {
+  /** fork: open inbox notes (status not in the done list), newest first: [{ file, status }]. */
+  inboxItems() {
+    const root = normalizePath(this.inboxFolder());
+    const done = inboxList(this.settings.inboxDone);
+    const out = [];
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      if (!f.path.startsWith(root + '/') || isIgnoredNote(this.app, f)) continue;
+      const fm = (this.app.metadataCache.getFileCache(f) || {}).frontmatter || {};
+      if (inboxOpen(fm.status, done)) out.push({ file: f, status: fm.status == null || typeof fm.status === 'object' ? '' : String(fm.status) });
+    }
+    return out.sort((a, b) => b.file.stat.ctime - a.file.stat.ctime);
+  },
+  registerInboxCard() {
+    if (this.settings.inboxCard === false) return this.api.unregisterWidget('inbox');
+    this.api.registerWidget({ id: 'inbox', slot: 'inbox', title: 'Inbox', icon: 'inbox', sub: this.inboxFolder(), mount: (card) => this.mountInbox(card) });
+  },
+  mountInbox(card) {
+    const body = card.body;
+    body.addClass('nd-inbox-body');
+    const list = body.createDiv('nd-inbox');
+    const render = () => {
+      if (!list.isConnected) return;
+      const items = this.inboxItems();
+      card.badge.setText(items.length ? String(items.length) : '');
+      list.empty();
+      if (!items.length) return void emptyState(list, 'Inbox is empty ✦');
+      for (const { file, status } of items.slice(0, 60)) {
+        const r = list.createDiv('nd-inbox-row');
+        r.createSpan({ cls: 'nd-inbox-name', text: file.basename });
+        if (status) r.createSpan({ cls: 'nd-inbox-status', text: status });
+        r.createSpan({ cls: 'nd-inbox-when', text: shortAgoDeck(file.stat.ctime) });
+        tip(r, file.path);
+        r.addEventListener('click', (e) => openFile(this.app, file, e));
+      }
+    };
+    const add = body.createDiv('nt-add');
+    const input = add.createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'Add to Inbox… (Enter)' } });
+    input.addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      const v = input.value.trim();
+      if (!v) return;
+      input.value = '';
+      try {
+        const f = await this.createInboxNote(inboxName(v, moment()), '');
+        new Notice(`✦ Added ${f.basename} to the inbox`);
+      } catch (err) {
+        if (!(err && err.neonReadOnly)) {
+          console.error('Neon Deck: inbox', err);
+          new Notice('Could not add to the inbox');
+        }
+        input.value = v;
+      }
+    });
+    button(card.actions, { icon: 'folder-open', cls: 'nd-icon-btn', title: 'Show the inbox folder', onClick: () => this.revealFolder(this.inboxFolder()) });
+    const soon = debounce(render, 400, true);
+    this.registerEvent(this.app.metadataCache.on('changed', (f) => f.path.startsWith(normalizePath(this.inboxFolder()) + '/') && soon()));
+    this.registerEvent(this.app.vault.on('delete', soon));
+    this.registerEvent(this.app.vault.on('rename', soon));
+    this.registerEvent(this.app.vault.on('create', soon));
+    render();
+    return { destroy() {} };
+  },
+  /** Show a folder in the file explorer (if it is on). */
+  revealFolder(path) {
+    const folder = this.app.vault.getAbstractFileByPath(normalizePath(path));
+    const fx = this.app.internalPlugins && this.app.internalPlugins.getPluginById && this.app.internalPlugins.getPluginById('file-explorer');
+    if (folder instanceof TFolder && fx && fx.enabled && fx.instance && fx.instance.revealInFolder) fx.instance.revealInFolder(folder);
+    else new Notice(`${path} doesn’t exist yet: it is made with the first inbox note`);
+  },
   /** The inbox folder: the setting, else <base folder>/Inbox. */
   inboxFolder() {
     return locPath(this.settings.inboxFolder, 'Inbox');
@@ -5377,6 +5467,7 @@ Object.assign(NeonDeck.prototype, {
     this.lastFile = ws.getActiveFile();
     this.registerClaudeCard(); // fork
     this.registerInboxCapture(); // fork
+    this.registerInboxCard(); // fork
     // after a plugin restart Obsidian puts our tabs back only once onload is done, so arrange tabs a moment later
     // (doing it straight away added a second Cards tab and a second Dashboard on every restart)
     window.setTimeout(() => this.arrangeOnStart(), 600);

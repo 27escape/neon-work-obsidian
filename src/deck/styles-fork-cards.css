@@ -1,0 +1,99 @@
+/* ---- fork: Areas and Inbox cards on the dashboard ---- */
+/* fork: Areas card */
+.nd-areas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+  min-height: 0;
+}
+.nd-area-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-radius: var(--nd-radius-s);
+  cursor: pointer;
+}
+.nd-area-row:hover {
+  background: color-mix(in srgb, var(--nd-text) 4%, transparent);
+}
+.nd-area-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.nd-area-main {
+  flex: 1;
+  min-width: 0;
+}
+.nd-area-name {
+  font: 600 13px var(--nd-font-ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-area-meta {
+  font: 10px var(--nd-mono);
+  color: var(--nd-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-area-when {
+  flex: none;
+  font: 11px var(--nd-mono);
+  color: var(--nd-muted);
+}
+.nd-area-row.is-quiet .nd-area-when {
+  color: var(--nd-warn);
+}
+
+/* fork: Inbox card */
+.nd-inbox-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.nd-inbox {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.nd-inbox-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: var(--nd-radius-s);
+  cursor: pointer;
+}
+.nd-inbox-row:hover {
+  background: color-mix(in srgb, var(--nd-text) 4%, transparent);
+}
+.nd-inbox-name {
+  flex: 1;
+  min-width: 0;
+  font: 13px / 1.35 var(--nd-font-ui);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nd-inbox-status {
+  flex: none;
+  font: 600 10px var(--nd-mono);
+  color: var(--nd-warn);
+  text-transform: lowercase;
+}
+.nd-inbox-when {
+  flex: none;
+  font: 10px var(--nd-mono);
+  color: var(--nd-faint);
+}
+.nd-inbox-body .nt-add {
+  margin-top: 8px;
+}

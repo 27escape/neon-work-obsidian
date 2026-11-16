@@ -78,8 +78,9 @@ Object.assign(DashboardView.prototype, {
       if (typeof n === 'number') this.countTo(v, `totals:${label.replace(/s$/, '')}`, n, fmt);
       else v.setText(n);
       t.createDiv({ cls: 'nd-tile-label', text: label });
-      if (sub) t.createDiv({ cls: 'nd-tile-sub', text: sub });
-      if (hint) tip(t, hint);
+      // fork: compact tiles (Totals sits in a small corner now): the sub-line goes in the tooltip
+      const more = [sub, hint].filter(Boolean).join(' · ');
+      if (more) tip(t, more);
     };
     const now = moment();
     const monthStart = now.clone().startOf('month');
@@ -128,7 +129,7 @@ Object.assign(DashboardView.prototype, {
       const all = tk.collectProjects();
       const done = all.filter((t) => t.status === 'done');
       const doneMonth = done.filter((t) => t.completed && t.completed.isSame(now, 'month')).length;
-      tile(done.length, 'projects closed', 'var(--nd-warn)', `${doneMonth} in ${month} · ${all.length - done.length} open`, 'Projects closed, by completed or cancelled date');
+      tile(done.length, 'projects done', 'var(--nd-warn)', `${doneMonth} in ${month} · ${all.length - done.length} open`, 'Projects closed, by completed or cancelled date');
     }
 
     // notes (vault)

@@ -5,6 +5,7 @@ Object.assign(NeonDeck.prototype, {
     this.lastFile = ws.getActiveFile();
     this.registerClaudeCard(); // fork
     this.registerInboxCapture(); // fork
+    this.registerInboxCard(); // fork
     // after a plugin restart Obsidian puts our tabs back only once onload is done, so arrange tabs a moment later
     // (doing it straight away added a second Cards tab and a second Dashboard on every restart)
     window.setTimeout(() => this.arrangeOnStart(), 600);

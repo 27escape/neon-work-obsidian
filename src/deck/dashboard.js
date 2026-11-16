@@ -3,16 +3,16 @@
 /* ------------------------------------------------------------------ */
 
 /** Default 4×4 layout; satellite slots fall back to their neighbours. */
-// fork: Tasks and Todo on top; Vault pulse (status information) moved below the Activity calendar
+// fork: Inbox, Tasks and Todo on top; status cards (Vault pulse, Totals) on the bottom row
 const DASH_LAYOUT = [
-  ['totals', 'tasks', 'global', 'tickets'],
-  ['totals', 'tasks', 'global', 'tickets'],
+  ['inbox', 'tasks', 'global', 'tickets'],
+  ['inbox', 'tasks', 'global', 'tickets'],
   ['claude', 'activity', 'activity', 'time'], // fork: the Claude card; Quick capture (if on) takes its place otherwise
-  ['recent', 'pulse', 'pulse', 'time'],
+  ['recent', 'pulse', 'pulse', 'totals'],
 ];
 /** Smallest grid height: the row minimums in styles-dashboard.css (150 + 150 + 290 + 140) plus 3 gaps of 14. */
 const DASH_GRID_MIN = 772; // Activity needs 290 for six full weeks
-const SLOT_FALLBACK = { tasks: 'global', global: 'tasks', tickets: 'time', time: 'tickets', claude: 'capture', capture: 'recent' };
+const SLOT_FALLBACK = { inbox: 'tasks', tasks: 'global', global: 'tasks', tickets: 'time', time: 'tickets', claude: 'capture', capture: 'recent' }; // fork: + inbox
 
 function dashAreas(present) {
   const resolve = (name) => {
@@ -23,8 +23,8 @@ function dashAreas(present) {
       n = SLOT_FALLBACK[n] || null;
     }
     if (n && present.has(n)) return n;
-    if (name === 'tasks' || name === 'tickets') return 'activity';
-    return null;
+    // fork: last resorts that keep every card a rectangle: the top middle falls back to Activity, the right column to Totals
+    return { tasks: 'activity', global: 'activity', tickets: 'totals', time: 'totals' }[name] || null;
   };
   let rows = DASH_LAYOUT.map((r) => r.map(resolve));
   const cols = rows[0].map((_, c) => rows.some((r) => r[c] !== null));

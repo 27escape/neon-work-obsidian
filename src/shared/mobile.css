@@ -72,12 +72,14 @@ body.is-mobile .nd-dash-grid.is-two > .nd-area-capture {
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-capture { order: 1; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-tasks { order: 2; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-global { order: 3; }
+body.is-mobile .nd-dash-grid.is-narrow > .nd-area-inbox { order: 3; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-tickets { order: 4; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-recent { order: 5; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-claude { order: 6; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-activity { order: 7; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-pulse { order: 8; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-totals { order: 9; }
+body.is-mobile .nd-dash-grid.is-narrow > .nd-area-time { order: 9; }
 
 /* ---- tabs: less padding at the edges on a phone ---- */
 body.is-phone .nt-view-grid {

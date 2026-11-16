@@ -58,6 +58,11 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc(`Inbox notes go here: from New note’s Inbox button, and from Quick capture (“Inbox note”, named after the first line). Empty: ${basePath('Inbox')}.`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Inbox')).setValue(s.inboxFolder).onChange((v) => ((s.inboxFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'));
     new Setting(containerEl)
+      .setName('Inbox card')
+      .setDesc('Inbox notes not dealt with yet, newest first, with an “Add to Inbox” box. A note is dealt with when its status is one of these (comma-separated).')
+      .addToggle((t) => t.setValue(s.inboxCard !== false).onChange(async (v) => ((s.inboxCard = v), await save(), p.registerInboxCard())))
+      .addText((t) => t.setPlaceholder('completed, cancelled, stopped').setValue(s.inboxDone).onChange((v) => ((s.inboxDone = v), save())));
+    new Setting(containerEl)
       .setName('Inbox tag and status')
       .setDesc('Every inbox note gets this tag and this status property, also when it starts from the template.')
       .addText((t) => t.setPlaceholder('inbox').setValue(s.inboxTag).onChange((v) => ((s.inboxTag = v.trim().replace(/^#/, '')), save())))

@@ -57,6 +57,8 @@ const DEFAULT_SETTINGS = {
   inboxFolder: '', // fork: inbox notes go here ('' = <base folder>/Inbox)
   inboxTag: 'inbox', // fork: tag on every inbox note
   inboxStatus: 'waiting', // fork: status on every inbox note
+  inboxCard: true, // fork: Inbox card on the dashboard
+  inboxDone: 'completed, cancelled, stopped, done, closed, processed, filed', // fork: inbox notes with these statuses are dealt with
   inboxTemplate: '', // fork: template for those notes
   pinBoardPath: '',
   pinnedFolder: '', // files dropped onto the pin board from outside Obsidian
