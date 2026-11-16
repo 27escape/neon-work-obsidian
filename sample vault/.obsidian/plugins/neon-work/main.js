@@ -10565,7 +10565,7 @@ const PLAN_WORST = ['overdue', 'blocked', 'soon', 'doing', 'waiting', 'ready', '
  * task). due: the project's due date; with real dates the plan's forecast finish and the due date are drawn as two
  * milestones, and late says how many working days the forecast is past the due date (0: on time).
  */
-function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null } = {}) {
+function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null, colours = null } = {}) {
   const relative = weeks || !base;
   const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start
@@ -10644,7 +10644,28 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     }
   }
   const kept = lines.filter((l, i) => !(l.startsWith('  section ') && (lines[i + 1] === undefined || lines[i + 1].startsWith('  section '))));
+  if (colours) kept.unshift(planGanttStyle(bars, colours)); // the colours travel with the text (copy, SVG)
   return { text: kept.some((l) => / :/.test(l)) ? kept.join('\n') : '', sched, bars, end, late }; // task lines hold ' :'
+}
+
+/**
+ * A Mermaid init line whose themeCSS colours each bar by its kind (pure). Mermaid names a bar <svg id>-<task id>, so
+ * [id$=-np3] finds it; labels inside a bar (.taskText) get a readable colour, risks and issues bold. Colouring the
+ * drawing afterwards didn't hold in Obsidian (its Mermaid styles won), CSS inside the drawing does. colours: { kind:
+ * '#hex', edge, 'mark-risk', … }. Values are plain #hex, so the JSON needs no escaping.
+ */
+function planGanttStyle(bars, colours) {
+  const ink = (k) => (k === 'soon' || k === 'outside' || k === 'waiting' ? '#000000' : '#ffffff');
+  const css = [];
+  for (const b of bars) {
+    const c = colours[b.kind] || '#888888';
+    const mark = b.mark ? colours[`mark-${b.mark}`] : null;
+    const stroke = mark ? `stroke:${mark} !important;stroke-width:3px !important;stroke-dasharray:6 3` : b.crit ? `stroke:${colours.edge || '#222222'} !important;stroke-width:2px !important` : `stroke:${c} !important`;
+    css.push(`[id$=-${b.id}]{fill:${c} !important;${stroke}}`);
+    css.push(`.taskText[id$=-${b.id}-text]{fill:${ink(b.kind)} !important}`);
+    if (b.mark === 'risk' || b.mark === 'issue') css.push(`[id$=-${b.id}-text]{font-weight:700 !important}`);
+  }
+  return `%%{init: {"themeCSS": "${css.join(' ')}"}}%%`;
 }
 
 /** "Wk 3" (relative) or "Mon 23 Nov" for a working-day offset from the start. */
@@ -10779,6 +10800,15 @@ async function planPaint(el, bars, onBar = null) {
       label.addEventListener('click', (e) => onBar(e, b));
     }
   }
+}
+
+/** Every colour the charts use, as #rrggbb: the kinds, the critical path's outline (edge) and the markers (mark-risk…). */
+function planColourMap() {
+  return Object.assign(
+    Object.fromEntries(PLAN_KINDS.map(([k]) => [k, planColour(k)])),
+    Object.fromEntries(PLAN_MARKS.map(([k, , , v, fb]) => [`mark-${k}`, planCssHex(v, fb)])),
+    { edge: planCssHex('--text-normal', '#222222') },
+  );
 }
 /* @src src/tickets/plan-view.js */
 /* ---- Project plans (fork): the Planning view, one project's plan in its own tab -----------------------------------------
@@ -10988,7 +11018,7 @@ class PlanView extends ItemView {
     if (this.dragActive) return void (this.redrawAfterDrag = true); // a card is being dragged: redraw when it lands
     const weeks = this.weeks || !this.base;
     this.today = moment().format('YYYY-MM-DD');
-    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t), phases: this.mode === 'gantt' && this.ganttPhases, due: this.due });
+    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t), phases: this.mode === 'gantt' && this.ganttPhases, due: this.due, colours: planColourMap() });
     this.dated = this.datedPlan(); // real dates whatever the switch: forecast, baseline, slip
     this.ends = new Map(((this.dated && this.dated.bars) || []).filter((b) => b.task).map((b) => [b.task, b.end]));
     this.src = text;
@@ -11988,8 +12018,8 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
 Object.assign(PlanView.prototype, {
   /** Draw the graph and make each box open its task. */
   renderGraph(sched) {
-    const colours = Object.fromEntries([...PLAN_KINDS.map(([k]) => [k, planColour(k)]), ...PLAN_MARKS.map(([k, , , v, fb]) => [`mark-${k}`, planCssHex(v, fb)])]);
-    const edge = planCssHex('--text-normal', '#222222');
+    const colours = planColourMap();
+    const edge = colours.edge;
     const { dir, phases, fit } = this.graph;
     const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases, show: this.who ? (t) => this.shows(t) : null });
     this.src = text;

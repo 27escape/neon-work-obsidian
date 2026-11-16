@@ -124,3 +124,12 @@ async function planPaint(el, bars, onBar = null) {
     }
   }
 }
+
+/** Every colour the charts use, as #rrggbb: the kinds, the critical path's outline (edge) and the markers (mark-risk…). */
+function planColourMap() {
+  return Object.assign(
+    Object.fromEntries(PLAN_KINDS.map(([k]) => [k, planColour(k)])),
+    Object.fromEntries(PLAN_MARKS.map(([k, , , v, fb]) => [`mark-${k}`, planCssHex(v, fb)])),
+    { edge: planCssHex('--text-normal', '#222222') },
+  );
+}

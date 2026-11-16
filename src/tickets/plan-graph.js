@@ -72,8 +72,8 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
 Object.assign(PlanView.prototype, {
   /** Draw the graph and make each box open its task. */
   renderGraph(sched) {
-    const colours = Object.fromEntries([...PLAN_KINDS.map(([k]) => [k, planColour(k)]), ...PLAN_MARKS.map(([k, , , v, fb]) => [`mark-${k}`, planCssHex(v, fb)])]);
-    const edge = planCssHex('--text-normal', '#222222');
+    const colours = planColourMap();
+    const edge = colours.edge;
     const { dir, phases, fit } = this.graph;
     const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases, show: this.who ? (t) => this.shows(t) : null });
     this.src = text;

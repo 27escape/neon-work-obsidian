@@ -205,7 +205,7 @@ class PlanView extends ItemView {
     if (this.dragActive) return void (this.redrawAfterDrag = true); // a card is being dragged: redraw when it lands
     const weeks = this.weeks || !this.base;
     this.today = moment().format('YYYY-MM-DD');
-    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t), phases: this.mode === 'gantt' && this.ganttPhases, due: this.due });
+    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t), phases: this.mode === 'gantt' && this.ganttPhases, due: this.due, colours: planColourMap() });
     this.dated = this.datedPlan(); // real dates whatever the switch: forecast, baseline, slip
     this.ends = new Map(((this.dated && this.dated.bars) || []).filter((b) => b.task).map((b) => [b.task, b.end]));
     this.src = text;
