@@ -164,7 +164,7 @@ class CardsView extends ItemView {
       { icon: 'layout-grid', label: 'Cards', view: VIEW_CARDS, run: () => p.activate(VIEW_CARDS, 'tab') },
       ...[...p.actions.values()].filter((a) => a.view).sort((a, b) => (a.order ?? 50) - (b.order ?? 50)),
       { icon: 'waypoints', label: 'Graph', view: VIEW_GRAPH, run: () => p.activate(VIEW_GRAPH, 'tab') },
-    ];
+    ].filter((it) => !(NEON_MOBILE.on && (it.view === VIEW_CARDS || it.view === VIEW_GRAPH))); // fork: desktop-only views
     for (const it of items) {
       const b = el.createEl('button', { cls: 'nd-side-nav-item', attr: { type: 'button', 'data-view': it.view } });
       icon(b, it.icon);

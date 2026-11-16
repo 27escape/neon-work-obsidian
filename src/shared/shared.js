@@ -5,6 +5,14 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
+/* fork: phones and tablets. Obsidian decides the platform at start-up (app.emulateMobile(true) restarts the app as
+ * a phone). Time tracking and Write stay desktop-only; the Graph and Card explorer are hidden there. */
+const NEON_MOBILE = (() => {
+  const P = (obsidian && obsidian.Platform) || {};
+  return { on: !!P.isMobile, phone: !!P.isPhone, tablet: !!P.isTablet };
+})();
+const DESKTOP_ONLY_MODULES = new Set(['neon-time', 'neon-write']);
+
 const ND_VERSION = '1.0.0'; // set from the manifest by tools/build.mjs
 // Categories colour notes and split tracked time. Upstream: four fixed ones (UPSTREAM_CATS).
 // fork: your customers instead — one per folder in the customers folder (1.Customers), keyed in lower case;
@@ -571,3 +579,43 @@ function suggestPaths(app, text, kind) {
   return text;
 }
 /* ---- end shared ------------------------------------------------------- */
+
+/* ---- long press = right-click on phones and tablets (fork) ------------------------------
+ * Inside Neon Work's own views, holding a finger still for half a second sends the same
+ * "contextmenu" event a right-click does, so every row menu works by touch. The tap that
+ * ends the press is swallowed, and a native long-press menu (Android) is not shown twice. */
+const LONG_PRESS_MS = 500;
+function installLongPress(plugin) {
+  let timer = null;
+  let start = null;
+  let firedAt = 0;
+  const inNeon = (el) => !!(el && el.closest && el.closest('.workspace-leaf-content[data-type^="neon"], .nd-island'));
+  const cancel = () => {
+    if (timer) window.clearTimeout(timer);
+    timer = null;
+  };
+  plugin.registerDomEvent(document, 'pointerdown', (e) => {
+    cancel();
+    if (e.pointerType !== 'touch' || !inNeon(e.target)) return;
+    start = { x: e.clientX, y: e.clientY, target: e.target };
+    timer = window.setTimeout(() => {
+      timer = null;
+      firedAt = Date.now();
+      start.target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: start.x, clientY: start.y, view: window }));
+    }, LONG_PRESS_MS);
+  }, true);
+  plugin.registerDomEvent(document, 'pointermove', (e) => {
+    if (timer && start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel();
+  }, true);
+  for (const ev of ['pointerup', 'pointercancel']) plugin.registerDomEvent(document, ev, cancel, true);
+  const recent = () => Date.now() - firedAt < 800;
+  // the tap that ends a long press must not also open the row
+  plugin.registerDomEvent(document, 'click', (e) => {
+    if (recent() && inNeon(e.target)) (e.preventDefault(), e.stopPropagation());
+  }, true);
+  // Android also sends its own contextmenu on a long press: one menu is enough
+  plugin.registerDomEvent(document, 'contextmenu', (e) => {
+    if (e.isTrusted && recent() && inNeon(e.target)) (e.preventDefault(), e.stopPropagation());
+  }, true);
+  plugin.register(cancel);
+}

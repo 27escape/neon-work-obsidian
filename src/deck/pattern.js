@@ -300,6 +300,7 @@ class PatternLayer {
     const s = this.plugin.settings;
     return (
       s.patternMotion &&
+      !NEON_MOBILE.on && // fork: a still pattern on phones and tablets (battery)
       !prefersReducedMotion() &&
       document.visibilityState === 'visible' &&
       document.hasFocus() &&

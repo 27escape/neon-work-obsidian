@@ -161,5 +161,8 @@
       ],
       "old": "Neon Write"
     }
+  ],
+  "css": [
+    "src/shared/mobile.css"
   ]
 }

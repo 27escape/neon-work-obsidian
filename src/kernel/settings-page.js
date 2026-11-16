@@ -71,15 +71,19 @@ class NeonModulesTab extends PluginSettingTab {
     new Setting(el).setName('Modules').setHeading();
     for (const m of NEON_MODULES) {
       const why = p.failed.get(m.id);
-      const state = p.modules.has(m.id) ? 'running' : why ? `stopped: ${why}` : p.state.safe ? 'off (safe mode)' : 'off';
+      const desktopOnly = NEON_MOBILE.on && DESKTOP_ONLY_MODULES.has(m.id);
+      const state = desktopOnly ? 'desktop only' : p.modules.has(m.id) ? 'running' : why ? `stopped: ${why}` : p.state.safe ? 'off (safe mode)' : 'off';
       new Setting(el)
         .setName(SECTION_LABEL[m.id] || m.name)
         .setDesc(`${m.desc} · ${state}`)
         .addToggle((t) =>
-          t.setValue(p.isOn(m.id)).onChange(async (v) => {
-            await p.setOn(m.id, v);
-            this.display();
-          }),
+          t
+            .setValue(p.isOn(m.id))
+            .setDisabled(desktopOnly)
+            .onChange(async (v) => {
+              await p.setOn(m.id, v);
+              this.display();
+            }),
         );
     }
     new Setting(el)

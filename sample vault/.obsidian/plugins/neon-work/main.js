@@ -15,7 +15,15 @@ const {
   PluginSettingTab, Setting, setIcon, normalizePath, moment, debounce, getAllTags,
 } = obsidian;
 
-const ND_VERSION = '1.0.0'; // set from the manifest by tools/build.mjs
+/* fork: phones and tablets. Obsidian decides the platform at start-up (app.emulateMobile(true) restarts the app as
+ * a phone). Time tracking and Write stay desktop-only; the Graph and Card explorer are hidden there. */
+const NEON_MOBILE = (() => {
+  const P = (obsidian && obsidian.Platform) || {};
+  return { on: !!P.isMobile, phone: !!P.isPhone, tablet: !!P.isTablet };
+})();
+const DESKTOP_ONLY_MODULES = new Set(['neon-time', 'neon-write']);
+
+const ND_VERSION = '1.1.0'; // set from the manifest by tools/build.mjs
 // Categories colour notes and split tracked time. Upstream: four fixed ones (UPSTREAM_CATS).
 // fork: your customers instead — one per folder in the customers folder (1.Customers), keyed in lower case;
 // a note's category is its customer property, else the customer folder it is in. CATS, CAT_LABEL and
@@ -581,6 +589,46 @@ function suggestPaths(app, text, kind) {
   return text;
 }
 /* ---- end shared ------------------------------------------------------- */
+
+/* ---- long press = right-click on phones and tablets (fork) ------------------------------
+ * Inside Neon Work's own views, holding a finger still for half a second sends the same
+ * "contextmenu" event a right-click does, so every row menu works by touch. The tap that
+ * ends the press is swallowed, and a native long-press menu (Android) is not shown twice. */
+const LONG_PRESS_MS = 500;
+function installLongPress(plugin) {
+  let timer = null;
+  let start = null;
+  let firedAt = 0;
+  const inNeon = (el) => !!(el && el.closest && el.closest('.workspace-leaf-content[data-type^="neon"], .nd-island'));
+  const cancel = () => {
+    if (timer) window.clearTimeout(timer);
+    timer = null;
+  };
+  plugin.registerDomEvent(document, 'pointerdown', (e) => {
+    cancel();
+    if (e.pointerType !== 'touch' || !inNeon(e.target)) return;
+    start = { x: e.clientX, y: e.clientY, target: e.target };
+    timer = window.setTimeout(() => {
+      timer = null;
+      firedAt = Date.now();
+      start.target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: start.x, clientY: start.y, view: window }));
+    }, LONG_PRESS_MS);
+  }, true);
+  plugin.registerDomEvent(document, 'pointermove', (e) => {
+    if (timer && start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel();
+  }, true);
+  for (const ev of ['pointerup', 'pointercancel']) plugin.registerDomEvent(document, ev, cancel, true);
+  const recent = () => Date.now() - firedAt < 800;
+  // the tap that ends a long press must not also open the row
+  plugin.registerDomEvent(document, 'click', (e) => {
+    if (recent() && inNeon(e.target)) (e.preventDefault(), e.stopPropagation());
+  }, true);
+  // Android also sends its own contextmenu on a long press: one menu is enough
+  plugin.registerDomEvent(document, 'contextmenu', (e) => {
+    if (e.isTrusted && recent() && inNeon(e.target)) (e.preventDefault(), e.stopPropagation());
+  }, true);
+  plugin.register(cancel);
+}
 /* @src src/shared/guard.js */
 /* ---- read-only guard ----------------------------------------------------
  * Fork addition (27escape). While read-only is on (the default), nothing in Neon Deck can
@@ -1873,6 +1921,7 @@ class PatternLayer {
     const s = this.plugin.settings;
     return (
       s.patternMotion &&
+      !NEON_MOBILE.on && // fork: a still pattern on phones and tablets (battery)
       !prefersReducedMotion() &&
       document.visibilityState === 'visible' &&
       document.hasFocus() &&
@@ -2321,7 +2370,12 @@ class DashboardView extends ItemView {
   }
   onResize() {
     const w = this.contentEl.clientWidth;
-    this.grid.toggleClass('is-narrow', w < 880);
+    // fork: phones and tablets: one column below 600px (phone portrait), two up to 1100px (phone landscape,
+    // tablet portrait), the desktop grid above. Desktop is unchanged: one column below 880px.
+    const one = NEON_MOBILE.on ? w < 600 : w < 880;
+    const two = NEON_MOBILE.on && !one && w < 1100;
+    this.grid.toggleClass('is-narrow', one || two);
+    this.grid.toggleClass('is-two', two);
     this.fitGrid();
   }
 
@@ -2396,8 +2450,12 @@ class DashboardView extends ItemView {
       { icon: 'file-plus', label: 'New note', run: () => p.newNote('/') },
       { icon: 'calendar-days', label: 'Today', run: () => p.openToday() },
       ...[...p.actions.values()].sort((a, b) => (a.order ?? 50) - (b.order ?? 50)),
-      { icon: 'layout-grid', label: 'Cards', run: () => p.activate(VIEW_CARDS, 'tab') },
-      { icon: 'waypoints', label: 'Graph', run: () => p.activate(VIEW_GRAPH, 'tab') },
+      ...(NEON_MOBILE.on
+        ? [] // fork: the card explorer and graph are desktop-only
+        : [
+            { icon: 'layout-grid', label: 'Cards', run: () => p.activate(VIEW_CARDS, 'tab') },
+            { icon: 'waypoints', label: 'Graph', run: () => p.activate(VIEW_GRAPH, 'tab') },
+          ]),
       { icon: 'search', label: 'Search', run: () => p.openSearch('') },
     ];
     for (const a of acts) button(el, { icon: a.icon, text: a.label, cls: 'nd-action', onClick: () => a.run() });
@@ -2518,9 +2576,10 @@ class DashboardView extends ItemView {
       if (hint) tip(t, hint);
       return v;
     };
-    tile(d.md.length, 'notes', 'var(--nd-text)', () => this.plugin.activate(VIEW_CARDS, 'tab'), 'Open the card explorer · line: notes created per day', this.perDay(d.md, (f) => f.stat.ctime));
+    const desk = !NEON_MOBILE.on; // fork: the card explorer and graph are desktop-only
+    tile(d.md.length, 'notes', 'var(--nd-text)', desk ? () => this.plugin.activate(VIEW_CARDS, 'tab') : null, desk ? 'Open the card explorer · line: notes created per day' : 'Line: notes created per day', this.perDay(d.md, (f) => f.stat.ctime));
     this.wordsEl = tile('…', 'words', 'var(--nd-text)');
-    tile(d.links, 'links', 'var(--nd-info)', () => this.plugin.openGraph('notes'), 'Open the note graph');
+    tile(d.links, 'links', 'var(--nd-info)', desk ? () => this.plugin.openGraph('notes') : null, desk ? 'Open the note graph' : null);
     tile(d.orphans.length, 'orphans', 'var(--nd-accent)', () => new FileListModal(this.plugin, d.orphans, 'Orphan notes — no links in or out').open(), 'Notes with no links in or out');
     tile(d.editedToday.length, 'edited today', 'var(--nd-go)', () => new FileListModal(this.plugin, d.editedToday, 'Edited today').open(), 'Line: notes edited per day', this.perDay(d.md, (f) => f.stat.mtime));
   }
@@ -2967,7 +3026,7 @@ class CardsView extends ItemView {
       { icon: 'layout-grid', label: 'Cards', view: VIEW_CARDS, run: () => p.activate(VIEW_CARDS, 'tab') },
       ...[...p.actions.values()].filter((a) => a.view).sort((a, b) => (a.order ?? 50) - (b.order ?? 50)),
       { icon: 'waypoints', label: 'Graph', view: VIEW_GRAPH, run: () => p.activate(VIEW_GRAPH, 'tab') },
-    ];
+    ].filter((it) => !(NEON_MOBILE.on && (it.view === VIEW_CARDS || it.view === VIEW_GRAPH))); // fork: desktop-only views
     for (const it of items) {
       const b = el.createEl('button', { cls: 'nd-side-nav-item', attr: { type: 'button', 'data-view': it.view } });
       icon(b, it.icon);
@@ -4723,8 +4782,11 @@ class NeonDeck extends Plugin {
     for (const [v, d] of [[VIEW_DASH, 'dashboard'], [VIEW_CARDS, 'cards'], [VIEW_GRAPH, 'graph']]) this.registerHoverLinkSource(v, { display: `${appName()} ${d}`, defaultMod: true });
 
     this.addRibbonIcon('layout-dashboard', `${appName()} dashboard`, () => this.activate(VIEW_DASH, 'tab'));
-    this.addRibbonIcon('layout-grid', 'Card explorer', () => this.activate(VIEW_CARDS, 'tab'));
-    this.addRibbonIcon('waypoints', 'Note graph', () => this.openGraph('notes'));
+    if (!NEON_MOBILE.on) {
+      // fork: the card explorer and the graph are desktop-only (heavy on a phone)
+      this.addRibbonIcon('layout-grid', 'Card explorer', () => this.activate(VIEW_CARDS, 'tab'));
+      this.addRibbonIcon('waypoints', 'Note graph', () => this.openGraph('notes'));
+    }
 
     const cmds = [
       ['open-dashboard', 'Open dashboard', () => this.activate(VIEW_DASH, 'tab')],
@@ -4737,7 +4799,8 @@ class NeonDeck extends Plugin {
       ['next-pattern', 'Next pattern', () => this.setLook({ pattern: PATTERNS[(PATTERNS.indexOf(this.activePattern()) + 1) % PATTERNS.length] }, true)],
       ['weekly-review', 'Create / open this week’s review', () => this.weeklyReview()],
     ];
-    for (const [id, name, callback] of cmds) this.addCommand({ id, name, callback });
+    const desktopOnly = new Set(['open-cards', 'open-cards-sidebar', 'open-graph', 'graph-active-note']); // fork: not on mobile
+    for (const [id, name, callback] of cmds) if (!(NEON_MOBILE.on && desktopOnly.has(id))) this.addCommand({ id, name, callback });
     // hidden while Neon Tasks is on: it brings its own New note command
     this.addCommand({
       id: 'new-note',
@@ -11209,6 +11272,7 @@ class NeonMother extends Plugin {
     const gesture = () => (NEON_GUARD.lastGesture = Date.now());
     this.registerDomEvent(document, 'pointerdown', gesture, true);
     this.registerDomEvent(document, 'keydown', gesture, true);
+    if (NEON_MOBILE.on) installLongPress(this); // fork: long press opens the row menus on phones and tablets
     const crashed = this.state.starting; // the last start never finished
     this.state.starting = true;
     if (crashed) this.state.safe = true; // stays on until turned off in settings
@@ -11263,6 +11327,7 @@ class NeonMother extends Plugin {
     return (deck && deck.api) || null;
   }
   isOn(id) {
+    if (NEON_MOBILE.on && DESKTOP_ONLY_MODULES.has(id)) return false; // fork: not on phones and tablets (the saved switch is kept)
     return !this.state.off[id];
   }
   async start(m) {
@@ -11423,15 +11488,19 @@ class NeonModulesTab extends PluginSettingTab {
     new Setting(el).setName('Modules').setHeading();
     for (const m of NEON_MODULES) {
       const why = p.failed.get(m.id);
-      const state = p.modules.has(m.id) ? 'running' : why ? `stopped: ${why}` : p.state.safe ? 'off (safe mode)' : 'off';
+      const desktopOnly = NEON_MOBILE.on && DESKTOP_ONLY_MODULES.has(m.id);
+      const state = desktopOnly ? 'desktop only' : p.modules.has(m.id) ? 'running' : why ? `stopped: ${why}` : p.state.safe ? 'off (safe mode)' : 'off';
       new Setting(el)
         .setName(SECTION_LABEL[m.id] || m.name)
         .setDesc(`${m.desc} · ${state}`)
         .addToggle((t) =>
-          t.setValue(p.isOn(m.id)).onChange(async (v) => {
-            await p.setOn(m.id, v);
-            this.display();
-          }),
+          t
+            .setValue(p.isOn(m.id))
+            .setDisabled(desktopOnly)
+            .onChange(async (v) => {
+              await p.setOn(m.id, v);
+              this.display();
+            }),
         );
     }
     new Setting(el)

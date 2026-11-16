@@ -1,0 +1,127 @@
+/* ---------- phones and tablets (fork) ----------
+ * Obsidian marks the app with body.is-mobile (and .is-phone / .is-tablet). Every rule here starts with
+ * one of those classes, so the desktop layout is untouched. app.emulateMobile(true) in the developer
+ * console shows these layouts on a desktop. */
+
+/* ---- touch: bigger targets, and controls that desktop shows on hover are always visible ---- */
+body.is-mobile .nd-root .nd-btn,
+body.is-mobile .nd-root .nd-pill-btn,
+body.is-mobile .nd-root .nd-seg-btn {
+  min-height: 34px;
+}
+body.is-mobile .nd-root .nd-icon-btn {
+  min-width: 34px;
+  min-height: 34px;
+}
+body.is-mobile .nt-check {
+  width: 20px;
+  height: 20px;
+}
+body.is-mobile .nt-task {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+body.is-mobile .nt-task .nt-edit-btn,
+body.is-mobile .nt-gtask .nt-del,
+body.is-mobile .tk-row-acts,
+body.is-mobile .nr-row-acts,
+body.is-mobile .nr-research-delete {
+  opacity: 1;
+}
+
+/* ---- dashboard header: greeting and date, then one row of buttons that scrolls sideways ---- */
+body.is-mobile .nd-hero-clock {
+  display: none;
+}
+body.is-phone .nd-hero {
+  padding: 10px 12px;
+  gap: 8px;
+}
+body.is-phone .nd-hero-actions {
+  flex: 1 0 100%;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  margin-left: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+body.is-phone .nd-hero-actions::-webkit-scrollbar {
+  display: none;
+}
+body.is-phone .nd-hero-actions .nd-action {
+  flex: none;
+}
+
+/* ---- dashboard cards: one column (phone portrait) or two (phone landscape, tablet portrait) ---- */
+body.is-mobile .nd-dash-grid.is-narrow {
+  gap: 12px;
+}
+body.is-mobile .nd-dash-grid.is-narrow > .nd-card {
+  max-height: 70vh;
+}
+body.is-mobile .nd-dash-grid.is-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-auto-rows: minmax(240px, auto);
+}
+body.is-mobile .nd-dash-grid.is-two > .nd-area-activity,
+body.is-mobile .nd-dash-grid.is-two > .nd-area-capture {
+  grid-column: 1 / -1;
+}
+/* what you act on first, the overview last */
+body.is-mobile .nd-dash-grid.is-narrow > .nd-area-capture { order: 1; }
+body.is-mobile .nd-dash-grid.is-narrow > .nd-area-tasks { order: 2; }
+body.is-mobile .nd-dash-grid.is-narrow > .nd-area-global { order: 3; }
+body.is-mobile .nd-dash-grid.is-narrow > .nd-area-tickets { order: 4; }
+body.is-mobile .nd-dash-grid.is-narrow > .nd-area-recent { order: 5; }
+body.is-mobile .nd-dash-grid.is-narrow > .nd-area-claude { order: 6; }
+body.is-mobile .nd-dash-grid.is-narrow > .nd-area-activity { order: 7; }
+body.is-mobile .nd-dash-grid.is-narrow > .nd-area-pulse { order: 8; }
+body.is-mobile .nd-dash-grid.is-narrow > .nd-area-totals { order: 9; }
+
+/* ---- tabs: less padding at the edges on a phone ---- */
+body.is-phone .nt-view-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+body.is-phone .tk-tools,
+body.is-phone .nd-timeline-bar {
+  gap: 6px;
+}
+body.is-phone .tk-search {
+  min-width: 0;
+  flex: 1 1 100%;
+  order: 10;
+}
+body.is-phone .nd-timeline-copy .nd-btn-label {
+  display: none;
+}
+body.is-phone .nd-dash-inner {
+  padding: 10px 10px 12px;
+}
+body.is-phone .nr-inner {
+  padding: 12px 10px 20px;
+}
+body.is-phone .nt-view-grid {
+  padding: 10px 10px 24px;
+}
+body.is-phone .tk-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+body.is-phone .tk-stat {
+  padding: 8px 10px;
+}
+body.is-phone .tk-stat-n {
+  font-size: 18px;
+}
+/* a long press opens the row's menu (see installLongPress), not the system's text selection or link preview */
+body.is-mobile .tk-row,
+body.is-mobile .tk-mini,
+body.is-mobile .nr-row,
+body.is-mobile .nr-research-row,
+body.is-mobile .nd-done-row {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}

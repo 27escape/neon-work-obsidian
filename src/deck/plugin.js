@@ -38,8 +38,11 @@ class NeonDeck extends Plugin {
     for (const [v, d] of [[VIEW_DASH, 'dashboard'], [VIEW_CARDS, 'cards'], [VIEW_GRAPH, 'graph']]) this.registerHoverLinkSource(v, { display: `${appName()} ${d}`, defaultMod: true });
 
     this.addRibbonIcon('layout-dashboard', `${appName()} dashboard`, () => this.activate(VIEW_DASH, 'tab'));
-    this.addRibbonIcon('layout-grid', 'Card explorer', () => this.activate(VIEW_CARDS, 'tab'));
-    this.addRibbonIcon('waypoints', 'Note graph', () => this.openGraph('notes'));
+    if (!NEON_MOBILE.on) {
+      // fork: the card explorer and the graph are desktop-only (heavy on a phone)
+      this.addRibbonIcon('layout-grid', 'Card explorer', () => this.activate(VIEW_CARDS, 'tab'));
+      this.addRibbonIcon('waypoints', 'Note graph', () => this.openGraph('notes'));
+    }
 
     const cmds = [
       ['open-dashboard', 'Open dashboard', () => this.activate(VIEW_DASH, 'tab')],
@@ -52,7 +55,8 @@ class NeonDeck extends Plugin {
       ['next-pattern', 'Next pattern', () => this.setLook({ pattern: PATTERNS[(PATTERNS.indexOf(this.activePattern()) + 1) % PATTERNS.length] }, true)],
       ['weekly-review', 'Create / open this week’s review', () => this.weeklyReview()],
     ];
-    for (const [id, name, callback] of cmds) this.addCommand({ id, name, callback });
+    const desktopOnly = new Set(['open-cards', 'open-cards-sidebar', 'open-graph', 'graph-active-note']); // fork: not on mobile
+    for (const [id, name, callback] of cmds) if (!(NEON_MOBILE.on && desktopOnly.has(id))) this.addCommand({ id, name, callback });
     // hidden while Neon Tasks is on: it brings its own New note command
     this.addCommand({
       id: 'new-note',

@@ -133,7 +133,12 @@ class DashboardView extends ItemView {
   }
   onResize() {
     const w = this.contentEl.clientWidth;
-    this.grid.toggleClass('is-narrow', w < 880);
+    // fork: phones and tablets: one column below 600px (phone portrait), two up to 1100px (phone landscape,
+    // tablet portrait), the desktop grid above. Desktop is unchanged: one column below 880px.
+    const one = NEON_MOBILE.on ? w < 600 : w < 880;
+    const two = NEON_MOBILE.on && !one && w < 1100;
+    this.grid.toggleClass('is-narrow', one || two);
+    this.grid.toggleClass('is-two', two);
     this.fitGrid();
   }
 
@@ -208,8 +213,12 @@ class DashboardView extends ItemView {
       { icon: 'file-plus', label: 'New note', run: () => p.newNote('/') },
       { icon: 'calendar-days', label: 'Today', run: () => p.openToday() },
       ...[...p.actions.values()].sort((a, b) => (a.order ?? 50) - (b.order ?? 50)),
-      { icon: 'layout-grid', label: 'Cards', run: () => p.activate(VIEW_CARDS, 'tab') },
-      { icon: 'waypoints', label: 'Graph', run: () => p.activate(VIEW_GRAPH, 'tab') },
+      ...(NEON_MOBILE.on
+        ? [] // fork: the card explorer and graph are desktop-only
+        : [
+            { icon: 'layout-grid', label: 'Cards', run: () => p.activate(VIEW_CARDS, 'tab') },
+            { icon: 'waypoints', label: 'Graph', run: () => p.activate(VIEW_GRAPH, 'tab') },
+          ]),
       { icon: 'search', label: 'Search', run: () => p.openSearch('') },
     ];
     for (const a of acts) button(el, { icon: a.icon, text: a.label, cls: 'nd-action', onClick: () => a.run() });
@@ -330,9 +339,10 @@ class DashboardView extends ItemView {
       if (hint) tip(t, hint);
       return v;
     };
-    tile(d.md.length, 'notes', 'var(--nd-text)', () => this.plugin.activate(VIEW_CARDS, 'tab'), 'Open the card explorer · line: notes created per day', this.perDay(d.md, (f) => f.stat.ctime));
+    const desk = !NEON_MOBILE.on; // fork: the card explorer and graph are desktop-only
+    tile(d.md.length, 'notes', 'var(--nd-text)', desk ? () => this.plugin.activate(VIEW_CARDS, 'tab') : null, desk ? 'Open the card explorer · line: notes created per day' : 'Line: notes created per day', this.perDay(d.md, (f) => f.stat.ctime));
     this.wordsEl = tile('…', 'words', 'var(--nd-text)');
-    tile(d.links, 'links', 'var(--nd-info)', () => this.plugin.openGraph('notes'), 'Open the note graph');
+    tile(d.links, 'links', 'var(--nd-info)', desk ? () => this.plugin.openGraph('notes') : null, desk ? 'Open the note graph' : null);
     tile(d.orphans.length, 'orphans', 'var(--nd-accent)', () => new FileListModal(this.plugin, d.orphans, 'Orphan notes — no links in or out').open(), 'Notes with no links in or out');
     tile(d.editedToday.length, 'edited today', 'var(--nd-go)', () => new FileListModal(this.plugin, d.editedToday, 'Edited today').open(), 'Line: notes edited per day', this.perDay(d.md, (f) => f.stat.mtime));
   }

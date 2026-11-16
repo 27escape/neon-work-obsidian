@@ -31,6 +31,7 @@ class NeonMother extends Plugin {
     const gesture = () => (NEON_GUARD.lastGesture = Date.now());
     this.registerDomEvent(document, 'pointerdown', gesture, true);
     this.registerDomEvent(document, 'keydown', gesture, true);
+    if (NEON_MOBILE.on) installLongPress(this); // fork: long press opens the row menus on phones and tablets
     const crashed = this.state.starting; // the last start never finished
     this.state.starting = true;
     if (crashed) this.state.safe = true; // stays on until turned off in settings
@@ -85,6 +86,7 @@ class NeonMother extends Plugin {
     return (deck && deck.api) || null;
   }
   isOn(id) {
+    if (NEON_MOBILE.on && DESKTOP_ONLY_MODULES.has(id)) return false; // fork: not on phones and tablets (the saved switch is kept)
     return !this.state.off[id];
   }
   async start(m) {

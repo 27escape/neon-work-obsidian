@@ -74,6 +74,10 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 - **Locked callouts and maths blocks:** lock one so it can't be edited by accident.
 - **Lifted writing window:** the note sits on a raised card over the dashboard pattern (full width when Obsidian's *Readable line length* is off).
 
+## On phones and tablets
+
+Dashboard, Tasks, Projects and Research also run on mobile: one column on a phone held upright, two on a phone turned sideways or a tablet, and long press for the menus that right-click opens on the desktop. Time tracking, Write, the card explorer and the note graph are desktop-only. To preview the mobile layouts on the desktop, run `app.emulateMobile(true)` in the developer console.
+
 ## Settings
 
 Everything is on one page, *Settings → Neon Work*, with a section per part:

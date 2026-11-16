@@ -22,7 +22,7 @@ const fonts = [['Unbounded', 'Unbounded.woff2'], ['Space Grotesk', 'SpaceGrotesk
   .map(([family, file]) => `@font-face{font-family:"${family}";src:url(data:font/woff2;base64,${fs.readFileSync(`src/deck/fonts/${file}`).toString('base64')}) format("woff2");font-weight:100 900;font-style:normal;font-display:swap;}`)
   .join('\n');
 const fontLicense = read('src/deck/fonts/OFL.txt');
-const css = [`/*\n${fontLicense}\n*/\n${fonts}`, ...o.modules.map((m) => `/* @src ${m.id}/styles.css */\n${m.css.map((f) => `/* @css ${f} */\n${read(f)}`).join('\n')}`)].join('\n');
+const css = [`/*\n${fontLicense}\n*/\n${fonts}`, ...o.modules.map((m) => `/* @src ${m.id}/styles.css */\n${m.css.map((f) => `/* @css ${f} */\n${read(f)}`).join('\n')}`), ...(o.css || []).map((f) => `/* @css ${f} */\n${read(f)}`)].join('\n'); // fork: shared CSS (mobile) last
 
 const dir = `dist/${manifest.id}`; // fork: the folder follows the plugin id (was dist/neon-deck)
 fs.rmSync(dir, { recursive: true, force: true });
