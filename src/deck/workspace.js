@@ -65,7 +65,7 @@ Object.assign(NeonDeck.prototype, {
         console.error('Neon Deck week line', e);
       }
     }
-    const md = this.app.vault.getMarkdownFiles().filter((f) => !this.isExcluded(f));
+    const md = this.includedNotes();
     const made = md.filter((f) => f.stat.ctime >= start.valueOf() && f.stat.ctime < end.valueOf()).length;
     if (!parts.length || made) parts.push(`${made} new note${made === 1 ? '' : 's'}`);
     const s = parts.join(', ');
@@ -80,7 +80,7 @@ Object.assign(NeonDeck.prototype, {
     if (existing instanceof TFile) return openFile(this.app, existing);
 
     const inWeek = (t) => t >= m.valueOf() && t < end.valueOf();
-    const md = this.app.vault.getMarkdownFiles().filter((f) => !this.isExcluded(f));
+    const md = this.includedNotes();
     const created = md.filter((f) => inWeek(f.stat.ctime)).sort((a, b) => a.stat.ctime - b.stat.ctime);
     const touched = md.filter((f) => inWeek(f.stat.mtime) && !inWeek(f.stat.ctime)).sort((a, b) => b.stat.mtime - a.stat.mtime);
     const link = (f) => `- [[${f.path.replace(/\.md$/, '')}|${f.basename}]]`;

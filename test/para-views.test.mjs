@@ -83,8 +83,24 @@ test('orphans: links from ignored notes (generated index notes) do not count', (
       metadataCache: { resolvedLinks: { 'A/0.Index.md': { 'A/Lonely.md': 1, 'A/Linked.md': 1, 'A/Mine.md': 1 }, 'A/Mine.md': { 'A/Linked.md': 1 } } },
     },
     isExcluded: (x) => x.path.endsWith('0.Index.md'),
+    includedNotes: D2.NeonDeck.prototype.includedNotes,
   };
   const d = D2.NeonDeck.prototype.collectVaultData.call(self);
   assert.deepEqual(d.orphans.map((x) => x.path), ['A/Lonely.md']);
   assert.equal(d.links, 1);
+});
+
+test('included notes: one scan per pass, a fresh copy for each caller', async () => {
+  const D2 = load('neon-deck', ['NeonDeck']);
+  let scans = 0;
+  const files = [{ path: 'a.md' }, { path: 'x/b.md' }];
+  const self = { app: { vault: { getMarkdownFiles: () => (scans++, files) } }, isExcluded: (f) => f.path.startsWith('x/') };
+  const notes = () => D2.NeonDeck.prototype.includedNotes.call(self);
+  const one = notes();
+  one.push({ path: 'junk.md' });
+  assert.deepEqual(notes().map((f) => f.path), ['a.md']);
+  assert.equal(scans, 1);
+  await Promise.resolve();
+  notes();
+  assert.equal(scans, 2); // a later pass sees new notes
 });

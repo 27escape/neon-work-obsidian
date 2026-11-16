@@ -35,6 +35,14 @@ Object.assign(NeonDeck.prototype, {
     if (!quiet) this.app.workspace.trigger('neon-deck:seen-changed');
   },
 
+  /** The notes that aren't excluded: one vault scan shared by everything drawn in the same pass (cleared after it). A copy, so callers may sort it. */
+  includedNotes() {
+    if (!this._notes) {
+      this._notes = this.app.vault.getMarkdownFiles().filter((f) => !this.isExcluded(f));
+      queueMicrotask(() => (this._notes = null));
+    }
+    return this._notes.slice();
+  },
   /** Excluded folders/files (settings + other Neon plugins). Cached briefly: isExcluded runs once per note in vault scans. */
   excludedPaths() {
     const now = Date.now();
@@ -264,7 +272,7 @@ Object.assign(NeonDeck.prototype, {
   /* vault data ------------------------------------------------------------- */
   collectVaultData() {
     const app = this.app;
-    const md = app.vault.getMarkdownFiles().filter((f) => !this.isExcluded(f));
+    const md = this.includedNotes();
     const rl = app.metadataCache.resolvedLinks;
     const incoming = new Set();
     let links = 0;

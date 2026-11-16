@@ -83,15 +83,17 @@ class CardsView extends ItemView {
     );
     this.registerEvent(this.app.workspace.on('file-open', () => this.markActive()));
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.markNav()));
-    this.registerEvent(this.app.workspace.on('layout-change', () => this.markNav()));
     this.registerEvent(this.app.workspace.on('neon-deck:slots-changed', () => this.renderNav()));
     this.registerEvent(this.app.workspace.on('neon-deck:pins-changed', () => this.refresh(0, true)));
     this.registerEvent(this.app.workspace.on('neon-deck:seen-changed', debounce(() => this.refresh(0, true), 600, true)));
+    // one layout-change handler: rebuild when the view moved between the sidebar and the main area, else just mark the nav
     this.registerEvent(
       this.app.workspace.on('layout-change', () => {
-        if (this.isSidebar() === this.sidebar) return;
-        this.build();
-        this.refresh(0);
+        if (this.isSidebar() !== this.sidebar) {
+          this.build();
+          this.refresh(0);
+        }
+        this.markNav();
       }),
     );
     this.registerDomEvent(this.contentEl, 'mouseup', (e) => {

@@ -155,7 +155,7 @@ class GraphView extends ItemView {
 
   scopeFiles() {
     const excl = (f) => this.plugin.isExcluded(f);
-    let files = this.app.vault.getMarkdownFiles().filter((f) => !excl(f));
+    let files = this.plugin.includedNotes();
     this.builtFor = null;
     if (this.scope === 'note') {
       const f = this.plugin.lastFile;

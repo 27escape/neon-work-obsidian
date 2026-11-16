@@ -31,9 +31,8 @@ Object.assign(NeonDeck.prototype, {
     const app = this.app;
     const groupOf = (f) => noteCategory(app.metadataCache.getFileCache(f), f.path);
     const groups = NEON_CATS.customers ? CATS.map((k) => [k, CAT_LABEL[k] || k]) : [];
-    const notes = app.vault
-      .getMarkdownFiles()
-      .filter((f) => !this.isExcluded(f))
+    const notes = this
+      .includedNotes()
       .map((f) => ({ group: groupOf(f), mtime: f.stat.mtime }));
     const tk = neonPlugin(app, 'neon-tickets');
     const projects = tk && tk.activeProjects ? tk.activeProjects().map((t) => ({ group: String(t.customer || '').toLowerCase() })) : [];
