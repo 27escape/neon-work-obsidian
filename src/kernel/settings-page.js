@@ -18,7 +18,7 @@ class NeonModulesTab extends PluginSettingTab {
     el.empty();
     el.addClass('nd-settings', 'nd-settings-page');
     const sections = [['overview', 'Overview'], ...NEON_MODULES.map((m) => [m.id, SECTION_LABEL[m.id] || m.name])];
-    let cur = p.state.settingsSection || 'overview';
+    let cur = p.local('section') || 'overview'; // fork: per device, not in the synced modules.json
     if (!sections.some(([k]) => k === cur)) cur = 'overview';
     const bar = el.createDiv('nd-pills nd-settings-sections');
     for (const [k, label] of sections) {
@@ -26,8 +26,7 @@ class NeonModulesTab extends PluginSettingTab {
       const b = bar.createEl('button', { cls: 'nd-pill-btn' + (k === cur ? ' is-on' : '') + (off ? ' is-off' : ''), text: label });
       if (off) b.setAttr('aria-label', `${label} is off (switch it on in Overview)`);
       b.addEventListener('click', () => {
-        p.state.settingsSection = k;
-        p.writeState();
+        p.setLocal('section', k);
         this.display();
       });
     }
@@ -72,7 +71,7 @@ class NeonModulesTab extends PluginSettingTab {
     for (const m of NEON_MODULES) {
       const why = p.failed.get(m.id);
       const desktopOnly = NEON_MOBILE.on && DESKTOP_ONLY_MODULES.has(m.id);
-      const state = desktopOnly ? 'desktop only' : p.modules.has(m.id) ? 'running' : why ? `stopped: ${why}` : p.state.safe ? 'off (safe mode)' : 'off';
+      const state = desktopOnly ? 'desktop only' : p.modules.has(m.id) ? 'running' : why ? `stopped: ${why}` : p.safeMode() ? 'off (safe mode)' : 'off';
       new Setting(el)
         .setName(SECTION_LABEL[m.id] || m.name)
         .setDesc(`${m.desc} · ${state}`)
@@ -87,9 +86,15 @@ class NeonModulesTab extends PluginSettingTab {
         );
     }
     new Setting(el)
-      .setName('Safe mode')
-      .setDesc('Start with every module off. Turns on by itself if the plugin crashed while starting.')
-      .addToggle((t) => t.setValue(p.state.safe).onChange((v) => p.setSafe(v)));
+      .setName('Safe mode on this device')
+      .setDesc('Start with every module off, on this device only. Turns on by itself if the plugin twice in a row did not finish starting here.')
+      .addToggle((t) => t.setValue(p.safeMode()).onChange((v) => p.setSafe(v)));
+    const err = p.local('error');
+    if (err)
+      new Setting(el)
+        .setName('Last start-up error on this device')
+        .setDesc(err)
+        .addButton((b) => b.setButtonText('Clear').onClick(() => (p.setLocal('error', null), this.display())));
     madeWith(el, p.manifest.name);
   }
 }

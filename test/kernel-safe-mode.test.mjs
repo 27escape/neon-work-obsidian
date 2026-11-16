@@ -1,0 +1,88 @@
+// Fork: safe mode and the start-up check are per device (local storage), never in the synced modules.json.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+const o = JSON.parse(fs.readFileSync(new URL('../tools/files.json', import.meta.url), 'utf8'));
+const src = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+const notices = [];
+class Component {
+  register() {}
+  registerEvent() {}
+  registerDomEvent() {}
+  addChild() {}
+}
+class Plugin extends Component {
+  constructor(app, manifest) {
+    super();
+    this.app = app;
+    this.manifest = manifest;
+  }
+  addSettingTab() {}
+  addCommand() {}
+}
+class Stub {}
+const obsidian = new Proxy(
+  { Plugin, Component, Notice: class { constructor(m) { notices.push(m); } }, moment: () => ({ format: () => '16 Nov 10:00' }), normalizePath: (p) => p, debounce: (f) => f, getAllTags: () => [], Platform: {} },
+  { get: (t, k) => (k in t ? t[k] : Stub) },
+);
+const code = [...o.shared, ...o.kernel].map(src).join('\n') + '\n;const NEON_MODULES = [];\n;({ NeonMother })';
+const { NeonMother } = vm.runInNewContext(code, { require: (r) => (r === 'obsidian' ? obsidian : {}), module: {}, window: { setTimeout: () => 0, clearTimeout() {} }, document: {}, console });
+
+function device(files) {
+  const local = new Map();
+  const timers = [];
+  const app = {
+    vault: { adapter: { read: async (p) => { if (!files.has(p)) throw new Error('ENOENT'); return files.get(p); }, write: async (p, t) => files.set(p, t), exists: async (p) => files.has(p), mkdir: async () => {} }, configDir: '.obsidian', getName: () => 'V', on() {}, getMarkdownFiles: () => [] },
+    metadataCache: { on() {}, offref() {} },
+    fileManager: {},
+    workspace: { onLayoutReady: (f) => timers.push(f) },
+    loadLocalStorage: (k) => (local.has(k) ? local.get(k) : null),
+    saveLocalStorage: (k, v) => (v == null ? local.delete(k) : local.set(k, v)),
+  };
+  files.set('.obsidian/community-plugins.json', '["neon-work"]');
+  return { app, local, start: async (finish) => {
+    const p = new NeonMother(app, { id: 'neon-work', name: 'Neon Work', dir: '.obsidian/plugins/neon-work' });
+    await p.onload();
+    if (finish) p.startDone();
+    return p;
+  } };
+}
+
+test('a normal start leaves no flag and does not write modules.json', async () => {
+  const files = new Map([['.obsidian/plugins/neon-work/modules.json', JSON.stringify({ off: {}, readOnly: false, baseFolder: 'x' })]]);
+  const before = files.get('.obsidian/plugins/neon-work/modules.json');
+  const d = device(files);
+  const p = await d.start(true);
+  assert.equal(p.safeMode(), false);
+  assert.equal(d.local.get('neon-work-unfinished-starts'), 0);
+  assert.equal(files.get('.obsidian/plugins/neon-work/modules.json'), before);
+});
+
+test('a synced starting:true / safe:true from another device is ignored', async () => {
+  const files = new Map([['.obsidian/plugins/neon-work/modules.json', JSON.stringify({ off: {}, starting: true, safe: true, readOnly: false, baseFolder: 'x' })]]);
+  const d = device(files);
+  const p = await d.start(true);
+  assert.equal(p.safeMode(), false);
+  await p.writeState();
+  const saved = JSON.parse(files.get('.obsidian/plugins/neon-work/modules.json'));
+  assert.equal('starting' in saved, false);
+  assert.equal('safe' in saved, false);
+});
+
+test('one unfinished start is forgiven; two in a row turn on safe mode on this device only', async () => {
+  const files = new Map([['.obsidian/plugins/neon-work/modules.json', JSON.stringify({ off: {}, baseFolder: 'x' })]]);
+  const phone = device(files);
+  await phone.start(false); // app closed before the start finished
+  assert.equal((await phone.start(false)).safeMode(), false);
+  notices.length = 0;
+  const third = await phone.start(false);
+  assert.equal(third.safeMode(), true);
+  assert.match(notices.join(' '), /twice in a row on this device/);
+  const laptop = device(files); // same synced files, its own local storage
+  assert.equal((await laptop.start(true)).safeMode(), false);
+  await third.setSafe(false);
+  assert.equal(third.safeMode(), false);
+  assert.equal(phone.local.get('neon-work-unfinished-starts'), 0);
+});

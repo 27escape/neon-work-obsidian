@@ -23,7 +23,7 @@ const NEON_MOBILE = (() => {
 })();
 const DESKTOP_ONLY_MODULES = new Set(['neon-time', 'neon-write']);
 
-const ND_VERSION = '1.1.0'; // set from the manifest by tools/build.mjs
+const ND_VERSION = '1.1.1'; // set from the manifest by tools/build.mjs
 // Categories colour notes and split tracked time. Upstream: four fixed ones (UPSTREAM_CATS).
 // fork: your customers instead — one per folder in the customers folder (1.Customers), keyed in lower case;
 // a note's category is its customer property, else the customer folder it is in. CATS, CAT_LABEL and
@@ -11244,7 +11244,11 @@ const NEON_MODULES = [
  * Obsidian's own Plugin/Component lifecycle removes everything a child registered when it
  * stops, so a module can be switched off at runtime without leaks. NEON_MODULES is filled
  * in by the build (tools/build.mjs). */
-const KERNEL_FILE = 'modules.json'; // { off: { 'neon-time': true }, starting: bool, safe: bool, readOnly: bool }
+const KERNEL_FILE = 'modules.json'; // { off: { 'neon-time': true }, readOnly: bool, baseFolder } — synced with the vault
+// fork: start-up checks and safe mode are per device (this vault's local storage on this device), never synced:
+// a phone and a laptop sharing .obsidian must not put each other into safe mode.
+const LOCAL_KEYS = { unfinished: 'neon-work-unfinished-starts', safe: 'neon-work-safe-mode', error: 'neon-work-last-error', section: 'neon-work-settings-section' };
+const UNFINISHED_LIMIT = 2; // two starts in a row that never finished (closing the app once is not a crash)
 
 class NeonMother extends Plugin {
   async onload() {
@@ -11253,7 +11257,7 @@ class NeonMother extends Plugin {
     neonMother = this;
     this.failed = new Map(); // id -> error message
     NEON_APP.name = this.manifest.name; // fork: the UI names the plugin by its manifest name
-    this.state = Object.assign({ off: {}, starting: false, safe: false, readOnly: true }, await this.readState());
+    this.state = Object.assign({ off: {}, readOnly: true }, await this.readState());
     // fork: modules get a write-guarded app; only the plugin's own folder may be written while read-only
     NEON_GUARD.allowDir = normalizePath(this.manifest.dir);
     NEON_GUARD.readOnly = this.state.readOnly !== false;
@@ -11273,10 +11277,11 @@ class NeonMother extends Plugin {
     this.registerDomEvent(document, 'pointerdown', gesture, true);
     this.registerDomEvent(document, 'keydown', gesture, true);
     if (NEON_MOBILE.on) installLongPress(this); // fork: long press opens the row menus on phones and tablets
-    const crashed = this.state.starting; // the last start never finished
-    this.state.starting = true;
-    if (crashed) this.state.safe = true; // stays on until turned off in settings
-    await this.writeState();
+    // fork: count starts that never finished on this device; two in a row turn on safe mode here only
+    const unfinished = Number(this.local('unfinished')) || 0;
+    this.setLocal('unfinished', unfinished + 1);
+    const crashed = unfinished >= UNFINISHED_LIMIT && !this.safeMode();
+    if (crashed) this.setLocal('safe', true); // stays on (on this device) until turned off in settings
     // enabled community plugins, from the public config file (old 1.x copies must not run twice)
     try {
       this.enabled = new Set(JSON.parse(await this.app.vault.adapter.read(`${this.app.vault.configDir}/community-plugins.json`)));
@@ -11292,8 +11297,14 @@ class NeonMother extends Plugin {
     await readDailyOpts(this.app);
     this.addSettingTab(new NeonModulesTab(this.app, this));
     this.addCommand({ id: 'safe-mode', name: 'Restart in safe mode (modules off)', callback: () => this.setSafe(true) });
-    if (crashed || this.state.safe) {
-      new Notice(crashed ? `${appName()} did not finish starting last time: safe mode, modules are off. Turn safe mode off in the plugin’s settings.` : `${appName()} safe mode: modules are off.`, 0);
+    if (this.safeMode()) {
+      const err = this.local('error');
+      new Notice(
+        crashed
+          ? `${appName()} did not finish starting twice in a row on this device, so its modules are off here (safe mode).${err ? ` Last error: ${err}.` : ''} Turn safe mode off in the plugin’s settings.`
+          : `${appName()} safe mode on this device: modules are off. Turn it off in the plugin’s settings.`,
+        0,
+      );
     } else for (const m of NEON_MODULES) await this.start(m);
     // modules finish starting asynchronously: only call the start done once the workspace is ready
     this.app.workspace.onLayoutReady(() => {
@@ -11317,9 +11328,34 @@ class NeonMother extends Plugin {
     neonIndex = null;
   }
   startDone() {
-    if (!this.state.starting) return;
-    this.state.starting = false;
-    return this.writeState();
+    this.setLocal('unfinished', 0);
+  }
+  /* fork: per-device values (Obsidian keeps them per vault on this device; not in .obsidian, so not synced) */
+  local(key) {
+    const k = LOCAL_KEYS[key];
+    try {
+      if (this.app.loadLocalStorage) return this.app.loadLocalStorage(k);
+      return JSON.parse(window.localStorage.getItem(`${this.app.vault.getName()}:${k}`));
+    } catch (e) {
+      return null;
+    }
+  }
+  setLocal(key, value) {
+    const k = LOCAL_KEYS[key];
+    try {
+      if (this.app.saveLocalStorage) this.app.saveLocalStorage(k, value == null ? null : value);
+      else if (value == null) window.localStorage.removeItem(`${this.app.vault.getName()}:${k}`);
+      else window.localStorage.setItem(`${this.app.vault.getName()}:${k}`, JSON.stringify(value));
+    } catch (e) {
+      /* storage unavailable: start-up checks just don't persist */
+    }
+  }
+  safeMode() {
+    return this.local('safe') === true || this.local('safe') === 'true';
+  }
+  /** The last start-up error on this device, shown in settings (phones have no console). */
+  noteError(where, e) {
+    this.setLocal('error', `${where}: ${String((e && e.message) || e).slice(0, 300)} (${moment().format('D MMM HH:mm')})`);
   }
   /** Core API for the modules (same object Neon Deck 1.x exposed). */
   get api() {
@@ -11356,6 +11392,7 @@ class NeonMother extends Plugin {
         } catch (e) {
           console.error(`Neon Deck: ${m.name} failed to start`, e);
           this.failed.set(m.id, String((e && e.message) || e));
+          this.noteError(m.name, e);
           new Notice(`${appName()}: ${m.name} failed to start and was stopped. Details in the console.`);
           window.setTimeout(() => this.stop(m.id), 0);
         }
@@ -11366,6 +11403,7 @@ class NeonMother extends Plugin {
     } catch (e) {
       console.error(`Neon Deck: ${m.name} failed to start`, e);
       this.failed.set(m.id, String((e && e.message) || e));
+      this.noteError(m.name, e);
     }
   }
   stop(id) {
@@ -11389,9 +11427,9 @@ class NeonMother extends Plugin {
     new Notice(on ? `${appName()}: read-only on. Nothing in your vault will be changed.` : `${appName()}: read-only off. Features that write to notes now work.`);
   }
   async setSafe(on) {
-    this.state.safe = on;
-    await this.writeState();
-    new Notice(on ? `${appName()}: safe mode on. Reload Obsidian (or the plugin) to apply.` : `${appName()}: safe mode off. Reload to start the modules.`);
+    this.setLocal('safe', on ? true : null);
+    if (!on) this.setLocal('unfinished', 0);
+    new Notice(on ? `${appName()}: safe mode on for this device. Reload Obsidian (or the plugin) to apply.` : `${appName()}: safe mode off for this device. Reload to start the modules.`);
   }
   /** First start of a module: copy the settings of the old separate plugin (never move or delete it). */
   async adoptData(id, dir) {
@@ -11411,7 +11449,10 @@ class NeonMother extends Plugin {
     }
   }
   async writeState() {
-    await this.app.vault.adapter.write(`${this.manifest.dir}/${KERNEL_FILE}`, JSON.stringify(this.state, null, 2));
+    // fork: older versions kept starting / safe / settingsSection here, so they synced between devices
+    const { starting, safe, settingsSection, ...keep } = this.state;
+    void starting, void safe, void settingsSection;
+    await this.app.vault.adapter.write(`${this.manifest.dir}/${KERNEL_FILE}`, JSON.stringify(keep, null, 2));
   }
 }
 /* @src src/kernel/settings-page.js */
@@ -11435,7 +11476,7 @@ class NeonModulesTab extends PluginSettingTab {
     el.empty();
     el.addClass('nd-settings', 'nd-settings-page');
     const sections = [['overview', 'Overview'], ...NEON_MODULES.map((m) => [m.id, SECTION_LABEL[m.id] || m.name])];
-    let cur = p.state.settingsSection || 'overview';
+    let cur = p.local('section') || 'overview'; // fork: per device, not in the synced modules.json
     if (!sections.some(([k]) => k === cur)) cur = 'overview';
     const bar = el.createDiv('nd-pills nd-settings-sections');
     for (const [k, label] of sections) {
@@ -11443,8 +11484,7 @@ class NeonModulesTab extends PluginSettingTab {
       const b = bar.createEl('button', { cls: 'nd-pill-btn' + (k === cur ? ' is-on' : '') + (off ? ' is-off' : ''), text: label });
       if (off) b.setAttr('aria-label', `${label} is off (switch it on in Overview)`);
       b.addEventListener('click', () => {
-        p.state.settingsSection = k;
-        p.writeState();
+        p.setLocal('section', k);
         this.display();
       });
     }
@@ -11489,7 +11529,7 @@ class NeonModulesTab extends PluginSettingTab {
     for (const m of NEON_MODULES) {
       const why = p.failed.get(m.id);
       const desktopOnly = NEON_MOBILE.on && DESKTOP_ONLY_MODULES.has(m.id);
-      const state = desktopOnly ? 'desktop only' : p.modules.has(m.id) ? 'running' : why ? `stopped: ${why}` : p.state.safe ? 'off (safe mode)' : 'off';
+      const state = desktopOnly ? 'desktop only' : p.modules.has(m.id) ? 'running' : why ? `stopped: ${why}` : p.safeMode() ? 'off (safe mode)' : 'off';
       new Setting(el)
         .setName(SECTION_LABEL[m.id] || m.name)
         .setDesc(`${m.desc} · ${state}`)
@@ -11504,9 +11544,15 @@ class NeonModulesTab extends PluginSettingTab {
         );
     }
     new Setting(el)
-      .setName('Safe mode')
-      .setDesc('Start with every module off. Turns on by itself if the plugin crashed while starting.')
-      .addToggle((t) => t.setValue(p.state.safe).onChange((v) => p.setSafe(v)));
+      .setName('Safe mode on this device')
+      .setDesc('Start with every module off, on this device only. Turns on by itself if the plugin twice in a row did not finish starting here.')
+      .addToggle((t) => t.setValue(p.safeMode()).onChange((v) => p.setSafe(v)));
+    const err = p.local('error');
+    if (err)
+      new Setting(el)
+        .setName('Last start-up error on this device')
+        .setDesc(err)
+        .addButton((b) => b.setButtonText('Clear').onClick(() => (p.setLocal('error', null), this.display())));
     madeWith(el, p.manifest.name);
   }
 }
