@@ -4,6 +4,7 @@
 // The module keeps upstream's id (neon-tickets) and view type, so its data folder and saved layouts carry on.
 
 const VIEW_TICKETS = 'neon-deck-tickets';
+const VIEW_PLAN = 'neon-plan'; // fork: one project's plan (plan-view.js)
 /** The four status groups: how a project is counted and coloured. */
 const PROJECT_KINDS = ['open', 'in-progress', 'waiting', 'done'];
 const PROJECT_KIND_LABEL = { open: 'Not started', 'in-progress': 'Active', waiting: 'On hold', done: 'Closed' };

@@ -119,7 +119,11 @@
         "src/tickets/model.js",
         "src/tickets/actions.js",
         "src/tickets/widget.js",
-        "src/tickets/plan-summary.js"
+        "src/tickets/plan-summary.js",
+        "src/tickets/plan-gantt.js",
+        "src/tickets/plan-export.js",
+        "src/tickets/plan-view.js",
+        "src/tickets/plan-actions.js"
       ],
       "css": [
         "src/tickets/styles-tracker.css",

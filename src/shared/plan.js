@@ -150,3 +150,20 @@ function planSummaryText(c, short = false) {
   parts.push(`${c.done}/${c.total} done`);
   return parts.join(' · ');
 }
+
+/** A task's text for charts and lists: plan fields, dates, priorities, tags and link brackets taken out. */
+function planText(raw) {
+  return String(raw || '')
+    .replace(/🆔\s*[\w-]+/gu, '')
+    .replace(/⛔️?\s*[\w-]+(?:\s*,\s*[\w-]+)*/gu, '')
+    .replace(/\[[\w-]+::[^\]]*\]/gu, '')
+    .replace(/(?:📅|⏳|🛫|✅|➕|❌)\s*\d{4}-\d{2}-\d{2}/gu, '')
+    .replace(/🔁[^📅⏳🛫✅➕]*/gu, '')
+    .replace(/[⏫🔼🔽🔺⏬]/gu, '')
+    .replace(/\[\[([^\]|]*)\|([^\]]*)\]\]/g, '$2')
+    .replace(/\[\[([^\]]*)\]\]/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(^|\s)#[\w/-]+/gu, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}

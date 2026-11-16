@@ -14,7 +14,7 @@ Status: agreed 16 Nov 2026; step 1 built. First used on the E2I note *Pilot - Lo
 ## Build steps
 
 1. ✅ `src/shared/plan.js` (parse, state, schedule, critical path, working days, counts) and `src/shared/plan-scope.js` (which tasks belong to a project, outside neighbours); Tasks card leaves project tasks out; counts on the project rows (`src/tickets/plan-summary.js`). Tests: `test/plan.test.mjs`.
-2. Plan view (Gantt and List), header buttons on project notes, SVG/PNG export.
+2. ✅ Plan view (`src/tickets/plan-view.js`: Gantt and List, Dates or Weeks), header buttons and commands on project notes (`plan-actions.js`), Gantt text (`plan-gantt.js`), SVG/PNG export and Copy as Mermaid (`plan-export.js`). Tests: `test/plan-gantt.test.mjs`.
 3. Board (drag to change status) and Graph.
 4. Report note, *Durations to dates*, schedule warnings.
 

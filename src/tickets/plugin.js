@@ -12,6 +12,7 @@ class NeonProjects extends Plugin {
     this.cache = null;
 
     this.registerView(VIEW_TICKETS, (leaf) => new ProjectsView(leaf, this));
+    this.hookPlans(); // fork: Plan view and the buttons on project notes
     this.addRibbonIcon('briefcase', 'Projects', () => this.openTracker());
     this.addCommand({ id: 'open-tickets', name: 'Open the Projects tab', callback: () => this.openTracker() });
     this.addCommand({ id: 'new-ticket', name: 'New project', callback: () => this.newProject() });
