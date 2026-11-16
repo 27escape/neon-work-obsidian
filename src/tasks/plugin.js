@@ -98,6 +98,11 @@ class NeonTasks extends Plugin {
     const f = this.app.workspace.getActiveFile();
     return f && f.parent ? f.parent.path : '/';
   }
+  /** fork: the Dashboard's inbox (New note's Inbox button), or null when the Dashboard is off. */
+  inboxService() {
+    const api = deckApi(this.app);
+    return api && api.service ? api.service('inboxNote') : null;
+  }
   ticketService() {
     const t = neonPlugin(this.app, 'neon-tickets');
     return t && t.newTicket ? (opts) => t.newTicket(opts) : null;

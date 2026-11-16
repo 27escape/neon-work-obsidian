@@ -145,6 +145,7 @@ class NewNoteModal extends Modal {
     const name = field('Name').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'Untitled' } });
     name.value = file ? file.basename : this.opts.name || '';
     const kinds = [['note', 'Note'], ['tasks', 'Task list']];
+    if (this.plugin.inboxService()) kinds.push(['inbox', 'Inbox']); // fork
     if (this.plugin.ticketService()) kinds.push(['ticket', 'Project']);
     this.kind = pills(field('Kind'), kinds, 'note', (v) => sync());
     this.cat = pills(
@@ -168,8 +169,9 @@ class NewNoteModal extends Modal {
     const go = button(row, { text: file ? 'Save' : 'Create', cls: 'mod-cta', onClick: () => this.submit(name.value, folder.value) });
     const sync = () => {
       const t = this.kind.get() === 'ticket';
-      folderField.toggle(!t);
-      note.setText(t ? 'Opens the New project form with this name as the title.' : 'You can close this and just type — the note keeps a small “No category yet” reminder.');
+      const inbox = this.kind.get() === 'inbox';
+      folderField.toggle(!t && !inbox);
+      note.setText(t ? 'Opens the New project form with this name as the title.' : inbox ? `Creates an inbox note in ${inboxWhere(this.plugin)}, tagged and marked to deal with later.` : 'You can close this and just type — the note keeps a small “No category yet” reminder.');
       go.querySelector('.nd-btn-label').setText(t ? 'Continue' : file ? 'Save' : 'Create');
     };
     c.addEventListener('keydown', (e) => {
@@ -197,6 +199,7 @@ class NewNoteModal extends Modal {
       if (file && !(await this.app.vault.read(file)).trim()) await this.app.fileManager.trashFile(file);
       return this.plugin.ticketService()({ title: name, category: CATS.includes(cat) ? cat : null });
     }
+    if (kind === 'inbox') return void (await openNewInbox(this.plugin, file, name));
     const props = (fm) => {
       if (kind === 'tasks') fm.tags = [...new Set([...fmTags(fm), 'tasks'])];
       if (CATS.includes(cat)) fm[cat] = true;

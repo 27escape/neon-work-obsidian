@@ -1141,7 +1141,9 @@ const DEFAULT_SETTINGS = {
   reviewFolder: '',
   reviewTemplate: '', // fork: template note for weekly reviews ({{weekLine}}, {{weekNotes}}, {{weekEnd}})
   inboxPath: '', // unused
-  inboxFolder: '', // fork: Quick capture can save a new note here ('' = off)
+  inboxFolder: '', // fork: inbox notes go here ('' = <base folder>/Inbox)
+  inboxTag: 'inbox', // fork: tag on every inbox note
+  inboxStatus: 'waiting', // fork: status on every inbox note
   inboxTemplate: '', // fork: template for those notes
   pinBoardPath: '',
   pinnedFolder: '', // files dropped onto the pin board from outside Obsidian
@@ -4715,8 +4717,13 @@ class NeonSettingTab extends PluginSettingTab {
     loc('Bridge note folder', 'Where the graph saves bridge notes.', 'bridgeFolder', 'Bridges', 'folder');
     new Setting(containerEl)
       .setName('Inbox folder')
-      .setDesc('Quick capture can save a thought as a new note here, named after its first line (“Inbox note”, first in the capture choices). Empty: off.')
-      .addText((t) => suggestPaths(p.app, t.setPlaceholder('e.g. 2.Resources/Inbox').setValue(s.inboxFolder).onChange((v) => ((s.inboxFolder = v.trim() ? normalizePath(v.trim()) : ''), save(), p.registerInboxCapture())), 'folder'));
+      .setDesc(`Inbox notes go here: from New note’s Inbox button, and from Quick capture (“Inbox note”, named after the first line). Empty: ${basePath('Inbox')}.`)
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Inbox')).setValue(s.inboxFolder).onChange((v) => ((s.inboxFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'));
+    new Setting(containerEl)
+      .setName('Inbox tag and status')
+      .setDesc('Every inbox note gets this tag and this status property, also when it starts from the template.')
+      .addText((t) => t.setPlaceholder('inbox').setValue(s.inboxTag).onChange((v) => ((s.inboxTag = v.trim().replace(/^#/, '')), save())))
+      .addText((t) => t.setPlaceholder('waiting').setValue(s.inboxStatus).onChange((v) => ((s.inboxStatus = v.trim()), save())));
     new Setting(containerEl)
       .setName('Inbox template')
       .setDesc('Optional template for inbox notes; the captured text goes below it.')
@@ -5296,9 +5303,10 @@ Object.assign(NeonDeck.prototype, {
   },
 });
 /* @src src/deck/inbox.js */
-/* ---- Inbox capture (fork) ---------------------------------------------------------
- * Quick capture → a new note in your inbox folder: named after the first line, made from the inbox
- * template (if set) with the captured text below it. Off until an inbox folder is set. */
+/* ---- Inbox (fork) -----------------------------------------------------------------
+ * Inbox notes go in the inbox folder (default <base folder>/Inbox): from Quick capture (named after the
+ * first line, the text below the template) or from New note's Inbox button. Every inbox note gets the inbox
+ * tag and status (default: tags: inbox, status: waiting), also when it starts from a template. */
 
 /** File name for a captured thought: its first line, shortened, else a time stamp (pure). */
 function inboxName(text, now) {
@@ -5308,28 +5316,49 @@ function inboxName(text, now) {
 }
 /** Body of an inbox note without a template (pure). */
 function inboxBody(title, text, day) {
-  return ['---', `title: ${JSON.stringify(title)}`, 'tags:', '  - inbox', 'status: created', `created: ${day}`, '---', '', String(text || '').trim(), ''].join('\n');
+  return ['---', `title: ${JSON.stringify(title)}`, `created: ${day}`, '---', '', String(text || '').trim(), ''].join('\n');
+}
+/** Put the inbox tag and status on a note's properties (pure; fm as Obsidian's processFrontMatter gives it). */
+function inboxProps(fm, tag, status) {
+  tag = String(tag || '').trim().replace(/^#/, '');
+  if (tag) {
+    const tags = Array.isArray(fm.tags) ? fm.tags : fm.tags ? String(fm.tags).split(/[,\s]+/).filter(Boolean) : [];
+    if (!tags.some((t) => String(t).replace(/^#/, '').toLowerCase() === tag.toLowerCase())) tags.push(tag);
+    fm.tags = tags;
+  }
+  if (String(status || '').trim()) fm.status = String(status).trim();
+  return fm;
 }
 
 Object.assign(NeonDeck.prototype, {
+  /** The inbox folder: the setting, else <base folder>/Inbox. */
+  inboxFolder() {
+    return locPath(this.settings.inboxFolder, 'Inbox');
+  },
   registerInboxCapture() {
-    if (!(this.settings.inboxFolder || '').trim()) return this.api.unregisterCapture('inbox');
     this.api.registerCapture({ id: 'inbox', label: 'Inbox note', short: 'Inbox', icon: 'inbox', order: 5, run: (v) => this.captureToInbox(v) });
+    this.api.provide('inboxNote', (title, text) => this.createInboxNote(title, text)); // New note's Inbox button
+  },
+  /** A new inbox note (from the template if set) with the inbox tag and status; returns the file. */
+  async createInboxNote(title, text = '') {
+    const s = this.settings;
+    const now = moment();
+    title = safeName(title) || inboxName(text, now);
+    let body = null;
+    if (s.inboxTemplate) {
+      const tf = this.app.metadataCache.getFirstLinkpathDest(s.inboxTemplate.replace(/\.md$/, ''), '') || this.app.vault.getAbstractFileByPath(normalizePath(s.inboxTemplate));
+      if (tf instanceof TFile) body = `${applyTemplate(await this.app.vault.read(tf), now, title).replace(/\s*$/, '')}\n${text ? `\n${text}\n` : ''}`;
+      else new Notice(`Inbox template “${s.inboxTemplate}” not found: using standard properties`);
+    }
+    const f = await createUnique(this.app, this.inboxFolder(), title, body != null ? body : inboxBody(title, text, now.format('YYYY-MM-DD')));
+    await this.app.fileManager.processFrontMatter(f, (fm) => inboxProps(fm, s.inboxTag, s.inboxStatus));
+    return f;
   },
   async captureToInbox(text) {
     text = String(text || '').trim();
     if (!text) return;
-    const s = this.settings;
-    const now = moment();
-    const title = inboxName(text, now);
-    let body = null;
-    if (s.inboxTemplate) {
-      const tf = this.app.metadataCache.getFirstLinkpathDest(s.inboxTemplate.replace(/\.md$/, ''), '') || this.app.vault.getAbstractFileByPath(normalizePath(s.inboxTemplate));
-      if (tf instanceof TFile) body = `${applyTemplate(await this.app.vault.read(tf), now, title).replace(/\s*$/, '')}\n\n${text}\n`;
-      else new Notice(`Inbox template “${s.inboxTemplate}” not found: using standard properties`);
-    }
     try {
-      const f = await createUnique(this.app, s.inboxFolder, title, body != null ? body : inboxBody(title, text, now.format('YYYY-MM-DD')));
+      const f = await this.createInboxNote(inboxName(text, moment()), text);
       new Notice(`✦ Saved to ${f.path}`);
     } catch (e) {
       if (!(e && e.neonReadOnly)) {
@@ -6391,6 +6420,7 @@ class NewNoteModal extends Modal {
     const name = field('Name').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'Untitled' } });
     name.value = file ? file.basename : this.opts.name || '';
     const kinds = [['note', 'Note'], ['tasks', 'Task list']];
+    if (this.plugin.inboxService()) kinds.push(['inbox', 'Inbox']); // fork
     if (this.plugin.ticketService()) kinds.push(['ticket', 'Project']);
     this.kind = pills(field('Kind'), kinds, 'note', (v) => sync());
     this.cat = pills(
@@ -6414,8 +6444,9 @@ class NewNoteModal extends Modal {
     const go = button(row, { text: file ? 'Save' : 'Create', cls: 'mod-cta', onClick: () => this.submit(name.value, folder.value) });
     const sync = () => {
       const t = this.kind.get() === 'ticket';
-      folderField.toggle(!t);
-      note.setText(t ? 'Opens the New project form with this name as the title.' : 'You can close this and just type — the note keeps a small “No category yet” reminder.');
+      const inbox = this.kind.get() === 'inbox';
+      folderField.toggle(!t && !inbox);
+      note.setText(t ? 'Opens the New project form with this name as the title.' : inbox ? `Creates an inbox note in ${inboxWhere(this.plugin)}, tagged and marked to deal with later.` : 'You can close this and just type — the note keeps a small “No category yet” reminder.');
       go.querySelector('.nd-btn-label').setText(t ? 'Continue' : file ? 'Save' : 'Create');
     };
     c.addEventListener('keydown', (e) => {
@@ -6443,6 +6474,7 @@ class NewNoteModal extends Modal {
       if (file && !(await this.app.vault.read(file)).trim()) await this.app.fileManager.trashFile(file);
       return this.plugin.ticketService()({ title: name, category: CATS.includes(cat) ? cat : null });
     }
+    if (kind === 'inbox') return void (await openNewInbox(this.plugin, file, name));
     const props = (fm) => {
       if (kind === 'tasks') fm.tags = [...new Set([...fmTags(fm), 'tasks'])];
       if (CATS.includes(cat)) fm[cat] = true;
@@ -6693,6 +6725,11 @@ class NeonTasks extends Plugin {
     const f = this.app.workspace.getActiveFile();
     return f && f.parent ? f.parent.path : '/';
   }
+  /** fork: the Dashboard's inbox (New note's Inbox button), or null when the Dashboard is off. */
+  inboxService() {
+    const api = deckApi(this.app);
+    return api && api.service ? api.service('inboxNote') : null;
+  }
   ticketService() {
     const t = neonPlugin(this.app, 'neon-tickets');
     return t && t.newTicket ? (opts) => t.newTicket(opts) : null;
@@ -6786,6 +6823,18 @@ function newNoteFrontmatter(type, title, day, group) {
   return lines.join('\n');
 }
 
+/** fork: where inbox notes go, for the dialog's hint. */
+function inboxWhere(p) {
+  const deck = neonPlugin(p.app, 'neon-deck');
+  return deck && deck.inboxFolder ? deck.inboxFolder() : 'the inbox folder';
+}
+/** fork: New note's Inbox button: make the inbox note, drop an empty note New note was asked about, open it. */
+async function openNewInbox(p, file, title) {
+  const f = await p.inboxService()(title, '');
+  if (file && file !== f && !(await p.app.vault.read(file)).trim()) await p.app.fileManager.trashFile(file);
+  await reusableLeaf(p.app).openFile(f, { active: true, state: { mode: 'source' } });
+}
+
 class CustomerNoteModal extends Modal {
   /** opts: { folder, file (an existing empty note), name } */
   constructor(plugin, opts = {}) {
@@ -6811,6 +6860,7 @@ class CustomerNoteModal extends Modal {
     name.value = file ? file.basename : this.opts.name || '';
     this.types = noteTypesFrom(s);
     const kinds = this.types.map((t, i) => [String(i), t.name || 'Note']);
+    if (p.inboxService()) kinds.push(['inbox', 'Inbox']); // fork
     if (p.ticketService()) kinds.push(['project', 'Project']);
     this.kind = pills(field('Kind'), kinds, '0', () => sync());
     const customers = CATS.map((k) => [k, CAT_LABEL[k] || k]);
@@ -6829,6 +6879,7 @@ class CustomerNoteModal extends Modal {
     const sync = () => {
       const kind = this.kind.get();
       if (kind === 'project') where.setText(`Opens New project with this name and ${groupWord(false, true)}.`);
+      else if (kind === 'inbox') where.setText(`Creates an inbox note in ${inboxWhere(p)}, tagged and marked to deal with later.`);
       else {
         const type = this.types[Number(kind)] || this.types[0];
         const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, sel.value ? label(sel.value) : '', safeName(name.value) || 'Untitled', s.noCustomerFolder);
@@ -6860,6 +6911,7 @@ class CustomerNoteModal extends Modal {
         if (file && !(await this.app.vault.read(file)).trim()) await this.app.fileManager.trashFile(file);
         return p.ticketService()({ title, customer });
       }
+      if (kind === 'inbox') return void (await openNewInbox(p, file, title));
       const type = this.types[Number(kind)] || this.types[0];
       const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, customer, title, p.settings.noCustomerFolder);
       const day = moment();

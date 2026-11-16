@@ -55,8 +55,13 @@ class NeonSettingTab extends PluginSettingTab {
     loc('Bridge note folder', 'Where the graph saves bridge notes.', 'bridgeFolder', 'Bridges', 'folder');
     new Setting(containerEl)
       .setName('Inbox folder')
-      .setDesc('Quick capture can save a thought as a new note here, named after its first line (“Inbox note”, first in the capture choices). Empty: off.')
-      .addText((t) => suggestPaths(p.app, t.setPlaceholder('e.g. 2.Resources/Inbox').setValue(s.inboxFolder).onChange((v) => ((s.inboxFolder = v.trim() ? normalizePath(v.trim()) : ''), save(), p.registerInboxCapture())), 'folder'));
+      .setDesc(`Inbox notes go here: from New note’s Inbox button, and from Quick capture (“Inbox note”, named after the first line). Empty: ${basePath('Inbox')}.`)
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Inbox')).setValue(s.inboxFolder).onChange((v) => ((s.inboxFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'));
+    new Setting(containerEl)
+      .setName('Inbox tag and status')
+      .setDesc('Every inbox note gets this tag and this status property, also when it starts from the template.')
+      .addText((t) => t.setPlaceholder('inbox').setValue(s.inboxTag).onChange((v) => ((s.inboxTag = v.trim().replace(/^#/, '')), save())))
+      .addText((t) => t.setPlaceholder('waiting').setValue(s.inboxStatus).onChange((v) => ((s.inboxStatus = v.trim()), save())));
     new Setting(containerEl)
       .setName('Inbox template')
       .setDesc('Optional template for inbox notes; the captured text goes below it.')

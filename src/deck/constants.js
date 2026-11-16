@@ -54,7 +54,9 @@ const DEFAULT_SETTINGS = {
   reviewFolder: '',
   reviewTemplate: '', // fork: template note for weekly reviews ({{weekLine}}, {{weekNotes}}, {{weekEnd}})
   inboxPath: '', // unused
-  inboxFolder: '', // fork: Quick capture can save a new note here ('' = off)
+  inboxFolder: '', // fork: inbox notes go here ('' = <base folder>/Inbox)
+  inboxTag: 'inbox', // fork: tag on every inbox note
+  inboxStatus: 'waiting', // fork: status on every inbox note
   inboxTemplate: '', // fork: template for those notes
   pinBoardPath: '',
   pinnedFolder: '', // files dropped onto the pin board from outside Obsidian

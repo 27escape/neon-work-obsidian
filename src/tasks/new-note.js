@@ -47,6 +47,18 @@ function newNoteFrontmatter(type, title, day, group) {
   return lines.join('\n');
 }
 
+/** fork: where inbox notes go, for the dialog's hint. */
+function inboxWhere(p) {
+  const deck = neonPlugin(p.app, 'neon-deck');
+  return deck && deck.inboxFolder ? deck.inboxFolder() : 'the inbox folder';
+}
+/** fork: New note's Inbox button: make the inbox note, drop an empty note New note was asked about, open it. */
+async function openNewInbox(p, file, title) {
+  const f = await p.inboxService()(title, '');
+  if (file && file !== f && !(await p.app.vault.read(file)).trim()) await p.app.fileManager.trashFile(file);
+  await reusableLeaf(p.app).openFile(f, { active: true, state: { mode: 'source' } });
+}
+
 class CustomerNoteModal extends Modal {
   /** opts: { folder, file (an existing empty note), name } */
   constructor(plugin, opts = {}) {
@@ -72,6 +84,7 @@ class CustomerNoteModal extends Modal {
     name.value = file ? file.basename : this.opts.name || '';
     this.types = noteTypesFrom(s);
     const kinds = this.types.map((t, i) => [String(i), t.name || 'Note']);
+    if (p.inboxService()) kinds.push(['inbox', 'Inbox']); // fork
     if (p.ticketService()) kinds.push(['project', 'Project']);
     this.kind = pills(field('Kind'), kinds, '0', () => sync());
     const customers = CATS.map((k) => [k, CAT_LABEL[k] || k]);
@@ -90,6 +103,7 @@ class CustomerNoteModal extends Modal {
     const sync = () => {
       const kind = this.kind.get();
       if (kind === 'project') where.setText(`Opens New project with this name and ${groupWord(false, true)}.`);
+      else if (kind === 'inbox') where.setText(`Creates an inbox note in ${inboxWhere(p)}, tagged and marked to deal with later.`);
       else {
         const type = this.types[Number(kind)] || this.types[0];
         const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, sel.value ? label(sel.value) : '', safeName(name.value) || 'Untitled', s.noCustomerFolder);
@@ -121,6 +135,7 @@ class CustomerNoteModal extends Modal {
         if (file && !(await this.app.vault.read(file)).trim()) await this.app.fileManager.trashFile(file);
         return p.ticketService()({ title, customer });
       }
+      if (kind === 'inbox') return void (await openNewInbox(p, file, title));
       const type = this.types[Number(kind)] || this.types[0];
       const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, customer, title, p.settings.noCustomerFolder);
       const day = moment();
