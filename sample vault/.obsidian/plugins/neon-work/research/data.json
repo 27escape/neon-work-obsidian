@@ -1,4 +1,5 @@
 {
+  "root": "2.Resources/Research",
   "roots": [
     {
       "name": "Research",
@@ -10,5 +11,14 @@
     }
   ],
   "activeRoot": 0,
+  "countAsWork": true,
+  "linkSuggest": true,
+  "open": [],
+  "researchTopics": [],
+  "cards": {},
+  "statusProperty": "status",
+  "doneStatuses": "completed, done, evergreen",
+  "newStatus": "init",
+  "newNoteTags": "research",
   "noteTemplate": "2.Resources/templates/research_template.md"
 }

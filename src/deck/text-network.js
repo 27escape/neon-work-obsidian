@@ -306,6 +306,13 @@ function betweenness(n, adj) {
   return bc;
 }
 
+/** fork: what each level means, for the tooltips on the Structure scale. */
+const DIVERSITY_MEANING = {
+  Biased: 'Biased: one topic covers more than half your notes and the rest hang off it.',
+  Focused: 'Focused: a clear core topic with supporting themes around it.',
+  Diversified: 'Diversified: several distinct topics that still link to each other.',
+  Dispersed: 'Dispersed: many loosely linked islands of notes; see Gaps below.',
+};
 const DIVERSITY_HINT = {
   Biased: 'One idea dominates. Great for depth — try adding a contrasting perspective.',
   Focused: 'A clear core with supporting themes. Healthy balance, room to branch out.',

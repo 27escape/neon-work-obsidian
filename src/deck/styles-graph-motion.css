@@ -124,23 +124,50 @@
   font: 12px var(--nd-mono);
   opacity: 0.8;
 }
-.nd-div-scale {
+.nd-div-gauge {
+  /* fork: a scale (not buttons): one bar in four levels, a marker on yours, names below */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+.nd-div-bar {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 3px;
+  gap: 2px;
+  height: 8px;
+  margin-top: 8px;
 }
-.nd-div-step {
+.nd-div-seg {
+  border-radius: 4px;
+  opacity: 0.55;
+}
+.nd-div-seg.is-biased { background: var(--nd-warn); }
+.nd-div-seg.is-focused { background: var(--nd-info); }
+.nd-div-seg.is-diversified { background: var(--nd-go); }
+.nd-div-seg.is-dispersed { background: var(--nd-accent); }
+.nd-div-marker {
+  position: absolute;
+  top: -7px;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid var(--nd-text);
+  pointer-events: none;
+}
+.nd-div-names {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   font-size: 10px;
   text-align: center;
-  padding: 3px 0;
-  border-radius: 6px;
-  background: var(--nd-surface2);
-  color: var(--text-faint);
-  font-weight: 700;
+  color: var(--nd-faint);
 }
-.nd-div-step.is-on {
-  background: var(--nd-text);
-  color: var(--background-primary);
+.nd-div-name.is-on {
+  color: var(--nd-text);
+  font-weight: 700;
 }
 .nd-topic {
   --topic: var(--nd-accent);

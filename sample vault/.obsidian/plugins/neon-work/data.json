@@ -1,7 +1,7 @@
 {
   "name": "Jordan",
   "openDashboardOnStartup": true,
-  "theme": "blueprint",
+  "theme": "marathon",
   "pattern": "datastream",
   "patternStrength": "off",
   "patternMotion": false,
@@ -43,10 +43,11 @@
   "revisitDays": 14,
   "seen": {
     "1.Customers/Globex Corporation/Meetings/2026-11-10 Portal Discovery Workshop.md": 1794584312561,
-    "1.Customers/Acme Widgets/Meetings/2026-11-12 ERP Steering Group.md": 1794584360047,
+    "1.Customers/Acme Widgets/Meetings/2026-11-12 ERP Steering Group.md": 1794831516260,
     "1.Customers/Acme Widgets/Projects/Data Retention Policy.md": 1794584357053,
     "1.Customers/Acme Widgets/People/@Lena Novak.md": 1794584361198,
-    "4.Archive/Printer Fleet Replacement.md": 1794584376460
+    "4.Archive/Printer Fleet Replacement.md": 1794584376460,
+    "2.Resources/Bridges/Bridge – 2026-11-05 ERP Kick-off × 2026-11-10 Portal Discovery Workshop.md": 1794831525310
   },
   "graphMaxNodes": 120,
   "graphWindow": 4,

@@ -72,9 +72,17 @@ Object.assign(GraphView.prototype, {
     const st = this.section('Structure', 'gauge');
     const badge = st.createDiv(`nd-diversity is-${an.diversity.toLowerCase()}`);
     badge.createDiv({ cls: 'nd-div-label', text: an.diversity });
-    badge.createDiv({ cls: 'nd-div-q', text: `modularity ${an.Q.toFixed(2)} · top topic ${Math.round(an.topics[0].share * 100)}%` });
-    const scale = st.createDiv('nd-div-scale');
-    for (const lvl of ['Biased', 'Focused', 'Diversified', 'Dispersed']) scale.createDiv({ cls: 'nd-div-step' + (lvl === an.diversity ? ' is-on' : ''), text: lvl });
+    const q = badge.createDiv({ cls: 'nd-div-q', text: `modularity ${an.Q.toFixed(2)} · top topic ${Math.round(an.topics[0].share * 100)}%` });
+    tip(q, `Modularity (0 to 1): how cleanly your ${unit} split into separate topics; higher means more self-contained clusters. Top topic: the share of your ${unit} in the largest topic.`);
+    // fork: a scale, not buttons: one bar split into the four levels, a marker on yours, plain names below
+    const levels = ['Biased', 'Focused', 'Diversified', 'Dispersed'];
+    const at = Math.max(0, levels.indexOf(an.diversity));
+    const scale = st.createDiv('nd-div-gauge');
+    const bar = scale.createDiv('nd-div-bar');
+    for (const lvl of levels) tip(bar.createDiv(`nd-div-seg is-${lvl.toLowerCase()}`), DIVERSITY_MEANING[lvl]);
+    bar.createDiv('nd-div-marker').style.left = `${(at + 0.5) * 25}%`;
+    const names = scale.createDiv('nd-div-names');
+    for (const lvl of levels) tip(names.createDiv({ cls: 'nd-div-name' + (lvl === an.diversity ? ' is-on' : ''), text: lvl }), DIVERSITY_MEANING[lvl]);
     st.createDiv({ cls: 'nd-muted', text: DIVERSITY_HINT[an.diversity] });
 
     const tp = this.section('Main topics', 'shapes');
