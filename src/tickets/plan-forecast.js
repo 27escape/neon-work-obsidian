@@ -68,11 +68,13 @@ Object.assign(PlanView.prototype, {
       this.render();
     });
     tip(this.phasesOnlyEl.el, 'One bar per phase, or every task');
+    this.datesBtn = button(tools, { icon: 'calendar-check', text: 'Dates…', cls: 'np-dates-btn', title: 'Write the planned dates into the tasks (🛫 start, 📅 due), choosing which', onClick: () => new PlanDatesModal(this.app, this).open() });
     this.baselineBtn = button(tools, { icon: 'flag', text: 'Baseline', cls: 'np-baseline', title: 'Save today’s plan as the baseline, to see later how far tasks slip', onClick: (e) => this.baselineMenu(e) });
   },
   syncForecastTools() {
     this.phasesOnlyEl.el.toggleClass('is-hidden', this.mode !== 'gantt');
     this.baselineBtn.toggleClass('is-hidden', !this.base);
+    this.datesBtn.toggleClass('is-hidden', !this.base);
     this.baselineBtn.toggleClass('is-on', !!this.baseline());
   },
   /** The plan with real dates (whatever the Dates / Weeks switch): forecast, baseline and slip use it. */

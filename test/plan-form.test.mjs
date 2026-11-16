@@ -111,3 +111,15 @@ test('weekend dates are found', () => {
   assert.equal(w.length, 1);
   assert.equal(w[0].sign, '📅');
 });
+
+const D = load('neon-tickets', ['planTask', 'planDatesEdit']);
+
+test('durations to dates: 🛫 and 📅 set or replaced in place, others untouched, missing tasks reported', () => {
+  const note = '- [ ] A [duration:: 2d] 🆔 a #task\n- [ ] B 🆔 b ⛔ a 📅 2026-12-01 #task\n- [ ] C #task';
+  const a = D.planTask('- [ ] A [duration:: 2d] 🆔 a #task', { line: 0 });
+  const b = D.planTask('- [ ] B 🆔 b ⛔ a 📅 2026-12-01 #task', { line: 1 });
+  const gone = D.planTask('- [ ] Gone 🆔 g', { line: 9 });
+  const r = D.planDatesEdit(note, [{ task: a, start: '2026-11-16', due: '2026-11-17' }, { task: b, start: null, due: '2026-11-18' }, { task: gone, start: '2026-11-16', due: null }]);
+  assert.equal(r.text, '- [ ] A [duration:: 2d] 🆔 a 🛫 2026-11-16 📅 2026-11-17 #task\n- [ ] B 🆔 b ⛔ a 📅 2026-11-18 #task\n- [ ] C #task');
+  assert.equal(r.missing.length, 1);
+});

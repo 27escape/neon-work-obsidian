@@ -5810,6 +5810,50 @@ body:not(.nd-themed) .nd-empty {
 .np-editor .np-ed-warn-line:empty {
   display: none;
 }
+
+/* Durations to dates */
+.np-dates {
+  width: min(760px, 94vw);
+}
+.np-dates .np-dates-opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-bottom: 8px;
+}
+.np-dates .np-dates-list {
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.np-dates .np-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-ui-small);
+}
+.np-dates .np-table th,
+.np-dates .np-table td {
+  text-align: left;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.np-dates tr.is-same {
+  color: var(--text-faint);
+}
+.np-dates .np-id {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.np-dates .np-ed-warn {
+  color: var(--color-red);
+  margin-bottom: 8px;
+}
+.np-dates .np-ed-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
 /* @css src/tickets/styles-plan-extra.css */
 /* forecast, baseline, markers */
 .np-plan .np-sum.is-late {
