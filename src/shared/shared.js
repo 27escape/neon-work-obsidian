@@ -12,6 +12,11 @@ const NEON_MOBILE = (() => {
   return { on: !!P.isMobile, phone: !!P.isPhone, tablet: !!P.isTablet };
 })();
 const DESKTOP_ONLY_MODULES = new Set(['neon-time', 'neon-write']);
+/** A desktop-only view opened on a phone (e.g. restored from an older layout): a line instead of the view. */
+function mobileOnlyNote(el, what) {
+  el.empty();
+  el.createDiv({ cls: 'nd-empty', text: `${what} is only on the desktop. Close this tab.` });
+}
 
 const ND_VERSION = '1.0.0'; // set from the manifest by tools/build.mjs
 // Categories colour notes and split tracked time. Upstream: four fixed ones (UPSTREAM_CATS).

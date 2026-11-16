@@ -6,7 +6,7 @@
 const KERNEL_FILE = 'modules.json'; // { off: { 'neon-time': true }, readOnly: bool, baseFolder } — synced with the vault
 // fork: start-up checks and safe mode are per device (this vault's local storage on this device), never synced:
 // a phone and a laptop sharing .obsidian must not put each other into safe mode.
-const LOCAL_KEYS = { unfinished: 'neon-work-unfinished-starts', safe: 'neon-work-safe-mode', error: 'neon-work-last-error', section: 'neon-work-settings-section' };
+const LOCAL_KEYS = { unfinished: 'neon-work-unfinished-starts', safe: 'neon-work-safe-mode', error: 'neon-work-last-error', section: 'neon-work-settings-section', timing: 'neon-work-start-timing' };
 const UNFINISHED_LIMIT = 2; // two starts in a row that never finished (closing the app once is not a crash)
 
 class NeonMother extends Plugin {
@@ -15,6 +15,8 @@ class NeonMother extends Plugin {
     this.moduleTabs = new Map(); // fork: id -> the module's settings tab, shown inside this plugin's one settings page
     neonMother = this;
     this.failed = new Map(); // id -> error message
+    this.t0 = Date.now(); // fork: start-up timing, kept per device and shown in settings
+    this.timing = [];
     NEON_APP.name = this.manifest.name; // fork: the UI names the plugin by its manifest name
     this.state = Object.assign({ off: {}, readOnly: true }, await this.readState());
     // fork: modules get a write-guarded app; only the plugin's own folder may be written while read-only
@@ -88,6 +90,7 @@ class NeonMother extends Plugin {
   }
   startDone() {
     this.setLocal('unfinished', 0);
+    if (this.timing) this.setLocal('timing', `${this.timing.join(' · ')}${this.timing.length ? ' · ' : ''}ready after ${((Date.now() - this.t0) / 1000).toFixed(1)} s (${moment().format('D MMM HH:mm')})`);
   }
   /* fork: per-device values (Obsidian keeps them per vault on this device; not in .obsidian, so not synced) */
   local(key) {
@@ -146,8 +149,10 @@ class NeonMother extends Plugin {
       // a failing start stops only this module
       const load = child.onload;
       child.onload = async () => {
+        const t = Date.now();
         try {
           await load.call(child);
+          this.timing.push(`${SECTION_LABEL[m.id] || m.name} ${Date.now() - t} ms`);
         } catch (e) {
           console.error(`Neon Deck: ${m.name} failed to start`, e);
           this.failed.set(m.id, String((e && e.message) || e));

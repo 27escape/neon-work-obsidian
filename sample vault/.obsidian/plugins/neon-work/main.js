@@ -22,8 +22,13 @@ const NEON_MOBILE = (() => {
   return { on: !!P.isMobile, phone: !!P.isPhone, tablet: !!P.isTablet };
 })();
 const DESKTOP_ONLY_MODULES = new Set(['neon-time', 'neon-write']);
+/** A desktop-only view opened on a phone (e.g. restored from an older layout): a line instead of the view. */
+function mobileOnlyNote(el, what) {
+  el.empty();
+  el.createDiv({ cls: 'nd-empty', text: `${what} is only on the desktop. Close this tab.` });
+}
 
-const ND_VERSION = '1.1.1'; // set from the manifest by tools/build.mjs
+const ND_VERSION = '1.1.2'; // set from the manifest by tools/build.mjs
 // Categories colour notes and split tracked time. Upstream: four fixed ones (UPSTREAM_CATS).
 // fork: your customers instead — one per folder in the customers folder (1.Customers), keyed in lower case;
 // a note's category is its customer property, else the customer folder it is in. CATS, CAT_LABEL and
@@ -2929,6 +2934,7 @@ class CardsView extends ItemView {
     else this.buildTab(root);
   }
   async onOpen() {
+    if (NEON_MOBILE.on) return void mobileOnlyNote(this.contentEl, 'The card explorer'); // fork: desktop-only
     this.build();
     const re = debounce(() => this.refresh(0, true), 250, true);
     this.registerEvent(this.app.vault.on('create', re));
@@ -3784,6 +3790,7 @@ class GraphView extends ItemView {
   }
 
   async onOpen() {
+    if (NEON_MOBILE.on) return void mobileOnlyNote(this.contentEl, 'The note graph'); // fork: desktop-only
     const root = this.contentEl;
     root.empty();
     root.addClass('nd-root', 'nd-graph');
@@ -5172,7 +5179,10 @@ Object.assign(NeonDeck.prototype, {
   },
 
   async arrangeOnStart() {
-    await this.ensureSidebarCards();
+    // fork: on phones and tablets the left sidebar is the swipe-out drawer: no card explorer there, and the
+    // file explorer stays (the desktop settings "Cards in sidebar" / "Replace file explorer" don't apply)
+    if (NEON_MOBILE.on) await this.tidyMobileSidebar();
+    else await this.ensureSidebarCards();
     await this.foldNeonTabs();
     if (!this.settings.openDashboardOnStartup) return;
     const ws = this.app.workspace;
@@ -5180,6 +5190,16 @@ Object.assign(NeonDeck.prototype, {
     const open = ws.getLeavesOfType(VIEW_DASH).find((l) => l.getRoot() === ws.rootSplit);
     if (open) await ws.revealLeaf(open);
     else await this.activate(VIEW_DASH, 'tab');
+  },
+  /** fork: mobile: close card explorer / graph tabs left by earlier versions; bring the file explorer back if they replaced it. */
+  async tidyMobileSidebar() {
+    const ws = this.app.workspace;
+    for (const t of [VIEW_CARDS, VIEW_GRAPH]) ws.getLeavesOfType(t).forEach((l) => l.detach());
+    const core = this.app.internalPlugins && this.app.internalPlugins.getPluginById && this.app.internalPlugins.getPluginById('file-explorer');
+    if (core && core.enabled && !ws.getLeavesOfType('file-explorer').length) {
+      const leaf = ws.getLeftLeaf(false);
+      if (leaf) await leaf.setViewState({ type: 'file-explorer' });
+    }
   },
   /** One Cards tab in the left sidebar: add it when missing, close copies left by earlier restarts. */
   async ensureSidebarCards() {
@@ -11247,7 +11267,7 @@ const NEON_MODULES = [
 const KERNEL_FILE = 'modules.json'; // { off: { 'neon-time': true }, readOnly: bool, baseFolder } — synced with the vault
 // fork: start-up checks and safe mode are per device (this vault's local storage on this device), never synced:
 // a phone and a laptop sharing .obsidian must not put each other into safe mode.
-const LOCAL_KEYS = { unfinished: 'neon-work-unfinished-starts', safe: 'neon-work-safe-mode', error: 'neon-work-last-error', section: 'neon-work-settings-section' };
+const LOCAL_KEYS = { unfinished: 'neon-work-unfinished-starts', safe: 'neon-work-safe-mode', error: 'neon-work-last-error', section: 'neon-work-settings-section', timing: 'neon-work-start-timing' };
 const UNFINISHED_LIMIT = 2; // two starts in a row that never finished (closing the app once is not a crash)
 
 class NeonMother extends Plugin {
@@ -11256,6 +11276,8 @@ class NeonMother extends Plugin {
     this.moduleTabs = new Map(); // fork: id -> the module's settings tab, shown inside this plugin's one settings page
     neonMother = this;
     this.failed = new Map(); // id -> error message
+    this.t0 = Date.now(); // fork: start-up timing, kept per device and shown in settings
+    this.timing = [];
     NEON_APP.name = this.manifest.name; // fork: the UI names the plugin by its manifest name
     this.state = Object.assign({ off: {}, readOnly: true }, await this.readState());
     // fork: modules get a write-guarded app; only the plugin's own folder may be written while read-only
@@ -11329,6 +11351,7 @@ class NeonMother extends Plugin {
   }
   startDone() {
     this.setLocal('unfinished', 0);
+    if (this.timing) this.setLocal('timing', `${this.timing.join(' · ')}${this.timing.length ? ' · ' : ''}ready after ${((Date.now() - this.t0) / 1000).toFixed(1)} s (${moment().format('D MMM HH:mm')})`);
   }
   /* fork: per-device values (Obsidian keeps them per vault on this device; not in .obsidian, so not synced) */
   local(key) {
@@ -11387,8 +11410,10 @@ class NeonMother extends Plugin {
       // a failing start stops only this module
       const load = child.onload;
       child.onload = async () => {
+        const t = Date.now();
         try {
           await load.call(child);
+          this.timing.push(`${SECTION_LABEL[m.id] || m.name} ${Date.now() - t} ms`);
         } catch (e) {
           console.error(`Neon Deck: ${m.name} failed to start`, e);
           this.failed.set(m.id, String((e && e.message) || e));
@@ -11547,6 +11572,8 @@ class NeonModulesTab extends PluginSettingTab {
       .setName('Safe mode on this device')
       .setDesc('Start with every module off, on this device only. Turns on by itself if the plugin twice in a row did not finish starting here.')
       .addToggle((t) => t.setValue(p.safeMode()).onChange((v) => p.setSafe(v)));
+    const timing = p.local('timing');
+    if (timing) new Setting(el).setName('Last start-up on this device').setDesc(timing);
     const err = p.local('error');
     if (err)
       new Setting(el)

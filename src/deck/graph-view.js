@@ -50,6 +50,7 @@ class GraphView extends ItemView {
   }
 
   async onOpen() {
+    if (NEON_MOBILE.on) return void mobileOnlyNote(this.contentEl, 'The note graph'); // fork: desktop-only
     const root = this.contentEl;
     root.empty();
     root.addClass('nd-root', 'nd-graph');

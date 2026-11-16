@@ -12,7 +12,10 @@ Object.assign(NeonDeck.prototype, {
   },
 
   async arrangeOnStart() {
-    await this.ensureSidebarCards();
+    // fork: on phones and tablets the left sidebar is the swipe-out drawer: no card explorer there, and the
+    // file explorer stays (the desktop settings "Cards in sidebar" / "Replace file explorer" don't apply)
+    if (NEON_MOBILE.on) await this.tidyMobileSidebar();
+    else await this.ensureSidebarCards();
     await this.foldNeonTabs();
     if (!this.settings.openDashboardOnStartup) return;
     const ws = this.app.workspace;
@@ -20,6 +23,16 @@ Object.assign(NeonDeck.prototype, {
     const open = ws.getLeavesOfType(VIEW_DASH).find((l) => l.getRoot() === ws.rootSplit);
     if (open) await ws.revealLeaf(open);
     else await this.activate(VIEW_DASH, 'tab');
+  },
+  /** fork: mobile: close card explorer / graph tabs left by earlier versions; bring the file explorer back if they replaced it. */
+  async tidyMobileSidebar() {
+    const ws = this.app.workspace;
+    for (const t of [VIEW_CARDS, VIEW_GRAPH]) ws.getLeavesOfType(t).forEach((l) => l.detach());
+    const core = this.app.internalPlugins && this.app.internalPlugins.getPluginById && this.app.internalPlugins.getPluginById('file-explorer');
+    if (core && core.enabled && !ws.getLeavesOfType('file-explorer').length) {
+      const leaf = ws.getLeftLeaf(false);
+      if (leaf) await leaf.setViewState({ type: 'file-explorer' });
+    }
   },
   /** One Cards tab in the left sidebar: add it when missing, close copies left by earlier restarts. */
   async ensureSidebarCards() {

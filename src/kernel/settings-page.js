@@ -89,6 +89,8 @@ class NeonModulesTab extends PluginSettingTab {
       .setName('Safe mode on this device')
       .setDesc('Start with every module off, on this device only. Turns on by itself if the plugin twice in a row did not finish starting here.')
       .addToggle((t) => t.setValue(p.safeMode()).onChange((v) => p.setSafe(v)));
+    const timing = p.local('timing');
+    if (timing) new Setting(el).setName('Last start-up on this device').setDesc(timing);
     const err = p.local('error');
     if (err)
       new Setting(el)
