@@ -1,7 +1,7 @@
-/* ---- Project plans (fork): save a drawn chart as SVG or PNG ------------------------------------------------------
+/* ---- Project plans (fork): save a drawn chart as SVG, colour its bars ------------------------------------------------------
  * Everything stays on this computer: the chart already drawn in the view is copied into a file that the system's
  * download handling saves (a blob: link, no network). Theme colours given as CSS variables are written in, so the
- * file looks the same outside Obsidian. The PNG is drawn from that SVG on a canvas. */
+ * file looks the same outside Obsidian. (PNG was dropped: Obsidian would not load the chart as an image.) */
 
 /** The SVG text of a drawn chart, with sizes, a background and the theme's CSS variables resolved. */
 function planSvgText(svg) {
@@ -27,39 +27,13 @@ function planDownload(blob, name) {
   window.setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-/** A PNG (twice the size on screen) drawn from SVG text; the image is the chart itself as a data: URL (local). */
-function planPng(svgText, width, height, scale = 2) {
-  return new Promise((resolve, reject) => {
-    // a data: URL, not blob: — Obsidian's content security policy refuses blob: images
-    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
-    const img = createEl('img');
-    img.onload = () => {
-      try {
-        const c = createEl('canvas');
-        c.width = Math.ceil(width * scale);
-        c.height = Math.ceil(height * scale);
-        const g = c.getContext('2d');
-        g.drawImage(img, 0, 0, c.width, c.height);
-        c.toBlob((b) => (b ? resolve(b) : reject(new Error('no PNG'))), 'image/png');
-      } catch (e) {
-        reject(e);
-      }
-    };
-    img.onerror = () => reject(new Error('the chart could not be drawn as an image'));
-    img.src = url;
-  });
-}
-
-/** Save the chart in `el` as svg or png, named after the plan. */
-async function planExport(el, title, kind) {
+/** Save the chart in `el` as an SVG file, named after the plan. */
+function planExport(el, title) {
   const svg = el.querySelector('svg');
   if (!svg) return new Notice('Nothing to save yet');
   const name = `${safeName(title) || 'Plan'} ${moment().format('YYYY-MM-DD')}`;
   try {
-    const text = planSvgText(svg);
-    if (kind === 'svg') return planDownload(new Blob([text], { type: 'image/svg+xml' }), `${name}.svg`);
-    const box = svg.getBoundingClientRect();
-    planDownload(await planPng(text, box.width, box.height), `${name}.png`);
+    planDownload(new Blob([planSvgText(svg)], { type: 'image/svg+xml' }), `${name}.svg`);
   } catch (e) {
     console.error('Plan: could not save the chart', e);
     new Notice('Could not save the chart. Details in the console.');

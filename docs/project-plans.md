@@ -8,13 +8,13 @@ Status: agreed 16 Nov 2026; step 1 built. First used on the E2I note *Pilot - Lo
 - **Scope of a plan:** a project folder (under *Project folders*) covers every note in it; a project note outside one covers only itself. Outside tasks appear only when linked by a dependency in either direction, greyed out in an "Outside this project" group, without their own chains.
 - **Ids:** looked up inside the project first, then the vault; duplicates are warned about. Ids carry a project prefix by convention (`pla-sc1`).
 - **Views:** a project note gets header buttons (Board, Gantt, Graph, Report) that open one Plan view in a new tab, nothing added to the note. Gantt and Graph are Mermaid (Obsidian's own renderer, no libraries); the board is our own, dragging changes only the checkbox through `writeNote`.
-- **Printing:** views export SVG or PNG (and copy as Mermaid). *Report* writes a snapshot note (summary, Gantt, critical path, status by phase, task list) to a reports folder, printed with Obsidian's Export to PDF. A write the user asks for, so only with read-only off.
+- **Printing:** views export SVG (and copy as Mermaid); PNG was dropped, as Obsidian would not load the chart as an image. *Report* writes a snapshot note (summary, Gantt, critical path, status by phase, task list) to a reports folder, printed with Obsidian's Export to PDF. A write the user asks for, so only with read-only off.
 - **Project Planner:** ideas only (MIT, credited in `FORK.md`); no code, since Neon Work has no dependencies.
 
 ## Build steps
 
 1. ✅ `src/shared/plan.js` (parse, state, schedule, critical path, working days, counts) and `src/shared/plan-scope.js` (which tasks belong to a project, outside neighbours); Tasks card leaves project tasks out; counts on the project rows (`src/tickets/plan-summary.js`). Tests: `test/plan.test.mjs`.
-2. ✅ Plan view (`src/tickets/plan-view.js`: Gantt and List, Dates or Weeks), header buttons and commands on project notes (`plan-actions.js`), Gantt text (`plan-gantt.js`), SVG/PNG export and Copy as Mermaid (`plan-export.js`). Tests: `test/plan-gantt.test.mjs`.
+2. ✅ Plan view (`src/tickets/plan-view.js`: Gantt and List, Dates or Weeks), header buttons and commands on project notes (`plan-actions.js`), Gantt text (`plan-gantt.js`), SVG export and Copy as Mermaid (`plan-export.js`). Tests: `test/plan-gantt.test.mjs`.
 3. Board (drag to change status) and Graph.
 4. Report note, *Durations to dates*, schedule warnings.
 

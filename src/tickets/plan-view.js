@@ -91,8 +91,7 @@ class PlanView extends ItemView {
     });
     button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
     this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the Gantt chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
-    this.svgBtn = button(tools, { icon: 'image-down', text: 'SVG', cls: 'np-save', title: 'Save the chart as an SVG file', onClick: () => planExport(this.bodyEl, this.getDisplayText(), 'svg') });
-    this.pngBtn = button(tools, { icon: 'image-down', text: 'PNG', cls: 'np-save', title: 'Save the chart as a PNG file', onClick: () => planExport(this.bodyEl, this.getDisplayText(), 'png') });
+    this.svgBtn = button(tools, { icon: 'image-down', text: 'SVG', cls: 'np-save', title: 'Save the chart as an SVG file', onClick: () => planExport(this.bodyEl, this.getDisplayText()) });
     this.issuesEl = root.createDiv('np-issues');
     this.bodyEl = root.createDiv('np-body');
   }
@@ -129,7 +128,7 @@ class PlanView extends ItemView {
     this.weeksEl.set(weeks ? 'weeks' : 'dates');
     this.weeksEl.btns.get('dates').disabled = !this.base;
     if (!this.base) tip(this.weeksEl.btns.get('dates'), 'Set the project’s started date to see dates');
-    for (const b of [this.copyBtn, this.svgBtn, this.pngBtn]) b.toggleClass('is-hidden', this.mode !== 'gantt');
+    for (const b of [this.copyBtn, this.svgBtn]) b.toggleClass('is-hidden', this.mode !== 'gantt');
     this.renderIssues(sched);
     this.bodyEl.empty();
     if (!own.length) {
