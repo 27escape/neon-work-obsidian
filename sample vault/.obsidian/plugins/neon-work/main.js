@@ -28,7 +28,7 @@ function mobileOnlyNote(el, what) {
   el.createDiv({ cls: 'nd-empty', text: `${what} is only on the desktop. Close this tab.` });
 }
 
-const ND_VERSION = '1.3.0'; // set from the manifest by tools/build.mjs
+const ND_VERSION = '1.4.0'; // set from the manifest by tools/build.mjs
 // Categories colour notes and split tracked time. Upstream: four fixed ones (UPSTREAM_CATS).
 // fork: your customers instead — one per folder in the customers folder (1.Customers), keyed in lower case;
 // a note's category is its customer property, else the customer folder it is in. CATS, CAT_LABEL and
@@ -12598,11 +12598,10 @@ Object.assign(NeonProjects.prototype, {
     this.registerEvent(this.app.metadataCache.on('changed', sync)); // a note tagged as a project gets its buttons
     this.app.workspace.onLayoutReady(() => this.syncPlanButtons());
     this.register(() => this.clearPlanButtons());
-    const cmd = (id, name, mode, hotkeys) =>
+    const cmd = (id, name, mode) =>
       this.addCommand({
         id,
         name,
-        hotkeys,
         checkCallback: (checking) => {
           const f = this.app.workspace.getActiveFile();
           const scope = f && planScopeOf(this.app, f);
@@ -12611,8 +12610,8 @@ Object.assign(NeonProjects.prototype, {
           return true;
         },
       });
-    // fork: Ctrl/Cmd+Shift+G in a project note (G for Gantt); change it in Settings › Hotkeys
-    cmd('plan-gantt', 'Project: open Planning', 'gantt', [{ modifiers: ['Mod', 'Shift'], key: 'g' }]);
+    // no default hotkey (community plugin guidelines): set one in Settings › Hotkeys, e.g. Ctrl/Cmd+Shift+G
+    cmd('plan-gantt', 'Project: open Planning', 'gantt');
     // fork: the task editor from a project note's right-click menu (the task under the cursor, or a new one)
     this.registerEvent(
       this.app.workspace.on('editor-menu', (menu, editor, info) => {

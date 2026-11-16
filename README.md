@@ -2,7 +2,7 @@
 
 A command centre for an Obsidian vault: a dashboard, projects, tasks, time tracking, research notes and a few writing touches, in a neon look with live background patterns. By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.
 
-> update: mobile support, PARA note oranisation support, Inbox, Dashboard layout reorg
+> 1.4.0: **Planning**, a lightweight project planner over the tasks in your project notes: Gantt, board, dependency graph, task list, a task editor, forecasts and all projects on one timeline. See [the release notes](docs/release-notes/1.4.0.md).
 
 The fork sits on top of a vault you already have:
 
@@ -16,7 +16,7 @@ Everything runs **100% locally**: no network calls, no telemetry, no remote font
 
 ## What it does
 
-The plugin has six parts. Each can be switched off in the settings, and the others keep working. A list at the top of the left sidebar (Dashboard, Cards, Inbox, Tasks, Projects, Time, Research, Graph) switches what the main pane shows; notes open in the same pane, and Back / Forward move between them.
+The plugin has six parts (Planning is part of Projects). Each can be switched off in the settings, and the others keep working. A list at the top of the left sidebar (Dashboard, Cards, Inbox, Tasks, Projects, Time, Research, Graph) switches what the main pane shows; notes open in the same pane, and Back / Forward move between them.
 
 ### Dashboard
 
@@ -33,9 +33,9 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 
 ### Tasks
 
-- **Tasks tab and card:** every open `#task` line across the vault (`[ ]` and `[/]`), grouped Overdue · Today · Later by 📅 due or ⏳ scheduled date. Tick, edit or open each one in place; the date and note sit on a small line under the task text. Notes tagged `tasks` and recent daily or weekly notes count every checkbox.
+- **Tasks tab and card:** every open `#task` line across the vault (`[ ]` and `[/]`), grouped Overdue · Today · Later by 📅 due or ⏳ scheduled date. Tasks in project notes belong to their project's plan and stay off this list (setting *Tasks in projects*). Tick, edit or open each one in place; the date and note sit on a small line under the task text. Notes tagged `tasks` and recent daily or weekly notes count every checkbox.
 - **Todo card:** the open tasks of your Todo note in file order. New tasks go at the head of that note as `- [ ] #task … ➕ date`; ticking writes `[x] … ✅ date`, as the Tasks plugin does.
-- **Timeline:** a card on the Tasks tab draws dated tasks as a Mermaid Gantt chart, one section per note: a bar from 🛫 start to 📅 due, otherwise a milestone on the due date; overdue tasks in red, `[/]` tasks as active. Zoom (3 months, 12 months, all) and *Copy as Mermaid*. Can be switched off in settings.
+- **Timeline:** a card on the Tasks tab draws dated tasks as a Gantt chart (Obsidian draws it, in its own colours), one section per note: a bar from 🛫 start to 📅 due, otherwise a milestone on the due date; overdue tasks in red, `[/]` tasks as active. Zoom (3 months, 12 months, all) and *Copy as Mermaid*. Can be switched off in settings.
 - **New note:** pick a customer and a kind (note, meeting, person, project, research); the note goes in `<customer>/<Meetings | People | Research>/` from that kind's template. People notes are named `@Name` with an `aliases` property.
 
 ![The Tasks tab with its timeline](docs/screenshots/tasks-tab.png)
@@ -46,12 +46,25 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 
 - **Projects tab and card:** notes with `project` in their tags, grouped by customer (or status, due date and more). The customer is the `customer` property, else the customer folder the note is in.
 - **Your status values** in four groups: not started (`init`), active (`inprogress`, `ongoing`), on hold (`paused`, `blocked`) and closed (`completed`, `cancelled`). Changing a status only updates properties: `status`, plus today's date in `completed` (or `cancelled`).
-- Each row shows the status, customer, `stage`, start date, `note` and a due-date bar. Postpone, set the due date or a reminder, or edit the note property from the row's menu.
-- **Timeline:** a Mermaid Gantt chart above the list on the Projects tab (the *Timeline* button or a setting hides it), one section per customer: a bar from `started` to `due` (or to `completed` once closed), coloured by status group, with a marker for today. Zoom (3 months, 12 months, all) and *Copy as Mermaid* to paste the chart into a note.
+- Each row shows the status, customer, `stage`, start date, `note`, a due-date bar and, for projects with a plan, how its tasks stand and the forecast finish. Postpone, set the due date or a reminder, or edit the note property from the row's menu.
+- **Timeline: all projects in one view** above the list on the Projects tab (the *Timeline* button or a setting hides it), one section per customer: a bar from `started` to the plan's forecast finish (else `due`, or `completed` once closed), a diamond on the due date, coloured late, needs attention, in progress, not started, on hold or closed, and a line for today. A click opens the project's Planning view. Zoom (3 months, 12 months, all) and *Copy as Mermaid* to paste the chart into a note.
 - **New project:** a name and a customer; the note goes in `<customer>/Projects/` from your project template.
 - **Reminders** appear inside Obsidian, once a day per project, when a project is overdue, due soon or past its remind date.
 
 ![The Projects tab with its timeline](docs/screenshots/projects-tab.png)
+
+### Planning
+
+A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.
+
+- **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.
+- **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.
+- **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against a saved baseline, a filter for risks, issues and decisions.
+- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*). Description, status, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.
+- **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.
+- **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.
+
+Planning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.
 
 ### Research
 
@@ -97,7 +110,7 @@ The **base folder** (asked on first start) is where the plugin keeps what it mak
 
 ## Try it first
 
-The repo includes a **sample vault** (`sample vault/`) with made-up customers, projects, meetings, people, research and tasks, and the plugin already installed and set up (read-only off). In Obsidian choose **Open folder as vault**, pick the `sample vault` folder, and trust its plugins when asked. Your own vaults are not touched.
+The repo includes a **sample vault** (`sample vault/`) with made-up customers, projects, meetings, people, research and tasks (open *Service Desk Rollout* and press **Planning** to try the planner), and the plugin already installed and set up (read-only off). In Obsidian choose **Open folder as vault**, pick the `sample vault` folder, and trust its plugins when asked. Your own vaults are not touched.
 
 ## Install
 
@@ -110,7 +123,7 @@ The repo includes a **sample vault** (`sample vault/`) with made-up customers, p
 
 **Safe mode:** if the plugin fails while starting, the next start keeps every part off; switch them back on in *Overview*.
 
-**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. Commands are listed as "Neon Work – Tasks: …", "… – Projects: …" and so on.
+**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. *Project: open Planning* is a good one to give a key (for example Ctrl/Cmd+Shift+G). Commands are listed as "Neon Work – Tasks: …", "… – Projects: …" and so on.
 
 ## For developers
 
