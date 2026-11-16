@@ -1,0 +1,304 @@
+/* ---------- 6. graph ---------- */
+.nd-graph.view-content {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  container-type: inline-size;
+  background: var(--nd-bg);
+}
+.nd-graph-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--nd-line);
+  background: var(--nd-bg2);
+}
+.nd-root .nd-select {
+  max-width: 240px;
+  border-radius: var(--nd-radius-s);
+  font-family: inherit;
+  font-weight: 600;
+}
+.nd-graph-stat {
+  font: 12px var(--nd-mono);
+  color: var(--text-muted);
+}
+.nd-graph-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.nd-graph-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--nd-line) 70%, transparent) 1px, transparent 1.6px) 0 0 / 18px 18px,
+    radial-gradient(70% 70% at 50% 50%, color-mix(in srgb, var(--nd-accent) 6%, transparent), transparent 70%);
+}
+.nd-graph-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+.nd-graph-stage canvas.is-hovering { cursor: pointer; }
+.nd-graph-stage canvas.is-grabbing { cursor: grabbing; }
+.nd-graph-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  padding: 3px 10px;
+  border-radius: var(--nd-radius-pill);
+  font-size: 12px;
+  color: var(--text-faint);
+  background: color-mix(in srgb, var(--background-primary) 75%, transparent);
+  pointer-events: none;
+}
+.nd-graph-empty {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 20px;
+}
+.nd-graph-empty.is-visible { display: flex; }
+.nd-graph-empty-art {
+  font: 700 40px var(--nd-font-display);
+  color: var(--nd-accent);
+  letter-spacing: 0.2em;
+}
+.nd-graph-panel {
+  width: 300px;
+  flex: none;
+  overflow-y: auto;
+  padding: 12px 12px 44px; /* room for Obsidian's floating status bar over the bottom edge */
+  border-left: 1px solid var(--nd-line);
+  background: var(--nd-bg2);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.nd-panel-hidden .nd-graph-panel { display: none; }
+@container (max-width: 640px) {
+  .nd-graph-panel { display: none; }
+}
+.nd-panel-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.nd-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 11px var(--nd-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.nd-diversity {
+  padding: 10px 12px;
+  border-radius: calc(var(--nd-radius-s) + 2px);
+  color: var(--nd-on-go);
+  background: var(--nd-go);
+}
+.nd-diversity.is-biased { background: var(--nd-warn); color: var(--nd-bg); }
+.nd-diversity.is-focused { background: var(--nd-info); color: var(--nd-bg); }
+.nd-diversity.is-dispersed { background: var(--nd-accent); color: var(--nd-on-accent); }
+.nd-div-label {
+  font: 700 18px var(--nd-font-display);
+}
+.nd-div-q {
+  font: 12px var(--nd-mono);
+  opacity: 0.8;
+}
+.nd-div-gauge {
+  /* fork: a scale (not buttons): one bar in four levels, a marker on yours, names below */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+.nd-div-bar {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  height: 8px;
+  margin-top: 8px;
+}
+.nd-div-seg {
+  border-radius: 4px;
+  opacity: 0.55;
+}
+.nd-div-seg.is-biased { background: var(--nd-warn); }
+.nd-div-seg.is-focused { background: var(--nd-info); }
+.nd-div-seg.is-diversified { background: var(--nd-go); }
+.nd-div-seg.is-dispersed { background: var(--nd-accent); }
+.nd-div-marker {
+  position: absolute;
+  top: -7px;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid var(--nd-text);
+  pointer-events: none;
+}
+.nd-div-names {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  font-size: 10px;
+  text-align: center;
+  color: var(--nd-faint);
+}
+.nd-div-name.is-on {
+  color: var(--nd-text);
+  font-weight: 700;
+}
+.nd-topic {
+  --topic: var(--nd-accent);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-radius: var(--nd-radius-s);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background var(--nd-fast) ease, border-color var(--nd-fast) ease;
+}
+.nd-topic:hover { background: var(--nd-surface2); }
+.nd-topic.is-active {
+  border-color: var(--topic);
+  background: color-mix(in srgb, var(--topic) 12%, transparent);
+}
+.nd-topic-sw {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--topic);
+  color: var(--nd-bg);
+  font-weight: 800;
+  font-size: 12px;
+}
+.nd-topic-txt { flex: 1; min-width: 0; }
+.nd-topic-words {
+  font-weight: 700;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nd-topic-meter {
+  height: 5px;
+  border-radius: var(--nd-radius-pill);
+  background: var(--nd-surface2);
+  margin: 4px 0 2px;
+  overflow: hidden;
+}
+.nd-topic-fill {
+  height: 100%;
+  width: var(--w);
+  background: var(--topic);
+  border-radius: var(--nd-radius-pill);
+}
+.nd-topic-share {
+  font: 12px var(--nd-mono);
+  color: var(--text-faint);
+}
+.nd-gap {
+  padding: 10px;
+  border-radius: calc(var(--nd-radius-s) + 2px);
+  border: 1px dashed var(--nd-line-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nd-gap:hover,
+.nd-gap.is-active {
+  border-color: var(--nd-accent);
+  border-style: solid;
+  background: color-mix(in srgb, var(--nd-accent) 7%, transparent);
+}
+.nd-gap-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 13px;
+}
+.nd-gap-side {
+  padding: 1px 8px;
+  border-radius: var(--nd-radius-pill);
+  background: color-mix(in srgb, var(--topic) 22%, transparent);
+  border: 1px solid var(--topic);
+}
+.nd-gap-x { color: var(--nd-accent); font-size: 16px; }
+.nd-gap-q { font-size: 13px; font-style: italic; }
+.nd-gap-meta { font-size: 12px; color: var(--text-faint); }
+.nd-gap-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.nd-sel { display: flex; flex-direction: column; gap: 8px; }
+.nd-sel-title {
+  --topic: var(--nd-accent);
+  font: 700 18px var(--nd-font-display);
+  word-break: break-word;
+  color: var(--topic);
+}
+.nd-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.nd-chip {
+  padding: 2px 9px;
+  border-radius: var(--nd-radius-pill);
+  border: 1px solid var(--nd-line);
+  background: var(--nd-surface2);
+  color: var(--nd-text);
+  font: 600 12px var(--nd-font-ui);
+  cursor: pointer;
+  box-shadow: none;
+  height: auto;
+}
+.nd-small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* ---------- 7. status bar ---------- */
+.nd-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 700 12px var(--nd-mono);
+  border-radius: var(--nd-radius-xs);
+  padding: 0 6px;
+}
+.nd-status-icon {
+  display: inline-flex;
+}
+.nd-status-icon svg {
+  width: 13px;
+  height: 13px;
+}
+.nd-status.is-running {
+  color: var(--nd-on-accent);
+  background: var(--nd-accent);
+}

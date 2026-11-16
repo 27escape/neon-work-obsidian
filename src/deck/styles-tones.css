@@ -1,0 +1,176 @@
+/* ---------- 5c. card explorer and sidebar: colour tones, halftones, new-note buttons, motion ---------- */
+/* sidebar + cards: folders in shades of the accent (red in Marathon), notes in shades of go (acid lime) */
+.nd-side-pin,
+.nd-side-row.is-folder,
+.nd-ci-folder {
+  --tone-base: var(--nd-accent);
+  --tone: var(--tone-base);
+}
+.nd-side-row.is-note,
+.nd-ci-note {
+  --tone-base: var(--nd-go);
+  --tone: var(--tone-base);
+}
+/* the second shade: blended a little toward the text colour (lighter on dark themes, darker on light) */
+.nd-side-pin.tone-b,
+.nd-side-row.tone-b,
+.nd-ci-grid > .nd-ci:nth-child(even) {
+  --tone: color-mix(in srgb, var(--tone-base) 68%, var(--nd-text));
+}
+
+.nd-side-row.tone-a:not(.is-active),
+.nd-side-row.tone-b:not(.is-active),
+.nd-side-pin.tone-a:not(.is-current),
+.nd-side-pin.tone-b:not(.is-current) {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 12%, var(--nd-surface)), color-mix(in srgb, var(--tone) 4%, var(--nd-surface)));
+  border-color: color-mix(in srgb, var(--tone) 20%, var(--nd-line));
+}
+.nd-side-row.tone-a:not(.is-active):hover,
+.nd-side-row.tone-b:not(.is-active):hover,
+.nd-side-pin.tone-a:not(.is-current):hover,
+.nd-side-pin.tone-b:not(.is-current):hover {
+  border-color: color-mix(in srgb, var(--tone) 38%, var(--nd-line));
+}
+/* folder halftone follows the tone too */
+.nd-side-row.is-folder.tone-a::before,
+.nd-side-row.is-folder.tone-b::before {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--tone) 34%, transparent) 1.1px, transparent 1.8px) 0 0 / 8px 8px,
+    color-mix(in srgb, var(--tone) 7%, transparent);
+}
+/* keep each row's category stripe on the left */
+.nd-side-row.tone-a,
+.nd-side-row.tone-b {
+  border-left-color: var(--row-accent);
+}
+/* the selected note: one even green border all round, glow kept inside the row */
+.nd-side-row.is-active,
+.nd-side-row.is-active:hover {
+  border: 1px solid color-mix(in srgb, var(--nd-go) 70%, transparent);
+  padding-left: 12px;
+  background: color-mix(in srgb, var(--nd-go) 11%, var(--nd-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nd-go) 25%, transparent), inset 0 0 14px -6px color-mix(in srgb, var(--nd-go) 45%, transparent);
+}
+
+/* cards tab: tinted border only, fading softly into the card, over a faint halftone */
+.nd-ci-folder,
+.nd-ci-note {
+  isolation: isolate;
+}
+.nd-ci-folder:not(.is-active):not(.needs-revisit),
+.nd-ci-note:not(.is-active):not(.needs-revisit) {
+  border-color: color-mix(in srgb, var(--tone) 20%, var(--nd-line));
+}
+.nd-ci-folder:not(.is-active):hover,
+.nd-ci-note:not(.is-active):hover {
+  border-color: color-mix(in srgb, var(--tone) 32%, var(--nd-line));
+}
+.nd-ci-folder::before,
+.nd-ci-note::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--tone) 14%, transparent) 1px, transparent 1.6px) 0 0 / 9px 9px,
+    color-mix(in srgb, var(--tone) 4%, transparent);
+  -webkit-mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, black 100%);
+  mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, black 100%);
+}
+/* folders: the same dots, fainter, fading in toward the right edge */
+.nd-ci-folder::before {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--tone) 8%, transparent) 1px, transparent 1.6px) 0 0 / 9px 9px,
+    color-mix(in srgb, var(--tone) 2%, transparent);
+  /* only toward the right edge */
+  -webkit-mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, black 100%);
+  mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, black 100%);
+}
+/* notes: a soft smooth edge glow in their colour (folders keep the dotted one) */
+.nd-ci-note::before {
+  background: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+  box-shadow: inset 0 0 12px -4px color-mix(in srgb, var(--tone) 14%, transparent);
+}
+.nd-ci-note.is-image::before,
+.nd-ci-note.is-other::before {
+  display: none; /* PDFs, DOCX, images…: no glow, just the border */
+}
+/* new note / new folder: bigger, in the theme colours */
+.nd-side-browse .nd-icon-btn.nd-side-add {
+  --add-c: var(--nd-accent);
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  border: 1.5px solid color-mix(in srgb, var(--add-c) 45%, transparent);
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--add-c) 28%, transparent), color-mix(in srgb, var(--add-c) 10%, transparent));
+  color: var(--add-c);
+  transition: transform var(--nd-fast) ease, box-shadow var(--nd-fast) ease, background-color var(--nd-fast) ease;
+}
+.nd-side-browse .nd-icon-btn.nd-side-add.is-folder {
+  --add-c: var(--nd-go);
+}
+.nd-side-browse .nd-icon-btn.nd-side-add svg {
+  width: 18px;
+  height: 18px;
+}
+.nd-side-browse .nd-icon-btn.nd-side-add:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--add-c) 30%, transparent);
+  box-shadow: 0 0 14px -2px color-mix(in srgb, var(--add-c) 55%, transparent);
+}
+.nd-side-browse .nd-icon-btn.nd-side-add:active {
+  transform: scale(0.94);
+}
+/* sidebar: rows slide in one after another when you change folder */
+.nd-side-in-fade > *,
+.nd-side-in-fwd > *,
+.nd-side-in-back > * {
+  animation: nd-card-in 0.25s var(--nd-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 18ms);
+}
+.nd-side-in-fwd > * { --from-x: 6px; }
+.nd-side-in-back > * { --from-x: -6px; }
+.nd-side-row:hover,
+.nd-side-pin:hover {
+  box-shadow: 0 4px 14px -10px color-mix(in srgb, var(--row-accent, var(--nd-accent)) 70%, transparent);
+}
+.nd-side-row:active,
+.nd-side-pin:active {
+  transform: translateX(3px) scale(0.985);
+}
+.nd-side-row .nd-folder-icon,
+.nd-side-pin .nd-folder-icon {
+  transition: transform var(--nd-fast) ease;
+}
+.nd-side-row:hover .nd-folder-icon,
+.nd-side-pin:hover .nd-folder-icon {
+  transform: scale(1.08) rotate(-4deg);
+}
+.nd-side-more {
+  padding: 8px 10px;
+  font: 12px var(--nd-mono);
+  color: var(--nd-muted);
+  text-align: center;
+  cursor: pointer;
+  border-radius: var(--nd-radius-s);
+}
+.nd-side-more:hover {
+  color: var(--nd-text);
+  background: color-mix(in srgb, var(--nd-text) 4%, transparent);
+}
+/* entry animations */
+.nd-in-fade .nd-ci,
+.nd-in-fwd .nd-ci,
+.nd-in-back .nd-ci {
+  animation: nd-card-in 0.3s var(--nd-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 12ms);
+}
+.nd-in-fwd .nd-ci { --from-x: 14px; }
+.nd-in-back .nd-ci { --from-x: -14px; }
+.nd-ci.is-new {
+  animation: nd-card-in 0.25s var(--nd-ease) backwards;
+}

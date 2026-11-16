@@ -55,9 +55,13 @@
         "src/deck/styles-tokens.css",
         "src/deck/styles-controls.css",
         "src/deck/styles-dashboard.css",
+        "src/deck/styles-dashboard-cards.css",
         "src/deck/styles-fork-cards.css",
         "src/deck/styles-cards.css",
-        "src/deck/styles-graph-motion.css",
+        "src/deck/styles-sidebar.css",
+        "src/deck/styles-tones.css",
+        "src/deck/styles-graph.css",
+        "src/deck/styles-motion.css",
         "src/deck/styles-island.css"
       ],
       "old": "Neon Deck"
@@ -81,7 +85,8 @@
         "src/tasks/done.js"
       ],
       "css": [
-        "src/tasks/styles.css"
+        "src/tasks/styles.css",
+        "src/tasks/styles-extras.css"
       ],
       "old": "Neon Tasks"
     },
@@ -104,7 +109,8 @@
         "src/time/tracker.js"
       ],
       "css": [
-        "src/time/styles.css"
+        "src/time/styles.css",
+        "src/time/styles-extras.css"
       ],
       "old": "Neon Time"
     },
@@ -183,7 +189,8 @@
         "src/write/plugin.js"
       ],
       "css": [
-        "src/write/styles.css"
+        "src/write/styles.css",
+        "src/write/styles-locks.css"
       ],
       "old": "Neon Write"
     }

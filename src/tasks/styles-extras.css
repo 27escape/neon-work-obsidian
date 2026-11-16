@@ -1,0 +1,250 @@
+/* NEON TASKS (continued): fallback tokens, motion, the Tasks tab, settings table, timeline */
+/* Fallback when the Neon Deck core plugin is off: map the --nd-* tokens to
+   Obsidian's own colours and give the shared controls a plain look. Inert
+   while the core is on (it puts .nd-themed on body). */
+body:not(.nd-themed) {
+  --nd-bg: var(--background-primary);
+  --nd-bg2: var(--background-secondary);
+  --nd-surface: var(--background-primary-alt, var(--background-primary));
+  --nd-surface2: var(--background-secondary);
+  --nd-line: var(--background-modifier-border);
+  --nd-line-strong: var(--text-faint);
+  --nd-text: var(--text-normal);
+  --nd-muted: var(--text-muted);
+  --nd-faint: var(--text-faint);
+  --nd-accent: var(--interactive-accent);
+  --nd-on-accent: var(--text-on-accent);
+  --nd-go: var(--color-green, #4caf50);
+  --nd-on-go: #fff;
+  --nd-link: var(--text-accent, var(--interactive-accent));
+  --nd-info: var(--color-blue, #4a90d9);
+  --nd-warn: var(--color-yellow, #d9a400);
+  --nd-cat-projects: var(--color-red, #e5534b);
+  --nd-cat-school: var(--color-purple, #a371f7);
+  --nd-cat-admin: var(--color-yellow, #d9a400);
+  --nd-cat-operations: var(--color-cyan, #39a5c9);
+  --nd-cat-other: var(--text-faint);
+  --nd-cat-untracked: var(--text-faint);
+  --nd-cat-break: var(--color-blue, #4a90d9);
+  --nd-mono: var(--font-monospace);
+  --nd-font-ui: var(--font-interface);
+  --nd-font-display: var(--font-interface);
+  --nd-radius: 12px;
+  --nd-radius-s: 8px;
+  --nd-border: 1px;
+  --nd-shadow: none;
+  --nd-fast: 150ms;
+  --nd-med: 250ms;
+  --nd-ease: ease;
+}
+body:not(.nd-themed) :is(.nd-btn, .nd-pill-btn, .nd-seg-btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+body:not(.nd-themed) .nd-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+body:not(.nd-themed) .nd-pill-btn {
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+body:not(.nd-themed) :is(.nd-pill-btn.is-on, .nd-seg-btn.is-active) {
+  background: var(--pill-accent, var(--nd-accent));
+  color: var(--nd-on-accent);
+}
+body:not(.nd-themed) .nd-input {
+  width: 100%;
+}
+body:not(.nd-themed) .nd-modal-row {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+body:not(.nd-themed) .nd-empty {
+  padding: 14px 6px;
+  color: var(--nd-faint);
+  text-align: center;
+}
+
+/* newly added tasks slide in with a short lime glow */
+.nt-task.is-new {
+  animation: nt-task-in 0.45s var(--nd-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) backwards, nt-task-glow 1.4s ease-out;
+}
+@keyframes nt-task-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+@keyframes nt-task-glow {
+  0%,
+  25% {
+    background-color: color-mix(in srgb, var(--nd-go, var(--interactive-accent)) 16%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+/* rows collapse out when ticked, deleted or moved to another group (height set inline first) */
+.nt-task.is-leaving {
+  height: 0 !important;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  transform: translateX(10px);
+  overflow: hidden;
+  pointer-events: none;
+  transition: height 0.24s var(--nd-ease, ease), padding 0.24s var(--nd-ease, ease), opacity 0.18s ease, transform 0.24s var(--nd-ease, ease);
+}
+/* tick: the box fills with a drawn check mark and a short pulse */
+.nt-task.is-done .nt-check {
+  display: grid;
+  place-items: center;
+  animation: nt-check-pulse 0.32s ease-out;
+}
+.nt-task.is-done .nt-check::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  margin-top: -2px;
+  border: solid var(--nd-bg, var(--background-primary));
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  animation: nt-check-draw 0.22s ease-out both;
+}
+@keyframes nt-check-pulse {
+  50% {
+    transform: scale(1.18);
+  }
+}
+@keyframes nt-check-draw {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+/* a task that is still being written to the note */
+.nt-task.is-pending .nt-check {
+  opacity: 0.5;
+  cursor: default;
+}
+.nt-fade-in {
+  animation: nt-fade 0.3s ease both;
+}
+@keyframes nt-fade {
+  from {
+    opacity: 0;
+  }
+}
+/* Enter on an empty add box */
+.nt-add.is-shake {
+  animation: nt-shake 0.3s ease;
+}
+@keyframes nt-shake {
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+/* global tasks: the dragged row lifts */
+.nt-edit {
+  animation: nt-fade 0.15s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nt-task.is-new,
+  .nt-task.is-done .nt-check,
+  .nt-task.is-done .nt-check::after,
+  .nt-fade-in,
+  .nt-add.is-shake,
+  .nt-edit {
+    animation: none;
+  }
+  .nt-task.is-leaving {
+    transition: none;
+  }
+}
+
+/* fork: the Tasks tab — the Tasks and Todo cards side by side, full height */
+.nt-view.view-content {
+  background: var(--nd-bg);
+}
+.nt-view *,
+.nt-view *::before {
+  box-sizing: border-box;
+}
+.nt-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  z-index: 1;
+}
+.nt-view-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 14px;
+  max-width: 1200px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 16px 20px 32px;
+  align-items: start;
+}
+@media (max-width: 800px) {
+  .nt-view-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.nt-view-timeline {
+  grid-column: 1 / -1;
+}
+
+/* fork: New note types table in settings: one row per type */
+.nt-types .nt-type-row .setting-item-info {
+  display: none;
+}
+.nt-types .nt-type-row .setting-item-control {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 6px;
+}
+.nt-types .nt-type-row input[type='text'] {
+  width: 9em;
+}
+.nt-types .nt-type-row input[type='text']:nth-of-type(1) {
+  width: 7em;
+}
+
+/* the timeline card: drawn by the plugin (shared Gantt drawer) */
+.nt-view-timeline .nt-tl-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0;
+  font-size: 0.85em;
+  color: var(--nd-faint);
+}
+.nt-view-timeline .nt-tl-key .np-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.nt-view-timeline .nt-tl-key .np-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-s);
+}
+.nt-view-timeline .nt-tl-chart {
+  overflow-x: auto;
+}
+.nt-view-timeline .np-gantt .np-g-row.is-task {
+  cursor: pointer;
+}

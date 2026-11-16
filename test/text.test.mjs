@@ -128,7 +128,7 @@ test('time entries are logged as From / Until instead of minutes', () => {
   assert.deepEqual({ ...entryRange('2026-01-05', '9:00', '25') }, { bad: 'until' });
 });
 test('recently done log has no height cap or trailing separator (issue 27)', () => {
-  const source = readFileSync(new URL('../src/deck/styles-dashboard.css', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../src/deck/styles-dashboard-cards.css', import.meta.url), 'utf8');
   assert.match(source, /\.nd-w-recent \.nd-done-log \{[^}]*max-height: none;[^}]*margin-bottom: 0;[^}]*padding-bottom: 0;[^}]*border-bottom: 0;[^}]*\}/);
 });
 
