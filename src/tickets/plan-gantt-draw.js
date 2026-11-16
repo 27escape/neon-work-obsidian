@@ -23,7 +23,8 @@ function planGanttLayout(rows, { today = null, relative = false, width = 900, la
   if (!relative && today && today > last && planDayDiff(last, today) < 30) last = today;
   const from = ymdAdd(first, -1);
   const n = planDayDiff(from, ymdAdd(last, 2)) + 1;
-  const dayW = Math.max(minDay, Math.min(maxDay, Math.floor((width - labelW - 8) / n)));
+  // fractional, so a year still fills the width (rounding down to whole pixels left long spans cramped)
+  const dayW = Math.floor(Math.max(minDay, Math.min(maxDay, (width - labelW - 8) / n)) * 100) / 100;
   const x = (d) => planDayDiff(from, d) * dayW;
   const days = [];
   const ticks = [];
@@ -31,8 +32,27 @@ function planGanttLayout(rows, { today = null, relative = false, width = 900, la
     const date = ymdAdd(from, i);
     const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
     days.push({ x: i * dayW, date, weekend: dayW >= 6 && (wd === 0 || wd === 6) }); // too narrow: no shading
-    // a tick each Monday, or on the 1st of each month when weeks would crowd
-    if (dayW * 7 >= 46 ? wd === 1 : date.endsWith('-01')) ticks.push({ x: i * dayW, text: dayW * 7 >= 46 ? (relative ? `Wk ${Math.floor(planDayDiff(PLAN_WEEK_BASE, date) / 7) + 1}` : planShortDate(date)) : `${planShortDate(date).split(' ')[1]} ${date.slice(2, 4)}` });
+    // a line each Monday, or on the 1st of each month when weeks would crowd
+    const weekly = dayW * 7 >= 46;
+    if (weekly ? wd === 1 : date.endsWith('-01')) {
+      const mon = planShortDate(date).split(' ')[1];
+      const text = weekly ? (relative ? `Wk ${Math.floor(planDayDiff(PLAN_WEEK_BASE, date) / 7) + 1}` : planShortDate(date)) : ticks.length && !date.endsWith('-01-01') ? mon : `${mon} ${date.slice(2, 4)}`; // the year on the first and on January
+      ticks.push({ x: i * dayW, text, date, weekly });
+    }
+  }
+  // a label only where there is room for it (the line stays): about 46 px apart
+  // a month label that loses its place takes its year to the next label shown, so the year change still shows
+  let lastX = -Infinity;
+  let year = false;
+  for (const t of ticks) {
+    if (t.x - lastX < 46) {
+      if (!t.weekly && / \d\d$/.test(t.text)) year = true;
+      t.text = '';
+    } else {
+      if (year && !t.weekly && !/ \d\d$/.test(t.text)) t.text += ` ${t.date.slice(2, 4)}`;
+      year = false;
+      lastX = t.x;
+    }
   }
   const items = [];
   let y = headH;
@@ -70,7 +90,7 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null }) {
   for (const d of lay.days) if (d.weekend) add('rect', { x: labelW + d.x, y: headH, width: dayW, height: lay.height - headH }, 'fill: var(--background-modifier-hover)');
   for (const t of lay.ticks) {
     add('line', { x1: labelW + t.x, y1: headH - 6, x2: labelW + t.x, y2: lay.height }, 'stroke: var(--background-modifier-border); stroke-width: 1');
-    text(labelW + t.x + 3, headH / 2, t.text, 'fill: var(--text-muted); font-size: 11px');
+    if (t.text) text(labelW + t.x + 3, headH / 2, t.text, 'fill: var(--text-muted); font-size: 11px');
   }
   add('line', { x1: labelW, y1: headH, x2: lay.width, y2: headH }, 'stroke: var(--background-modifier-border)');
   const maxChars = Math.floor((labelW - 18) / 6.4);

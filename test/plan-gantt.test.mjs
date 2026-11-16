@@ -127,3 +127,18 @@ test('all projects in one view: a bar from start to the plan’s forecast (else 
   assert.ok(lay.items.some((i) => i.dueX != null));
   assert.ok(lay.days[lay.days.length - 1].date >= '2027-01-29'); // the due dates fit
 });
+
+test('scale labels never crowd: months when weeks would, the year on the first and January, labels 46 px apart', () => {
+  const m = (d) => ({ format: () => d });
+  const f = (path) => ({ path, basename: path });
+  const items = [{ title: 'Long', file: f('a'), customer: 'X', status: 'in-progress', bucket: 'later', startedOn: m('2026-04-01'), due: m('2027-12-31') }];
+  const rows = PR.projectTimelineRows(items, new Map(), null);
+  for (const width of [700, 1200, 2000]) {
+    const lay = PR.planGanttLayout(rows, { width, labelW: 320, minDay: 0.5 });
+    const shown = lay.ticks.filter((t) => t.text);
+    for (let i = 1; i < shown.length; i++) assert.ok(shown[i].x - shown[i - 1].x >= 46, `labels ${shown[i - 1].text} and ${shown[i].text} too close at width ${width}`);
+    assert.ok(lay.width <= width + 1); // fills the width, no wider
+    assert.match(shown[0].text, / \d\d$/); // the first label has the year
+    assert.ok(shown.some((t) => / 27$/.test(t.text)), `the year 2027 shows at width ${width}`);
+  }
+});
