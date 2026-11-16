@@ -2,6 +2,8 @@
 
 A command centre for an Obsidian vault: a dashboard, projects, tasks, time tracking, research notes and a few writing touches, in a neon look with live background patterns. By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.
 
+> update: mobile support, PARA note oranisation support, Inbox, Dashboard layout reorg
+
 The fork sits on top of a vault you already have:
 
 - **Read-only by default.** It reads your notes and changes nothing until you switch read-only off, and even then only when you act (tick a task, set a status, create a note).
@@ -14,7 +16,7 @@ Everything runs **100% locally**: no network calls, no telemetry, no remote font
 
 ## What it does
 
-The plugin has six parts. Each can be switched off in the settings, and the others keep working. A list at the top of the left sidebar (Dashboard, Cards, Tasks, Projects, Time, Research, Graph) switches what the main pane shows; notes open in the same pane, and Back / Forward move between them.
+The plugin has six parts. Each can be switched off in the settings, and the others keep working. A list at the top of the left sidebar (Dashboard, Cards, Inbox, Tasks, Projects, Time, Research, Graph) switches what the main pane shows; notes open in the same pane, and Back / Forward move between them.
 
 ### Dashboard
 
@@ -23,7 +25,7 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 - **Ticker and pin board:** a live line of facts at the top that opens into a pin board. Drop a note, a file or some text on it to pin it; pins live in one note, one line each.
 - **Quick capture:** type a thought and send it to an **Inbox note** (a new note in your inbox folder, from your inbox template), the **Todo** note, a new **Project**, a **Time entry** or the pin board.
 - **Card explorer** (sidebar or tab): your folders and notes as cards, coloured by customer, with filter chips per customer.
-- **Note graph** with suggested "bridge" notes between clusters.
+- **Note graph** (desktop): your notes as clusters of linked topics. Its **Gaps** list shows topics that ought to connect but barely do ("What connects [[A]] with [[B]]?"); **Bridge note** makes a note in the *Bridges* folder with that question and links to both sides, to help you think it through. Its **Structure** scale rates how your notes cluster, from *Biased* (one topic dominates) through *Focused* and *Diversified* to *Dispersed* (many loosely linked islands), from how cleanly they split into topics (modularity) and the share of the largest topic; hover over a level for its meaning.
 - **Weekly review** (*Create / open this week's review*): a note from your review template with the week in numbers and the notes you created or edited.
 - **Themes and patterns:** nine themes, each in light and dark, with a live pattern behind the dashboard; chosen in *Settings → Dashboard*.
 
