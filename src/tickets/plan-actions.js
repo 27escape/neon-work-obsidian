@@ -13,10 +13,11 @@ Object.assign(NeonProjects.prototype, {
     this.registerEvent(this.app.metadataCache.on('changed', sync)); // a note tagged as a project gets its buttons
     this.app.workspace.onLayoutReady(() => this.syncPlanButtons());
     this.register(() => this.clearPlanButtons());
-    const cmd = (id, name, mode) =>
+    const cmd = (id, name, mode, hotkeys) =>
       this.addCommand({
         id,
         name,
+        hotkeys,
         checkCallback: (checking) => {
           const f = this.app.workspace.getActiveFile();
           const scope = f && planScopeOf(this.app, f);
@@ -25,7 +26,8 @@ Object.assign(NeonProjects.prototype, {
           return true;
         },
       });
-    cmd('plan-gantt', 'Project: open Planning', 'gantt');
+    // fork: Ctrl/Cmd+Shift+G in a project note (G for Gantt); change it in Settings › Hotkeys
+    cmd('plan-gantt', 'Project: open Planning', 'gantt', [{ modifiers: ['Mod', 'Shift'], key: 'g' }]);
     // fork: the task editor from a project note's right-click menu (the task under the cursor, or a new one)
     this.registerEvent(
       this.app.workspace.on('editor-menu', (menu, editor, info) => {

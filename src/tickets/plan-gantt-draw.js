@@ -18,7 +18,7 @@ function planGanttLayout(rows, { today = null, relative = false, width = 900, la
   const dated = rows.filter((r) => r.bar && r.bar.start);
   if (!dated.length) return null;
   let first = dated.reduce((a, r) => (r.bar.start < a ? r.bar.start : a), dated[0].bar.start);
-  let last = dated.reduce((a, r) => (r.bar.end > a ? r.bar.end : a), dated[0].bar.end);
+  let last = dated.reduce((a, r) => [r.bar.end, r.bar.due || ''].reduce((m, d) => (d > m ? d : m), a), dated[0].bar.end); // due dates fit too
   if (!relative && today && today < first && planDayDiff(today, first) < 30) first = today;
   if (!relative && today && today > last && planDayDiff(last, today) < 30) last = today;
   const from = ymdAdd(first, -1);
@@ -30,8 +30,9 @@ function planGanttLayout(rows, { today = null, relative = false, width = 900, la
   for (let i = 0; i < n; i++) {
     const date = ymdAdd(from, i);
     const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
-    days.push({ x: i * dayW, date, weekend: wd === 0 || wd === 6 });
-    if (wd === 1) ticks.push({ x: i * dayW, text: relative ? `Wk ${Math.floor(planDayDiff(PLAN_WEEK_BASE, date) / 7) + 1}` : planShortDate(date) });
+    days.push({ x: i * dayW, date, weekend: dayW >= 6 && (wd === 0 || wd === 6) }); // too narrow: no shading
+    // a tick each Monday, or on the 1st of each month when weeks would crowd
+    if (dayW * 7 >= 46 ? wd === 1 : date.endsWith('-01')) ticks.push({ x: i * dayW, text: dayW * 7 >= 46 ? (relative ? `Wk ${Math.floor(planDayDiff(PLAN_WEEK_BASE, date) / 7) + 1}` : planShortDate(date)) : `${planShortDate(date).split(' ')[1]} ${date.slice(2, 4)}` });
   }
   const items = [];
   let y = headH;
@@ -41,7 +42,7 @@ function planGanttLayout(rows, { today = null, relative = false, width = 900, la
       const b = r.bar;
       const left = x(b.start);
       const w = r.milestone ? 0 : r.thin ? Math.max(3, Math.round(dayW / 4)) : (planDayDiff(b.start, b.end) + 1) * dayW;
-      items.push({ type: 'bar', y, x: left, w, row: r });
+      items.push({ type: 'bar', y, x: left, w, row: r, dueX: b.due ? x(b.due) + dayW / 2 : null });
     }
     y += rowH;
   }
@@ -82,7 +83,7 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null }) {
     }
     const r = it.row;
     const b = r.bar;
-    const key = b.task ? planKey(b.task) : '';
+    const key = b.task ? planKey(b.task) : b.project ? b.project.file.path : '';
     const g = svg.createSvg('g', { cls: 'np-g-row', attr: key ? { 'data-key': key } : {} });
     const hit = g.createSvg('rect', { cls: 'np-g-hit', attr: { x: 0, y: it.y, width: lay.width, height: rowH } });
     hit.setAttr('style', `fill: transparent${key && key === selKey ? '; stroke: var(--interactive-accent); stroke-width: 2' : ''}`);
@@ -101,7 +102,13 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null }) {
       const s = Math.min(rowH / 2 - 3, 9);
       g.createSvg('polygon', { attr: { points: `${cx},${mid - s} ${cx + s},${mid} ${cx},${mid + s} ${cx - s},${mid}` } }).setAttr('style', `fill: ${fill}; ${outline}`);
     } else g.createSvg('rect', { attr: { x: labelW + it.x + 1, y: it.y + 5, width: Math.max(2, it.w - 2), height: rowH - 10, rx: 3 } }).setAttr('style', `fill: ${fill}; ${outline}`);
-    if (b.task && onBar) {
+    if (it.dueX != null) {
+      // a project's due date: a hollow diamond
+      const s = Math.min(rowH / 2 - 4, 7);
+      const c = b.kind === 'overdue' ? colours.overdue : 'var(--text-muted)';
+      g.createSvg('polygon', { attr: { points: `${labelW + it.dueX},${mid - s} ${labelW + it.dueX + s},${mid} ${labelW + it.dueX},${mid + s} ${labelW + it.dueX - s},${mid}` } }).setAttr('style', `fill: var(--background-primary); stroke: ${c}; stroke-width: 2`);
+    }
+    if ((b.task || b.project) && onBar) {
       g.addClass('is-task');
       g.addEventListener('click', (e) => onBar(e, b));
     }

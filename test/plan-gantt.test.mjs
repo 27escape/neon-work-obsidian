@@ -100,3 +100,30 @@ test('drawn Gantt layout: a day scale with weekends, Monday ticks, bars and mile
   assert.equal(lay.today, 3 * lay.dayW + lay.dayW / 2);
   assert.equal(L.planGanttLayout([], {}), null);
 });
+
+const PR = load('neon-tickets', ['projectTimelineRows', 'planGanttLayout']);
+
+test('all projects in one view: a bar from start to the plan’s forecast (else due), a due diamond, colour by how it stands', () => {
+  const m = (d) => ({ format: () => d });
+  const f = (path) => ({ path, basename: path });
+  const items = [
+    { title: 'Pilot', file: f('a'), customer: 'E2I', status: 'in-progress', bucket: 'later', startedOn: m('2026-11-16'), due: m('2026-12-04') },
+    { title: 'Rollout', file: f('b'), customer: 'Globex', status: 'open', bucket: 'later', startedOn: m('2026-11-02'), due: m('2027-01-29') },
+    { title: 'Old', file: f('c'), customer: 'Globex', status: 'done', bucket: 'done', startedOn: m('2026-09-01'), completed: m('2026-10-01'), statusRaw: 'completed' },
+  ];
+  const sums = new Map([['a', { total: 10, overdue: 0, week: 0, blocked: 0, end: '2026-12-11', late: 5 }], ['b', { total: 18, overdue: 1, week: 0, blocked: 2, end: '2026-12-10', late: 0 }]]);
+  const rows = PR.projectTimelineRows(items, sums, null);
+  const bars = rows.filter((r) => r.bar);
+  assert.equal(rows.filter((r) => r.section).length, 2);
+  const pilot = bars.find((r) => r.label === 'Pilot');
+  assert.equal(JSON.stringify([pilot.bar.start, pilot.bar.end, pilot.bar.due, pilot.bar.kind]), JSON.stringify(['2026-11-16', '2026-12-11', '2026-12-04', 'overdue']));
+  assert.equal(pilot.who, '5 working days late');
+  assert.equal(bars.find((r) => r.label === 'Rollout').bar.kind, 'soon'); // overdue or blocked tasks
+  const old = bars.find((r) => r.label === 'Old');
+  assert.equal(JSON.stringify([old.bar.end, old.bar.kind, old.bar.due]), JSON.stringify(['2026-10-01', 'done', null]));
+  const win = PR.projectTimelineRows(items, sums, { from: '2026-11-01', to: '2027-01-31' });
+  assert.ok(!win.some((r) => r.label === 'Old')); // outside the window
+  const lay = PR.planGanttLayout(rows, { width: 900, minDay: 1 });
+  assert.ok(lay.items.some((i) => i.dueX != null));
+  assert.ok(lay.days[lay.days.length - 1].date >= '2027-01-29'); // the due dates fit
+});

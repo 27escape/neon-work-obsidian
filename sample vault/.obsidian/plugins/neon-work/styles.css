@@ -5642,73 +5642,6 @@ body:not(.nd-themed) .nd-empty {
   color: var(--nd-faint);
 }
 
-/* forecast, baseline, markers */
-.np-plan .np-sum.is-late {
-  color: var(--color-red);
-}
-.np-plan .np-baseline.is-on {
-  color: var(--nd-accent);
-}
-.np-plan .np-num.is-late {
-  color: var(--color-red);
-  font-weight: 600;
-}
-.np-plan .np-key-mark {
-  border: 2px dashed var(--nd-line);
-  border-radius: var(--radius-s);
-  padding: 0 5px;
-}
-.np-plan .np-mark {
-  margin-top: 4px;
-  font-size: 0.8em;
-  font-weight: 600;
-  padding: 0 6px;
-  border-radius: var(--radius-s);
-  background: var(--background-primary);
-  color: var(--text-normal);
-  display: inline-block;
-}
-.np-plan .np-mark.is-risk {
-  border: 1px dashed var(--color-orange);
-}
-.np-plan .np-mark.is-issue {
-  border: 1px dashed var(--color-red);
-}
-.np-plan .np-mark.is-decision {
-  border: 1px dashed var(--color-green);
-}
-.np-plan .np-mark-sign.is-risk {
-  color: var(--color-orange);
-}
-.np-plan .np-mark-sign.is-issue {
-  color: var(--color-red);
-}
-.np-plan .np-mark-sign.is-decision {
-  color: var(--color-green);
-}
-.np-plan .np-strong {
-  font-weight: 700;
-}
-.np-plan .np-row.is-selected td,
-.np-plan .np-card.is-selected {
-  outline: 2px solid var(--nd-accent);
-  outline-offset: -2px;
-}
-
-/* the Gantt drawn by the plugin */
-.np-plan .np-gantt-wrap {
-  overflow-x: auto;
-}
-.np-plan .np-gantt .np-g-row.is-task {
-  cursor: pointer;
-}
-.np-plan .np-gantt .np-g-row.is-task:hover .np-g-hit {
-  fill: var(--background-modifier-hover) !important;
-}
-.np-plan .np-gantt .np-g-row.is-selected .np-g-hit {
-  stroke: var(--interactive-accent);
-  stroke-width: 2;
-}
 /* @css src/tickets/styles-plan-editor.css */
 /* the task editor */
 .np-editor {
@@ -5850,6 +5783,103 @@ body:not(.nd-themed) .nd-empty {
 }
 .np-editor .np-ed-warn-line:empty {
   display: none;
+}
+/* @css src/tickets/styles-plan-extra.css */
+/* forecast, baseline, markers */
+.np-plan .np-sum.is-late {
+  color: var(--color-red);
+}
+.np-plan .np-baseline.is-on {
+  color: var(--nd-accent);
+}
+.np-plan .np-num.is-late {
+  color: var(--color-red);
+  font-weight: 600;
+}
+.np-plan .np-key-mark {
+  border: 2px dashed var(--nd-line);
+  border-radius: var(--radius-s);
+  padding: 0 5px;
+}
+.np-plan .np-mark {
+  margin-top: 4px;
+  font-size: 0.8em;
+  font-weight: 600;
+  padding: 0 6px;
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  display: inline-block;
+}
+.np-plan .np-mark.is-risk {
+  border: 1px dashed var(--color-orange);
+}
+.np-plan .np-mark.is-issue {
+  border: 1px dashed var(--color-red);
+}
+.np-plan .np-mark.is-decision {
+  border: 1px dashed var(--color-green);
+}
+.np-plan .np-mark-sign.is-risk {
+  color: var(--color-orange);
+}
+.np-plan .np-mark-sign.is-issue {
+  color: var(--color-red);
+}
+.np-plan .np-mark-sign.is-decision {
+  color: var(--color-green);
+}
+.np-plan .np-strong {
+  font-weight: 700;
+}
+.np-plan .np-row.is-selected td,
+.np-plan .np-card.is-selected {
+  outline: 2px solid var(--nd-accent);
+  outline-offset: -2px;
+}
+
+/* the Gantt drawn by the plugin */
+.np-plan .np-gantt-wrap {
+  overflow-x: auto;
+}
+.np-plan .np-gantt .np-g-row.is-task {
+  cursor: pointer;
+}
+.np-plan .np-gantt .np-g-row.is-task:hover .np-g-hit {
+  fill: var(--background-modifier-hover) !important;
+}
+.np-plan .np-gantt .np-g-row.is-selected .np-g-hit {
+  stroke: var(--interactive-accent);
+  stroke-width: 2;
+}
+
+/* all projects in one view: the Projects tab's timeline */
+.tk-tracker .tk-tl-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0;
+  font-size: 0.85em;
+  color: var(--nd-faint);
+}
+.tk-tracker .tk-tl-key .np-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tk-tracker .tk-tl-key .np-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-s);
+}
+.tk-tracker .tk-tl-chart {
+  overflow-x: auto;
+}
+.tk-tracker .np-gantt .np-g-row.is-task {
+  cursor: pointer;
+}
+.tk-tracker .np-gantt .np-g-row.is-task:hover .np-g-hit {
+  fill: var(--background-modifier-hover) !important;
 }
 /* @src neon-research/styles.css */
 /* @css src/research/styles.css */

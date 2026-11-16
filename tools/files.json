@@ -137,7 +137,8 @@
         "src/tickets/styles-tracker.css",
         "src/tickets/styles-extras.css",
         "src/tickets/styles-plan.css",
-        "src/tickets/styles-plan-editor.css"
+        "src/tickets/styles-plan-editor.css",
+        "src/tickets/styles-plan-extra.css"
       ],
       "old": "Neon Tickets"
     },
