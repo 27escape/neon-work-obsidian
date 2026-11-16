@@ -94,3 +94,71 @@
 .tk-tracker .np-gantt .np-g-row.is-task:hover .np-g-hit {
   fill: var(--background-modifier-hover) !important;
 }
+
+/* dashboard: a card's title opens its tab */
+.nd-card-title.is-link {
+  cursor: pointer;
+}
+.nd-card-title.is-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* the Projects card: two tidy lines per project */
+.tk-mini.tk-mini-2 {
+  align-items: flex-start;
+}
+.tk-mini-2 .tk-mini-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tk-mini-2 .tk-mini-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.tk-mini-2 .tk-mini-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.tk-mini-2 .tk-mini-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 11px;
+  color: var(--nd-muted);
+}
+.tk-mini-2 .tk-mini-due {
+  width: auto;
+}
+.tk-mini-2 .tk-mini-cust {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 12em;
+}
+.tk-pill {
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+}
+.tk-pill.is-late,
+.tk-pill.is-overdue {
+  color: var(--color-red);
+}
+.tk-pill.is-soon {
+  color: var(--color-orange);
+}
+.tk-pill.is-blocked {
+  color: var(--color-purple);
+}

@@ -180,6 +180,13 @@ class DashboardView extends ItemView {
     for (const def of defs.values()) {
       if (this.slotCards.has(def.id)) continue;
       const card = this.place(widget(this.grid, `nd-w-${def.id}`, def.title, def.icon, def.sub), def.slot);
+      if (def.open) {
+        // fork: the card's title opens its large view (the tab), instead of an icon on the right
+        const t = card.head.querySelector('.nd-card-title');
+        t.addClass('is-link');
+        tip(t, def.openTitle || `Open ${def.title} in a tab`);
+        t.addEventListener('click', (e) => def.open(e));
+      }
       let handle = null;
       try {
         handle = def.mount(card, this) || null;

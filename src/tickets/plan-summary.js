@@ -43,4 +43,17 @@ Object.assign(NeonProjects.prototype, {
       tip(s, 'This project’s tasks (ready: nothing it depends on is still open)');
     });
   },
+  /** The dashboard card's pills: late, overdue, due soon, blocked (only what needs action). */
+  renderPlanBadges(el, t) {
+    this.planSummary(t).then((c) => {
+      if (!c || !el.isConnected) return;
+      const pills = [
+        [c.late, `${c.late}d late`, 'is-late', `Forecast finish ${c.late} working day${c.late === 1 ? '' : 's'} after the due date`],
+        [c.overdue, `${c.overdue} overdue`, 'is-overdue', 'Tasks past their 📅 date'],
+        [c.week, `${c.week} due soon`, 'is-soon', 'Tasks due within a week'],
+        [c.blocked, `${c.blocked} blocked`, 'is-blocked', 'Tasks held up by an overdue or #blocked task'],
+      ];
+      for (const [n, text, cls, title] of pills) if (n) tip(el.createSpan({ cls: `tk-pill ${cls}`, text }), title);
+    });
+  },
 });

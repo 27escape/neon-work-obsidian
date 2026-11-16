@@ -3,7 +3,6 @@ Object.assign(NeonProjects.prototype, {
   mountWidget(card) {
     const p = this;
     button(card.actions, { icon: 'plus', cls: 'nd-icon-btn', title: 'New project', onClick: () => p.newProject() });
-    button(card.actions, { icon: 'maximize-2', cls: 'nd-icon-btn', title: 'Open the Projects tab', onClick: () => p.openTracker() });
     const counter = card.body.createDiv('tk-counter is-mini');
     const list = card.body.createDiv('tk-mini-list');
     let renders = 0;
@@ -18,14 +17,17 @@ Object.assign(NeonProjects.prototype, {
       list.empty();
       if (!act.length) return void emptyState(list, 'No open projects ✦');
       act.slice(0, 30).forEach((t, i) => {
-        const r = list.createDiv(`tk-mini is-${t.bucket}`);
+        // fork: two lines: the title and its status; under them when it is due, the customer and what needs action
+        const r = list.createDiv(`tk-mini tk-mini-2 is-${t.bucket}`);
         r.style.setProperty('--i', String(Math.min(i, 20)));
-        r.createSpan({ cls: 'tk-mini-due', text: projectDueText(t) });
-        const txt = r.createDiv('tk-mini-text');
-        txt.createSpan({ cls: 'tk-mini-title', text: t.title });
-        if (t.customer) txt.createSpan({ cls: 'tk-id', text: ` · ${t.customer}` });
-        p.renderPlanSummary(txt, t, true); // fork: overdue and due-this-week tasks of the project
-        if (t.statusRaw) r.createSpan({ cls: `tk-tag-wait s-${t.status}`, text: t.statusRaw });
+        const main = r.createDiv('tk-mini-main');
+        const top = main.createDiv('tk-mini-top');
+        tip(top.createSpan({ cls: 'tk-mini-title', text: t.title }), t.customer ? `${t.title} · ${t.customer}` : t.title);
+        if (t.statusRaw) top.createSpan({ cls: `tk-tag-wait s-${t.status}`, text: t.statusRaw });
+        const meta = main.createDiv('tk-mini-meta');
+        meta.createSpan({ cls: 'tk-mini-due', text: projectDueText(t) });
+        if (t.customer) meta.createSpan({ cls: 'tk-mini-cust', text: t.customer });
+        p.renderPlanBadges(meta, t); // fork: late, overdue, due soon, blocked: small coloured pills
         r.addEventListener('click', (e) => p.openProject(t.file, e));
         r.addEventListener('contextmenu', (e) => {
           e.preventDefault();

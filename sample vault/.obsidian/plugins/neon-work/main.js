@@ -2835,6 +2835,13 @@ class DashboardView extends ItemView {
     for (const def of defs.values()) {
       if (this.slotCards.has(def.id)) continue;
       const card = this.place(widget(this.grid, `nd-w-${def.id}`, def.title, def.icon, def.sub), def.slot);
+      if (def.open) {
+        // fork: the card's title opens its large view (the tab), instead of an icon on the right
+        const t = card.head.querySelector('.nd-card-title');
+        t.addClass('is-link');
+        tip(t, def.openTitle || `Open ${def.title} in a tab`);
+        t.addEventListener('click', (e) => def.open(e));
+      }
       let handle = null;
       try {
         handle = def.mount(card, this) || null;
@@ -5722,7 +5729,7 @@ Object.assign(NeonDeck.prototype, {
     // fork: the Inbox tab is in the sidebar list (not in the dashboard header, which has the card)
     this.api.registerAction({ id: 'inbox', icon: 'inbox', label: 'Inbox', order: 12, view: VIEW_INBOX, hero: false, run: () => this.activate(VIEW_INBOX, 'tab') });
     if (this.settings.inboxCard === false) return this.api.unregisterWidget('inbox');
-    this.api.registerWidget({ id: 'inbox', slot: 'inbox', title: 'Inbox', icon: 'inbox', sub: this.inboxFolder(), mount: (card, view) => this.mountInbox(card, view) });
+    this.api.registerWidget({ id: 'inbox', slot: 'inbox', title: 'Inbox', icon: 'inbox', sub: this.inboxFolder(), open: () => this.activate(VIEW_INBOX, 'tab'), openTitle: 'Open the Inbox tab', mount: (card, view) => this.mountInbox(card, view) });
   },
   /** The inbox list and its Add box in a card; comp (the dashboard or the Inbox tab) owns the event listeners. */
   mountInbox(card, comp) {
@@ -7228,8 +7235,8 @@ class NeonTasks extends Plugin {
   hookCore() {
     const api = deckApi(this.app);
     if (!api) return;
-    api.registerWidget({ id: 'tasks', slot: 'tasks', title: 'Tasks', icon: 'list-checks', sub: `${this.settings.taskTag || 'Tasks'} across your notes · by date`, mount: (card) => this.mountTasks(card) });
-    api.registerWidget({ id: 'global', slot: 'global', title: 'Todo', icon: 'star', sub: this.quickPath(), mount: (card) => this.mountGlobal(card) });
+    api.registerWidget({ id: 'tasks', slot: 'tasks', title: 'Tasks', icon: 'list-checks', sub: `${this.settings.taskTag || 'Tasks'} across your notes · by date`, open: () => this.openTab(), openTitle: 'Open the Tasks tab', mount: (card) => this.mountTasks(card) });
+    api.registerWidget({ id: 'global', slot: 'global', title: 'Todo', icon: 'star', sub: this.quickPath(), open: () => this.openTab(), openTitle: 'Open the Tasks tab (Todo is beside the tasks there)', mount: (card) => this.mountGlobal(card) });
     api.registerAction({ id: 'tasks', icon: 'list-checks', label: 'Tasks', order: 15, view: VIEW_TASKS, run: () => this.openTab() });
     api.registerCapture({ id: 'task', label: 'Todo task', short: 'Todo', icon: 'square-check', order: 10, run: (v) => this.addQuickTask(v) });
     // Recently done on the dashboard (fork): tasks ticked anywhere, read from their ✅ dates in your notes
@@ -8615,7 +8622,7 @@ class NeonTime extends Plugin {
   hookCore() {
     const api = deckApi(this.app);
     if (!api) return;
-    api.registerWidget({ id: 'time', slot: 'time', title: 'Time today', icon: 'clock', sub: this.widgetSub(), mount: (card) => this.mountWidget(card) });
+    api.registerWidget({ id: 'time', slot: 'time', title: 'Time today', icon: 'clock', sub: this.widgetSub(), open: () => this.openTab(), openTitle: 'Open the Time tab', mount: (card) => this.mountWidget(card) });
     api.registerCapture({ id: 'time', label: 'Time entry', short: 'Time', icon: 'clock', order: 30, allowEmpty: true, run: (v) => this.newEntry({ note: v }) });
     api.registerAction({ id: 'time', icon: 'clock', label: 'Time', order: 40, view: VIEW_TIME, run: () => this.openTab() });
     api.registerExcluded('time', () => [this.logFolder()]);
@@ -8754,7 +8761,6 @@ Object.assign(NeonTime.prototype, {
   mountWidget(card) {
     const p = this;
     button(card.actions, { icon: 'plus', cls: 'nd-icon-btn', title: 'Add time by hand', onClick: () => p.newEntry({}) });
-    button(card.actions, { icon: 'maximize-2', cls: 'nd-icon-btn', title: 'Open the Time tab', onClick: () => p.openTab() });
     const body = card.body;
     body.addClass('tm-widget');
     // motion: everything rises in on first paint; after that only rows that weren't there before slide in
@@ -10011,7 +10017,7 @@ class NeonProjects extends Plugin {
   hookCore() {
     const api = deckApi(this.app);
     if (!api) return;
-    api.registerWidget({ id: 'tickets', slot: 'tickets', title: 'Projects', icon: 'briefcase', mount: (card) => this.mountWidget(card) });
+    api.registerWidget({ id: 'tickets', slot: 'tickets', title: 'Projects', icon: 'briefcase', open: () => this.openTracker(), openTitle: 'Open the Projects tab', mount: (card) => this.mountWidget(card) });
     api.registerCapture({ id: 'ticket', label: 'Project', short: 'Project', icon: 'briefcase', order: 20, allowEmpty: true, run: (v) => this.newProject({ title: v }) });
     api.registerAction({ id: 'tickets', icon: 'briefcase', label: 'Projects', order: 20, view: VIEW_TICKETS, run: () => this.openTracker() });
     if (api.registerActivity)
@@ -10478,7 +10484,6 @@ Object.assign(NeonProjects.prototype, {
   mountWidget(card) {
     const p = this;
     button(card.actions, { icon: 'plus', cls: 'nd-icon-btn', title: 'New project', onClick: () => p.newProject() });
-    button(card.actions, { icon: 'maximize-2', cls: 'nd-icon-btn', title: 'Open the Projects tab', onClick: () => p.openTracker() });
     const counter = card.body.createDiv('tk-counter is-mini');
     const list = card.body.createDiv('tk-mini-list');
     let renders = 0;
@@ -10493,14 +10498,17 @@ Object.assign(NeonProjects.prototype, {
       list.empty();
       if (!act.length) return void emptyState(list, 'No open projects ✦');
       act.slice(0, 30).forEach((t, i) => {
-        const r = list.createDiv(`tk-mini is-${t.bucket}`);
+        // fork: two lines: the title and its status; under them when it is due, the customer and what needs action
+        const r = list.createDiv(`tk-mini tk-mini-2 is-${t.bucket}`);
         r.style.setProperty('--i', String(Math.min(i, 20)));
-        r.createSpan({ cls: 'tk-mini-due', text: projectDueText(t) });
-        const txt = r.createDiv('tk-mini-text');
-        txt.createSpan({ cls: 'tk-mini-title', text: t.title });
-        if (t.customer) txt.createSpan({ cls: 'tk-id', text: ` · ${t.customer}` });
-        p.renderPlanSummary(txt, t, true); // fork: overdue and due-this-week tasks of the project
-        if (t.statusRaw) r.createSpan({ cls: `tk-tag-wait s-${t.status}`, text: t.statusRaw });
+        const main = r.createDiv('tk-mini-main');
+        const top = main.createDiv('tk-mini-top');
+        tip(top.createSpan({ cls: 'tk-mini-title', text: t.title }), t.customer ? `${t.title} · ${t.customer}` : t.title);
+        if (t.statusRaw) top.createSpan({ cls: `tk-tag-wait s-${t.status}`, text: t.statusRaw });
+        const meta = main.createDiv('tk-mini-meta');
+        meta.createSpan({ cls: 'tk-mini-due', text: projectDueText(t) });
+        if (t.customer) meta.createSpan({ cls: 'tk-mini-cust', text: t.customer });
+        p.renderPlanBadges(meta, t); // fork: late, overdue, due soon, blocked: small coloured pills
         r.addEventListener('click', (e) => p.openProject(t.file, e));
         r.addEventListener('contextmenu', (e) => {
           e.preventDefault();
@@ -10594,6 +10602,19 @@ Object.assign(NeonProjects.prototype, {
       if (!text) return;
       const s = el.createSpan({ cls: `tk-age tk-plan${c.overdue || c.late ? ' is-overdue' : ''}${short ? ' is-short' : ''}`, text: short ? ` · ${text}` : text });
       tip(s, 'This project’s tasks (ready: nothing it depends on is still open)');
+    });
+  },
+  /** The dashboard card's pills: late, overdue, due soon, blocked (only what needs action). */
+  renderPlanBadges(el, t) {
+    this.planSummary(t).then((c) => {
+      if (!c || !el.isConnected) return;
+      const pills = [
+        [c.late, `${c.late}d late`, 'is-late', `Forecast finish ${c.late} working day${c.late === 1 ? '' : 's'} after the due date`],
+        [c.overdue, `${c.overdue} overdue`, 'is-overdue', 'Tasks past their 📅 date'],
+        [c.week, `${c.week} due soon`, 'is-soon', 'Tasks due within a week'],
+        [c.blocked, `${c.blocked} blocked`, 'is-blocked', 'Tasks held up by an overdue or #blocked task'],
+      ];
+      for (const [n, text, cls, title] of pills) if (n) tip(el.createSpan({ cls: `tk-pill ${cls}`, text }), title);
     });
   },
 });

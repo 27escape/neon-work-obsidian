@@ -180,7 +180,7 @@ class NeonTime extends Plugin {
   hookCore() {
     const api = deckApi(this.app);
     if (!api) return;
-    api.registerWidget({ id: 'time', slot: 'time', title: 'Time today', icon: 'clock', sub: this.widgetSub(), mount: (card) => this.mountWidget(card) });
+    api.registerWidget({ id: 'time', slot: 'time', title: 'Time today', icon: 'clock', sub: this.widgetSub(), open: () => this.openTab(), openTitle: 'Open the Time tab', mount: (card) => this.mountWidget(card) });
     api.registerCapture({ id: 'time', label: 'Time entry', short: 'Time', icon: 'clock', order: 30, allowEmpty: true, run: (v) => this.newEntry({ note: v }) });
     api.registerAction({ id: 'time', icon: 'clock', label: 'Time', order: 40, view: VIEW_TIME, run: () => this.openTab() });
     api.registerExcluded('time', () => [this.logFolder()]);

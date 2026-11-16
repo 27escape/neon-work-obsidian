@@ -98,7 +98,7 @@ class NeonProjects extends Plugin {
   hookCore() {
     const api = deckApi(this.app);
     if (!api) return;
-    api.registerWidget({ id: 'tickets', slot: 'tickets', title: 'Projects', icon: 'briefcase', mount: (card) => this.mountWidget(card) });
+    api.registerWidget({ id: 'tickets', slot: 'tickets', title: 'Projects', icon: 'briefcase', open: () => this.openTracker(), openTitle: 'Open the Projects tab', mount: (card) => this.mountWidget(card) });
     api.registerCapture({ id: 'ticket', label: 'Project', short: 'Project', icon: 'briefcase', order: 20, allowEmpty: true, run: (v) => this.newProject({ title: v }) });
     api.registerAction({ id: 'tickets', icon: 'briefcase', label: 'Projects', order: 20, view: VIEW_TICKETS, run: () => this.openTracker() });
     if (api.registerActivity)

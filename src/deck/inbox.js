@@ -55,7 +55,7 @@ Object.assign(NeonDeck.prototype, {
     // fork: the Inbox tab is in the sidebar list (not in the dashboard header, which has the card)
     this.api.registerAction({ id: 'inbox', icon: 'inbox', label: 'Inbox', order: 12, view: VIEW_INBOX, hero: false, run: () => this.activate(VIEW_INBOX, 'tab') });
     if (this.settings.inboxCard === false) return this.api.unregisterWidget('inbox');
-    this.api.registerWidget({ id: 'inbox', slot: 'inbox', title: 'Inbox', icon: 'inbox', sub: this.inboxFolder(), mount: (card, view) => this.mountInbox(card, view) });
+    this.api.registerWidget({ id: 'inbox', slot: 'inbox', title: 'Inbox', icon: 'inbox', sub: this.inboxFolder(), open: () => this.activate(VIEW_INBOX, 'tab'), openTitle: 'Open the Inbox tab', mount: (card, view) => this.mountInbox(card, view) });
   },
   /** The inbox list and its Add box in a card; comp (the dashboard or the Inbox tab) owns the event listeners. */
   mountInbox(card, comp) {

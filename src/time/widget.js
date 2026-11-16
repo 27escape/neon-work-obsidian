@@ -77,7 +77,6 @@ Object.assign(NeonTime.prototype, {
   mountWidget(card) {
     const p = this;
     button(card.actions, { icon: 'plus', cls: 'nd-icon-btn', title: 'Add time by hand', onClick: () => p.newEntry({}) });
-    button(card.actions, { icon: 'maximize-2', cls: 'nd-icon-btn', title: 'Open the Time tab', onClick: () => p.openTab() });
     const body = card.body;
     body.addClass('tm-widget');
     // motion: everything rises in on first paint; after that only rows that weren't there before slide in
