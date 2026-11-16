@@ -8,17 +8,32 @@ test('board moves change only the checkbox; done stamps ✅ today, reopening rem
   const text = '# Plan\n- [ ] A [duration:: 2d] 🆔 a #task\n- [ ] B 🆔 b ⛔ a #task\n';
   const a = P.planTask('- [ ] A [duration:: 2d] 🆔 a #task', { line: 1 });
   const doing = P.planSetBox(text, a, '/', '2026-11-16');
-  assert.equal(doing, '# Plan\n- [/] A [duration:: 2d] 🆔 a #task\n- [ ] B 🆔 b ⛔ a #task\n');
-  const done = P.planSetBox(doing, a, 'x', '2026-11-16');
-  assert.equal(done.split('\n')[1], '- [x] A [duration:: 2d] 🆔 a #task ✅ 2026-11-16');
-  const back = P.planSetBox(done, P.planTask(done.split('\n')[1], { line: 1 }), ' ', '2026-11-17');
-  assert.equal(back.split('\n')[1], '- [ ] A [duration:: 2d] 🆔 a #task');
+  assert.equal(doing.text, '# Plan\n- [/] A [duration:: 2d] 🆔 a #task\n- [ ] B 🆔 b ⛔ a #task\n');
+  assert.equal(doing.line, 1);
+  const done = P.planSetBox(doing.text, a, 'x', '2026-11-16');
+  assert.equal(done.text.split('\n')[1], '- [x] A [duration:: 2d] 🆔 a #task ✅ 2026-11-16');
+  assert.equal(done.raw, 'A [duration:: 2d] 🆔 a #task ✅ 2026-11-16');
+  const back = P.planSetBox(done.text, P.planTask(done.text.split('\n')[1], { line: 1 }), ' ', '2026-11-17');
+  assert.equal(back.text.split('\n')[1], '- [ ] A [duration:: 2d] 🆔 a #task');
+  assert.equal(P.planSetBox(back.text, a, ' ', '2026-11-17').text, back.text); // already there: unchanged
+});
+
+test('a quick second move: the view still holds the old text, the task is found by its 🆔 id', () => {
+  // moved to done (✅ added), then dragged back before the view re-read the note: t.raw is the old text
+  const note = 'x\n- [x] Agree service levels 🆔 sdr-d3 #task ✅ 2026-11-16\n';
+  const stale = P.planTask('- [/] Agree service levels 🆔 sdr-d3 #task', { line: 1 });
+  const back = P.planSetBox(note, stale, '/', '2026-11-16');
+  assert.equal(back.text, 'x\n- [/] Agree service levels 🆔 sdr-d3 #task\n');
+  const moved = P.planSetBox('new\n' + note, stale, '/', '2026-11-16'); // and on another line
+  assert.equal(moved.line, 2);
+  assert.equal(P.planSetBox(note, P.planTask('- [ ] Other 🆔 sdr-d33', { line: 5 }), '/', '2026-11-16'), null); // no partial id match
 });
 
 test('board moves find a task that moved to another line, keep CRLF, give up when unsure', () => {
   const a = P.planTask('- [ ] A 🆔 a #task', { line: 1 });
-  assert.equal(P.planSetBox('new line\n# Plan\n- [ ] A 🆔 a #task\r\n', a, '/', '2026-11-16'), 'new line\n# Plan\n- [/] A 🆔 a #task\r\n');
-  assert.equal(P.planSetBox('x\n- [ ] A 🆔 a #task\n- [ ] A 🆔 a #task', Object.assign(a, { line: 0 }), '/', '2026-11-16'), null); // two candidates
+  assert.equal(P.planSetBox('new line\n# Plan\n- [ ] A 🆔 a #task\r\n', a, '/', '2026-11-16').text, 'new line\n# Plan\n- [/] A 🆔 a #task\r\n');
+  const noId = P.planTask('- [ ] A #task', { line: 0 });
+  assert.equal(P.planSetBox('x\n- [ ] A #task\n- [ ] A #task', noId, '/', '2026-11-16'), null); // two candidates
   assert.equal(P.planSetBox('nothing here', a, '/', '2026-11-16'), null);
 });
 

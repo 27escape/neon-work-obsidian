@@ -127,6 +127,7 @@ class PlanView extends ItemView {
   }
   render() {
     if (!this.bodyEl) return;
+    if (this.dragActive) return void (this.redrawAfterDrag = true); // a card is being dragged: redraw when it lands
     const weeks = this.weeks || !this.base;
     const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: moment().format('YYYY-MM-DD') });
     this.src = text;
