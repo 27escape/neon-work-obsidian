@@ -55,5 +55,5 @@ test('dashboard grid: every card is one rectangle, whichever cards are missing',
     }
     assert.ok(rows.flat().every(Boolean), `empty cell in ${areas}`);
   }
-  assert.match(G.dashAreas(new Set(all)).areas, /^"inbox tasks global tickets" "inbox tasks global tickets" "claude activity activity time" "recent pulse pulse totals"$/);
+  assert.match(G.dashAreas(new Set(all)).areas, /^"inbox tasks global tickets" "inbox tasks global tickets" "recent activity activity time" "claude pulse pulse totals"$/);
 });
