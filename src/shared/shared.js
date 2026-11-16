@@ -31,7 +31,13 @@ const normCat = (c) => (c == null ? c : CAT_ALIAS[String(c).toLowerCase()] || St
 const CAT_LABEL = { projects: 'Projects', school: 'School', admin: 'Admin', operations: 'Operations', other: 'Other', untracked: 'Untracked' };
 const CAT_SHORT = { projects: 'Proj', school: 'School', admin: 'Admin', operations: 'Operations' };
 const CAT_FALLBACK = ['#c6e651', '#e5506a', '#7fb3c9', '#d9c56a', '#e4e6ea', '#b9a0d6', '#5fcf96', '#e08a5a', '#8f86b8', '#8f95a0'];
-const NEON_CATS = { customers: false, customersFolder: '1.Customers' };
+const NEON_CATS = { customers: false, customersFolder: '1.Customers', label: 'Customer', prop: 'customer' }; // fork: label and property can be renamed (e.g. Area / area for a PARA vault)
+/** The group's name for the UI: groupWord() "Customer", groupWord(true) "Customers", groupWord(false, true) "customer". */
+function groupWord(plural = false, lower = false) {
+  let w = String(NEON_CATS.label || 'Customer').trim() || 'Customer';
+  if (plural && !/s$/i.test(w)) w = /[^aeiou]y$/i.test(w) ? `${w.slice(0, -1)}ies` : `${w}s`;
+  return lower ? w.toLowerCase() : w;
+}
 /** A category's colour: the theme's four category colours first, then the theme palette. */
 function catColor(c) {
   const i = CATS.indexOf(c);
@@ -218,8 +224,9 @@ function noteCategory(cache, path) {
   const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
   if (isTrue(fm.untracked) || isTrue(fm.Untracked) || tags.includes('untracked')) return 'untracked';
   if (NEON_CATS.customers) {
-    // fork: the customer property, else the customer folder
-    const c = fm.customer != null && typeof fm.customer !== 'object' ? String(fm.customer).trim().toLowerCase() : '';
+    // fork: the group property (customer), else the group folder
+    const v = fm[NEON_CATS.prop || 'customer'];
+    const c = v != null && typeof v !== 'object' ? String(v).trim().toLowerCase() : '';
     if (c && CATS.includes(c)) return c;
     return pathCustomer(path);
   }
@@ -623,4 +630,21 @@ function installLongPress(plugin) {
     if (e.isTrusted && recent() && inNeon(e.target)) (e.preventDefault(), e.stopPropagation());
   }, true);
   plugin.register(cancel);
+}
+
+/* ---- notes to ignore by tag (fork) -----------------------------------------------------
+ * e.g. folder index notes (tags: vault_index): left out of stats, tasks, projects and research.
+ * Set from the Dashboard setting "Ignored tags"; matches the note's tags property, case-insensitive. */
+const NEON_IGNORE = { tags: [] };
+function setIgnoredTags(text) {
+  NEON_IGNORE.tags = String(text || '')
+    .split(/[,\s]+/)
+    .map((t) => t.trim().replace(/^#/, '').toLowerCase())
+    .filter(Boolean);
+}
+function isIgnoredNote(app, file) {
+  if (!NEON_IGNORE.tags.length || !file || file.extension !== 'md') return false;
+  const cache = app.metadataCache.getFileCache(file);
+  const tags = fmTags(cache && cache.frontmatter);
+  return tags.some((t) => NEON_IGNORE.tags.includes(t));
 }

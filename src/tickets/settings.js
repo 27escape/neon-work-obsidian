@@ -18,16 +18,24 @@ class NeonProjectsSettingTab extends PluginSettingTab {
       .setDesc('Notes with this tag in their tags property are projects, wherever they are.')
       .addText((t) => t.setPlaceholder('project').setValue(s.projectTag).onChange((v) => ((s.projectTag = v.trim().replace(/^#/, '')), proj())));
     new Setting(containerEl)
-      .setName('Customers folder')
-      .setDesc('Each folder inside it is a customer. A project’s customer is its customer property, else the customer folder it is in.')
+      .setName('Group name')
+      .setDesc('What the groups that projects and notes belong to are called: Customer by default, Area for a PARA vault, or Client, Team…')
+      .addText((t) => t.setPlaceholder('Customer').setValue(s.groupLabel).onChange((v) => ((s.groupLabel = v.trim() || 'Customer'), proj())));
+    new Setting(containerEl)
+      .setName('Group property')
+      .setDesc('The property that names a note’s group (customer: acme). Without it, the folder the note is in decides.')
+      .addText((t) => t.setPlaceholder('customer').setValue(s.groupProperty).onChange((v) => ((s.groupProperty = v.trim() || 'customer'), proj())));
+    new Setting(containerEl)
+      .setName('Groups folder')
+      .setDesc('Each folder inside it is a group (a customer, or an area or project folder in a PARA vault). A note in one of them, at any depth, belongs to that group.')
       .addText((t) => suggestPaths(p.app, t.setPlaceholder('1.Customers').setValue(s.customersFolder).onChange((v) => ((s.customersFolder = normalizePath(v.trim() || '1.Customers')), proj())), 'folder'));
     new Setting(containerEl)
       .setName('Projects folder name')
-      .setDesc('New projects for a customer go in <customers folder>/<customer>/<this folder>/.')
+      .setDesc('New projects for a group go in <groups folder>/<group>/<this folder>/.')
       .addText((t) => t.setPlaceholder('Projects').setValue(s.projectsFolderName).onChange((v) => ((s.projectsFolderName = v.trim() || 'Projects'), save())));
     new Setting(containerEl)
       .setName('Project folder')
-      .setDesc(`Where new projects without a customer go. Empty: ${basePath('Projects')} (in the base folder).`)
+      .setDesc(`Where new projects without a group go. Empty: ${basePath('Projects')} (in the base folder).`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Projects')).setValue(s.projectFolder).onChange((v) => ((s.projectFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'));
     new Setting(containerEl)
       .setName('Project template')
@@ -48,7 +56,7 @@ class NeonProjectsSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Timeline on the Projects tab')
-      .setDesc('A Gantt chart (Mermaid) above the list, one section per customer: a bar from started to due, or to the closed date. “Copy as Mermaid” pastes it into a note.')
+      .setDesc('A Gantt chart (Mermaid) above the list, one section per group (customer): a bar from started to due, or to the closed date. “Copy as Mermaid” pastes it into a note.')
       .addToggle((t) => t.setValue(s.showTimeline !== false).onChange((v) => ((s.showTimeline = v), save(), p.emitSoon())));
 
     new Setting(containerEl).setName('Dashboard and reminders').setHeading();

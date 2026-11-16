@@ -25,6 +25,8 @@ const PROJECTS_DEFAULTS = {
   statusCancelled: 'cancelled', // closing with this value writes a `cancelled` date instead of `completed`
   // where new projects go: <customers folder>/<customer>/<projects folder name>/, else the project folder
   customersFolder: '1.Customers',
+  groupLabel: 'Customer', // fork: what a group is called (Area in a PARA vault)
+  groupProperty: 'customer', // fork: the property naming a note's group
   projectsFolderName: 'Projects',
   projectFolder: '', // projects without a customer; '' = <base folder>/Projects
   projectTemplate: '',
@@ -80,7 +82,7 @@ const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, { numeric: t
 function projectGroups(items, mode) {
   if (mode === 'customer') {
     const names = [...new Set(items.map((t) => t.customer || ''))].sort((a, b) => (!a - !b) || a.localeCompare(b, undefined, { sensitivity: 'base' }));
-    return names.map((c) => [`customer-${c || 'none'}`, c || 'No customer', items.filter((t) => (t.customer || '') === c).sort(projectSort)]);
+    return names.map((c) => [`customer-${c || 'none'}`, c || `No ${groupWord(false, true)}`, items.filter((t) => (t.customer || '') === c).sort(projectSort)]);
   }
   if (mode === 'status') {
     return PROJECT_KINDS.map((k) => [`status-${k}`, PROJECT_KIND_LABEL[k], items.filter((t) => t.status === k).sort(projectSort)]);

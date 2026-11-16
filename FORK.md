@@ -1,6 +1,6 @@
 # Neon Work
 
-**Plugin id:** `neon-work` · **Name:** Neon Work · **Version:** 1.1.3 ([release notes](docs/release-notes/1.1.3.md); its own numbering, starting again from upstream Neon Deck 2.2.0)
+**Plugin id:** `neon-work` · **Name:** Neon Work · **Version:** 1.2.0 ([release notes](docs/release-notes/1.2.0.md); its own numbering, starting again from upstream Neon Deck 2.2.0)
 **Fork by:** Kevin Mulholland, with Claude
 **Repository:** <https://github.com/27escape/neon-work-obsidian>
 **Based on:** [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs, version 2.2.0 (CC BY-NC-SA 4.0). The same licence applies to this fork; the changes are listed below.
@@ -35,6 +35,7 @@ To rename the plugin, change `id` and `name` in `src/kernel/manifest.json`, alon
 | **Trimmed** | Write keeps the table picker, styled tables, dividers, locked callouts and the note pattern; the slash menu, selection toolbar and image moving are gone. The Revisit feature for "school" notes is gone. Time has no Jira field or column. Templates folders and top-level archive folders are left out of stats, tasks and projects. The lifted writing window is full width when *Readable line length* is off. "Fix properties" and the automatic category rename are removed (they deleted empty template properties). |
 | **Dashboard layout** | The header is one line (greeting, date, clock and buttons, smaller), without the Theme, Pattern and Strength selectors, which are in settings. Task rows put the date and note under the text. The Activity card's week buttons are this week and two either side. |
 | **Phones and tablets** | Not desktop-only any more (1.1.0). Dashboard, Tasks, Projects and Research run on mobile with one- or two-column layouts, larger touch targets and long press for menus; Time, Write, the card explorer and the graph stay desktop-only. Every mobile style is scoped to Obsidian's `is-mobile` class, so desktop is unchanged. |
+| **Other vault layouts** | 1.2.0: the customer is a renameable group (label, property, folder), so a PARA vault can group by area; several task tags (`#task, #todo`); notes with ignored tags (e.g. `vault_index`) are left out everywhere. |
 | **Naming** | The UI names the plugin by its manifest name and the parts by their section (Dashboard, Tasks, Projects, Research, Time, Write); commands read "Neon Work – Tasks: …". Module ids and folders keep upstream's names, so saved data carries on. |
 
 ## How the read-only guard works

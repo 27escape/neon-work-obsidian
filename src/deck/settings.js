@@ -66,6 +66,10 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc('Comma-separated, e.g. an archive folder. Ignored by stats, the graph, tasks and projects.')
       .addText((t) => t.setPlaceholder('4.Archive').setValue(s.excludeFolders).onChange((v) => ((s.excludeFolders = v), (p._ex = null), save())));
     new Setting(containerEl)
+      .setName('Ignored tags')
+      .setDesc('Comma-separated. Notes with one of these tags in their properties are ignored by stats, tasks, projects and research, e.g. folder index notes (vault_index).')
+      .addText((t) => t.setPlaceholder('vault_index').setValue(s.excludeTags).onChange((v) => ((s.excludeTags = v), setIgnoredTags(v), (p._ex = null), save())));
+    new Setting(containerEl)
       .setName('Ignore the templates folder')
       .setDesc(`The folders set in the core Templates plugin and Templater${p.tplFolders.length ? ` (${p.tplFolders.join(', ')})` : ''}, so template tasks and properties never count.`)
       .addToggle((t) => t.setValue(s.excludeTemplates).onChange((v) => ((s.excludeTemplates = v), (p._ex = null), save())));

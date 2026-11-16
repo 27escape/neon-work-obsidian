@@ -13,9 +13,9 @@ class NeonTasksSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName('Tasks').setHeading();
     new Setting(containerEl).setDesc('The Tasks card shows open tasks ([ ] and [/]) across your notes, grouped by 📅 due or ⏳ scheduled date: checkbox lines with the task tag anywhere, every checkbox in notes tagged “tasks” and in recent daily notes. Excluded folders are skipped.');
     new Setting(containerEl)
-      .setName('Task tag')
-      .setDesc('A checkbox line with this tag is a task wherever it is, as in the Tasks plugin. Empty: only tagged notes, daily notes and the Todo note.')
-      .addText((t) => t.setPlaceholder('#task').setValue(s.taskTag).onChange((v) => ((s.taskTag = v.trim() && !v.trim().startsWith('#') ? '#' + v.trim() : v.trim()), save(), p.emit())));
+      .setName('Task tags')
+      .setDesc('A checkbox line with one of these tags is a task wherever it is, as in the Tasks plugin. Several: separate with commas (#task, #todo); new tasks get the first. Empty: only tagged notes, daily notes and the Todo note.')
+      .addText((t) => t.setPlaceholder('#task').setValue(s.taskTag).onChange((v) => ((s.taskTag = taskTags(v).join(', ')), save(), p.emit())));
     numSetting(new Setting(containerEl).setName('Carry over unfinished daily-note tasks (days)').setDesc('Open tasks from earlier daily or weekly notes show under Today. 0 = only the current note.'), s, 'carryDays', 0, 90, save);
     new Setting(containerEl)
       .setName('Stamp completion date')
@@ -31,7 +31,7 @@ class NeonTasksSettingTab extends PluginSettingTab {
       .setDesc(`Its open tasks fill the Todo card. Tasks you add on the dashboard go at the head of this note as “- [ ] #task … ➕ date”. Empty: ${basePath('Todo.md')}.`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Todo.md')).setValue(s.quickTasksPath).onChange((v) => ((s.quickTasksPath = v.trim()), save(), p.emit())), 'file'));
     new Setting(containerEl).setName('New notes').setHeading();
-    containerEl.createEl('p', { cls: 'setting-item-description', text: 'With a customers folder (Projects section), New note asks for a customer and a kind and files the note in <customers folder>/<customer>/<kind folder>/. Templates fill {{title}}, {{date}} and {{time}}; without one the note gets title, created, modified, customer and tags properties.' });
+    containerEl.createEl('p', { cls: 'setting-item-description', text: 'With a groups folder (Projects section), New note asks for a group (customer) and a kind and files the note in <groups folder>/<group>/<kind folder>/. Templates fill {{title}}, {{date}} and {{time}}; without one the note gets title, created, modified, customer and tags properties.' });
     const txt = (name, key, ph, desc, kind) =>
       new Setting(containerEl)
         .setName(name)
@@ -40,10 +40,10 @@ class NeonTasksSettingTab extends PluginSettingTab {
           t.setPlaceholder(ph).setValue(s[key]).onChange((v) => ((s[key] = v.trim()), save()));
           return kind ? suggestPaths(p.app, t, kind) : t;
         });
-    txt('Meetings folder', 'meetingsFolder', 'Meetings', 'Folder name inside each customer folder.');
+    txt('Meetings folder', 'meetingsFolder', 'Meetings', 'Folder name inside each group folder.');
     txt('People folder', 'peopleFolder', 'People', 'People notes are named @Name and get an aliases property.');
     txt('Research folder', 'researchFolder', 'Research');
-    txt('Folder for notes without a customer', 'noCustomerFolder', 'e.g. 2.Resources', 'Empty: the vault root.', 'folder');
+    txt('Folder for notes without a group', 'noCustomerFolder', 'e.g. 2.Resources', 'Empty: the vault root.', 'folder');
     txt('Note template', 'noteTemplate', '', '', 'file');
     txt('Meeting template', 'meetingTemplate', '', '', 'file');
     txt('Person template', 'personTemplate', 'templates/person_template.md', '', 'file');

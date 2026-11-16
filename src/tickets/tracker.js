@@ -55,7 +55,7 @@ class ProjectsView extends ItemView {
       },
     });
     const sort = tools.createEl('select', { cls: 'dropdown tk-sort', attr: { 'aria-label': 'Sort or group projects' } });
-    for (const [k, label] of PROJECT_SORTS) sort.createEl('option', { value: k, text: label });
+    for (const [k, label] of PROJECT_SORTS) sort.createEl('option', { value: k, text: k === 'customer' ? groupWord() : label }); // fork: the group's name
     sort.value = this.plugin.settings.tabSort;
     sort.addEventListener('change', () => {
       this.plugin.settings.tabSort = sort.value;

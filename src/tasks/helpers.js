@@ -37,10 +37,17 @@ const PROP_ORDER = [
 const TASK_LINE_RE = /^\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[[ /]\]\s+(.*)$/;
 const OPEN_BOX_RE = /\[[ /]\]/;
 const escTag = (tag) => tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-/** Does a task's text carry the task tag (e.g. #task, not #tasks or #task/sub)? */
+/** fork: the task tag setting may list several tags ("#task, #todo"); the first is used for new tasks. */
+function taskTags(tag) {
+  return String(tag || '')
+    .split(/[,\s]+/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((t) => (t.startsWith('#') ? t : `#${t}`));
+}
+/** Does a task's text carry one of the task tags (e.g. #task, not #tasks or #task/sub)? */
 function hasTaskTag(raw, tag) {
-  if (!tag) return false;
-  return new RegExp(`(^|\\s)${escTag(tag)}(?=$|\\s)`, 'iu').test(raw);
+  return taskTags(tag).some((t) => new RegExp(`(^|\\s)${escTag(t)}(?=$|\\s)`, 'iu').test(raw));
 }
 /** A note's text with a new task line at its head: after the properties, above the first task there. */
 function addTaskAtHead(text, line) {
@@ -57,7 +64,7 @@ function addTaskAtHead(text, line) {
 function taskDisplay(raw, tag = '#task') {
   return excerptOf(
     raw
-      .replace(tag ? new RegExp(`(^|\\s)${escTag(tag)}(?=$|\\s)`, 'giu') : /$^/, '$1')
+      .replace(taskTags(tag).length ? new RegExp(`(^|\\s)(?:${taskTags(tag).map(escTag).join('|')})(?=$|\\s)`, 'giu') : /$^/, '$1')
       .replace(/(?:📅|⏳|🛫|✅|➕)\s*\d{4}-\d{2}-\d{2}/gu, '')
       .replace(/🔁[^📅⏳🛫✅➕]*/gu, '')
       .replace(/[⏫🔼🔽🔺⏬]/gu, ''),

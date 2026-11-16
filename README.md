@@ -74,6 +74,10 @@ The plugin has six parts. Each can be switched off in the settings, and the othe
 - **Locked callouts and maths blocks:** lock one so it can't be edited by accident.
 - **Lifted writing window:** the note sits on a raised card over the dashboard pattern (full width when Obsidian's *Readable line length* is off).
 
+## Other vault layouts
+
+Neon Work started with a vault organised by customer, but the customer is just a group: rename it (Area, Client, Team…), choose the property it's read from and the folder whose subfolders are the groups, in *Settings → Neon Work → Projects*. For a PARA vault, for example: group name `Area`, property `area`, groups folder `2.Areas`, project tag `projects`. Several task tags (`#task, #todo`) and ignored tags (e.g. `vault_index` folder index notes) help with vaults that have many checklists or generated notes.
+
 ## On phones and tablets
 
 Dashboard, Tasks, Projects and Research also run on mobile: one column on a phone held upright, two on a phone turned sideways or a tablet, and long press for the menus that right-click opens on the desktop. Time tracking, Write, the card explorer and the note graph are desktop-only. To preview the mobile layouts on the desktop, run `app.emulateMobile(true)` in the developer console.

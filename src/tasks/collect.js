@@ -94,7 +94,8 @@ Object.assign(NeonTasks.prototype, {
   /** A new task line in Tasks-plugin form: “#task text ➕ YYYY-MM-DD” (tag and date only when missing). */
   taskLine(text) {
     const tag = (this.settings.taskTag || '').trim();
-    const withTag = tag && !hasTaskTag(text, tag) ? `${tag} ${text}` : text;
+    const first = taskTags(tag)[0]; // fork: new tasks get the first task tag
+    const withTag = first && !hasTaskTag(text, tag) ? `${first} ${text}` : text;
     const created = /➕\s*\d{4}-\d{2}-\d{2}/u.test(withTag) ? '' : ` ➕ ${moment().format('YYYY-MM-DD')}`;
     return `- [ ] ${withTag}${created}`;
   },

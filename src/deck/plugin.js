@@ -117,6 +117,7 @@ class NeonDeck extends Plugin {
   async loadSettings() {
     const raw = (await this.loadData()) || {};
     this.settings = Object.assign({}, DEFAULT_SETTINGS, raw);
+    setIgnoredTags(this.settings.excludeTags); // fork
     const s = this.settings;
     if (!Array.isArray(s.pinnedFolders)) s.pinnedFolders = [];
     if (!s.folderColors || typeof s.folderColors !== 'object') s.folderColors = {};

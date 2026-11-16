@@ -32,7 +32,7 @@ function projectConfig(s) {
 }
 /** Customer of a note: its `customer` property, else the folder under the customers folder. */
 function projectCustomer(path, fm, customersFolder) {
-  const c = fm && fm.customer;
+  const c = fm && fm[NEON_CATS.prop || 'customer']; // fork: the group property (customer by default)
   // the property, shown as the customer folder's name when it matches one (customer: acme widgets → Acme Widgets)
   if (c != null && typeof c !== 'object' && String(c).trim()) return CAT_LABEL[String(c).trim().toLowerCase()] || String(c).trim();
   const root = normalizePath(customersFolder || '');
@@ -63,6 +63,8 @@ function projectStatusPatch(value, prevKind, today, cfg) {
 Object.assign(NeonProjects.prototype, {
   applyProjectSettings() {
     Object.assign(NEON_PROJECTS, projectConfig(this.settings));
+    NEON_CATS.label = this.settings.groupLabel || 'Customer'; // fork
+    NEON_CATS.prop = (this.settings.groupProperty || 'customer').trim() || 'customer';
     refreshCategories(this.app, this.settings.customersFolder); // fork: customers are the categories too
     this.cache = null;
   },
@@ -138,7 +140,7 @@ class NewProjectModal extends Modal {
     const sel = el.createEl('select', { cls: 'dropdown' });
     sel.style.marginTop = '10px';
     for (const c of list) sel.createEl('option', { value: c, text: c });
-    sel.createEl('option', { value: '', text: list.length ? 'No customer (project folder)' : `No customers found in ${p.settings.customersFolder}` });
+    sel.createEl('option', { value: '', text: list.length ? `No ${groupWord(false, true)} (project folder)` : `No ${groupWord(true, true)} found in ${p.settings.customersFolder}` });
     const want = this.opts.customer || guess;
     sel.value = list.includes(want) ? want : list[0] || '';
     const where = el.createDiv({ cls: 'setting-item-description' });

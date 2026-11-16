@@ -128,7 +128,7 @@ class ResearchView extends ItemView {
     const notes = [];
     for (const c of folder.children || []) {
       if (c instanceof TFolder) folders.push(c);
-      else if (c instanceof TFile && c.extension === 'md') notes.push(c);
+      else if (c instanceof TFile && c.extension === 'md' && !isIgnoredNote(this.app, c)) notes.push(c); // fork: ignored tags
     }
     // names starting with "!" first (as in the Neon sidebar), then A → Z
     const bangs = (f) => (f.name.match(/^!+/) || [''])[0].length;

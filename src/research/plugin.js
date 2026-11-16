@@ -127,7 +127,7 @@ class NeonResearch extends Plugin {
     const walk = (x) => {
       for (const c of x.children || []) {
         if (c instanceof TFolder) walk(c);
-        else if (c instanceof TFile && c.extension === 'md') out.push(c);
+        else if (c instanceof TFile && c.extension === 'md' && !isIgnoredNote(this.app, c)) out.push(c); // fork: ignored tags
       }
     };
     walk(folder);

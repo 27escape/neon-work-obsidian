@@ -53,7 +53,7 @@ Object.assign(NeonDeck.prototype, {
     return this._ex;
   },
   isExcluded(f) {
-    return this.excludedPaths().some((p) => f.path === p || f.path.startsWith(p + '/'));
+    return this.excludedPaths().some((p) => f.path === p || f.path.startsWith(p + '/')) || isIgnoredNote(this.app, f); // fork: + ignored tags
   },
   currentFolder() {
     const f = this.app.workspace.getActiveFile();

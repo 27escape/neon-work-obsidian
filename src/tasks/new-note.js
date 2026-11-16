@@ -26,7 +26,7 @@ function newNoteFrontmatter(kind, title, day, customer) {
     lines.push('aliases:', `  - ${JSON.stringify(plain)}`);
     if (first && first !== plain) lines.push(`  - ${JSON.stringify(first)}`);
   }
-  if (customer) lines.push(`customer: ${JSON.stringify(customer.toLowerCase())}`);
+  if (customer) lines.push(`${NEON_CATS.prop || 'customer'}: ${JSON.stringify(customer.toLowerCase())}`); // fork: the group property
   if (kind !== 'note') lines.push('tags:', `  - ${kind}`);
   lines.push('---', '');
   return lines.join('\n');
@@ -60,9 +60,9 @@ class CustomerNoteModal extends Modal {
     const customers = CATS.map((k) => [k, CAT_LABEL[k] || k]);
     const here = this.opts.folder || (file && file.parent ? file.parent.path : '');
     const guess = pathCustomer(`${here}/x.md`) || '';
-    const sel = field('Customer').createEl('select', { cls: 'dropdown' });
+    const sel = field(groupWord()).createEl('select', { cls: 'dropdown' });
     for (const [k, l] of customers) sel.createEl('option', { value: k, text: l });
-    sel.createEl('option', { value: '', text: `No customer (${s.noCustomerFolder || 'vault root'})` });
+    sel.createEl('option', { value: '', text: `No ${groupWord(false, true)} (${s.noCustomerFolder || 'vault root'})` });
     sel.value = guess;
     const where = c.createDiv({ cls: 'nt-note' });
     const row = c.createDiv('nd-modal-row');
@@ -72,7 +72,7 @@ class CustomerNoteModal extends Modal {
     const label = (k) => CAT_LABEL[k] || k;
     const sync = () => {
       const kind = this.kind.get();
-      if (kind === 'project') where.setText('Opens New project with this name and customer.');
+      if (kind === 'project') where.setText(`Opens New project with this name and ${groupWord(false, true)}.`);
       else {
         const { folder, file: fname } = newNotePath(s, NEON_CATS.customersFolder, sel.value ? label(sel.value) : '', kind, safeName(name.value) || 'Untitled');
         where.setText(`Creates ${folder === '/' ? '' : folder + '/'}${fname}.md${p.kindTemplate(kind) ? ` from ${p.kindTemplate(kind)}` : ''}`);
