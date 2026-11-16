@@ -226,7 +226,9 @@ function applyTemplate(text, m, title) {
     .replace(/<%[-_]?\s*tp\.date\.now\(\s*(?:(["'])(.*?)\1)?\s*\)\s*[-_]?%>/g, (_, q, f) => moment().format(f || 'YYYY-MM-DD'))
     .replace(/{{\s*date(?::([^}]+))?\s*}}/g, (_, f) => m.format(f ? f.trim() : 'YYYY-MM-DD'))
     .replace(/{{\s*time(?::([^}]+))?\s*}}/g, (_, f) => moment().format(f ? f.trim() : 'HH:mm'))
-    .replace(/{{\s*title\s*}}/g, title);
+    .replace(/{{\s*title\s*}}/g, title)
+    // fork: a project plan's id prefix, the initials of the title (Pilot - Local AI → pla)
+    .replace(/{{\s*prefix\s*}}/g, () => String(title || '').split(/[^A-Za-z0-9]+/).filter(Boolean).map((w) => w[0]).join('').toLowerCase().slice(0, 5) || 'task');
 }
 function parseDay(v) {
   if (v == null || v === '') return null;

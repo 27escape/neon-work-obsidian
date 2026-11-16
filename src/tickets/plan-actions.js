@@ -41,6 +41,7 @@ Object.assign(NeonProjects.prototype, {
             .setIcon('calendar-range')
             .onClick(() => this.openTaskEditor({ scope, file, line: isTask ? n : null, at: n })),
         );
+        if (isTask) menu.addItem((i) => i.setTitle('Planning: new task after this').setIcon('list-plus').onClick(() => this.openTaskEditor({ scope, file, afterLine: n })));
       }),
     );
   },
@@ -74,7 +75,7 @@ Object.assign(NeonProjects.prototype, {
    * Opens the task editor: the task on `line` of `file`, or a new task (its phase: the heading above `at`).
    * view: the Planning view it came from (its tasks are used, and it is refreshed after saving).
    */
-  async openTaskEditor({ scope, file, line = null, at = null, phase = null, view = null }) {
+  async openTaskEditor({ scope, file, line = null, at = null, phase = null, view = null, after = null, afterLine = null }) {
     const tasks = view ? view.tasks : await planCollect(this.app, scope);
     const open = this.app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === file && l.view.editor);
     const text = open ? open.view.editor.getValue() : await this.app.vault.cachedRead(file);
@@ -86,15 +87,21 @@ Object.assign(NeonProjects.prototype, {
       task = tasks.find((t) => t.file === file && t.line === line && want && t.raw === want.raw) || (want && tasks.find((t) => t.file === file && (want.id ? t.id === want.id : t.raw === want.raw))) || null;
       if (!task && want) task = Object.assign(want, { file, line, phase: above(line) }); // not read into the plan yet
     }
+    if (afterLine != null && !after) {
+      // a new task straight after the task on that line
+      const want = planTask(lines[afterLine]);
+      after = (want && tasks.find((t) => t.file === file && (want.id ? t.id === want.id : t.raw === want.raw))) || (want ? Object.assign(want, { file, line: afterLine, phase: above(afterLine) }) : null);
+    }
     new PlanTaskModal(this.app, {
       scope,
       file,
       text,
       tasks: task && !tasks.includes(task) ? [...tasks, task] : tasks,
       task,
+      after,
       phase: phase != null ? phase : at != null ? above(at + 1) : '',
       base: planBaseDate(this.app, scope),
-      onSaved: () => view && view.refresh(),
+      onSaved: (id) => view && view.selectSaved(id),
     }).open();
   },
   /** Opens the plan in a tab: the one already showing this plan, else a new tab. */

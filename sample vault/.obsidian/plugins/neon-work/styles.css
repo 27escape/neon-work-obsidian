@@ -5686,6 +5686,14 @@ body:not(.nd-themed) .nd-empty {
 .np-plan .np-mark-sign.is-decision {
   color: var(--color-green);
 }
+.np-plan .np-strong {
+  font-weight: 700;
+}
+.np-plan .np-row.is-selected td,
+.np-plan .np-card.is-selected {
+  outline: 2px solid var(--nd-accent);
+  outline-offset: -2px;
+}
 /* @css src/tickets/styles-plan-editor.css */
 /* the task editor */
 .np-editor {
@@ -5819,6 +5827,14 @@ body:not(.nd-themed) .nd-empty {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 10px;
+}
+.np-editor .np-ed-warn-line {
+  width: 100%;
+  color: var(--color-orange);
+  font-size: var(--font-ui-small);
+}
+.np-editor .np-ed-warn-line:empty {
+  display: none;
 }
 /* @src neon-research/styles.css */
 /* @css src/research/styles.css */

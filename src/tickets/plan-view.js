@@ -27,6 +27,9 @@ function planBaseDate(app, scope) {
   return m ? m[0] : null;
 }
 
+/** A task's key across re-reads of the note: its id, else its place. */
+const planKey = (t) => t.id || `${t.file.path}:${t.line}`;
+
 class PlanView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -38,6 +41,8 @@ class PlanView extends ItemView {
     this.who = null; // one person's tasks (plan-people.js), or everyone
     this.lanes = 'phase'; // board rows: by phase or by person
     this.ganttPhases = false; // Gantt: one bar per phase (plan-forecast.js)
+    this.markFilter = null; // List: only risks, issues or decisions
+    this.selKey = null; // the selected task (planKey): New task follows it
     this.tasks = [];
     this.paths = new Set();
     this.src = '';
@@ -99,7 +104,10 @@ class PlanView extends ItemView {
       this.app.workspace.requestSaveLayout();
       this.render();
     });
-    button(tools, { icon: 'plus', text: 'New task', cls: 'np-new', title: 'Add a task to this project', onClick: () => this.newTask() });
+    this.newBtn = button(tools, { icon: 'plus', text: 'New task', cls: 'np-new', title: 'Add a task: after the selected task (the last one you opened), depending on it', onClick: () => this.newTask() });
+    this.markEl = pills(tools, PLAN_MARKS.map(([k, sign, label]) => [k, `${sign} ${label}s`]), this.markFilter, (v) => ((this.markFilter = v || null), this.render()), 'can-clear');
+    tip(this.markEl.el, 'Only risks, issues or decisions (click again for all)');
+    this.clearSelBtn = button(tools, { icon: 'x', cls: 'nd-icon-btn is-hidden', title: 'New tasks at the end of the plan instead (clear the selection)', onClick: () => this.select(null) });
     button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
     this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
     this.buildPeopleTools(tools);
@@ -123,16 +131,53 @@ class PlanView extends ItemView {
     }
     return f instanceof TFile ? f : null;
   }
-  newTask() {
+  /** A new task: after `after` (or the selected task), depending on it, straight after its line; else at the end. */
+  newTask(after = null) {
     const file = this.scopeFile();
     if (!file) return new Notice('This project folder has no project note to add tasks to');
+    const sel = after || this.selected();
     const own = this.tasks.filter((t) => !t.external && t.file === file);
-    this.plugin.openTaskEditor({ scope: this.plan, file, phase: own.length ? own[own.length - 1].phase || '' : '', view: this });
+    const follow = sel && !sel.external && sel.file === file ? sel : null;
+    this.plugin.openTaskEditor({ scope: this.plan, file, after: follow, phase: own.length ? own[own.length - 1].phase || '' : '', view: this });
+  }
+  /** The selected task (the last one opened or right-clicked): New task follows it. */
+  selected() {
+    return this.selKey ? this.tasks.find((t) => planKey(t) === this.selKey) || null : null;
+  }
+  select(t) {
+    this.selKey = t ? planKey(t) : null;
+    this.syncSelection();
+  }
+  syncSelection() {
+    const sel = this.selected();
+    this.newBtn.querySelector('.nd-btn-label').setText(sel ? `New task after ${sel.id || planClip(planText(sel.raw), 20)}` : 'New task');
+    this.clearSelBtn.toggleClass('is-hidden', !sel);
+    this.bodyEl.querySelectorAll('.is-selected').forEach((x) => x.removeClass('is-selected'));
+    if (sel) this.bodyEl.querySelectorAll(`[data-key="${CSS.escape(this.selKey)}"]`).forEach((x) => x.addClass('is-selected'));
+  }
+  /** After the editor saves: select that task, so the next New task follows it. */
+  async selectSaved(id) {
+    if (id) this.selKey = id;
+    await this.refresh();
   }
   /** Click on a task: the editor; Ctrl/Cmd-click: its line in the note. Outside tasks open their note. */
   openTask(e, t) {
     if (t.external || (e && (e.ctrlKey || e.metaKey))) return openFile(this.app, t.file, e, t.line);
+    this.select(t);
     this.plugin.openTaskEditor({ scope: this.plan, file: t.file, line: t.line, view: this });
+  }
+  /** Replace a template's {{prefix}} throughout the project note with the plan's prefix. */
+  async fillPrefix() {
+    const file = this.scopeFile();
+    if (!file) return;
+    const fm = (this.app.metadataCache.getFileCache(file) || {}).frontmatter || {};
+    const prefix = planPrefix(fm, planScopeTitle(this.plan));
+    try {
+      await writeNote(this.app, file, (text) => planFillPrefix(text, prefix));
+      new Notice(`Ids filled in: ${prefix}-1, ${prefix}-2…`);
+    } catch (e) {
+      if (!(e && e.neonReadOnly)) console.error('Planning: could not fill in the ids', e);
+    }
   }
   openScope(e) {
     if (!this.plan) return;
@@ -184,6 +229,8 @@ class PlanView extends ItemView {
       return;
     }
     this.renderLegend(bars);
+    this.markEl.el.toggleClass('is-hidden', this.mode !== 'list' || !this.tasks.some((t) => (t.marks || []).length));
+    window.setTimeout(() => this.syncSelection(), 0); // after the chart or list is drawn
     if (this.mode === 'list') return this.renderList(sched, weeks);
     if (this.mode === 'board') return this.renderBoard();
     if (this.mode === 'graph') return this.renderGraph(sched);
@@ -217,7 +264,13 @@ class PlanView extends ItemView {
     if (sched.missing.length) lines.push(`Unknown ids: ${[...new Set(sched.missing.map((m) => m.id))].join(', ')}`);
     if (sched.dups.length) lines.push(`Ids used more than once: ${sched.dups.join(', ')}`);
     lines.push(...this.loadLines(sched));
+    for (const w of planWeekendDates(this.tasks)) lines.push(`${w.task.id || planClip(planText(w.task.raw), 30)}: ${w.sign} ${planShortDate(w.date)} is a ${w.day}`);
     for (const l of lines) el.createDiv({ cls: 'np-issue', text: `⚠ ${l}` });
+    if (this.tasks.some((t) => !t.external && /\{\{\s*prefix\s*\}\}/.test(t.raw))) {
+      // made from the plan template outside New project: its ids still read {{prefix}}-1
+      const d = el.createDiv({ cls: 'np-issue', text: '⚠ This plan’s ids still read {{prefix}}: ' });
+      button(d, { icon: 'wand', text: 'Fill in ids', cls: 'np-fill', onClick: () => this.fillPrefix() });
+    }
   }
   /** The list's Days cell: − days + (click the number to type one); a milestone shows ◆. */
   daysCell(td, t) {
@@ -244,19 +297,20 @@ class PlanView extends ItemView {
     for (const r of sched.rows) {
       const t = r.task;
       if (!this.shows(t)) continue;
+      if (this.markFilter && !(t.marks || []).includes(this.markFilter)) continue;
       const ph = t.external ? PLAN_OUTSIDE : t.phase || 'Tasks';
       if (ph !== phase) {
         phase = ph;
         body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: slips ? '11' : '10' } });
       }
       const st = planState(t, byId, this.today);
-      const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}` });
+      const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}`, attr: { 'data-key': planKey(t) } });
       tr.addEventListener('contextmenu', (e) => this.taskMenu(e, t));
       tip(tr.createEl('td', { cls: 'np-crit', text: r.crit && st !== 'done' && !t.external ? '●' : '' }), 'On the critical path');
       const name = tr.createEl('td', { cls: 'np-name' });
       const mark = planMark(t);
       if (mark) tip(name.createSpan({ cls: `np-mark-sign is-${mark[0]}`, text: `${mark[1]} ` }), mark[2]);
-      const a = name.createEl('a', { text: (t.external ? '↗ ' : '') + planText(t.raw), href: '#' });
+      const a = name.createEl('a', { cls: mark && mark[0] !== 'decision' ? 'np-strong' : '', text: (t.external ? '↗ ' : '') + planText(t.raw), href: '#' }); // risks and issues in bold
       a.addEventListener('click', (e) => {
         e.preventDefault();
         this.openTask(e, t);

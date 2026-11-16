@@ -17,7 +17,8 @@ function planInitials(title) {
 }
 /** The id prefix: the plan-prefix property (letters, digits, - and _), else the title's initials. */
 function planPrefix(fm, title) {
-  const p = String((fm && (fm['plan-prefix'] != null ? fm['plan-prefix'] : fm.planPrefix)) || '').trim().replace(/[^\w-]/g, '');
+  const v = String((fm && (fm['plan-prefix'] != null ? fm['plan-prefix'] : fm.planPrefix)) || '').trim();
+  const p = /\{\{/.test(v) ? '' : v.replace(/[^\w-]/g, ''); // a template's {{prefix}} not filled in yet: the initials
   return p || planInitials(title);
 }
 /** The next free id: prefix-(highest number used + 1). ids: every id in use. */
@@ -153,7 +154,8 @@ function planPutLine(lines, line, phase, cr) {
 
 /**
  * The note's text after the editor's save (pure). others: [{ task, fn(rest, box) → { rest, box } }] (dependencies of
- * other tasks, ids given to them); main: { task (null: a new task), form, phase }. Returns { text, line, raw, box,
+ * other tasks, ids given to them); main: { task (null: a new task), form, phase, after (a new task goes straight after
+ * this task's line) }. Returns { text, line, raw, box,
  * missing: [tasks not found] }.
  */
 function planEditFile(text, { others = [], main = null }, today) {
@@ -181,7 +183,12 @@ function planEditFile(text, { others = [], main = null }, today) {
   }
   const { rest, box } = planApplyForm('', ' ', main.form, today);
   const lines = cur.split('\n');
-  const line = planPutLine(lines, `- [${box}] ${rest}`, main.phase || '', cr);
+  const after = main.after ? planFindLine(lines, main.after) : -1;
+  let line;
+  if (after >= 0) {
+    line = after + 1;
+    lines.splice(line, 0, `- [${box}] ${rest}${cr}`);
+  } else line = planPutLine(lines, `- [${box}] ${rest}`, main.phase || '', cr);
   return { text: lines.join('\n'), line, raw: rest, box, missing };
 }
 
@@ -222,5 +229,28 @@ function planPlannedDates(tasks, base, today) {
   const from = planWorkdays(base, 0);
   const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today) : 0 });
   for (const r of sched.rows) out.set(r.task, { start: planWorkdays(from, r.es), due: planWorkdays(from, Math.max(r.es, r.ef - 1)) });
+  return out;
+}
+
+/** A template's {{prefix}} filled in with the plan's prefix, throughout the note (pure). */
+function planFillPrefix(text, prefix) {
+  return text.replace(/\{\{\s*prefix\s*\}\}/g, prefix);
+}
+const PLAN_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+/** "Saturday" / "Sunday" for a weekend date, else '' (pure). */
+function planWeekend(ymd) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd || '')) return '';
+  const d = new Date(`${ymd}T00:00:00Z`).getUTCDay();
+  return d === 0 || d === 6 ? PLAN_DAY_NAMES[d] : '';
+}
+/** Open tasks with a 🛫 ⏳ 📅 date on a weekend: [{ task, sign, date, day }]. */
+function planWeekendDates(tasks) {
+  const out = [];
+  for (const t of tasks)
+    if (!t.external && !planClosed(t))
+      for (const [k, sign] of PLAN_DATE_SIGNS) {
+        const day = planWeekend(t[k]);
+        if (day) out.push({ task: t, sign, date: t[k], day });
+      }
   return out;
 }

@@ -84,3 +84,30 @@ test('planned dates follow the Gantt: from the project’s start, work not start
   assert.equal(JSON.stringify(d.get(b)), JSON.stringify({ start: '2026-11-16', due: '2026-11-18' }));
   assert.equal(P.planPlannedDates([a], null, 'x').size, 0);
 });
+
+const Q = load('neon-tickets', ['planTask', 'planEditFile', 'planFillPrefix', 'planWeekend', 'planWeekendDates', 'planPrefix', 'applyTemplate']);
+
+test('a new task after another goes straight after its line and depends on it', () => {
+  const note = '### 1. Scope\n- [ ] A 🆔 a #task\n- [ ] B 🆔 b ⛔ a #task\n';
+  const a = Q.planTask('- [ ] A 🆔 a #task', { line: 1, phase: '1. Scope' });
+  const f = { desc: 'A2', box: ' ', days: 1, id: 'p-3', deps: ['a'], tag: '#task' };
+  const r = Q.planEditFile(note, { main: { task: null, form: f, phase: '1. Scope', after: a } }, 'x');
+  assert.equal(r.text, '### 1. Scope\n- [ ] A 🆔 a #task\n- [ ] A2 [duration:: 1d] 🆔 p-3 ⛔ a #task\n- [ ] B 🆔 b ⛔ a #task\n');
+  assert.equal(r.line, 2);
+});
+
+test('template ids: {{prefix}} filled by New project, or later from the Planning view', () => {
+  assert.equal(Q.planFillPrefix('plan-prefix: {{prefix}}\n- [ ] A 🆔 {{prefix}}-1\n- [ ] B 🆔 {{ prefix }}-2 ⛔ {{prefix}}-1', 'sdr'), 'plan-prefix: sdr\n- [ ] A 🆔 sdr-1\n- [ ] B 🆔 sdr-2 ⛔ sdr-1');
+  assert.equal(Q.planPrefix({ 'plan-prefix': '{{prefix}}' }, 'Office Move'), 'om'); // not filled in yet: the initials
+  assert.equal(Q.applyTemplate('🆔 {{prefix}}-1 {{title}}', { format: () => '2026-11-16' }, 'Service Desk Rollout'), '🆔 sdr-1 Service Desk Rollout');
+});
+
+test('weekend dates are found', () => {
+  assert.equal(Q.planWeekend('2026-11-21'), 'Saturday');
+  assert.equal(Q.planWeekend('2026-11-22'), 'Sunday');
+  assert.equal(Q.planWeekend('2026-11-23'), '');
+  assert.equal(Q.planWeekend(null), '');
+  const w = Q.planWeekendDates([Q.planTask('- [ ] A 📅 2026-11-21 🆔 a'), Q.planTask('- [x] B 📅 2026-11-22'), Q.planTask('- [ ] C 🛫 2026-11-23')]);
+  assert.equal(w.length, 1);
+  assert.equal(w[0].sign, '📅');
+});

@@ -359,3 +359,11 @@
 .np-plan .np-mark-sign.is-decision {
   color: var(--color-green);
 }
+.np-plan .np-strong {
+  font-weight: 700;
+}
+.np-plan .np-row.is-selected td,
+.np-plan .np-card.is-selected {
+  outline: 2px solid var(--nd-accent);
+  outline-offset: -2px;
+}

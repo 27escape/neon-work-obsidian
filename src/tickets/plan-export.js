@@ -114,6 +114,7 @@ async function planPaint(el, bars, onBar = null) {
     }
     const label = svg.querySelector(`text[id="${b.id}-text"], text[id$="-${b.id}-text"]`);
     if (label && !/Outside/i.test(label.getAttribute('class') || '')) label.style.fill = planInk(b.kind);
+    if (label && (b.mark === 'risk' || b.mark === 'issue')) label.style.fontWeight = '700'; // risks and issues stand out
     if (label && onBar && b.task) {
       label.style.cursor = 'pointer';
       label.addEventListener('click', (e) => onBar(e, b));

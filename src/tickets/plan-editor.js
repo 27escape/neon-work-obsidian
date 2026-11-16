@@ -12,7 +12,7 @@ const PLAN_STATUS_CHOICES = [
 ];
 
 class PlanTaskModal extends Modal {
-  /** ctx: { scope, file, text (the note now), tasks (the plan), task (null: new), phase, base, onSaved } */
+  /** ctx: { scope, file, text (the note now), tasks (the plan), task (null: new), after (a new task follows it), phase, base, onSaved(id) } */
   constructor(app, ctx) {
     super(app);
     this.ctx = ctx;
@@ -34,12 +34,12 @@ class PlanTaskModal extends Modal {
     };
     // the note's other tasks: what the pickers offer
     this.mine = ctx.tasks.filter((x) => !x.external && x.file.path === ctx.file.path && x !== t);
-    this.deps = t ? t.deps.map((id) => ({ id, task: byId.get(id) || null })) : [];
+    this.deps = t ? t.deps.map((id) => ({ id, task: byId.get(id) || null })) : ctx.after ? [{ id: ctx.after.id || null, task: ctx.after }] : [];
     this.owners = t ? (t.owners || []).map((o) => o.text) : []; // as written: [[@Sam Taylor]] or a plain name
     this.peopleNotes = app.vault.getMarkdownFiles().filter((f) => f.basename.startsWith('@')).map((f) => f.basename).sort();
     this.blocks = new Set(t && t.id ? this.mine.filter((x) => x.deps.includes(t.id)) : []);
     this.blocks0 = new Set(this.blocks);
-    this.phase = t ? t.phase || '' : ctx.phase || '';
+    this.phase = t ? t.phase || '' : ctx.after ? ctx.after.phase || '' : ctx.phase || '';
     this.phases = planHeadings(ctx.text.split('\n')).map((h) => h.text);
     const fm = (app.metadataCache.getFileCache(ctx.file) || {}).frontmatter || {};
     this.prefix = planPrefix(fm, planScopeTitle(ctx.scope));
@@ -49,7 +49,7 @@ class PlanTaskModal extends Modal {
   onOpen() {
     const { contentEl: el, modalEl } = this;
     modalEl.addClass('nd-modal', 'np-editor');
-    this.titleEl.setText(this.ctx.task ? 'Edit task' : 'New task');
+    this.titleEl.setText(this.ctx.task ? 'Edit task' : this.ctx.after ? `New task after “${planClip(planText(this.ctx.after.raw), 40)}”` : 'New task');
     if (NEON_GUARD.readOnly) el.createDiv({ cls: 'np-ed-warn', text: 'Read-only is on, so saving is blocked. Turn it off in the plugin’s settings to change notes.' });
     const f = this.form;
     const row = (label, cls = '') => {
@@ -143,6 +143,7 @@ class PlanTaskModal extends Modal {
       i.addEventListener('change', () => ((f[key] = i.value || null), this.update()));
       this[`${key}El`] = i;
     }
+    this.weekendEl = dt.createDiv('np-ed-warn-line');
     if (this.planned) {
       const p = dt.createDiv('np-ed-planned');
       p.createSpan({ text: `Planned: ${moment(this.planned.start).format('ddd D MMM')} – ${moment(this.planned.due).format('ddd D MMM')} ` });
@@ -294,11 +295,14 @@ class PlanTaskModal extends Modal {
       task,
       fn: (rest, box) => ({ rest: planDepsRest(o.id ? planSetSign(rest, '🆔', o.id) : rest, o.add, o.remove), box }),
     }));
-    return { plan: { others, main: { task: t, form: f, phase: this.phase } }, notes, f };
+    return { plan: { others, main: { task: t, form: f, phase: this.phase, after: t ? null : this.ctx.after || null } }, notes, f };
   }
 
   update() {
     this.drawOwners();
+    const f0 = this.form;
+    const weekend = PLAN_DATE_SIGNS.map(([k, sign]) => (planWeekend(f0[k]) ? `${sign} ${planWeekend(f0[k])}` : '')).filter(Boolean);
+    if (this.weekendEl) this.weekendEl.setText(weekend.length ? `⚠ On a weekend: ${weekend.join(', ')}. Working days skip weekends; move it to a weekday?` : '');
     const bad = this.forbidden();
     this.picker(this.depsEl, {
       chosen: this.deps.map((d) => ({ task: d.task, label: d.task ? `${d.task.id || 'new id'} · ${planClip(planText(d.task.raw), 30)}${d.task.external ? ' ↗' : ''}` : `${d.id} (not found)`, d })),
@@ -328,7 +332,8 @@ class PlanTaskModal extends Modal {
 
   async save() {
     if (!this.form.desc.trim()) return new Notice('A task needs a description');
-    const { plan } = this.plan();
+    const { plan, f } = this.plan();
+    this.lastId = f.id; // the view selects the saved task, so the next New task follows it
     let res = null;
     try {
       await writeNote(this.app, this.ctx.file, (text) => {
@@ -345,7 +350,7 @@ class PlanTaskModal extends Modal {
     if (res && res.line < 0) return new Notice('That task changed in the note in the meantime: nothing saved. Open it again.');
     if (res && res.missing.length) new Notice(`Saved; ${res.missing.length} other task(s) had changed and were left alone`);
     this.close();
-    if (this.ctx.onSaved) this.ctx.onSaved();
+    if (this.ctx.onSaved) this.ctx.onSaved(this.lastId);
   }
 
   onClose() {

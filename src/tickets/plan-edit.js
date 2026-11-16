@@ -14,6 +14,17 @@ const PLAN_DURATIONS = [1, 2, 3, 5, 10]; // offered in the task menu (working da
  */
 function planEditLine(text, t, fn) {
   const lines = text.split('\n');
+  const n = planFindLine(lines, t);
+  if (n < 0) return null;
+  const cr = lines[n].endsWith('\r') ? '\r' : '';
+  const m = lines[n].replace(/\r$/, '').match(PLAN_LINE_RE);
+  const next = fn(m[4], m[2]);
+  if (next.rest === m[4] && next.box === m[2]) return { text, line: n, raw: m[4], box: m[2] };
+  lines[n] = m[1] + next.box + m[3] + next.rest + cr;
+  return { text: lines.join('\n'), line: n, raw: next.rest, box: next.box };
+}
+/** The line a task is on now (its line if it still holds the task, else the one line with its text, else its id), or -1. */
+function planFindLine(lines, t) {
   const parse = (l) => (l || '').replace(/\r$/, '').match(PLAN_LINE_RE);
   const idRe = t.id ? new RegExp(`🆔\\s*${t.id}(?![\\w-])`, 'u') : null; // ids are letters, digits, - and _
   const sameText = (l) => {
@@ -28,15 +39,8 @@ function planEditLine(text, t, fn) {
     const hits = lines.map((l, i) => (ok(l) ? i : -1)).filter((i) => i >= 0);
     return hits.length === 1 ? hits[0] : -1;
   };
-  let n = sameText(lines[t.line]) || sameId(lines[t.line]) ? t.line : only(sameText);
-  if (n < 0) n = only(sameId);
-  if (n < 0) return null;
-  const cr = lines[n].endsWith('\r') ? '\r' : '';
-  const m = parse(lines[n]);
-  const next = fn(m[4], m[2]);
-  if (next.rest === m[4] && next.box === m[2]) return { text, line: n, raw: m[4], box: m[2] };
-  lines[n] = m[1] + next.box + m[3] + next.rest + cr;
-  return { text: lines.join('\n'), line: n, raw: next.rest, box: next.box };
+  const n = sameText(lines[t.line]) || sameId(lines[t.line]) ? t.line : only(sameText);
+  return n >= 0 ? n : only(sameId);
 }
 
 /** The checkbox set to `box`: done adds "✅ today" if missing, reopening removes it; already there: unchanged. */
@@ -146,7 +150,11 @@ Object.assign(PlanView.prototype, {
   taskMenu(e, t) {
     if (e.preventDefault) e.preventDefault();
     const m = new Menu();
-    if (!t.external) m.addItem((i) => i.setTitle('Edit…').setIcon('pencil').onClick(() => this.openTask(null, t)));
+    if (!t.external) {
+      this.select(t);
+      m.addItem((i) => i.setTitle('Edit…').setIcon('pencil').onClick(() => this.openTask(null, t)));
+      m.addItem((i) => i.setTitle('New task after this').setIcon('list-plus').onClick(() => this.newTask(t)));
+    }
     m.addItem((i) => i.setTitle('Open the task in its note').setIcon('file-text').onClick(() => openFile(this.app, t.file, null, t.line)));
     if (t.external) return m.showAtMouseEvent(e);
     m.addSeparator();
