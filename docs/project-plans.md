@@ -15,7 +15,7 @@ Status: agreed 16 Nov 2026; step 1 built. First used on the E2I note *Pilot - Lo
 
 1. ✅ `src/shared/plan.js` (parse, state, schedule, critical path, working days, counts) and `src/shared/plan-scope.js` (which tasks belong to a project, outside neighbours); Tasks card leaves project tasks out; counts on the project rows (`src/tickets/plan-summary.js`). Tests: `test/plan.test.mjs`.
 2. ✅ Plan view (`src/tickets/plan-view.js`: Gantt and List, Dates or Weeks), header buttons and commands on project notes (`plan-actions.js`), Gantt text (`plan-gantt.js`), SVG export and Copy as Mermaid (`plan-export.js`). Tests: `test/plan-gantt.test.mjs`.
-3. Board (drag to change status) and Graph.
+3. ✅ Board (`plan-board.js`: columns Ready / Blocked / In progress / Done, rows by phase; drag or the card menu changes the checkbox through `writeNote`, ✅ date added or removed) and Graph (`plan-graph.js`: Mermaid flowchart, groups per phase, colours by kind, thick arrows on the critical path, boxes open their task). Header buttons Gantt, Board, Graph, List. Tests: `test/plan-board.test.mjs`.
 4. Report note, *Durations to dates*, schedule warnings.
 
 ## The problem

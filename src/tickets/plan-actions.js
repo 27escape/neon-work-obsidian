@@ -1,6 +1,14 @@
 /* ---- Project plans (fork): buttons on project notes, opening the Plan view, commands ---------------------------
  * A note that belongs to a project (a project note, or any note in a project folder) gets buttons in its header:
- * Gantt chart and task list. They open the Plan view in a new tab; nothing is added to the note. */
+ * Gantt, Board, Graph and List. They open the Plan view in a new tab; nothing is added to the note. */
+
+// header buttons, left to right (Obsidian puts the last one added first, so they are added in reverse)
+const PLAN_BUTTONS = [
+  ['gantt', 'calendar-range', 'Gantt', 'Plan: Gantt chart'],
+  ['board', 'kanban', 'Board', 'Plan: board'],
+  ['graph', 'git-fork', 'Graph', 'Plan: dependency graph'],
+  ['list', 'list-checks', 'List', 'Plan: task list'],
+];
 
 Object.assign(NeonProjects.prototype, {
   hookPlans() {
@@ -25,6 +33,8 @@ Object.assign(NeonProjects.prototype, {
         },
       });
     cmd('plan-gantt', 'Project: open the plan as a Gantt chart', 'gantt');
+    cmd('plan-board', 'Project: open the plan as a board', 'board');
+    cmd('plan-graph', 'Project: open the plan as a dependency graph', 'graph');
     cmd('plan-list', 'Project: open the plan as a task list', 'list');
   },
   /** Adds or removes the header buttons so they match each open note. */
@@ -39,11 +49,12 @@ Object.assign(NeonProjects.prototype, {
       if (had) had.els.forEach((e) => e.remove());
       this.planButtons.delete(v);
       if (!scope) continue;
-      const els = [v.addAction('list-checks', 'Plan: task list', () => this.openPlan(scope, 'list')), v.addAction('calendar-range', 'Plan: Gantt chart', () => this.openPlan(scope, 'gantt'))];
       // fork: a word beside each icon, so the buttons are easy to spot
-      els.forEach((e, i) => {
+      const els = [...PLAN_BUTTONS].reverse().map(([mode, ic, label, title]) => {
+        const e = v.addAction(ic, title, () => this.openPlan(scope, mode));
         e.addClass('np-action');
-        e.createSpan({ cls: 'np-action-label', text: i ? 'Gantt' : 'List' });
+        e.createSpan({ cls: 'np-action-label', text: label });
+        return e;
       });
       this.planButtons.set(v, { key, els });
     }

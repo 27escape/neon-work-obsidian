@@ -123,6 +123,8 @@
         "src/tickets/plan-gantt.js",
         "src/tickets/plan-export.js",
         "src/tickets/plan-view.js",
+        "src/tickets/plan-graph.js",
+        "src/tickets/plan-board.js",
         "src/tickets/plan-actions.js"
       ],
       "css": [

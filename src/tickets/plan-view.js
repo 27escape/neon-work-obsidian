@@ -1,9 +1,11 @@
 /* ---- Project plans (fork): the Plan view, one project's plan in its own tab -----------------------------------------
- * Opened from the buttons on a project note's header (plan-actions.js). Modes: Gantt (Mermaid, drawn by Obsidian) and
- * List (phases, dependencies, schedule). Reads the notes only; follows changes in them. */
+ * Opened from the buttons on a project note's header (plan-actions.js). Modes: Gantt (Mermaid, drawn by Obsidian),
+ * Board (plan-board.js), Graph (plan-graph.js) and List. Follows changes in the notes; only the board writes. */
 
 const PLAN_MODES = [
   ['gantt', 'Gantt'],
+  ['board', 'Board'],
+  ['graph', 'Graph'],
   ['list', 'List'],
 ];
 const PLAN_STATE_LABEL = { ready: 'Ready', blocked: 'Blocked', doing: 'In progress', done: 'Done' };
@@ -90,7 +92,7 @@ class PlanView extends ItemView {
       this.render();
     });
     button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
-    this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the Gantt chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
+    this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
     this.svgBtn = button(tools, { icon: 'image-down', text: 'SVG', cls: 'np-save', title: 'Save the chart as an SVG file', onClick: () => planExport(this.bodyEl, this.getDisplayText()) });
     this.issuesEl = root.createDiv('np-issues');
     this.bodyEl = root.createDiv('np-body');
@@ -128,7 +130,7 @@ class PlanView extends ItemView {
     this.weeksEl.set(weeks ? 'weeks' : 'dates');
     this.weeksEl.btns.get('dates').disabled = !this.base;
     if (!this.base) tip(this.weeksEl.btns.get('dates'), 'Set the project’s started date to see dates');
-    for (const b of [this.copyBtn, this.svgBtn]) b.toggleClass('is-hidden', this.mode !== 'gantt');
+    for (const b of [this.copyBtn, this.svgBtn]) b.toggleClass('is-hidden', this.mode !== 'gantt' && this.mode !== 'graph');
     this.renderIssues(sched);
     this.bodyEl.empty();
     if (!own.length) {
@@ -137,6 +139,8 @@ class PlanView extends ItemView {
     }
     this.renderLegend(bars);
     if (this.mode === 'list') return this.renderList(sched, weeks);
+    if (this.mode === 'board') return this.renderBoard();
+    if (this.mode === 'graph') return this.renderGraph(sched);
     const chart = this.bodyEl.createDiv('np-chart');
     renderMermaid(this.app, chart, text, this).then(() => planPaint(chart, bars));
   }
@@ -151,6 +155,7 @@ class PlanView extends ItemView {
       item.createSpan({ text: label });
     }
     if (this.mode === 'gantt' && bars.some((b) => b.crit)) el.createSpan({ cls: 'np-key np-key-crit', text: 'Outlined: critical path' });
+    if (this.mode === 'graph' && bars.some((b) => b.crit)) el.createSpan({ cls: 'np-key np-key-crit', text: 'Outlined, thick arrows: critical path' });
   }
   renderIssues(sched) {
     const el = this.issuesEl;

@@ -145,3 +145,85 @@
   border-radius: 3px;
   padding: 0 5px;
 }
+
+/* board: a column per state, a row per phase */
+.np-plan .np-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 6px 10px;
+  align-items: start;
+}
+.np-plan .np-col-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 2px solid var(--nd-line);
+  position: sticky;
+  top: 0;
+  background: var(--background-primary);
+  z-index: 1;
+}
+.np-plan .np-col-n {
+  color: var(--nd-faint);
+  font-weight: 400;
+}
+.np-plan .np-lane {
+  grid-column: 1 / -1;
+  margin-top: 10px;
+  color: var(--nd-faint);
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.np-plan .np-cell {
+  min-height: 34px;
+  padding: 4px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--nd-line) 25%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.np-plan .np-cell.is-over {
+  outline: 2px dashed var(--nd-accent);
+}
+.np-plan .np-cell.is-blocked {
+  background: color-mix(in srgb, var(--nd-line) 12%, transparent);
+}
+.np-plan .np-card {
+  background: var(--background-primary);
+  border: 1px solid var(--nd-line);
+  border-left: 4px solid var(--nd-line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: grab;
+  font-size: 0.9em;
+}
+.np-plan .np-card.is-dragging {
+  opacity: 0.4;
+}
+.np-plan .np-card.is-done .np-card-text,
+.np-plan .np-card.is-cancelled .np-card-text {
+  text-decoration: line-through;
+  color: var(--nd-faint);
+}
+.np-plan .np-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 0.85em;
+  color: var(--nd-faint);
+}
+.np-plan .np-card-meta .is-overdue {
+  color: var(--color-red);
+}
+.np-plan .np-card-meta .is-soon {
+  color: var(--color-orange);
+}
+
+/* graph: boxes open their task */
+.np-plan .np-graph .np-node {
+  cursor: pointer;
+}
