@@ -78,7 +78,6 @@ body.is-mobile .nd-dash-grid.is-narrow > .nd-area-recent { order: 5; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-claude { order: 6; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-activity { order: 7; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-pulse { order: 8; }
-body.is-mobile .nd-dash-grid.is-narrow > .nd-area-totals { order: 9; }
 body.is-mobile .nd-dash-grid.is-narrow > .nd-area-time { order: 9; }
 
 /* ---- tabs: less padding at the edges on a phone ---- */

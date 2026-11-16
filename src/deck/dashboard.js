@@ -8,7 +8,7 @@ const DASH_LAYOUT = [
   ['inbox', 'tasks', 'global', 'tickets'],
   ['inbox', 'tasks', 'global', 'tickets'],
   ['recent', 'activity', 'activity', 'time'],
-  ['claude', 'pulse', 'pulse', 'totals'], // fork: the Claude (or Areas) card; Quick capture (if on) takes its place otherwise
+  ['claude', 'pulse', 'pulse', 'time'], // fork: one Stats card (Vault pulse and Totals merged); Time today full height // fork: the Claude (or Areas) card; Quick capture (if on) takes its place otherwise
 ];
 /** Smallest grid height: the row minimums in styles-dashboard.css (150 + 150 + 290 + 140) plus 3 gaps of 14. */
 const DASH_GRID_MIN = 772; // Activity needs 290 for six full weeks
@@ -24,7 +24,7 @@ function dashAreas(present) {
     }
     if (n && present.has(n)) return n;
     // fork: last resorts that keep every card a rectangle: the top middle falls back to Activity, the right column to Totals
-    return { tasks: 'activity', global: 'activity', tickets: 'totals', time: 'totals' }[name] || null;
+    return { tasks: 'activity', global: 'activity' }[name] || null; // a right column with neither Projects nor Time is dropped
   };
   let rows = DASH_LAYOUT.map((r) => r.map(resolve));
   const cols = rows[0].map((_, c) => rows.some((r) => r[c] !== null));
@@ -66,8 +66,11 @@ class DashboardView extends ItemView {
     this.tickerEl.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), this.plugin.toggleIsland()));
     this.grid = inner.createDiv('nd-dash-grid is-entering');
     window.setTimeout(() => this.grid && this.grid.removeClass('is-entering'), 900);
-    this.totals = this.place(widget(this.grid, 'nd-w-totals', 'Totals', 'sigma', 'everything tracked so far'), 'totals');
-    this.stats = this.place(widget(this.grid, 'nd-w-stats', 'Vault pulse', 'activity'), 'pulse');
+    // fork: Vault pulse and Totals are one Stats card: the work figures, then the vault's, in one grid of tiles
+    this.stats = this.place(widget(this.grid, 'nd-w-stats', 'Stats', 'activity', 'your work and your vault'), 'pulse');
+    const statsGrid = this.stats.body.createDiv('nd-stats');
+    this.totals = { body: statsGrid.createDiv('nd-tiles nd-stats-part') };
+    this.pulseEl = statsGrid.createDiv('nd-tiles nd-stats-part');
     if (this.plugin.settings.showCapture) this.buildCapture(this.grid);
     this.recent = this.place(widget(this.grid, 'nd-w-recent', 'Recently done', 'history'), 'recent');
     button(this.recent.actions, { icon: 'files', cls: 'nd-icon-btn', title: 'Recently touched files', onClick: () => new FileListModal(this.plugin, (this.lastData?.md || []).slice().sort((a, b) => b.stat.mtime - a.stat.mtime), 'Recently touched files').open() });
@@ -186,7 +189,7 @@ class DashboardView extends ItemView {
       }
       this.slotCards.set(def.id, { def, card, handle });
     }
-    const present = new Set(['totals', 'pulse', 'recent', 'activity', ...[...defs.values()].map((d) => d.slot)]);
+    const present = new Set(['pulse', 'recent', 'activity', ...[...defs.values()].map((d) => d.slot)]);
     if (this.plugin.settings.showCapture) present.add('capture'); // off: Recently done / touched takes its place
     const { areas, cols } = dashAreas(present);
     this.grid.style.gridTemplateAreas = areas;
@@ -322,10 +325,10 @@ class DashboardView extends ItemView {
     return out;
   }
   renderStats(d) {
-    const b = this.stats.body;
-    b.empty();
+    const tiles = this.pulseEl; // fork: part of the Stats card
+    tiles.empty();
     // first paint: sparklines draw in and tiles rise one after another
-    const tiles = b.createDiv('nd-tiles' + (this.statsShown ? '' : ' is-intro'));
+    tiles.toggleClass('is-intro', !this.statsShown);
     this.statsShown = true;
     let i = 0;
     const tile = (value, label, accent, onClick, hint, spark) => {
@@ -342,7 +345,9 @@ class DashboardView extends ItemView {
       return v;
     };
     const desk = !NEON_MOBILE.on; // fork: the card explorer and graph are desktop-only
-    tile(d.md.length, 'notes', 'var(--nd-text)', desk ? () => this.plugin.activate(VIEW_CARDS, 'tab') : null, desk ? 'Open the card explorer · line: notes created per day' : 'Line: notes created per day', this.perDay(d.md, (f) => f.stat.ctime));
+    const made = d.md.filter((f) => f.stat.ctime >= moment().startOf('month').valueOf()).length; // fork: from the old Totals tile
+    const madeLine = `${made} created in ${moment().format('MMM')}`;
+    tile(d.md.length, 'notes', 'var(--nd-text)', desk ? () => this.plugin.activate(VIEW_CARDS, 'tab') : null, desk ? `${madeLine} · open the card explorer · line: notes created per day` : `${madeLine} · line: notes created per day`, this.perDay(d.md, (f) => f.stat.ctime));
     this.wordsEl = tile('…', 'words', 'var(--nd-text)');
     tile(d.links, 'links', 'var(--nd-info)', desk ? () => this.plugin.openGraph('notes') : null, desk ? 'Open the note graph' : null);
     tile(d.orphans.length, 'orphans', 'var(--nd-accent)', () => new FileListModal(this.plugin, d.orphans, 'Orphan notes — no links in or out').open(), 'Notes with no links in or out');

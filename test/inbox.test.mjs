@@ -39,7 +39,7 @@ test('inbox card: notes without a status, or with one not in the done list, are 
 
 test('dashboard grid: every card is one rectangle, whichever cards are missing', () => {
   const G = load('neon-deck', ['dashAreas']);
-  const all = ['inbox', 'tasks', 'global', 'tickets', 'claude', 'activity', 'time', 'recent', 'pulse', 'totals'];
+  const all = ['inbox', 'tasks', 'global', 'tickets', 'claude', 'activity', 'time', 'recent', 'pulse'];
   const combos = [all, all.filter((x) => x !== 'time'), all.filter((x) => x !== 'inbox'), all.filter((x) => !['inbox', 'tasks'].includes(x)), all.filter((x) => !['claude', 'time', 'tickets'].includes(x))];
   for (const present of combos) {
     const { areas } = G.dashAreas(new Set(present));
@@ -55,5 +55,5 @@ test('dashboard grid: every card is one rectangle, whichever cards are missing',
     }
     assert.ok(rows.flat().every(Boolean), `empty cell in ${areas}`);
   }
-  assert.match(G.dashAreas(new Set(all)).areas, /^"inbox tasks global tickets" "inbox tasks global tickets" "recent activity activity time" "claude pulse pulse totals"$/);
+  assert.match(G.dashAreas(new Set(all)).areas, /^"inbox tasks global tickets" "inbox tasks global tickets" "recent activity activity time" "claude pulse pulse time"$/);
 });

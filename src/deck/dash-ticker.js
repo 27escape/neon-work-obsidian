@@ -63,9 +63,9 @@ Object.assign(DashboardView.prototype, {
   renderTotals(d) {
     if (!this.totals) return;
     d = d || this.lastData || this.plugin.collectVaultData();
-    const b = this.totals.body;
-    b.empty();
-    const tiles = b.createDiv('nd-tiles nd-totals' + (this.totalsShown ? '' : ' is-intro'));
+    const tiles = this.totals.body; // fork: the work half of the Stats card
+    tiles.empty();
+    tiles.toggleClass('is-intro', !this.totalsShown);
     this.totalsShown = true;
     let i = 0;
     /** value: a number, or [number, format] for minutes and the like; numbers count up when they change */
@@ -132,8 +132,6 @@ Object.assign(DashboardView.prototype, {
       tile(done.length, 'projects done', 'var(--nd-warn)', `${doneMonth} in ${month} · ${all.length - done.length} open`, 'Projects closed, by completed or cancelled date');
     }
 
-    // notes (vault)
-    const created = d.md.filter((f) => thisMonth(f.stat.ctime)).length;
-    tile(d.md.length, 'notes', 'var(--nd-text)', `${created} created in ${month}`, 'Notes in the vault, without excluded folders');
+    // fork: no notes tile here: the vault half of the Stats card has it (with this month's count)
   },
 });
