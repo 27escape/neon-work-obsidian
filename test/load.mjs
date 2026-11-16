@@ -6,7 +6,7 @@ const o = JSON.parse(fs.readFileSync(new URL('../tools/files.json', import.meta.
 class Stub {}
 const moment = () => ({ format: () => '2026-01-01', subtract: () => ({ format: () => '2025-12-31' }), startOf: () => ({ valueOf: () => 0 }), isValid: () => false });
 // normalizePath fails on a missing value, as Obsidian's does (it calls .replace on it)
-const normalizePath = (p) => p.replace(/\\/g, '/');
+const normalizePath = (p) => p.replace(/[\\/]+/g, '/').replace(/^\/+|\/+$/g, '') || '/'; // like Obsidian's: '' becomes '/'
 const obsidian = new Proxy({ moment, debounce: (f) => f, normalizePath, getAllTags: (c) => (c && c.tags ? c.tags.map((t) => t.tag) : []) }, { get: (t, k) => (k in t ? t[k] : Stub) });
 
 /** id: module id, e.g. 'neon-write'. Loads the shared helpers plus that module's files. */

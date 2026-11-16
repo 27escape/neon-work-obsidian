@@ -38,7 +38,7 @@ function projectCustomer(path, fm, customersFolder) {
   // a plain name that isn't a group folder is still shown as written (customer: acme widgets → acme widgets)
   const c = fm && fm[groupProps()[0]];
   if (c != null && typeof c !== 'object' && String(c).trim() && !/^\[\[|\//.test(String(c).trim())) return String(c).trim();
-  const root = normalizePath(customersFolder || '');
+  const root = folderSetting(customersFolder);
   if (!root || !path.startsWith(root + '/')) return '';
   const rest = path.slice(root.length + 1).split('/');
   const k = rest.length > 1 ? rest[0] : '';

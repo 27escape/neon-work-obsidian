@@ -8,7 +8,7 @@ const NEON_PLAN = { taskTag: '#task', folders: '' };
 
 /** The project folder a path sits in (<project folders>/<folder>), or null. */
 function planFolderOf(path) {
-  const root = normalizePath(String(NEON_PLAN.folders || '').trim());
+  const root = folderSetting(NEON_PLAN.folders);
   if (!root || !path || !path.startsWith(root + '/')) return null;
   const rest = path.slice(root.length + 1);
   const i = rest.indexOf('/');

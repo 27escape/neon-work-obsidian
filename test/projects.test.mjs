@@ -59,3 +59,22 @@ test('group by customer and by status', () => {
   const s = P.projectGroups([tk('a', '', 'done'), tk('b', '', 'waiting'), tk('c', '', 'in-progress')], 'status');
   assert.deepEqual(plain(s.map(([, l, items]) => [l, items.length])), [['Not started', 0], ['Active', 1], ['On hold', 1], ['Closed', 1]]);
 });
+
+// bug: Obsidian's normalizePath('') is '/', so an empty "Project folders" made every top-level folder a project
+// (2.Resources showed on the Projects card)
+test('an empty project folders setting means none, not the vault root', () => {
+  const Q = load('neon-tickets', ['NeonProjects', 'folderSetting', 'planFolderOf', 'NEON_PLAN', 'projectCustomer']);
+  assert.equal(Q.folderSetting(''), '');
+  assert.equal(Q.folderSetting('  '), '');
+  assert.equal(Q.folderSetting(undefined), '');
+  assert.equal(Q.folderSetting('/'), '');
+  assert.equal(Q.folderSetting('1.Projects/'), '1.Projects');
+  const asked = [];
+  const self = { settings: { projectFolders: '' }, app: { vault: { getAbstractFileByPath: (p) => (asked.push(p), { children: [] }) } } };
+  assert.deepEqual(plain(Q.NeonProjects.prototype.folderProjects.call(self, [], null, null)), []);
+  assert.deepEqual(asked, []);
+  assert.equal(Q.NeonProjects.prototype.inProjectFolders.call(self, '2.Resources/templates/a.md'), false);
+  Q.NEON_PLAN.folders = '';
+  assert.equal(Q.planFolderOf('2.Resources/templates/a.md'), null);
+  assert.equal(Q.projectCustomer('2.Resources/a/b.md', {}, ''), '');
+});

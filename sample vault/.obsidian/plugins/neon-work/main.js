@@ -59,10 +59,16 @@ function catColor(c) {
 }
 /** Time categories: the categories plus "other". */
 const timeCats = () => [...CATS, 'other'];
+/** An optional folder setting as a path, or '' when empty: Obsidian's normalizePath('') is '/', the vault root. */
+function folderSetting(v) {
+  const p = normalizePath(String(v == null ? '' : v).trim());
+  return p === '/' ? '' : p;
+}
 /** fork: customers as categories (read from the customers folder; nothing is written). */
 function refreshCategories(app, folder) {
   if (folder != null) NEON_CATS.customersFolder = folder;
-  const root = app.vault.getAbstractFileByPath(normalizePath(NEON_CATS.customersFolder || ''));
+  const folderPath = folderSetting(NEON_CATS.customersFolder);
+  const root = folderPath && app.vault.getAbstractFileByPath(folderPath);
   const skip = new Set((NEON_CATS.skip || []).map((x) => x.toLowerCase())); // fork: e.g. Dailynotes, Tasks in 2.Areas
   const names = root instanceof TFolder ? root.children.filter((c) => c instanceof TFolder && !skip.has(c.name.toLowerCase())).map((c) => c.name).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })) : [];
   NEON_CATS.customers = names.length > 0;
@@ -76,7 +82,7 @@ function refreshCategories(app, folder) {
 }
 /** fork: the customer category of a path: the folder under the customers folder, or null. */
 function pathCustomer(path, orFolder = false) {
-  const root = normalizePath(NEON_CATS.customersFolder || '');
+  const root = folderSetting(NEON_CATS.customersFolder);
   if (!NEON_CATS.customers || !root || !path || !path.startsWith(root + '/')) return null;
   const rest = path.slice(root.length + 1).split('/');
   // a note inside a group folder (at any depth); with orFolder, the group folder itself too
@@ -1259,7 +1265,7 @@ const NEON_PLAN = { taskTag: '#task', folders: '' };
 
 /** The project folder a path sits in (<project folders>/<folder>), or null. */
 function planFolderOf(path) {
-  const root = normalizePath(String(NEON_PLAN.folders || '').trim());
+  const root = folderSetting(NEON_PLAN.folders);
   if (!root || !path || !path.startsWith(root + '/')) return null;
   const rest = path.slice(root.length + 1);
   const i = rest.indexOf('/');
@@ -10418,7 +10424,7 @@ function projectCustomer(path, fm, customersFolder) {
   // a plain name that isn't a group folder is still shown as written (customer: acme widgets → acme widgets)
   const c = fm && fm[groupProps()[0]];
   if (c != null && typeof c !== 'object' && String(c).trim() && !/^\[\[|\//.test(String(c).trim())) return String(c).trim();
-  const root = normalizePath(customersFolder || '');
+  const root = folderSetting(customersFolder);
   if (!root || !path.startsWith(root + '/')) return '';
   const rest = path.slice(root.length + 1).split('/');
   const k = rest.length > 1 ? rest[0] : '';
@@ -10646,7 +10652,7 @@ Object.assign(NeonProjects.prototype, {
    * else its index note (0.Index, index, README), else its first note; the project's status and dates come from it.
    */
   folderProjects(tagged, today, deck) {
-    const root = normalizePath(String(this.settings.projectFolders || '').trim());
+    const root = folderSetting(this.settings.projectFolders);
     const top = root && this.app.vault.getAbstractFileByPath(root);
     if (!(top instanceof TFolder)) return [];
     const out = [];
@@ -10670,7 +10676,7 @@ Object.assign(NeonProjects.prototype, {
   },
   /** fork: is this path inside a project folder (so a change there may change the folder projects)? */
   inProjectFolders(path) {
-    const root = normalizePath(String(this.settings.projectFolders || '').trim());
+    const root = folderSetting(this.settings.projectFolders);
     return !!root && !!path && path.startsWith(root + '/') && path.slice(root.length + 1).includes('/');
   },
   activeProjects() {

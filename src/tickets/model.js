@@ -57,7 +57,7 @@ Object.assign(NeonProjects.prototype, {
    * else its index note (0.Index, index, README), else its first note; the project's status and dates come from it.
    */
   folderProjects(tagged, today, deck) {
-    const root = normalizePath(String(this.settings.projectFolders || '').trim());
+    const root = folderSetting(this.settings.projectFolders);
     const top = root && this.app.vault.getAbstractFileByPath(root);
     if (!(top instanceof TFolder)) return [];
     const out = [];
@@ -81,7 +81,7 @@ Object.assign(NeonProjects.prototype, {
   },
   /** fork: is this path inside a project folder (so a change there may change the folder projects)? */
   inProjectFolders(path) {
-    const root = normalizePath(String(this.settings.projectFolders || '').trim());
+    const root = folderSetting(this.settings.projectFolders);
     return !!root && !!path && path.startsWith(root + '/') && path.slice(root.length + 1).includes('/');
   },
   activeProjects() {

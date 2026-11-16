@@ -49,10 +49,16 @@ function catColor(c) {
 }
 /** Time categories: the categories plus "other". */
 const timeCats = () => [...CATS, 'other'];
+/** An optional folder setting as a path, or '' when empty: Obsidian's normalizePath('') is '/', the vault root. */
+function folderSetting(v) {
+  const p = normalizePath(String(v == null ? '' : v).trim());
+  return p === '/' ? '' : p;
+}
 /** fork: customers as categories (read from the customers folder; nothing is written). */
 function refreshCategories(app, folder) {
   if (folder != null) NEON_CATS.customersFolder = folder;
-  const root = app.vault.getAbstractFileByPath(normalizePath(NEON_CATS.customersFolder || ''));
+  const folderPath = folderSetting(NEON_CATS.customersFolder);
+  const root = folderPath && app.vault.getAbstractFileByPath(folderPath);
   const skip = new Set((NEON_CATS.skip || []).map((x) => x.toLowerCase())); // fork: e.g. Dailynotes, Tasks in 2.Areas
   const names = root instanceof TFolder ? root.children.filter((c) => c instanceof TFolder && !skip.has(c.name.toLowerCase())).map((c) => c.name).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })) : [];
   NEON_CATS.customers = names.length > 0;
@@ -66,7 +72,7 @@ function refreshCategories(app, folder) {
 }
 /** fork: the customer category of a path: the folder under the customers folder, or null. */
 function pathCustomer(path, orFolder = false) {
-  const root = normalizePath(NEON_CATS.customersFolder || '');
+  const root = folderSetting(NEON_CATS.customersFolder);
   if (!NEON_CATS.customers || !root || !path || !path.startsWith(root + '/')) return null;
   const rest = path.slice(root.length + 1).split('/');
   // a note inside a group folder (at any depth); with orFolder, the group folder itself too
