@@ -27,10 +27,11 @@ function planDownload(blob, name) {
   window.setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-/** A PNG (twice the size on screen) drawn from SVG text; the image is loaded from a local blob: URL only. */
+/** A PNG (twice the size on screen) drawn from SVG text; the image is the chart itself as a data: URL (local). */
 function planPng(svgText, width, height, scale = 2) {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml' }));
+    // a data: URL, not blob: — Obsidian's content security policy refuses blob: images
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
     const img = createEl('img');
     img.onload = () => {
       try {
@@ -42,14 +43,9 @@ function planPng(svgText, width, height, scale = 2) {
         c.toBlob((b) => (b ? resolve(b) : reject(new Error('no PNG'))), 'image/png');
       } catch (e) {
         reject(e);
-      } finally {
-        URL.revokeObjectURL(url);
       }
     };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('the chart could not be drawn as an image'));
-    };
+    img.onerror = () => reject(new Error('the chart could not be drawn as an image'));
     img.src = url;
   });
 }
@@ -67,5 +63,35 @@ async function planExport(el, title, kind) {
   } catch (e) {
     console.error('Plan: could not save the chart', e);
     new Notice('Could not save the chart. Details in the console.');
+  }
+}
+
+/** The colour in use for a bar kind (Obsidian's colour variables, so it follows the theme). */
+function planColour(kind) {
+  const k = PLAN_KINDS.find((x) => x[0] === kind) || PLAN_KINDS[0];
+  return getComputedStyle(document.body).getPropertyValue(k[2]).trim() || k[3];
+}
+
+/**
+ * Colour the bars of a drawn Gantt by kind, as inline styles so a saved SVG or PNG keeps them. Mermaid names each
+ * bar <svg id>-<task id> (older versions: the task id). Critical-path bars get an outline. Waits for the drawing.
+ */
+async function planPaint(el, bars) {
+  let svg = el.querySelector('svg');
+  for (let i = 0; !svg && i < 30 && el.isConnected; i++) {
+    await new Promise((r) => window.setTimeout(r, 100));
+    svg = el.querySelector('svg');
+  }
+  if (!svg) return;
+  const edge = getComputedStyle(document.body).getPropertyValue('--text-normal').trim() || '#222222';
+  for (const b of bars) {
+    const rect = svg.querySelector(`rect[id="${b.id}"], rect[id$="-${b.id}"]`);
+    if (!rect) continue;
+    const c = planColour(b.kind);
+    rect.style.fill = c;
+    rect.style.stroke = b.crit ? edge : c;
+    rect.style.strokeWidth = b.crit ? '2px' : '1px';
+    const label = svg.querySelector(`text[id="${b.id}-text"], text[id$="-${b.id}-text"]`);
+    if (label && !/Outside/i.test(label.getAttribute('class') || '')) label.style.fill = b.kind === 'soon' || b.kind === 'outside' ? '#000000' : '#ffffff';
   }
 }

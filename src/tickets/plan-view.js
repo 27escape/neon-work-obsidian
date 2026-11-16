@@ -29,7 +29,7 @@ class PlanView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
-    this.scope = null;
+    this.plan = null;
     this.mode = 'gantt';
     this.weeks = false;
     this.tasks = [];
@@ -40,16 +40,16 @@ class PlanView extends ItemView {
     return VIEW_PLAN;
   }
   getDisplayText() {
-    return this.scope ? `Plan: ${planScopeTitle(this.scope)}` : 'Plan';
+    return this.plan ? `Plan: ${planScopeTitle(this.plan)}` : 'Plan';
   }
   getIcon() {
     return 'calendar-range';
   }
   getState() {
-    return Object.assign(super.getState(), this.scope ? { kind: this.scope.kind, path: this.scope.path, mode: this.mode, weeks: this.weeks } : {});
+    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks } : {});
   }
   async setState(state, result) {
-    if (state && state.path) this.scope = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
+    if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
     if (state && PLAN_MODES.some(([k]) => k === state.mode)) this.mode = state.mode;
     if (state && typeof state.weeks === 'boolean') this.weeks = state.weeks;
     await super.setState(state, result);
@@ -66,9 +66,9 @@ class PlanView extends ItemView {
   }
   /** Is this note part of the plan (or one of its outside neighbours)? */
   touches(path) {
-    if (!this.scope) return false;
+    if (!this.plan) return false;
     if (this.paths.has(path)) return true;
-    return this.scope.kind === 'note' ? path === this.scope.path : path.startsWith(this.scope.path + '/');
+    return this.plan.kind === 'note' ? path === this.plan.path : path.startsWith(this.plan.path + '/');
   }
   build() {
     const root = this.contentEl;
@@ -76,7 +76,7 @@ class PlanView extends ItemView {
     const bar = root.createDiv('np-bar');
     const head = bar.createDiv('np-head');
     head.createDiv({ cls: 'tk-k', text: 'Plan' });
-    this.titleEl = head.createDiv({ cls: 'np-title', text: this.scope ? planScopeTitle(this.scope) : '' });
+    this.titleEl = head.createDiv({ cls: 'np-title', text: this.plan ? planScopeTitle(this.plan) : '' });
     this.sumEl = head.createDiv('np-sum');
     const tools = bar.createDiv('np-tools');
     pills(tools, PLAN_MODES, this.mode, (v) => {
@@ -97,31 +97,32 @@ class PlanView extends ItemView {
     this.bodyEl = root.createDiv('np-body');
   }
   openScope(e) {
-    if (!this.scope) return;
-    let f = this.app.vault.getAbstractFileByPath(this.scope.path);
+    if (!this.plan) return;
+    let f = this.app.vault.getAbstractFileByPath(this.plan.path);
     if (f instanceof TFolder) f = (projectFolderNote(this.app, f) || {}).file;
     if (f instanceof TFile) openFile(this.app, f, e);
   }
   async refresh() {
-    if (!this.scope || !this.bodyEl) return;
+    if (!this.plan || !this.bodyEl) return;
     try {
-      this.tasks = await planCollect(this.app, this.scope);
+      this.tasks = await planCollect(this.app, this.plan);
     } catch (e) {
       console.error('Plan: could not read the project', e);
       this.tasks = [];
     }
     this.paths = new Set(this.tasks.map((t) => t.file.path));
-    this.base = planBaseDate(this.app, this.scope);
-    this.titleEl.setText(planScopeTitle(this.scope));
+    this.base = planBaseDate(this.app, this.plan);
+    this.titleEl.setText(planScopeTitle(this.plan));
     this.leaf.updateHeader && this.leaf.updateHeader();
     this.render();
   }
   render() {
     if (!this.bodyEl) return;
     const weeks = this.weeks || !this.base;
-    const { text, sched } = planGanttText(this.tasks, { base: this.base, weeks, today: moment().format('YYYY-MM-DD') });
+    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: moment().format('YYYY-MM-DD') });
     this.src = text;
     this.sched = sched;
+    this.kinds = new Map(bars.map((b) => [b.task, b.kind]));
     const own = this.tasks.filter((t) => !t.external);
     this.sumEl.setText(planSummaryText(planCounts(this.tasks, moment().format('YYYY-MM-DD'))) + (own.length ? ` · about ${Math.ceil(sched.length / 5)} weeks of work` : ''));
     this.weeksEl.el.toggleClass('is-hidden', this.mode !== 'gantt' && this.mode !== 'list');
@@ -135,8 +136,22 @@ class PlanView extends ItemView {
       emptyState(this.bodyEl, 'No tasks in this project yet. A task is a checkbox line with the task tag or a 🆔 id.');
       return;
     }
-    if (this.mode === 'list') this.renderList(sched, weeks);
-    else renderMermaid(this.app, this.bodyEl.createDiv('np-chart'), text, this);
+    this.renderLegend(bars);
+    if (this.mode === 'list') return this.renderList(sched, weeks);
+    const chart = this.bodyEl.createDiv('np-chart');
+    renderMermaid(this.app, chart, text, this).then(() => planPaint(chart, bars));
+  }
+  /** Colour key for the kinds in this plan; outlined bars are on the critical path. */
+  renderLegend(bars) {
+    const used = new Set(bars.map((b) => b.kind));
+    const el = this.bodyEl.createDiv('np-legend');
+    for (const [kind, label] of PLAN_KINDS) {
+      if (!used.has(kind)) continue;
+      const item = el.createSpan('np-key');
+      item.createSpan({ cls: 'np-swatch' }).style.backgroundColor = planColour(kind);
+      item.createSpan({ text: label });
+    }
+    if (this.mode === 'gantt' && bars.some((b) => b.crit)) el.createSpan({ cls: 'np-key np-key-crit', text: 'Outlined: critical path' });
   }
   renderIssues(sched) {
     const el = this.issuesEl;
@@ -171,7 +186,10 @@ class PlanView extends ItemView {
         openFile(this.app, t.file, e, t.line);
       });
       if (t.external) name.createSpan({ cls: 'np-file', text: ` · ${t.file.basename}` });
-      tr.createEl('td').createSpan({ cls: `np-state is-${st}`, text: PLAN_STATE_LABEL[st] });
+      const kind = this.kinds.get(t) || st;
+      const chip = tr.createEl('td').createSpan({ cls: `np-state is-${st}`, text: PLAN_STATE_LABEL[st] });
+      chip.style.borderColor = chip.style.color = planColour(kind);
+      if (kind === 'overdue' || kind === 'soon') tip(chip, PLAN_KINDS.find(([k]) => k === kind)[1]);
       tr.createEl('td', { cls: 'np-id', text: t.id || '' });
       tr.createEl('td', { cls: 'np-id', text: t.deps.join(', ') });
       tr.createEl('td', { cls: 'np-num', text: String(planDays(t)) });

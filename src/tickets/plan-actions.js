@@ -40,7 +40,11 @@ Object.assign(NeonProjects.prototype, {
       this.planButtons.delete(v);
       if (!scope) continue;
       const els = [v.addAction('list-checks', 'Plan: task list', () => this.openPlan(scope, 'list')), v.addAction('calendar-range', 'Plan: Gantt chart', () => this.openPlan(scope, 'gantt'))];
-      els.forEach((e) => e.addClass('np-action'));
+      // fork: a word beside each icon, so the buttons are easy to spot
+      els.forEach((e, i) => {
+        e.addClass('np-action');
+        e.createSpan({ cls: 'np-action-label', text: i ? 'Gantt' : 'List' });
+      });
       this.planButtons.set(v, { key, els });
     }
   },
@@ -53,7 +57,7 @@ Object.assign(NeonProjects.prototype, {
   /** Opens the plan in a tab: the one already showing this plan, else a new tab. */
   async openPlan(scope, mode = 'gantt') {
     const ws = this.app.workspace;
-    let leaf = ws.getLeavesOfType(VIEW_PLAN).find((l) => l.view && l.view.scope && l.view.scope.path === scope.path);
+    let leaf = ws.getLeavesOfType(VIEW_PLAN).find((l) => l.view && l.view.plan && l.view.plan.path === scope.path);
     if (!leaf) leaf = ws.getLeaf('tab');
     await leaf.setViewState({ type: VIEW_PLAN, active: true, state: { kind: scope.kind, path: scope.path, mode } });
     ws.revealLeaf(leaf);

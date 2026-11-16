@@ -108,3 +108,40 @@
 .np-plan .np-state.is-done {
   color: var(--nd-faint);
 }
+
+/* buttons on project notes: an icon and a word */
+.view-action.np-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  padding: 0 6px;
+}
+.view-action.np-action .np-action-label {
+  font-size: var(--font-ui-small);
+}
+
+/* colour key */
+.np-plan .np-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 10px;
+  font-size: 0.85em;
+  color: var(--nd-faint);
+}
+.np-plan .np-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.np-plan .np-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.np-plan .np-key-crit {
+  border: 2px solid var(--text-normal);
+  border-radius: 3px;
+  padding: 0 5px;
+}
