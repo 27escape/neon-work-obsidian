@@ -7078,7 +7078,7 @@ Object.assign(NeonTasks.prototype, {
   needsCategory(f) {
     if (!(f instanceof TFile) || f.extension !== 'md') return false;
     if (f.stat.ctime < this.settings.installedAt || this.isSystemPath(f.path) || dailyDateOf(this.app, f)) return false;
-    if (f.path === this.quickPath() || f.path === normalizePath(this.settings.backupPath)) return false;
+    if (f.path === this.quickPath()) return false; // fork: the Global tasks backup note (backupPath) is gone
     return noteCategory(this.app.metadataCache.getFileCache(f), f.path) === null;
   },
   uncategorised() {

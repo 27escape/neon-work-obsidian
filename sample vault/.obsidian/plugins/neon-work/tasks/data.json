@@ -15,6 +15,36 @@
   "meetingTemplate": "2.Resources/templates/meeting_template.md",
   "personTemplate": "2.Resources/templates/person_template.md",
   "researchTemplate": "2.Resources/templates/research_template.md",
+  "noteTypes": [
+    {
+      "name": "Note",
+      "folder": "{group}",
+      "template": "2.Resources/templates/note_template.md",
+      "tag": "",
+      "person": false
+    },
+    {
+      "name": "Meeting",
+      "folder": "{group}/Meetings",
+      "template": "2.Resources/templates/meeting_template.md",
+      "tag": "meeting",
+      "person": false
+    },
+    {
+      "name": "Person",
+      "folder": "{group}/People",
+      "template": "2.Resources/templates/person_template.md",
+      "tag": "person",
+      "person": true
+    },
+    {
+      "name": "Research",
+      "folder": "{group}/Research",
+      "template": "2.Resources/templates/research_template.md",
+      "tag": "research",
+      "person": false
+    }
+  ],
   "installedAt": 1794584248351,
   "globalTasks": [],
   "doneLog": [],

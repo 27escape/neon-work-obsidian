@@ -1,8 +1,5 @@
 {
   "off": {},
-  "starting": false,
-  "safe": false,
   "readOnly": false,
-  "baseFolder": "2.Resources",
-  "settingsSection": "neon-deck"
+  "baseFolder": "2.Resources"
 }
