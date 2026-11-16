@@ -18,6 +18,7 @@ class NeonMother extends Plugin {
     this.t0 = Date.now(); // fork: start-up timing, kept per device and shown in settings
     this.timing = [];
     NEON_APP.name = this.manifest.name; // fork: the UI names the plugin by its manifest name
+    NEON_APP.app = this.app;
     this.state = Object.assign({ off: {}, readOnly: true }, await this.readState());
     // fork: modules get a write-guarded app; only the plugin's own folder may be written while read-only
     NEON_GUARD.allowDir = normalizePath(this.manifest.dir);

@@ -22,13 +22,21 @@ class NeonProjectsSettingTab extends PluginSettingTab {
       .setDesc('What the groups that projects and notes belong to are called: Customer by default, Area for a PARA vault, or Client, Team…')
       .addText((t) => t.setPlaceholder('Customer').setValue(s.groupLabel).onChange((v) => ((s.groupLabel = v.trim() || 'Customer'), proj())));
     new Setting(containerEl)
-      .setName('Group property')
-      .setDesc('The property that names a note’s group (customer: acme). Without it, the folder the note is in decides.')
+      .setName('Group properties')
+      .setDesc('The properties that name a note’s group, tried in order (e.g. area, parent). A value can be a name (acme), a link ([[Photography]]) or a link to a note inside a group folder. Without one, the folder the note is in decides.')
       .addText((t) => t.setPlaceholder('customer').setValue(s.groupProperty).onChange((v) => ((s.groupProperty = v.trim() || 'customer'), proj())));
     new Setting(containerEl)
       .setName('Groups folder')
       .setDesc('Each folder inside it is a group (a customer, or an area or project folder in a PARA vault). A note in one of them, at any depth, belongs to that group.')
       .addText((t) => suggestPaths(p.app, t.setPlaceholder('1.Customers').setValue(s.customersFolder).onChange((v) => ((s.customersFolder = normalizePath(v.trim() || '1.Customers')), proj())), 'folder'));
+    new Setting(containerEl)
+      .setName('Not groups')
+      .setDesc('Comma-separated folders inside the groups folder that are not groups, e.g. Dailynotes, Tasks.')
+      .addText((t) => t.setPlaceholder('Dailynotes, Tasks').setValue(s.groupSkip).onChange((v) => ((s.groupSkip = v), proj())));
+    new Setting(containerEl)
+      .setName('Project folders')
+      .setDesc('Optional. Each folder directly inside this one is a project too, unless it already holds a tagged project note (PARA: 1.Projects). Its status and dates come from a note named like the folder, else one with a status, else its index note.')
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder('e.g. 1.Projects').setValue(s.projectFolders).onChange((v) => ((s.projectFolders = v.trim() ? normalizePath(v.trim()) : ''), proj())), 'folder'));
     new Setting(containerEl)
       .setName('Projects folder name')
       .setDesc('New projects for a group go in <groups folder>/<group>/<this folder>/.')

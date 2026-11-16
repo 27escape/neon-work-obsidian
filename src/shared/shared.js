@@ -31,7 +31,7 @@ const normCat = (c) => (c == null ? c : CAT_ALIAS[String(c).toLowerCase()] || St
 const CAT_LABEL = { projects: 'Projects', school: 'School', admin: 'Admin', operations: 'Operations', other: 'Other', untracked: 'Untracked' };
 const CAT_SHORT = { projects: 'Proj', school: 'School', admin: 'Admin', operations: 'Operations' };
 const CAT_FALLBACK = ['#c6e651', '#e5506a', '#7fb3c9', '#d9c56a', '#e4e6ea', '#b9a0d6', '#5fcf96', '#e08a5a', '#8f86b8', '#8f95a0'];
-const NEON_CATS = { customers: false, customersFolder: '1.Customers', label: 'Customer', prop: 'customer' }; // fork: label and property can be renamed (e.g. Area / area for a PARA vault)
+const NEON_CATS = { customers: false, customersFolder: '1.Customers', label: 'Customer', prop: 'customer', skip: [] }; // skip: folders in the groups folder that aren't groups // fork: label and property can be renamed (e.g. Area / area for a PARA vault)
 /** The group's name for the UI: groupWord() "Customer", groupWord(true) "Customers", groupWord(false, true) "customer". */
 function groupWord(plural = false, lower = false) {
   let w = String(NEON_CATS.label || 'Customer').trim() || 'Customer';
@@ -53,7 +53,8 @@ const timeCats = () => [...CATS, 'other'];
 function refreshCategories(app, folder) {
   if (folder != null) NEON_CATS.customersFolder = folder;
   const root = app.vault.getAbstractFileByPath(normalizePath(NEON_CATS.customersFolder || ''));
-  const names = root instanceof TFolder ? root.children.filter((c) => c instanceof TFolder).map((c) => c.name).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })) : [];
+  const skip = new Set((NEON_CATS.skip || []).map((x) => x.toLowerCase())); // fork: e.g. Dailynotes, Tasks in 2.Areas
+  const names = root instanceof TFolder ? root.children.filter((c) => c instanceof TFolder && !skip.has(c.name.toLowerCase())).map((c) => c.name).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })) : [];
   NEON_CATS.customers = names.length > 0;
   const keys = names.length ? names.map((n) => n.toLowerCase()) : UPSTREAM_CATS;
   CATS.length = 0;
@@ -64,11 +65,52 @@ function refreshCategories(app, folder) {
   }
 }
 /** fork: the customer category of a path: the folder under the customers folder, or null. */
-function pathCustomer(path) {
+function pathCustomer(path, orFolder = false) {
   const root = normalizePath(NEON_CATS.customersFolder || '');
   if (!NEON_CATS.customers || !root || !path || !path.startsWith(root + '/')) return null;
   const rest = path.slice(root.length + 1).split('/');
-  return rest.length > 1 ? rest[0].toLowerCase() : null;
+  // a note inside a group folder (at any depth); with orFolder, the group folder itself too
+  const key = rest.length > 1 || orFolder ? rest[0].toLowerCase() : null;
+  return key && CATS.includes(key) ? key : null;
+}
+/** fork: the properties a group is read from, in order ("area, parent"). */
+function groupProps() {
+  return String(NEON_CATS.prop || 'customer')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+/**
+ * fork: the group (lower-case key) named by one property value: a plain name (acme), a link ([[Photography]],
+ * [[2.Areas/Photography/Cameras|Cameras]]), or a path (/2.Areas/Photography/0.Index.md). A link or path counts when
+ * it points into a group folder, or at a note named like a group.
+ */
+function groupFromValue(value, sourcePath = '', app = NEON_APP.app) {
+  if (value == null || typeof value === 'object') return null;
+  const s = String(value).trim();
+  if (!s || !NEON_CATS.customers) return null;
+  const link = s.match(/^\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]$/);
+  const target = (link ? link[1] : s).trim();
+  const name = target.replace(/\.md$/i, '').toLowerCase();
+  if (CATS.includes(name)) return name;
+  const dest = link && app && app.metadataCache ? app.metadataCache.getFirstLinkpathDest(target, sourcePath) : null;
+  const path = dest ? dest.path : normalizePath(target.replace(/^\/+/, ''));
+  const inFolder = pathCustomer(path, true);
+  if (inFolder) return inFolder;
+  const base = (dest ? dest.basename : path.split('/').pop().replace(/\.md$/i, '')).toLowerCase();
+  return CATS.includes(base) ? base : null;
+}
+/** fork: a note's group from its group properties (each may be a list), or null. */
+function groupFromProps(fm, sourcePath = '', app = NEON_APP.app) {
+  if (!fm) return null;
+  for (const prop of groupProps()) {
+    const raw = fm[prop];
+    for (const v of Array.isArray(raw) ? raw : [raw]) {
+      const k = groupFromValue(v, sourcePath, app);
+      if (k) return k;
+    }
+  }
+  return null;
 }
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -224,11 +266,8 @@ function noteCategory(cache, path) {
   const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
   if (isTrue(fm.untracked) || isTrue(fm.Untracked) || tags.includes('untracked')) return 'untracked';
   if (NEON_CATS.customers) {
-    // fork: the group property (customer), else the group folder
-    const v = fm[NEON_CATS.prop || 'customer'];
-    const c = v != null && typeof v !== 'object' ? String(v).trim().toLowerCase() : '';
-    if (c && CATS.includes(c)) return c;
-    return pathCustomer(path);
+    // fork: the group properties (customer; or area, parent… with links), else the group folder
+    return groupFromProps(fm, path) || pathCustomer(path);
   }
   for (const c of CATS) if (isTrue(fm[c])) return c;
   for (const [old, c] of Object.entries(CAT_ALIAS)) if (isTrue(fm[old])) return c;
@@ -512,7 +551,7 @@ function neonPlugin(app, id) {
 }
 /** A small "made with Claude" line for settings tabs. */
 /** fork: the plugin's display name (from its manifest, set by the kernel), used wherever the UI names it. */
-const NEON_APP = { name: 'Neon Deck' };
+const NEON_APP = { name: 'Neon Deck', app: null }; // fork: app is set by the kernel (link lookups in shared helpers)
 const appName = () => NEON_APP.name;
 function madeWith(el, name) {
   const d = el.createDiv('nd-madewith');

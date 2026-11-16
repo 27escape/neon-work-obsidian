@@ -47,8 +47,8 @@ class NeonProjects extends Plugin {
       if (api && api.activityChanged) api.activityChanged(); // Recently done reads the closed dates
     };
     const known = (path) => !!(this.cache && this.cache.paths.has(path));
-    this.registerEvent(this.app.metadataCache.on('changed', (f, _d, cache) => (isProjectCache(cache) || known(f.path)) && dirty()));
-    this.registerEvent(this.app.vault.on('delete', (f) => known(f.path) && dirty()));
+    this.registerEvent(this.app.metadataCache.on('changed', (f, _d, cache) => (isProjectCache(cache) || known(f.path) || this.inProjectFolders(f.path)) && dirty()));
+    this.registerEvent(this.app.vault.on('delete', (f) => (known(f.path) || this.inProjectFolders(f.path)) && dirty()));
     this.registerEvent(this.app.vault.on('rename', (f, old) => (known(old) || f instanceof TFolder || isProjectCache(this.app.metadataCache.getFileCache(f))) && dirty()));
     const ref = this.app.metadataCache.on('resolved', () => {
       this.app.metadataCache.offref(ref);

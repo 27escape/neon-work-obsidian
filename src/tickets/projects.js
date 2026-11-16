@@ -32,13 +32,38 @@ function projectConfig(s) {
 }
 /** Customer of a note: its `customer` property, else the folder under the customers folder. */
 function projectCustomer(path, fm, customersFolder) {
-  const c = fm && fm[NEON_CATS.prop || 'customer']; // fork: the group property (customer by default)
-  // the property, shown as the customer folder's name when it matches one (customer: acme widgets → Acme Widgets)
-  if (c != null && typeof c !== 'object' && String(c).trim()) return CAT_LABEL[String(c).trim().toLowerCase()] || String(c).trim();
+  // fork: the group properties (a name, link or path; see groupFromProps), shown as the group folder's name
+  const g = groupFromProps(fm, path);
+  if (g) return CAT_LABEL[g] || g;
+  // a plain name that isn't a group folder is still shown as written (customer: acme widgets → acme widgets)
+  const c = fm && fm[groupProps()[0]];
+  if (c != null && typeof c !== 'object' && String(c).trim() && !/^\[\[|\//.test(String(c).trim())) return String(c).trim();
   const root = normalizePath(customersFolder || '');
   if (!root || !path.startsWith(root + '/')) return '';
   const rest = path.slice(root.length + 1).split('/');
-  return rest.length > 1 ? rest[0] : '';
+  const k = rest.length > 1 ? rest[0] : '';
+  return k && !(NEON_CATS.skip || []).some((x) => x.toLowerCase() === k.toLowerCase()) ? k : ''; // fork: not the "Not groups" folders
+}
+/** fork: the note that stands for a project folder (see folderProjects), or null when the folder has no notes. */
+function projectFolderNote(app, folder) {
+  const notes = [];
+  const walk = (fd, depth) => {
+    for (const c of fd.children || []) {
+      if (c instanceof TFile && c.extension === 'md') notes.push({ file: c, depth });
+      else if (c instanceof TFolder && depth < 2) walk(c, depth + 1);
+    }
+  };
+  walk(folder, 0);
+  if (!notes.length) return null;
+  const own = notes.filter((n) => n.depth === 0).map((n) => n.file);
+  const fm = (f) => (app.metadataCache.getFileCache(f) || {}).frontmatter || {};
+  const same = own.find((f) => f.basename.toLowerCase() === folder.name.toLowerCase());
+  if (same) return same;
+  const withStatus = own.find((f) => fm(f).status != null && String(fm(f).status).trim());
+  if (withStatus) return withStatus;
+  const index = own.find((f) => /^(0\.?\s*index|index|readme)$/i.test(f.basename));
+  if (index) return index;
+  return own[0] || notes[0].file;
 }
 /** A project's display title: the file name, without a leading "Project : ". */
 function projectTitle(basename) {
@@ -65,6 +90,7 @@ Object.assign(NeonProjects.prototype, {
     Object.assign(NEON_PROJECTS, projectConfig(this.settings));
     NEON_CATS.label = this.settings.groupLabel || 'Customer'; // fork
     NEON_CATS.prop = (this.settings.groupProperty || 'customer').trim() || 'customer';
+    NEON_CATS.skip = String(this.settings.groupSkip || '').split(',').map((x) => x.trim()).filter(Boolean); // fork
     refreshCategories(this.app, this.settings.customersFolder); // fork: customers are the categories too
     this.cache = null;
   },

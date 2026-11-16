@@ -28,7 +28,7 @@ function mobileOnlyNote(el, what) {
   el.createDiv({ cls: 'nd-empty', text: `${what} is only on the desktop. Close this tab.` });
 }
 
-const ND_VERSION = '1.2.0'; // set from the manifest by tools/build.mjs
+const ND_VERSION = '1.3.0'; // set from the manifest by tools/build.mjs
 // Categories colour notes and split tracked time. Upstream: four fixed ones (UPSTREAM_CATS).
 // fork: your customers instead — one per folder in the customers folder (1.Customers), keyed in lower case;
 // a note's category is its customer property, else the customer folder it is in. CATS, CAT_LABEL and
@@ -41,7 +41,7 @@ const normCat = (c) => (c == null ? c : CAT_ALIAS[String(c).toLowerCase()] || St
 const CAT_LABEL = { projects: 'Projects', school: 'School', admin: 'Admin', operations: 'Operations', other: 'Other', untracked: 'Untracked' };
 const CAT_SHORT = { projects: 'Proj', school: 'School', admin: 'Admin', operations: 'Operations' };
 const CAT_FALLBACK = ['#c6e651', '#e5506a', '#7fb3c9', '#d9c56a', '#e4e6ea', '#b9a0d6', '#5fcf96', '#e08a5a', '#8f86b8', '#8f95a0'];
-const NEON_CATS = { customers: false, customersFolder: '1.Customers', label: 'Customer', prop: 'customer' }; // fork: label and property can be renamed (e.g. Area / area for a PARA vault)
+const NEON_CATS = { customers: false, customersFolder: '1.Customers', label: 'Customer', prop: 'customer', skip: [] }; // skip: folders in the groups folder that aren't groups // fork: label and property can be renamed (e.g. Area / area for a PARA vault)
 /** The group's name for the UI: groupWord() "Customer", groupWord(true) "Customers", groupWord(false, true) "customer". */
 function groupWord(plural = false, lower = false) {
   let w = String(NEON_CATS.label || 'Customer').trim() || 'Customer';
@@ -63,7 +63,8 @@ const timeCats = () => [...CATS, 'other'];
 function refreshCategories(app, folder) {
   if (folder != null) NEON_CATS.customersFolder = folder;
   const root = app.vault.getAbstractFileByPath(normalizePath(NEON_CATS.customersFolder || ''));
-  const names = root instanceof TFolder ? root.children.filter((c) => c instanceof TFolder).map((c) => c.name).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })) : [];
+  const skip = new Set((NEON_CATS.skip || []).map((x) => x.toLowerCase())); // fork: e.g. Dailynotes, Tasks in 2.Areas
+  const names = root instanceof TFolder ? root.children.filter((c) => c instanceof TFolder && !skip.has(c.name.toLowerCase())).map((c) => c.name).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })) : [];
   NEON_CATS.customers = names.length > 0;
   const keys = names.length ? names.map((n) => n.toLowerCase()) : UPSTREAM_CATS;
   CATS.length = 0;
@@ -74,11 +75,52 @@ function refreshCategories(app, folder) {
   }
 }
 /** fork: the customer category of a path: the folder under the customers folder, or null. */
-function pathCustomer(path) {
+function pathCustomer(path, orFolder = false) {
   const root = normalizePath(NEON_CATS.customersFolder || '');
   if (!NEON_CATS.customers || !root || !path || !path.startsWith(root + '/')) return null;
   const rest = path.slice(root.length + 1).split('/');
-  return rest.length > 1 ? rest[0].toLowerCase() : null;
+  // a note inside a group folder (at any depth); with orFolder, the group folder itself too
+  const key = rest.length > 1 || orFolder ? rest[0].toLowerCase() : null;
+  return key && CATS.includes(key) ? key : null;
+}
+/** fork: the properties a group is read from, in order ("area, parent"). */
+function groupProps() {
+  return String(NEON_CATS.prop || 'customer')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+/**
+ * fork: the group (lower-case key) named by one property value: a plain name (acme), a link ([[Photography]],
+ * [[2.Areas/Photography/Cameras|Cameras]]), or a path (/2.Areas/Photography/0.Index.md). A link or path counts when
+ * it points into a group folder, or at a note named like a group.
+ */
+function groupFromValue(value, sourcePath = '', app = NEON_APP.app) {
+  if (value == null || typeof value === 'object') return null;
+  const s = String(value).trim();
+  if (!s || !NEON_CATS.customers) return null;
+  const link = s.match(/^\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]$/);
+  const target = (link ? link[1] : s).trim();
+  const name = target.replace(/\.md$/i, '').toLowerCase();
+  if (CATS.includes(name)) return name;
+  const dest = link && app && app.metadataCache ? app.metadataCache.getFirstLinkpathDest(target, sourcePath) : null;
+  const path = dest ? dest.path : normalizePath(target.replace(/^\/+/, ''));
+  const inFolder = pathCustomer(path, true);
+  if (inFolder) return inFolder;
+  const base = (dest ? dest.basename : path.split('/').pop().replace(/\.md$/i, '')).toLowerCase();
+  return CATS.includes(base) ? base : null;
+}
+/** fork: a note's group from its group properties (each may be a list), or null. */
+function groupFromProps(fm, sourcePath = '', app = NEON_APP.app) {
+  if (!fm) return null;
+  for (const prop of groupProps()) {
+    const raw = fm[prop];
+    for (const v of Array.isArray(raw) ? raw : [raw]) {
+      const k = groupFromValue(v, sourcePath, app);
+      if (k) return k;
+    }
+  }
+  return null;
 }
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -234,11 +276,8 @@ function noteCategory(cache, path) {
   const tags = cache ? (getAllTags(cache) || []).map((t) => normCat(t.slice(1).toLowerCase())) : [];
   if (isTrue(fm.untracked) || isTrue(fm.Untracked) || tags.includes('untracked')) return 'untracked';
   if (NEON_CATS.customers) {
-    // fork: the group property (customer), else the group folder
-    const v = fm[NEON_CATS.prop || 'customer'];
-    const c = v != null && typeof v !== 'object' ? String(v).trim().toLowerCase() : '';
-    if (c && CATS.includes(c)) return c;
-    return pathCustomer(path);
+    // fork: the group properties (customer; or area, parent… with links), else the group folder
+    return groupFromProps(fm, path) || pathCustomer(path);
   }
   for (const c of CATS) if (isTrue(fm[c])) return c;
   for (const [old, c] of Object.entries(CAT_ALIAS)) if (isTrue(fm[old])) return c;
@@ -522,7 +561,7 @@ function neonPlugin(app, id) {
 }
 /** A small "made with Claude" line for settings tabs. */
 /** fork: the plugin's display name (from its manifest, set by the kernel), used wherever the UI names it. */
-const NEON_APP = { name: 'Neon Deck' };
+const NEON_APP = { name: 'Neon Deck', app: null }; // fork: app is set by the kernel (link lookups in shared helpers)
 const appName = () => NEON_APP.name;
 function madeWith(el, name) {
   const d = el.createDiv('nd-madewith');
@@ -1112,6 +1151,7 @@ const DEFAULT_SETTINGS = {
   excludeTemplates: true,
   // fork: the Claude card — notes by their claude property
   claudeCard: true,
+  areasCard: false, // fork: an Areas card (groups) in the Claude card's place
   claudeProperty: 'claude',
   claudeWaiting: 'process, refine',
   claudeReview: 'updated',
@@ -4699,6 +4739,11 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc('Top-level folders with “archive” in their name (e.g. 4.Archive).')
       .addToggle((t) => t.setValue(s.excludeArchive).onChange((v) => ((s.excludeArchive = v), (p._ex = null), save())));
 
+    new Setting(containerEl).setName('Areas card').setHeading();
+    new Setting(containerEl)
+      .setName('Show the Areas card')
+      .setDesc('One row per group (areas, or customers): active projects, open tasks, notes edited this month and when you last touched it; the quietest first. Takes the Claude card’s place.')
+      .addToggle((t) => t.setValue(s.areasCard).onChange(async (v) => ((s.areasCard = v), await save(), p.registerClaudeCard())));
     new Setting(containerEl).setName('Claude card').setHeading();
     new Setting(containerEl)
       .setName('Show the Claude card')
@@ -5109,7 +5154,14 @@ Object.assign(NeonDeck.prototype, {
   },
   registerClaudeCard() {
     // the Quick capture card uses the same place on the dashboard: when it is on, it wins
-    if (!this.settings.claudeCard || this.settings.showCapture) return this.api.unregisterWidget('claude');
+    if (this.settings.showCapture) return (this.api.unregisterWidget('claude'), this.api.unregisterWidget('areas'));
+    // fork: the Areas card can take this place instead (a vault without Claude notes, e.g. PARA)
+    if (this.settings.areasCard) {
+      this.api.unregisterWidget('claude');
+      return this.api.registerWidget({ id: 'areas', slot: 'claude', title: groupWord(true), icon: 'layers', sub: 'Projects, tasks and notes · quietest first', mount: (card) => this.mountAreas(card) });
+    }
+    this.api.unregisterWidget('areas');
+    if (!this.settings.claudeCard) return this.api.unregisterWidget('claude');
     this.api.registerWidget({ id: 'claude', slot: 'claude', title: 'Claude', icon: 'bot', sub: `Notes by their ${this.settings.claudeProperty || 'claude'} property`, mount: (card) => this.mountClaude(card) });
   },
   mountClaude(card) {
@@ -5156,6 +5208,93 @@ function shortAgoDeck(ms) {
   if (d < 7 * 86400000) return `${Math.floor(d / 86400000)}d`;
   return moment(ms).format('D MMM');
 }
+/* @src src/deck/areas-card.js */
+/* ---- Areas card (fork) -------------------------------------------------------------
+ * One row per group (areas in a PARA vault, customers otherwise): active projects, open tasks, notes
+ * edited in the last 30 days and when it was last touched. Areas left alone longest come first, so the
+ * ones you may be neglecting stand out. Read only. Takes the Claude card's place on the dashboard. */
+const AREA_QUIET_DAYS = 30;
+
+/**
+ * Rows for the card (pure). groups: [[key, label]]; notes: [{ group, mtime }]; projects: [{ group }]
+ * (active ones); tasks: [{ group }] (open ones). Returns rows sorted by last touched, oldest first.
+ */
+function areaRows(groups, notes, projects, tasks, now) {
+  const month = now - AREA_QUIET_DAYS * 86400000;
+  const rows = groups.map(([key, label]) => ({ key, label, projects: 0, tasks: 0, notes: 0, recent: 0, last: 0 }));
+  const by = new Map(rows.map((r) => [r.key, r]));
+  for (const n of notes) {
+    const r = by.get(n.group);
+    if (!r) continue;
+    r.notes++;
+    if (n.mtime >= month) r.recent++;
+    if (n.mtime > r.last) r.last = n.mtime;
+  }
+  for (const p of projects) if (by.has(p.group)) by.get(p.group).projects++;
+  for (const t of tasks) if (by.has(t.group)) by.get(t.group).tasks++;
+  for (const r of rows) r.quiet = !r.last || r.last < month;
+  return rows.sort((a, b) => a.last - b.last || a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+}
+
+Object.assign(NeonDeck.prototype, {
+  /** The data behind the Areas card, from the vault, the Projects module and the Tasks module. */
+  areaData() {
+    const app = this.app;
+    const groupOf = (f) => noteCategory(app.metadataCache.getFileCache(f), f.path);
+    const groups = NEON_CATS.customers ? CATS.map((k) => [k, CAT_LABEL[k] || k]) : [];
+    const notes = app.vault
+      .getMarkdownFiles()
+      .filter((f) => !this.isExcluded(f))
+      .map((f) => ({ group: groupOf(f), mtime: f.stat.mtime }));
+    const tk = neonPlugin(app, 'neon-tickets');
+    const projects = tk && tk.activeProjects ? tk.activeProjects().map((t) => ({ group: String(t.customer || '').toLowerCase() })) : [];
+    const ts = neonPlugin(app, 'neon-tasks');
+    const tasks = ts && Array.isArray(ts.openTasks) ? ts.openTasks.map((t) => ({ group: groupOf(t.file) })) : [];
+    return areaRows(groups, notes, projects, tasks, Date.now());
+  },
+  /** Open a group: its index note (0.Index, index, README or a note named like it), else show the folder. */
+  openArea(label, e) {
+    const folder = this.app.vault.getAbstractFileByPath(normalizePath(`${NEON_CATS.customersFolder}/${label}`));
+    if (!(folder instanceof TFolder)) return;
+    const note = folder.children.find((c) => c instanceof TFile && c.extension === 'md' && (c.basename.toLowerCase() === label.toLowerCase() || /^(0\.?\s*index|index|readme)$/i.test(c.basename)));
+    if (note) return openFile(this.app, note, e);
+    const fx = this.app.internalPlugins && this.app.internalPlugins.getPluginById && this.app.internalPlugins.getPluginById('file-explorer');
+    if (fx && fx.enabled && fx.instance && fx.instance.revealInFolder) fx.instance.revealInFolder(folder);
+  },
+  mountAreas(card) {
+    const list = card.body.createDiv('nd-areas');
+    const render = () => {
+      if (!list.isConnected) return;
+      const rows = this.areaData();
+      const quiet = rows.filter((r) => r.quiet).length;
+      card.badge.setText(quiet ? `${quiet} quiet` : '');
+      list.empty();
+      if (!rows.length) return void emptyState(list, `No ${groupWord(true, true)} yet: set the groups folder in Projects settings ✦`);
+      for (const r of rows) {
+        const row = list.createDiv('nd-area-row' + (r.quiet ? ' is-quiet' : ''));
+        const dot = row.createSpan('nd-area-dot');
+        dot.style.background = catColor(r.key);
+        const main = row.createDiv('nd-area-main');
+        main.createDiv({ cls: 'nd-area-name', text: r.label });
+        const bits = [];
+        if (r.projects) bits.push(`${r.projects} project${r.projects === 1 ? '' : 's'}`);
+        if (r.tasks) bits.push(`${r.tasks} task${r.tasks === 1 ? '' : 's'}`);
+        bits.push(r.recent ? `${r.recent} note${r.recent === 1 ? '' : 's'} this month` : `${r.notes} note${r.notes === 1 ? '' : 's'}`);
+        main.createDiv({ cls: 'nd-area-meta', text: bits.join(' · ') });
+        row.createSpan({ cls: 'nd-area-when', text: r.last ? shortAgoDeck(r.last) : 'never' });
+        tip(row, r.quiet ? `Not touched for over ${AREA_QUIET_DAYS} days` : `Last touched ${r.last ? moment(r.last).format('D MMM YYYY') : 'never'}`);
+        row.addEventListener('click', (e) => this.openArea(r.label, e));
+      }
+    };
+    const soon = debounce(render, 1500, true);
+    this.registerEvent(this.app.metadataCache.on('changed', soon));
+    this.registerEvent(this.app.vault.on('delete', soon));
+    this.registerEvent(this.app.vault.on('rename', soon));
+    this.registerEvent(this.app.workspace.on('neon-deck:facts-changed', soon));
+    render();
+    return { destroy() {} };
+  },
+});
 /* @src src/deck/inbox.js */
 /* ---- Inbox capture (fork) ---------------------------------------------------------
  * Quick capture → a new note in your inbox folder: named after the first line, made from the inbox
@@ -6122,6 +6261,7 @@ const TASKS_DEFAULTS = {
   meetingTemplate: '',
   personTemplate: '',
   researchTemplate: '',
+  noteTypes: null, // fork: New note types [{ name, folder, template, tag, person }]; null = built from the settings above
   installedAt: 0,
   globalTasks: [],
   doneLog: [],
@@ -6399,23 +6539,40 @@ class NeonTasksSettingTab extends PluginSettingTab {
       .setDesc(`Its open tasks fill the Todo card. Tasks you add on the dashboard go at the head of this note as “- [ ] #task … ➕ date”. Empty: ${basePath('Todo.md')}.`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Todo.md')).setValue(s.quickTasksPath).onChange((v) => ((s.quickTasksPath = v.trim()), save(), p.emit())), 'file'));
     new Setting(containerEl).setName('New notes').setHeading();
-    containerEl.createEl('p', { cls: 'setting-item-description', text: 'With a groups folder (Projects section), New note asks for a group (customer) and a kind and files the note in <groups folder>/<group>/<kind folder>/. Templates fill {{title}}, {{date}} and {{time}}; without one the note gets title, created, modified, customer and tags properties.' });
-    const txt = (name, key, ph, desc, kind) =>
-      new Setting(containerEl)
-        .setName(name)
-        .setDesc(desc || '')
-        .addText((t) => {
-          t.setPlaceholder(ph).setValue(s[key]).onChange((v) => ((s[key] = v.trim()), save()));
-          return kind ? suggestPaths(p.app, t, kind) : t;
-        });
-    txt('Meetings folder', 'meetingsFolder', 'Meetings', 'Folder name inside each group folder.');
-    txt('People folder', 'peopleFolder', 'People', 'People notes are named @Name and get an aliases property.');
-    txt('Research folder', 'researchFolder', 'Research');
-    txt('Folder for notes without a group', 'noCustomerFolder', 'e.g. 2.Resources', 'Empty: the vault root.', 'folder');
-    txt('Note template', 'noteTemplate', '', '', 'file');
-    txt('Meeting template', 'meetingTemplate', '', '', 'file');
-    txt('Person template', 'personTemplate', 'templates/person_template.md', '', 'file');
-    txt('Research template', 'researchTemplate', 'templates/research_template.md', '', 'file');
+    containerEl.createEl('p', { cls: 'setting-item-description', text: 'With a groups folder (Projects section), New note asks for a name, a group and a type. In a folder, {group} stands for <groups folder>/<group>; without a group chosen, such notes go in the folder for notes without a group. Templates fill {{title}}, {{date}} and {{time}}; without one the note gets title, created, modified, the group property and the tag. Projects always go through New project.' });
+    const types = s.noteTypes;
+    const box = containerEl.createDiv('nt-types');
+    const drawTypes = () => {
+      box.empty();
+      types.forEach((ty, i) => {
+        const row = new Setting(box).setClass('nt-type-row');
+        row.addText((t) => t.setPlaceholder('Name').setValue(ty.name || '').onChange((v) => ((ty.name = v.trim()), save())));
+        row.addText((t) => t.setPlaceholder('Folder, e.g. {group}/Meetings').setValue(ty.folder || '').onChange((v) => ((ty.folder = v.trim()), save())));
+        row.addText((t) => suggestPaths(p.app, t.setPlaceholder('Template (optional)').setValue(ty.template || '').onChange((v) => ((ty.template = v.trim()), save())), 'file'));
+        row.addText((t) => t.setPlaceholder('Tag').setValue(ty.tag || '').onChange((v) => ((ty.tag = v.trim().replace(/^#/, '')), save())));
+        row.addToggle((t) => t.setTooltip('Person: named @Name, with aliases').setValue(!!ty.person).onChange((v) => ((ty.person = v), save())));
+        row.addExtraButton((b) =>
+          b.setIcon('trash-2').setTooltip('Remove this type').onClick(() => {
+            if (types.length <= 1) return new Notice('Keep at least one type');
+            types.splice(i, 1);
+            save();
+            drawTypes();
+          }),
+        );
+      });
+      new Setting(box).addButton((b) =>
+        b.setButtonText('Add a type').onClick(() => {
+          types.push({ name: '', folder: '{group}', template: '', tag: '', person: false });
+          save();
+          drawTypes();
+        }),
+      );
+    };
+    drawTypes();
+    new Setting(containerEl)
+      .setName('Folder for notes without a group')
+      .setDesc('Empty: the vault root.')
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder('e.g. 2.Resources').setValue(s.noCustomerFolder).onChange((v) => ((s.noCustomerFolder = v.trim()), save())), 'folder'));
     new Setting(containerEl)
       .setName('Ask a few questions when I create a note')
       .setDesc('Name, kind and category. Close the card to skip it.')
@@ -6436,6 +6593,7 @@ class NeonTasks extends Plugin {
     const s = this.settings;
     if (!Array.isArray(s.globalTasks)) s.globalTasks = [];
     if (!Array.isArray(s.doneLog)) s.doneLog = [];
+    if (!Array.isArray(s.noteTypes) || !s.noteTypes.length) s.noteTypes = noteTypesFrom(s); // fork: older per-kind settings → the types list
     if (!s.installedAt) s.installedAt = Date.now();
     dropOldDefaults(this.app, s, { quickTasksPath: 'Todo.md' }); // fork: the Todo note follows the base folder unless set
     this.freshData = !raw;
@@ -6572,36 +6730,51 @@ class NeonTasks extends Plugin {
 
 }
 /* @src src/tasks/new-note.js */
-/* ---- New note, customer layout (fork) -----------------------------------------
- * When the vault has a customers folder (1.Customers/<customer>/Meetings|People|Projects|Research), the
- * New note card asks for a name, a customer and a kind, and puts the note in the right folder from the
- * kind's template. People notes get the @ prefix and an aliases property; projects go through New project. */
-const NOTE_KINDS = [
-  ['note', 'Note', 'file-text'],
-  ['meeting', 'Meeting', 'users'],
-  ['person', 'Person', 'user'],
-  ['project', 'Project', 'briefcase'],
-  ['research', 'Research', 'library'],
-];
+/* ---- New note, by group and type (fork) ----------------------------------------
+ * When the vault has a groups folder (customers: 1.Customers/<customer>/…; PARA: 2.Areas/<area>), the New note
+ * card asks for a name, a group and a type, and puts the note in the type's folder from its template. */
+/* fork: the kinds of note New note offers are a list in the settings (noteTypes). A type has a name, a folder
+ * ({group} = <groups folder>/<group>), a template, a tag for notes made without a template, and person
+ * behaviour (@Name, aliases). Projects always go through New project. Older settings become this list once. */
+const NOTE_TYPE_ICONS = { note: 'file-text', meeting: 'users', person: 'user', research: 'library', resource: 'archive', project: 'briefcase' };
 
-/** Where a new note of a kind goes (pure). Empty customer → the fallback folder. */
-function newNotePath(s, customersFolder, customer, kind, name) {
-  const sub = { meeting: s.meetingsFolder, person: s.peopleFolder, research: s.researchFolder }[kind] || '';
-  const base = customer ? normalizePath(`${customersFolder}/${customer}${sub ? '/' + sub : ''}`) : normalizePath(s.noCustomerFolder || '/');
-  const file = kind === 'person' && !name.startsWith('@') ? `@${name}` : name;
-  return { folder: base === '.' ? '/' : base, file };
+/** The New note types from the settings, or built from the older per-kind settings (pure). */
+function noteTypesFrom(s) {
+  if (Array.isArray(s.noteTypes) && s.noteTypes.length) return s.noteTypes;
+  const sub = (f) => (f ? `{group}/${f}` : '{group}');
+  return [
+    { name: 'Note', folder: '{group}', template: s.noteTemplate || '', tag: '', person: false },
+    { name: 'Meeting', folder: sub(s.meetingsFolder || 'Meetings'), template: s.meetingTemplate || '', tag: 'meeting', person: false },
+    { name: 'Person', folder: sub(s.peopleFolder || 'People'), template: s.personTemplate || '', tag: 'person', person: true },
+    { name: 'Research', folder: sub(s.researchFolder || 'Research'), template: s.researchTemplate || '', tag: 'research', person: false },
+  ];
+}
+/** Does a type's folder depend on the group? */
+const typeUsesGroup = (type) => /\{group\}/i.test(type.folder || '');
+/**
+ * Where a new note of a type goes (pure). {group} needs a group; without one the note goes in the fallback
+ * folder ('' = vault root). People notes get an @ in front of the name.
+ */
+function newNotePath(type, groupsFolder, group, name, fallback) {
+  let folder;
+  if (typeUsesGroup(type)) folder = group ? (type.folder || '').replace(/\{group\}/gi, `${groupsFolder}/${group}`) : fallback || '/';
+  else folder = type.folder || fallback || '/';
+  folder = normalizePath(folder.replace(/^\/+|\/+$/g, '') || '/');
+  const file = type.person && !name.startsWith('@') ? `@${name}` : name;
+  return { folder: !folder || folder === '.' ? '/' : folder, file };
 }
 /** Properties for a new note without a template (pure). */
-function newNoteFrontmatter(kind, title, day, customer) {
+function newNoteFrontmatter(type, title, day, group) {
   const lines = ['---', `title: ${JSON.stringify(title)}`, `created: ${day}`, `modified: ${day}`];
-  if (kind === 'person') {
+  if (type.person) {
     const plain = title.replace(/^@/, '');
     const first = plain.split(/\s+/)[0];
     lines.push('aliases:', `  - ${JSON.stringify(plain)}`);
     if (first && first !== plain) lines.push(`  - ${JSON.stringify(first)}`);
   }
-  if (customer) lines.push(`${NEON_CATS.prop || 'customer'}: ${JSON.stringify(customer.toLowerCase())}`); // fork: the group property
-  if (kind !== 'note') lines.push('tags:', `  - ${kind}`);
+  if (group) lines.push(`${groupProps()[0] || 'customer'}: ${JSON.stringify(group.toLowerCase())}`); // fork: the first group property
+  const tag = String(type.tag || '').trim().replace(/^#/, '');
+  if (tag) lines.push('tags:', `  - ${tag}`);
   lines.push('---', '');
   return lines.join('\n');
 }
@@ -6629,8 +6802,10 @@ class CustomerNoteModal extends Modal {
     };
     const name = field('Name').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'Untitled' } });
     name.value = file ? file.basename : this.opts.name || '';
-    const kinds = NOTE_KINDS.filter(([k]) => k !== 'project' || p.ticketService());
-    this.kind = pills(field('Kind'), kinds.map(([k, l]) => [k, l]), 'note', () => sync());
+    this.types = noteTypesFrom(s);
+    const kinds = this.types.map((t, i) => [String(i), t.name || 'Note']);
+    if (p.ticketService()) kinds.push(['project', 'Project']);
+    this.kind = pills(field('Kind'), kinds, '0', () => sync());
     const customers = CATS.map((k) => [k, CAT_LABEL[k] || k]);
     const here = this.opts.folder || (file && file.parent ? file.parent.path : '');
     const guess = pathCustomer(`${here}/x.md`) || '';
@@ -6648,8 +6823,9 @@ class CustomerNoteModal extends Modal {
       const kind = this.kind.get();
       if (kind === 'project') where.setText(`Opens New project with this name and ${groupWord(false, true)}.`);
       else {
-        const { folder, file: fname } = newNotePath(s, NEON_CATS.customersFolder, sel.value ? label(sel.value) : '', kind, safeName(name.value) || 'Untitled');
-        where.setText(`Creates ${folder === '/' ? '' : folder + '/'}${fname}.md${p.kindTemplate(kind) ? ` from ${p.kindTemplate(kind)}` : ''}`);
+        const type = this.types[Number(kind)] || this.types[0];
+        const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, sel.value ? label(sel.value) : '', safeName(name.value) || 'Untitled', s.noCustomerFolder);
+        where.setText(`Creates ${folder === '/' ? '' : folder + '/'}${fname}.md${(type.template || '').trim() ? ` from ${type.template.trim()}` : ''}`);
       }
       go.querySelector('.nd-btn-label').setText(kind === 'project' ? 'Continue' : 'Create');
     };
@@ -6677,10 +6853,11 @@ class CustomerNoteModal extends Modal {
         if (file && !(await this.app.vault.read(file)).trim()) await this.app.fileManager.trashFile(file);
         return p.ticketService()({ title, customer });
       }
-      const { folder, file: fname } = newNotePath(p.settings, NEON_CATS.customersFolder, customer, kind, title);
+      const type = this.types[Number(kind)] || this.types[0];
+      const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, customer, title, p.settings.noCustomerFolder);
       const day = moment();
-      const tpl = await p.kindTemplateText(kind, fname, day);
-      const body = tpl != null ? tpl : newNoteFrontmatter(kind, fname, day.format('YYYY-MM-DD'), customer);
+      const tpl = await p.templateText(type.template, fname, day);
+      const body = tpl != null ? tpl : newNoteFrontmatter(type, fname, day.format('YYYY-MM-DD'), customer);
       p.selfCreated.add('pending');
       let target;
       try {
@@ -6703,13 +6880,9 @@ class CustomerNoteModal extends Modal {
 }
 
 Object.assign(NeonTasks.prototype, {
-  /** The template note set for a kind of note ('' when none). */
-  kindTemplate(kind) {
-    return ({ note: this.settings.noteTemplate, meeting: this.settings.meetingTemplate, person: this.settings.personTemplate, research: this.settings.researchTemplate }[kind] || '').trim();
-  },
-  /** A kind's template text with {{title}}, {{date}}, {{time}} filled in, or null without one. */
-  async kindTemplateText(kind, title, day) {
-    const path = this.kindTemplate(kind);
+  /** A template note's text with {{title}}, {{date}}, {{time}} filled in, or null without one. */
+  async templateText(path, title, day) {
+    path = String(path || '').trim();
     if (!path) return null;
     const tf = this.app.metadataCache.getFirstLinkpathDest(path.replace(/\.md$/, ''), '') || this.app.vault.getAbstractFileByPath(normalizePath(path));
     if (!(tf instanceof TFile)) {
@@ -6928,6 +7101,7 @@ Object.assign(NeonTasks.prototype, {
       if (my !== token || !list.isConnected) return;
       if (editingIn(list)) return; // redrawn when the edit ends
       this.openCount = all.length;
+      this.openTasks = all; // fork: the Areas card counts open tasks per area
       const items = all.filter((t) => !t.quick); // Todo tasks are in the Todo card
       countUp(card.badge, count, items.length, (v) => (Math.round(v) ? String(Math.round(v)) : ''), 300);
       count = items.length;
@@ -8673,8 +8847,10 @@ const PROJECTS_DEFAULTS = {
   // where new projects go: <customers folder>/<customer>/<projects folder name>/, else the project folder
   customersFolder: '1.Customers',
   groupLabel: 'Customer', // fork: what a group is called (Area in a PARA vault)
-  groupProperty: 'customer', // fork: the property naming a note's group
+  groupProperty: 'customer', // fork: the properties naming a note's group (comma list; values may be links)
+  groupSkip: '', // fork: folders in the groups folder that aren't groups (e.g. Dailynotes, Tasks)
   projectsFolderName: 'Projects',
+  projectFolders: '', // fork: each folder directly inside this one is a project too (PARA: 1.Projects)
   projectFolder: '', // projects without a customer; '' = <base folder>/Projects
   projectTemplate: '',
   // the tracker and reminders
@@ -9028,13 +9204,21 @@ class NeonProjectsSettingTab extends PluginSettingTab {
       .setDesc('What the groups that projects and notes belong to are called: Customer by default, Area for a PARA vault, or Client, Team…')
       .addText((t) => t.setPlaceholder('Customer').setValue(s.groupLabel).onChange((v) => ((s.groupLabel = v.trim() || 'Customer'), proj())));
     new Setting(containerEl)
-      .setName('Group property')
-      .setDesc('The property that names a note’s group (customer: acme). Without it, the folder the note is in decides.')
+      .setName('Group properties')
+      .setDesc('The properties that name a note’s group, tried in order (e.g. area, parent). A value can be a name (acme), a link ([[Photography]]) or a link to a note inside a group folder. Without one, the folder the note is in decides.')
       .addText((t) => t.setPlaceholder('customer').setValue(s.groupProperty).onChange((v) => ((s.groupProperty = v.trim() || 'customer'), proj())));
     new Setting(containerEl)
       .setName('Groups folder')
       .setDesc('Each folder inside it is a group (a customer, or an area or project folder in a PARA vault). A note in one of them, at any depth, belongs to that group.')
       .addText((t) => suggestPaths(p.app, t.setPlaceholder('1.Customers').setValue(s.customersFolder).onChange((v) => ((s.customersFolder = normalizePath(v.trim() || '1.Customers')), proj())), 'folder'));
+    new Setting(containerEl)
+      .setName('Not groups')
+      .setDesc('Comma-separated folders inside the groups folder that are not groups, e.g. Dailynotes, Tasks.')
+      .addText((t) => t.setPlaceholder('Dailynotes, Tasks').setValue(s.groupSkip).onChange((v) => ((s.groupSkip = v), proj())));
+    new Setting(containerEl)
+      .setName('Project folders')
+      .setDesc('Optional. Each folder directly inside this one is a project too, unless it already holds a tagged project note (PARA: 1.Projects). Its status and dates come from a note named like the folder, else one with a status, else its index note.')
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder('e.g. 1.Projects').setValue(s.projectFolders).onChange((v) => ((s.projectFolders = v.trim() ? normalizePath(v.trim()) : ''), proj())), 'folder'));
     new Setting(containerEl)
       .setName('Projects folder name')
       .setDesc('New projects for a group go in <groups folder>/<group>/<this folder>/.')
@@ -9133,8 +9317,8 @@ class NeonProjects extends Plugin {
       if (api && api.activityChanged) api.activityChanged(); // Recently done reads the closed dates
     };
     const known = (path) => !!(this.cache && this.cache.paths.has(path));
-    this.registerEvent(this.app.metadataCache.on('changed', (f, _d, cache) => (isProjectCache(cache) || known(f.path)) && dirty()));
-    this.registerEvent(this.app.vault.on('delete', (f) => known(f.path) && dirty()));
+    this.registerEvent(this.app.metadataCache.on('changed', (f, _d, cache) => (isProjectCache(cache) || known(f.path) || this.inProjectFolders(f.path)) && dirty()));
+    this.registerEvent(this.app.vault.on('delete', (f) => (known(f.path) || this.inProjectFolders(f.path)) && dirty()));
     this.registerEvent(this.app.vault.on('rename', (f, old) => (known(old) || f instanceof TFolder || isProjectCache(this.app.metadataCache.getFileCache(f))) && dirty()));
     const ref = this.app.metadataCache.on('resolved', () => {
       this.app.metadataCache.offref(ref);
@@ -9264,13 +9448,38 @@ function projectConfig(s) {
 }
 /** Customer of a note: its `customer` property, else the folder under the customers folder. */
 function projectCustomer(path, fm, customersFolder) {
-  const c = fm && fm[NEON_CATS.prop || 'customer']; // fork: the group property (customer by default)
-  // the property, shown as the customer folder's name when it matches one (customer: acme widgets → Acme Widgets)
-  if (c != null && typeof c !== 'object' && String(c).trim()) return CAT_LABEL[String(c).trim().toLowerCase()] || String(c).trim();
+  // fork: the group properties (a name, link or path; see groupFromProps), shown as the group folder's name
+  const g = groupFromProps(fm, path);
+  if (g) return CAT_LABEL[g] || g;
+  // a plain name that isn't a group folder is still shown as written (customer: acme widgets → acme widgets)
+  const c = fm && fm[groupProps()[0]];
+  if (c != null && typeof c !== 'object' && String(c).trim() && !/^\[\[|\//.test(String(c).trim())) return String(c).trim();
   const root = normalizePath(customersFolder || '');
   if (!root || !path.startsWith(root + '/')) return '';
   const rest = path.slice(root.length + 1).split('/');
-  return rest.length > 1 ? rest[0] : '';
+  const k = rest.length > 1 ? rest[0] : '';
+  return k && !(NEON_CATS.skip || []).some((x) => x.toLowerCase() === k.toLowerCase()) ? k : ''; // fork: not the "Not groups" folders
+}
+/** fork: the note that stands for a project folder (see folderProjects), or null when the folder has no notes. */
+function projectFolderNote(app, folder) {
+  const notes = [];
+  const walk = (fd, depth) => {
+    for (const c of fd.children || []) {
+      if (c instanceof TFile && c.extension === 'md') notes.push({ file: c, depth });
+      else if (c instanceof TFolder && depth < 2) walk(c, depth + 1);
+    }
+  };
+  walk(folder, 0);
+  if (!notes.length) return null;
+  const own = notes.filter((n) => n.depth === 0).map((n) => n.file);
+  const fm = (f) => (app.metadataCache.getFileCache(f) || {}).frontmatter || {};
+  const same = own.find((f) => f.basename.toLowerCase() === folder.name.toLowerCase());
+  if (same) return same;
+  const withStatus = own.find((f) => fm(f).status != null && String(fm(f).status).trim());
+  if (withStatus) return withStatus;
+  const index = own.find((f) => /^(0\.?\s*index|index|readme)$/i.test(f.basename));
+  if (index) return index;
+  return own[0] || notes[0].file;
 }
 /** A project's display title: the file name, without a leading "Project : ". */
 function projectTitle(basename) {
@@ -9297,6 +9506,7 @@ Object.assign(NeonProjects.prototype, {
     Object.assign(NEON_PROJECTS, projectConfig(this.settings));
     NEON_CATS.label = this.settings.groupLabel || 'Customer'; // fork
     NEON_CATS.prop = (this.settings.groupProperty || 'customer').trim() || 'customer';
+    NEON_CATS.skip = String(this.settings.groupSkip || '').split(',').map((x) => x.trim()).filter(Boolean); // fork
     refreshCategories(this.app, this.settings.customersFolder); // fork: customers are the categories too
     this.cache = null;
   },
@@ -9414,6 +9624,7 @@ Object.assign(NeonProjects.prototype, {
       if (deck && deck.isExcluded && deck.isExcluded(f)) continue;
       out.push(this.toProject(f, cache, today));
     }
+    out.push(...this.folderProjects(out, today, deck)); // fork: PARA project folders
     out.sort(projectSort);
     this.cache = { day: dayKey(Date.now()), list: out, paths: new Set(out.map((t) => t.file.path)) };
     return out;
@@ -9453,6 +9664,35 @@ Object.assign(NeonProjects.prototype, {
     }
     t.bucket = status === 'done' ? 'done' : !due ? 'nodate' : t.daysLeft < 0 ? 'overdue' : t.daysLeft === 0 ? 'today' : t.daysLeft <= 7 ? 'week' : 'later';
     return t;
+  },
+  /**
+   * fork: with "Project folders" set (e.g. 1.Projects), each folder directly inside it is a project too, unless a
+   * tagged project note already lives in it. Its note is <folder>/<folder name>.md, else a note there with a status,
+   * else its index note (0.Index, index, README), else its first note; the project's status and dates come from it.
+   */
+  folderProjects(tagged, today, deck) {
+    const root = normalizePath(String(this.settings.projectFolders || '').trim());
+    const top = root && this.app.vault.getAbstractFileByPath(root);
+    if (!(top instanceof TFolder)) return [];
+    const out = [];
+    for (const folder of top.children) {
+      if (!(folder instanceof TFolder)) continue;
+      if (deck && deck.isExcluded && deck.excludedPaths && deck.excludedPaths().some((p) => folder.path === p || folder.path.startsWith(p + '/'))) continue;
+      if (tagged.some((t) => t.file.path.startsWith(folder.path + '/'))) continue;
+      const note = projectFolderNote(this.app, folder);
+      if (!note) continue;
+      const t = this.toProject(note, this.app.metadataCache.getFileCache(note), today);
+      t.title = folder.name;
+      t.folder = folder.path;
+      if (!t.customer) t.customer = projectCustomer(folder.path + '/x.md', null, this.settings.customersFolder);
+      out.push(t);
+    }
+    return out;
+  },
+  /** fork: is this path inside a project folder (so a change there may change the folder projects)? */
+  inProjectFolders(path) {
+    const root = normalizePath(String(this.settings.projectFolders || '').trim());
+    return !!root && !!path && path.startsWith(root + '/') && path.slice(root.length + 1).includes('/');
   },
   activeProjects() {
     return this.collectProjects().filter((t) => t.status !== 'done');
@@ -11335,6 +11575,7 @@ class NeonMother extends Plugin {
     this.t0 = Date.now(); // fork: start-up timing, kept per device and shown in settings
     this.timing = [];
     NEON_APP.name = this.manifest.name; // fork: the UI names the plugin by its manifest name
+    NEON_APP.app = this.app;
     this.state = Object.assign({ off: {}, readOnly: true }, await this.readState());
     // fork: modules get a write-guarded app; only the plugin's own folder may be written while read-only
     NEON_GUARD.allowDir = normalizePath(this.manifest.dir);

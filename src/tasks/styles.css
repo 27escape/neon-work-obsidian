@@ -504,3 +504,19 @@ body:not(.nd-themed) .nd-empty {
 .nt-view-timeline {
   grid-column: 1 / -1;
 }
+
+/* fork: New note types table in settings: one row per type */
+.nt-types .nt-type-row .setting-item-info {
+  display: none;
+}
+.nt-types .nt-type-row .setting-item-control {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 6px;
+}
+.nt-types .nt-type-row input[type='text'] {
+  width: 9em;
+}
+.nt-types .nt-type-row input[type='text']:nth-of-type(1) {
+  width: 7em;
+}

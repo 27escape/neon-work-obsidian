@@ -1,33 +1,48 @@
-/* ---- New note, customer layout (fork) -----------------------------------------
- * When the vault has a customers folder (1.Customers/<customer>/Meetings|People|Projects|Research), the
- * New note card asks for a name, a customer and a kind, and puts the note in the right folder from the
- * kind's template. People notes get the @ prefix and an aliases property; projects go through New project. */
-const NOTE_KINDS = [
-  ['note', 'Note', 'file-text'],
-  ['meeting', 'Meeting', 'users'],
-  ['person', 'Person', 'user'],
-  ['project', 'Project', 'briefcase'],
-  ['research', 'Research', 'library'],
-];
+/* ---- New note, by group and type (fork) ----------------------------------------
+ * When the vault has a groups folder (customers: 1.Customers/<customer>/…; PARA: 2.Areas/<area>), the New note
+ * card asks for a name, a group and a type, and puts the note in the type's folder from its template. */
+/* fork: the kinds of note New note offers are a list in the settings (noteTypes). A type has a name, a folder
+ * ({group} = <groups folder>/<group>), a template, a tag for notes made without a template, and person
+ * behaviour (@Name, aliases). Projects always go through New project. Older settings become this list once. */
+const NOTE_TYPE_ICONS = { note: 'file-text', meeting: 'users', person: 'user', research: 'library', resource: 'archive', project: 'briefcase' };
 
-/** Where a new note of a kind goes (pure). Empty customer → the fallback folder. */
-function newNotePath(s, customersFolder, customer, kind, name) {
-  const sub = { meeting: s.meetingsFolder, person: s.peopleFolder, research: s.researchFolder }[kind] || '';
-  const base = customer ? normalizePath(`${customersFolder}/${customer}${sub ? '/' + sub : ''}`) : normalizePath(s.noCustomerFolder || '/');
-  const file = kind === 'person' && !name.startsWith('@') ? `@${name}` : name;
-  return { folder: base === '.' ? '/' : base, file };
+/** The New note types from the settings, or built from the older per-kind settings (pure). */
+function noteTypesFrom(s) {
+  if (Array.isArray(s.noteTypes) && s.noteTypes.length) return s.noteTypes;
+  const sub = (f) => (f ? `{group}/${f}` : '{group}');
+  return [
+    { name: 'Note', folder: '{group}', template: s.noteTemplate || '', tag: '', person: false },
+    { name: 'Meeting', folder: sub(s.meetingsFolder || 'Meetings'), template: s.meetingTemplate || '', tag: 'meeting', person: false },
+    { name: 'Person', folder: sub(s.peopleFolder || 'People'), template: s.personTemplate || '', tag: 'person', person: true },
+    { name: 'Research', folder: sub(s.researchFolder || 'Research'), template: s.researchTemplate || '', tag: 'research', person: false },
+  ];
+}
+/** Does a type's folder depend on the group? */
+const typeUsesGroup = (type) => /\{group\}/i.test(type.folder || '');
+/**
+ * Where a new note of a type goes (pure). {group} needs a group; without one the note goes in the fallback
+ * folder ('' = vault root). People notes get an @ in front of the name.
+ */
+function newNotePath(type, groupsFolder, group, name, fallback) {
+  let folder;
+  if (typeUsesGroup(type)) folder = group ? (type.folder || '').replace(/\{group\}/gi, `${groupsFolder}/${group}`) : fallback || '/';
+  else folder = type.folder || fallback || '/';
+  folder = normalizePath(folder.replace(/^\/+|\/+$/g, '') || '/');
+  const file = type.person && !name.startsWith('@') ? `@${name}` : name;
+  return { folder: !folder || folder === '.' ? '/' : folder, file };
 }
 /** Properties for a new note without a template (pure). */
-function newNoteFrontmatter(kind, title, day, customer) {
+function newNoteFrontmatter(type, title, day, group) {
   const lines = ['---', `title: ${JSON.stringify(title)}`, `created: ${day}`, `modified: ${day}`];
-  if (kind === 'person') {
+  if (type.person) {
     const plain = title.replace(/^@/, '');
     const first = plain.split(/\s+/)[0];
     lines.push('aliases:', `  - ${JSON.stringify(plain)}`);
     if (first && first !== plain) lines.push(`  - ${JSON.stringify(first)}`);
   }
-  if (customer) lines.push(`${NEON_CATS.prop || 'customer'}: ${JSON.stringify(customer.toLowerCase())}`); // fork: the group property
-  if (kind !== 'note') lines.push('tags:', `  - ${kind}`);
+  if (group) lines.push(`${groupProps()[0] || 'customer'}: ${JSON.stringify(group.toLowerCase())}`); // fork: the first group property
+  const tag = String(type.tag || '').trim().replace(/^#/, '');
+  if (tag) lines.push('tags:', `  - ${tag}`);
   lines.push('---', '');
   return lines.join('\n');
 }
@@ -55,8 +70,10 @@ class CustomerNoteModal extends Modal {
     };
     const name = field('Name').createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: 'Untitled' } });
     name.value = file ? file.basename : this.opts.name || '';
-    const kinds = NOTE_KINDS.filter(([k]) => k !== 'project' || p.ticketService());
-    this.kind = pills(field('Kind'), kinds.map(([k, l]) => [k, l]), 'note', () => sync());
+    this.types = noteTypesFrom(s);
+    const kinds = this.types.map((t, i) => [String(i), t.name || 'Note']);
+    if (p.ticketService()) kinds.push(['project', 'Project']);
+    this.kind = pills(field('Kind'), kinds, '0', () => sync());
     const customers = CATS.map((k) => [k, CAT_LABEL[k] || k]);
     const here = this.opts.folder || (file && file.parent ? file.parent.path : '');
     const guess = pathCustomer(`${here}/x.md`) || '';
@@ -74,8 +91,9 @@ class CustomerNoteModal extends Modal {
       const kind = this.kind.get();
       if (kind === 'project') where.setText(`Opens New project with this name and ${groupWord(false, true)}.`);
       else {
-        const { folder, file: fname } = newNotePath(s, NEON_CATS.customersFolder, sel.value ? label(sel.value) : '', kind, safeName(name.value) || 'Untitled');
-        where.setText(`Creates ${folder === '/' ? '' : folder + '/'}${fname}.md${p.kindTemplate(kind) ? ` from ${p.kindTemplate(kind)}` : ''}`);
+        const type = this.types[Number(kind)] || this.types[0];
+        const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, sel.value ? label(sel.value) : '', safeName(name.value) || 'Untitled', s.noCustomerFolder);
+        where.setText(`Creates ${folder === '/' ? '' : folder + '/'}${fname}.md${(type.template || '').trim() ? ` from ${type.template.trim()}` : ''}`);
       }
       go.querySelector('.nd-btn-label').setText(kind === 'project' ? 'Continue' : 'Create');
     };
@@ -103,10 +121,11 @@ class CustomerNoteModal extends Modal {
         if (file && !(await this.app.vault.read(file)).trim()) await this.app.fileManager.trashFile(file);
         return p.ticketService()({ title, customer });
       }
-      const { folder, file: fname } = newNotePath(p.settings, NEON_CATS.customersFolder, customer, kind, title);
+      const type = this.types[Number(kind)] || this.types[0];
+      const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, customer, title, p.settings.noCustomerFolder);
       const day = moment();
-      const tpl = await p.kindTemplateText(kind, fname, day);
-      const body = tpl != null ? tpl : newNoteFrontmatter(kind, fname, day.format('YYYY-MM-DD'), customer);
+      const tpl = await p.templateText(type.template, fname, day);
+      const body = tpl != null ? tpl : newNoteFrontmatter(type, fname, day.format('YYYY-MM-DD'), customer);
       p.selfCreated.add('pending');
       let target;
       try {
@@ -129,13 +148,9 @@ class CustomerNoteModal extends Modal {
 }
 
 Object.assign(NeonTasks.prototype, {
-  /** The template note set for a kind of note ('' when none). */
-  kindTemplate(kind) {
-    return ({ note: this.settings.noteTemplate, meeting: this.settings.meetingTemplate, person: this.settings.personTemplate, research: this.settings.researchTemplate }[kind] || '').trim();
-  },
-  /** A kind's template text with {{title}}, {{date}}, {{time}} filled in, or null without one. */
-  async kindTemplateText(kind, title, day) {
-    const path = this.kindTemplate(kind);
+  /** A template note's text with {{title}}, {{date}}, {{time}} filled in, or null without one. */
+  async templateText(path, title, day) {
+    path = String(path || '').trim();
     if (!path) return null;
     const tf = this.app.metadataCache.getFirstLinkpathDest(path.replace(/\.md$/, ''), '') || this.app.vault.getAbstractFileByPath(normalizePath(path));
     if (!(tf instanceof TFile)) {

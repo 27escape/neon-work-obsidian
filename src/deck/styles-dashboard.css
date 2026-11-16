@@ -739,3 +739,54 @@
 .nd-claude-v.is-review { --cl: var(--nd-info, var(--text-accent)); }
 .nd-claude-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nd-claude-where { flex: none; color: var(--nd-faint, var(--text-faint)); font-size: var(--font-ui-smaller); }
+
+/* fork: Areas card */
+.nd-areas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+  min-height: 0;
+}
+.nd-area-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-radius: var(--nd-radius-s);
+  cursor: pointer;
+}
+.nd-area-row:hover {
+  background: color-mix(in srgb, var(--nd-text) 4%, transparent);
+}
+.nd-area-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.nd-area-main {
+  flex: 1;
+  min-width: 0;
+}
+.nd-area-name {
+  font: 600 13px var(--nd-font-ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-area-meta {
+  font: 10px var(--nd-mono);
+  color: var(--nd-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nd-area-when {
+  flex: none;
+  font: 11px var(--nd-mono);
+  color: var(--nd-muted);
+}
+.nd-area-row.is-quiet .nd-area-when {
+  color: var(--nd-warn);
+}

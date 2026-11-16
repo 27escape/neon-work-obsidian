@@ -79,6 +79,11 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc('Top-level folders with “archive” in their name (e.g. 4.Archive).')
       .addToggle((t) => t.setValue(s.excludeArchive).onChange((v) => ((s.excludeArchive = v), (p._ex = null), save())));
 
+    new Setting(containerEl).setName('Areas card').setHeading();
+    new Setting(containerEl)
+      .setName('Show the Areas card')
+      .setDesc('One row per group (areas, or customers): active projects, open tasks, notes edited this month and when you last touched it; the quietest first. Takes the Claude card’s place.')
+      .addToggle((t) => t.setValue(s.areasCard).onChange(async (v) => ((s.areasCard = v), await save(), p.registerClaudeCard())));
     new Setting(containerEl).setName('Claude card').setHeading();
     new Setting(containerEl)
       .setName('Show the Claude card')

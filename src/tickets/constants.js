@@ -26,8 +26,10 @@ const PROJECTS_DEFAULTS = {
   // where new projects go: <customers folder>/<customer>/<projects folder name>/, else the project folder
   customersFolder: '1.Customers',
   groupLabel: 'Customer', // fork: what a group is called (Area in a PARA vault)
-  groupProperty: 'customer', // fork: the property naming a note's group
+  groupProperty: 'customer', // fork: the properties naming a note's group (comma list; values may be links)
+  groupSkip: '', // fork: folders in the groups folder that aren't groups (e.g. Dailynotes, Tasks)
   projectsFolderName: 'Projects',
+  projectFolders: '', // fork: each folder directly inside this one is a project too (PARA: 1.Projects)
   projectFolder: '', // projects without a customer; '' = <base folder>/Projects
   projectTemplate: '',
   // the tracker and reminders

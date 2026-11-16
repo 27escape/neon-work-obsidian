@@ -64,6 +64,7 @@ const DEFAULT_SETTINGS = {
   excludeTemplates: true,
   // fork: the Claude card — notes by their claude property
   claudeCard: true,
+  areasCard: false, // fork: an Areas card (groups) in the Claude card's place
   claudeProperty: 'claude',
   claudeWaiting: 'process, refine',
   claudeReview: 'updated',

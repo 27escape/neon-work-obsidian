@@ -38,6 +38,7 @@
         "src/deck/pins.js",
         "src/deck/plugin.js",
         "src/deck/claude-card.js",
+        "src/deck/areas-card.js",
         "src/deck/inbox.js",
         "src/deck/workspace.js",
         "src/deck/files.js",

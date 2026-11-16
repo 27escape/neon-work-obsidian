@@ -31,23 +31,40 @@ class NeonTasksSettingTab extends PluginSettingTab {
       .setDesc(`Its open tasks fill the Todo card. Tasks you add on the dashboard go at the head of this note as “- [ ] #task … ➕ date”. Empty: ${basePath('Todo.md')}.`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Todo.md')).setValue(s.quickTasksPath).onChange((v) => ((s.quickTasksPath = v.trim()), save(), p.emit())), 'file'));
     new Setting(containerEl).setName('New notes').setHeading();
-    containerEl.createEl('p', { cls: 'setting-item-description', text: 'With a groups folder (Projects section), New note asks for a group (customer) and a kind and files the note in <groups folder>/<group>/<kind folder>/. Templates fill {{title}}, {{date}} and {{time}}; without one the note gets title, created, modified, customer and tags properties.' });
-    const txt = (name, key, ph, desc, kind) =>
-      new Setting(containerEl)
-        .setName(name)
-        .setDesc(desc || '')
-        .addText((t) => {
-          t.setPlaceholder(ph).setValue(s[key]).onChange((v) => ((s[key] = v.trim()), save()));
-          return kind ? suggestPaths(p.app, t, kind) : t;
-        });
-    txt('Meetings folder', 'meetingsFolder', 'Meetings', 'Folder name inside each group folder.');
-    txt('People folder', 'peopleFolder', 'People', 'People notes are named @Name and get an aliases property.');
-    txt('Research folder', 'researchFolder', 'Research');
-    txt('Folder for notes without a group', 'noCustomerFolder', 'e.g. 2.Resources', 'Empty: the vault root.', 'folder');
-    txt('Note template', 'noteTemplate', '', '', 'file');
-    txt('Meeting template', 'meetingTemplate', '', '', 'file');
-    txt('Person template', 'personTemplate', 'templates/person_template.md', '', 'file');
-    txt('Research template', 'researchTemplate', 'templates/research_template.md', '', 'file');
+    containerEl.createEl('p', { cls: 'setting-item-description', text: 'With a groups folder (Projects section), New note asks for a name, a group and a type. In a folder, {group} stands for <groups folder>/<group>; without a group chosen, such notes go in the folder for notes without a group. Templates fill {{title}}, {{date}} and {{time}}; without one the note gets title, created, modified, the group property and the tag. Projects always go through New project.' });
+    const types = s.noteTypes;
+    const box = containerEl.createDiv('nt-types');
+    const drawTypes = () => {
+      box.empty();
+      types.forEach((ty, i) => {
+        const row = new Setting(box).setClass('nt-type-row');
+        row.addText((t) => t.setPlaceholder('Name').setValue(ty.name || '').onChange((v) => ((ty.name = v.trim()), save())));
+        row.addText((t) => t.setPlaceholder('Folder, e.g. {group}/Meetings').setValue(ty.folder || '').onChange((v) => ((ty.folder = v.trim()), save())));
+        row.addText((t) => suggestPaths(p.app, t.setPlaceholder('Template (optional)').setValue(ty.template || '').onChange((v) => ((ty.template = v.trim()), save())), 'file'));
+        row.addText((t) => t.setPlaceholder('Tag').setValue(ty.tag || '').onChange((v) => ((ty.tag = v.trim().replace(/^#/, '')), save())));
+        row.addToggle((t) => t.setTooltip('Person: named @Name, with aliases').setValue(!!ty.person).onChange((v) => ((ty.person = v), save())));
+        row.addExtraButton((b) =>
+          b.setIcon('trash-2').setTooltip('Remove this type').onClick(() => {
+            if (types.length <= 1) return new Notice('Keep at least one type');
+            types.splice(i, 1);
+            save();
+            drawTypes();
+          }),
+        );
+      });
+      new Setting(box).addButton((b) =>
+        b.setButtonText('Add a type').onClick(() => {
+          types.push({ name: '', folder: '{group}', template: '', tag: '', person: false });
+          save();
+          drawTypes();
+        }),
+      );
+    };
+    drawTypes();
+    new Setting(containerEl)
+      .setName('Folder for notes without a group')
+      .setDesc('Empty: the vault root.')
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder('e.g. 2.Resources').setValue(s.noCustomerFolder).onChange((v) => ((s.noCustomerFolder = v.trim()), save())), 'folder'));
     new Setting(containerEl)
       .setName('Ask a few questions when I create a note')
       .setDesc('Name, kind and category. Close the card to skip it.')

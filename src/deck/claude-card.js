@@ -36,7 +36,14 @@ Object.assign(NeonDeck.prototype, {
   },
   registerClaudeCard() {
     // the Quick capture card uses the same place on the dashboard: when it is on, it wins
-    if (!this.settings.claudeCard || this.settings.showCapture) return this.api.unregisterWidget('claude');
+    if (this.settings.showCapture) return (this.api.unregisterWidget('claude'), this.api.unregisterWidget('areas'));
+    // fork: the Areas card can take this place instead (a vault without Claude notes, e.g. PARA)
+    if (this.settings.areasCard) {
+      this.api.unregisterWidget('claude');
+      return this.api.registerWidget({ id: 'areas', slot: 'claude', title: groupWord(true), icon: 'layers', sub: 'Projects, tasks and notes · quietest first', mount: (card) => this.mountAreas(card) });
+    }
+    this.api.unregisterWidget('areas');
+    if (!this.settings.claudeCard) return this.api.unregisterWidget('claude');
     this.api.registerWidget({ id: 'claude', slot: 'claude', title: 'Claude', icon: 'bot', sub: `Notes by their ${this.settings.claudeProperty || 'claude'} property`, mount: (card) => this.mountClaude(card) });
   },
   mountClaude(card) {

@@ -14,6 +14,7 @@ Object.assign(NeonTasks.prototype, {
       if (my !== token || !list.isConnected) return;
       if (editingIn(list)) return; // redrawn when the edit ends
       this.openCount = all.length;
+      this.openTasks = all; // fork: the Areas card counts open tasks per area
       const items = all.filter((t) => !t.quick); // Todo tasks are in the Todo card
       countUp(card.badge, count, items.length, (v) => (Math.round(v) ? String(Math.round(v)) : ''), 300);
       count = items.length;

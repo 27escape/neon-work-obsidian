@@ -5,6 +5,7 @@ class NeonTasks extends Plugin {
     const s = this.settings;
     if (!Array.isArray(s.globalTasks)) s.globalTasks = [];
     if (!Array.isArray(s.doneLog)) s.doneLog = [];
+    if (!Array.isArray(s.noteTypes) || !s.noteTypes.length) s.noteTypes = noteTypesFrom(s); // fork: older per-kind settings → the types list
     if (!s.installedAt) s.installedAt = Date.now();
     dropOldDefaults(this.app, s, { quickTasksPath: 'Todo.md' }); // fork: the Todo note follows the base folder unless set
     this.freshData = !raw;

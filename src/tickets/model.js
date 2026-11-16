@@ -10,6 +10,7 @@ Object.assign(NeonProjects.prototype, {
       if (deck && deck.isExcluded && deck.isExcluded(f)) continue;
       out.push(this.toProject(f, cache, today));
     }
+    out.push(...this.folderProjects(out, today, deck)); // fork: PARA project folders
     out.sort(projectSort);
     this.cache = { day: dayKey(Date.now()), list: out, paths: new Set(out.map((t) => t.file.path)) };
     return out;
@@ -49,6 +50,35 @@ Object.assign(NeonProjects.prototype, {
     }
     t.bucket = status === 'done' ? 'done' : !due ? 'nodate' : t.daysLeft < 0 ? 'overdue' : t.daysLeft === 0 ? 'today' : t.daysLeft <= 7 ? 'week' : 'later';
     return t;
+  },
+  /**
+   * fork: with "Project folders" set (e.g. 1.Projects), each folder directly inside it is a project too, unless a
+   * tagged project note already lives in it. Its note is <folder>/<folder name>.md, else a note there with a status,
+   * else its index note (0.Index, index, README), else its first note; the project's status and dates come from it.
+   */
+  folderProjects(tagged, today, deck) {
+    const root = normalizePath(String(this.settings.projectFolders || '').trim());
+    const top = root && this.app.vault.getAbstractFileByPath(root);
+    if (!(top instanceof TFolder)) return [];
+    const out = [];
+    for (const folder of top.children) {
+      if (!(folder instanceof TFolder)) continue;
+      if (deck && deck.isExcluded && deck.excludedPaths && deck.excludedPaths().some((p) => folder.path === p || folder.path.startsWith(p + '/'))) continue;
+      if (tagged.some((t) => t.file.path.startsWith(folder.path + '/'))) continue;
+      const note = projectFolderNote(this.app, folder);
+      if (!note) continue;
+      const t = this.toProject(note, this.app.metadataCache.getFileCache(note), today);
+      t.title = folder.name;
+      t.folder = folder.path;
+      if (!t.customer) t.customer = projectCustomer(folder.path + '/x.md', null, this.settings.customersFolder);
+      out.push(t);
+    }
+    return out;
+  },
+  /** fork: is this path inside a project folder (so a change there may change the folder projects)? */
+  inProjectFolders(path) {
+    const root = normalizePath(String(this.settings.projectFolders || '').trim());
+    return !!root && !!path && path.startsWith(root + '/') && path.slice(root.length + 1).includes('/');
   },
   activeProjects() {
     return this.collectProjects().filter((t) => t.status !== 'done');

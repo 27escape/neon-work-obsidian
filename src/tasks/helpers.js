@@ -22,6 +22,7 @@ const TASKS_DEFAULTS = {
   meetingTemplate: '',
   personTemplate: '',
   researchTemplate: '',
+  noteTypes: null, // fork: New note types [{ name, folder, template, tag, person }]; null = built from the settings above
   installedAt: 0,
   globalTasks: [],
   doneLog: [],
