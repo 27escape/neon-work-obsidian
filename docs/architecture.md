@@ -15,7 +15,7 @@ flowchart TB
   K -->|guarded app| W["Write<br/>src/write"]
   K --> S["Settings page<br/>src/kernel/settings-page.js"]
   T & P & R & TI & W -->|deckApi: widgets, captures, actions, facts| D
-  SH["Shared helpers<br/>src/shared/shared.js, guard.js"] -.-> K & D & T & P & R & TI & W
+  SH["Shared helpers<br/>src/shared/shared*.js, guard.js"] -.-> K & D & T & P & R & TI & W
 ```
 
 - **Kernel** (`src/kernel/mother.js`): the plugin Obsidian loads. It runs each module as a **child `Plugin`** with its own id, data folder and settings, so Obsidian's Plugin lifecycle removes everything a module registered when it is switched off. It also:
@@ -35,9 +35,9 @@ flowchart TB
 | Time | `neon-time` | `src/time` | `NeonTime` | `neon-time` |
 | Write | `neon-write` | `src/write` | `NeonWrite` | — |
 
-- **Shared** (`src/shared/shared.js`, `guard.js`, `note-index.js`): helpers every module uses (format, DOM, categories, daily notes, files, `writeNote`, path suggestions, the base folder), the read-only guard and the note index. One copy, loaded before the modules.
+- **Shared** (`src/shared/shared.js`: format, DOM, categories, mobile; `shared-notes.js`: files, daily notes, `writeNote`, the base folder, ignored tags; `shared-ui.js`: modals, path suggestions, long press; plus `guard.js`, `note-index.js` and the `plan*.js` planning helpers): helpers every module uses, the read-only guard and the note index. One copy, loaded before the modules.
 - **Recently done** (`src/tasks/done.js`, `closedActivity` in `src/tickets/actions.js`): finished work is read from the notes, not logged. The index flags notes with ticked tasks (`withDoneTasks(since)` uses the note's modified time to skip old ones); the Tasks module reads their ✅ dates (six weeks), the Projects module their closed dates, and both hand rows to the Dashboard.
-- **Mobile** (`NEON_MOBILE`, `DESKTOP_ONLY_MODULES` and `installLongPress` in `src/shared/shared.js`, styles in `src/shared/mobile.css`, built last): Obsidian's `Platform` decides at start-up. The kernel skips the Time and Write modules on mobile without changing the saved switches; the Dashboard drops the card explorer and graph; a long press inside Neon Work's views sends a `contextmenu` event. Every mobile rule is scoped to `body.is-mobile` / `.is-phone` / `.is-tablet`.
+- **Mobile** (`NEON_MOBILE`, `DESKTOP_ONLY_MODULES` and `installLongPress` in `src/shared/shared.js` and `shared-ui.js`, styles in `src/shared/mobile.css`, built last): Obsidian's `Platform` decides at start-up. The kernel skips the Time and Write modules on mobile without changing the saved switches; the Dashboard drops the card explorer and graph; a long press inside Neon Work's views sends a `contextmenu` event. Every mobile rule is scoped to `body.is-mobile` / `.is-phone` / `.is-tablet`.
 - **Planning** (`src/shared/plan.js`, `plan-scope.js`; `src/tickets/plan-*.js`): a project's task lines read as a plan (ids, dependencies, durations, owners, markers), scheduled in working days with the critical path; the Planning view (Gantt drawn by the plugin as SVG, board, graph, list), the task editor and the project rows' summaries. Design and decisions: `docs/project-plans.md`.
 - **Timelines** (`src/shared/gantt.js`): builds Mermaid Gantt text from sections of dated items (`ganttText`, window clipping, safe names, today marker) and draws it with Obsidian's own Markdown renderer, so no chart library is bundled. `timelinePanel` adds the zoom pills and *Copy as Mermaid*. Projects (`src/tickets/timeline.js`) and Tasks (`src/tasks/timeline.js`) only turn their items into sections.
 - **Note index** (`src/shared/note-index.js`): one list of the vault's notes with their metadata, tags and whether they hold open tasks. The kernel keeps it current from Obsidian's events (`changed`, `delete`, `rename`, the first `resolved`); modules ask `noteIndex(app)` for `projects()`, `withOpenTasks()` and `withProperty(key)` instead of each walking every note. Each module still caches its own results (for example the project list until a project note changes).

@@ -43,7 +43,7 @@ test('weekly notes: a format with folders matches the path inside the notes fold
   // noteDateOf from the real source, with a moment stand-in that records what it was asked to parse
   const fs = await import('node:fs');
   const vm = await import('node:vm');
-  const src = fs.readFileSync(new URL('../src/shared/shared.js', import.meta.url), 'utf8');
+  const src = fs.readFileSync(new URL('../src/shared/shared-notes.js', import.meta.url), 'utf8');
   const fn = src.slice(src.indexOf('function noteDateOf('), src.indexOf('\n}\n', src.indexOf('function noteDateOf(')) + 2);
   const asked = [];
   const ctx = { normalizePath: (p) => p, moment: (name, fmt, strict) => (asked.push([name, fmt, strict]), { isValid: () => name === '2026/2026-46' || name === '2026-11-13' }) };
