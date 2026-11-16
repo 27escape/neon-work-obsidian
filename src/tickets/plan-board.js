@@ -1,16 +1,26 @@
 /* ---- Project plans (fork): the board ---------------------------------------------------------------------------
- * Columns by state: Ready, Blocked (worked out from ⛔, so nothing can be dropped there), In progress, Done; rows by
- * phase. Dragging a card (or its menu) changes only the checkbox in the note, through writeNote: [ ] / [/] / [x],
+ * Columns by state: Ready, Waiting (worked out from ⛔, so nothing can be dropped there; blocked cards sit here,
+ * purple, with what blocks them), In progress, Done; rows by phase. Dragging a card (or its menu) changes only the checkbox in the note, through writeNote: [ ] / [/] / [x],
  * adding ✅ today when done and removing it when reopened. Nothing is written while read-only is on.
  * Dragging uses pointer events, not the browser's drag and drop: inside Obsidian the drop of an HTML5 drag never
  * reached the board (the target lit up, nothing moved). Pointer events also work with touch. */
 
 const PLAN_COLUMNS = [
   ['ready', 'Ready', ' '],
-  ['blocked', 'Blocked', null],
+  ['waiting', 'Waiting', null], // waiting and blocked tasks
   ['doing', 'In progress', '/'],
   ['done', 'Done', 'x'],
 ];
+
+/** "blocked by pla-gp3 (overdue)" / "blocked: #blocked" for a blocked task, else ''. */
+function planBlockedText(t, byId, today) {
+  if (!t || planClosed(t) || !byId) return '';
+  if (t.flagged) return 'blocked: tagged #blocked';
+  const by = planBlockers(t, byId, today);
+  if (!by.length) return '';
+  const name = (x) => `${x.id || planClip(planText(x.raw), 30)} (${x.flagged ? '#blocked' : 'overdue'})`;
+  return `blocked by ${by.slice(0, 2).map(name).join(', ')}${by.length > 2 ? ` +${by.length - 2}` : ''}`;
+}
 
 Object.assign(PlanView.prototype, {
   renderBoard() {
@@ -23,22 +33,29 @@ Object.assign(PlanView.prototype, {
       lanes.get(k).push(t);
     }
     const board = this.bodyEl.createDiv('np-board');
+    const today = this.today;
+    const column = (t) => {
+      const s = planState(t, byId, today);
+      return s === 'blocked' ? 'waiting' : s;
+    };
     for (const [key, label] of PLAN_COLUMNS) {
       const head = board.createDiv({ cls: `np-col-head is-${key}` });
       head.createSpan({ text: label });
-      head.createSpan({ cls: 'np-col-n', text: String(own.filter((t) => planState(t, byId) === key).length) });
-      if (key === 'blocked') tip(head, 'Waiting on a task it depends on: worked out from ⛔, so cards can’t be dropped here');
+      const n = own.filter((t) => column(t) === key).length;
+      const blocked = key === 'waiting' ? own.filter((t) => planState(t, byId, today) === 'blocked').length : 0;
+      head.createSpan({ cls: 'np-col-n', text: blocked ? `${n} · ${blocked} blocked` : String(n) });
+      if (key === 'waiting') tip(head, 'Waiting on earlier tasks (worked out from ⛔, so cards can’t be dropped here). Purple: blocked by an overdue or #blocked task upstream');
     }
     for (const [lane, list] of lanes) {
       board.createDiv({ cls: 'np-lane', text: lane });
       for (const [key, , box] of PLAN_COLUMNS) {
         const cell = board.createDiv({ cls: `np-cell is-${key}` });
-        if (box !== null) cell.dataset.box = box; // a drop target (Blocked has none)
-        for (const t of list.filter((x) => planState(x, byId) === key)) this.card(cell, t);
+        if (box !== null) cell.dataset.box = box; // a drop target (Waiting has none)
+        for (const t of list.filter((x) => column(x) === key)) this.card(cell, t, byId);
       }
     }
   },
-  card(cell, t) {
+  card(cell, t, byId) {
     const kind = this.kinds.get(t) || 'ready';
     const c = cell.createDiv({ cls: `np-card is-${kind}${t.status === 'cancelled' ? ' is-cancelled' : ''}` });
     planFill(c, kind); // same colours as the Gantt bars and graph boxes
@@ -48,10 +65,12 @@ Object.assign(PlanView.prototype, {
     meta.createSpan({ text: t.milestone ? '◆ milestone' : `${planDays(t)}d` });
     if (t.due) meta.createSpan({ cls: kind === 'overdue' || kind === 'soon' ? `is-${kind}` : '', text: `📅 ${moment(t.due, 'YYYY-MM-DD').format('D MMM')}` });
     if (t.status === 'cancelled') meta.createSpan({ text: 'cancelled' });
+    const why = planBlockedText(t, byId, this.today);
+    if (why) c.createDiv({ cls: 'np-card-why', text: why });
     c.addEventListener('pointerdown', (e) => this.dragStart(e, c, t));
     c.addEventListener('click', (e) => {
-      if (Date.now() - (this.dragEndAt || 0) < 400) return; // the click that ends a drag doesn't open the note
-      openFile(this.app, t.file, e, t.line);
+      if (Date.now() - (this.dragEndAt || 0) < 400) return; // the click that ends a drag doesn't open anything
+      this.openTask(e, t);
     });
     c.addEventListener('contextmenu', (e) => this.taskMenu(e, t));
   },

@@ -9,15 +9,16 @@ completed:
 status: inprogress
 stage: tool selection
 note: Sample plan for the Gantt, Board, Graph and List views
+plan-prefix: sdr
 ---
 
 # Service Desk Rollout
 
-Replace Globex's shared inbox with a service desk tool. This note is a sample plan: each task has an id (🆔), the tasks it depends on (⛔) and an estimate in working days (`[duration:: …]`). Open it with the **Planning** button in the note's header. In the Planning view, right-click a card, row or box (or click a Gantt bar) to move a task, change its duration or make it a milestone; the List view's Days column has − and + buttons.
+Replace Globex's shared inbox with a service desk tool. This note is a sample plan: each task has an id (🆔), the tasks it depends on (⛔) and an estimate in working days (`[duration:: …]`). Open it with the **Planning** button in the note's header. In the Planning view, click a task (card, row or box) to edit it, use **New task** to add one, or right-click for quick moves, durations and the milestone switch; the List view's Days column has − and + buttons. In this note, right-click in the editor for *Planning: edit this task* or *Planning: new task here*. New task ids use the `plan-prefix` property (sdr-1, sdr-2…).
 
 What it shows:
 
-- done, in progress, cancelled, ready and blocked tasks;
+- done, in progress, cancelled, ready, waiting and blocked tasks (blocked: waiting on an overdue task, here the service levels);
 - an overdue task (📅 13 Nov) and one due soon (📅 19 Nov);
 - a milestone (tagged `#milestone`), a task estimated at 0 days and a duration in weeks (`1w`);
 - a dependency on a task outside the project (the licence quote in [[2026-11-10 Portal Discovery Workshop]]) and an outside task that depends on this plan (in the weekly note [[2026-47]]).

@@ -26,6 +26,23 @@ Object.assign(NeonProjects.prototype, {
         },
       });
     cmd('plan-gantt', 'Project: open Planning', 'gantt');
+    // fork: the task editor from a project note's right-click menu (the task under the cursor, or a new one)
+    this.registerEvent(
+      this.app.workspace.on('editor-menu', (menu, editor, info) => {
+        const file = info && info.file;
+        const scope = file && planScopeOf(this.app, file);
+        if (!scope) return;
+        const n = editor.getCursor().line;
+        const t = planTask(editor.getLine(n));
+        const isTask = !!t && (!!t.id || planHasTag(t.raw, NEON_PLAN.taskTag));
+        menu.addItem((i) =>
+          i
+            .setTitle(isTask ? 'Planning: edit this task' : 'Planning: new task here')
+            .setIcon('calendar-range')
+            .onClick(() => this.openTaskEditor({ scope, file, line: isTask ? n : null, at: n })),
+        );
+      }),
+    );
   },
   /** Adds or removes the header buttons so they match each open note. */
   syncPlanButtons() {
@@ -52,6 +69,33 @@ Object.assign(NeonProjects.prototype, {
       const had = this.planButtons && this.planButtons.get(leaf.view);
       if (had) had.els.forEach((e) => e.remove());
     }
+  },
+  /**
+   * Opens the task editor: the task on `line` of `file`, or a new task (its phase: the heading above `at`).
+   * view: the Planning view it came from (its tasks are used, and it is refreshed after saving).
+   */
+  async openTaskEditor({ scope, file, line = null, at = null, phase = null, view = null }) {
+    const tasks = view ? view.tasks : await planCollect(this.app, scope);
+    const open = this.app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === file && l.view.editor);
+    const text = open ? open.view.editor.getValue() : await this.app.vault.cachedRead(file);
+    const lines = text.split('\n');
+    const above = (n) => (planHeadings(lines).filter((h) => h.line < n).pop() || {}).text || '';
+    let task = null;
+    if (line != null) {
+      const want = planTask(lines[line]);
+      task = tasks.find((t) => t.file === file && t.line === line && want && t.raw === want.raw) || (want && tasks.find((t) => t.file === file && (want.id ? t.id === want.id : t.raw === want.raw))) || null;
+      if (!task && want) task = Object.assign(want, { file, line, phase: above(line) }); // not read into the plan yet
+    }
+    new PlanTaskModal(this.app, {
+      scope,
+      file,
+      text,
+      tasks: task && !tasks.includes(task) ? [...tasks, task] : tasks,
+      task,
+      phase: phase != null ? phase : at != null ? above(at + 1) : '',
+      base: planBaseDate(this.app, scope),
+      onSaved: () => view && view.refresh(),
+    }).open();
   },
   /** Opens the plan in a tab: the one already showing this plan, else a new tab. */
   async openPlan(scope, mode = 'gantt') {

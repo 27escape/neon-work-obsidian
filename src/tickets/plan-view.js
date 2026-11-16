@@ -8,7 +8,7 @@ const PLAN_MODES = [
   ['graph', 'Graph'],
   ['list', 'List'],
 ];
-const PLAN_STATE_LABEL = { ready: 'Ready', blocked: 'Blocked', doing: 'In progress', done: 'Done' };
+const PLAN_STATE_LABEL = { ready: 'Ready', waiting: 'Waiting', blocked: 'Blocked', doing: 'In progress', done: 'Done' };
 
 /** The plan's title: the project note's name, or the project folder's. */
 function planScopeTitle(scope) {
@@ -93,6 +93,7 @@ class PlanView extends ItemView {
       this.app.workspace.requestSaveLayout();
       this.render();
     });
+    button(tools, { icon: 'plus', text: 'New task', cls: 'np-new', title: 'Add a task to this project', onClick: () => this.newTask() });
     button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
     this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
     const g = this.graph;
@@ -104,6 +105,26 @@ class PlanView extends ItemView {
     this.svgBtn = button(tools, { icon: 'image-down', text: 'SVG', cls: 'np-save', title: 'Save the chart as an SVG file', onClick: () => planExport(this.bodyEl, this.getDisplayText()) });
     this.issuesEl = root.createDiv('np-issues');
     this.bodyEl = root.createDiv('np-body');
+  }
+  /** The note new tasks go in: the project note, or a project folder's own note. */
+  scopeFile() {
+    let f = this.app.vault.getAbstractFileByPath(this.plan.path);
+    if (f instanceof TFolder) {
+      const rep = projectFolderNote(this.app, f);
+      f = rep && rep.own ? rep.file : null;
+    }
+    return f instanceof TFile ? f : null;
+  }
+  newTask() {
+    const file = this.scopeFile();
+    if (!file) return new Notice('This project folder has no project note to add tasks to');
+    const own = this.tasks.filter((t) => !t.external && t.file === file);
+    this.plugin.openTaskEditor({ scope: this.plan, file, phase: own.length ? own[own.length - 1].phase || '' : '', view: this });
+  }
+  /** Click on a task: the editor; Ctrl/Cmd-click: its line in the note. Outside tasks open their note. */
+  openTask(e, t) {
+    if (t.external || (e && (e.ctrlKey || e.metaKey))) return openFile(this.app, t.file, e, t.line);
+    this.plugin.openTaskEditor({ scope: this.plan, file: t.file, line: t.line, view: this });
   }
   openScope(e) {
     if (!this.plan) return;
@@ -129,7 +150,8 @@ class PlanView extends ItemView {
     if (!this.bodyEl) return;
     if (this.dragActive) return void (this.redrawAfterDrag = true); // a card is being dragged: redraw when it lands
     const weeks = this.weeks || !this.base;
-    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: moment().format('YYYY-MM-DD') });
+    this.today = moment().format('YYYY-MM-DD');
+    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today });
     this.src = text;
     this.sched = sched;
     this.kinds = new Map(bars.map((b) => [b.task, b.kind]));
@@ -205,7 +227,7 @@ class PlanView extends ItemView {
         phase = ph;
         body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: '9' } });
       }
-      const st = planState(t, byId);
+      const st = planState(t, byId, this.today);
       const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}` });
       tr.addEventListener('contextmenu', (e) => this.taskMenu(e, t));
       tip(tr.createEl('td', { cls: 'np-crit', text: r.crit && st !== 'done' && !t.external ? '●' : '' }), 'On the critical path');
@@ -213,12 +235,14 @@ class PlanView extends ItemView {
       const a = name.createEl('a', { text: (t.external ? '↗ ' : '') + planText(t.raw), href: '#' });
       a.addEventListener('click', (e) => {
         e.preventDefault();
-        openFile(this.app, t.file, e, t.line);
+        this.openTask(e, t);
       });
       if (t.external) name.createSpan({ cls: 'np-file', text: ` · ${t.file.basename}` });
       const kind = this.kinds.get(t) || st;
       const chip = tr.createEl('td').createSpan({ cls: `np-state is-${st}`, text: PLAN_STATE_LABEL[st] });
-      planFill(chip, kind);
+      planFill(chip, st === 'blocked' || st === 'waiting' ? st : kind);
+      const why = planBlockedText(t, byId, this.today);
+      if (why) tip(chip, why);
       if (kind === 'overdue' || kind === 'soon') tip(chip, PLAN_KINDS.find(([k]) => k === kind)[1]);
       tr.createEl('td', { cls: 'np-id', text: t.id || '' });
       tr.createEl('td', { cls: 'np-id', text: t.deps.join(', ') });

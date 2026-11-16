@@ -1,0 +1,133 @@
+/* the task editor */
+.np-editor {
+  width: min(720px, 92vw);
+}
+.np-editor .np-ed-warn {
+  color: var(--color-red);
+  margin-bottom: 8px;
+}
+.np-editor .np-ed-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.np-editor .np-ed-label {
+  color: var(--text-muted);
+  padding-top: 4px;
+}
+.np-editor .np-ed-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+}
+.np-editor .np-ed-pick .np-ed-field {
+  display: block;
+}
+.np-editor .np-ed-desc {
+  width: 100%;
+  resize: vertical;
+}
+.np-editor .np-ed-num {
+  width: 5em;
+}
+.np-editor .np-ed-sub {
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+.np-editor .np-ed-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.np-editor .np-ed-chip {
+  padding: 1px 8px;
+  height: auto;
+  font-size: var(--font-ui-small);
+}
+.np-editor .np-ed-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.np-editor .np-ed-tag {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-hover);
+  font-size: var(--font-ui-small);
+}
+.np-editor .np-ed-x {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.np-editor .np-ed-search {
+  width: 100%;
+  margin-top: 4px;
+}
+.np-editor .np-ed-list {
+  max-height: 180px;
+  overflow-y: auto;
+}
+.np-editor .np-ed-hit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 3px 6px;
+  cursor: pointer;
+  border-radius: var(--radius-s);
+}
+.np-editor .np-ed-hit:hover {
+  background: var(--background-modifier-hover);
+}
+.np-editor .np-ed-hit.is-off {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.np-editor .np-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+.np-editor .np-id,
+.np-editor .np-ed-phase,
+.np-editor .np-ed-none,
+.np-editor .np-ed-planned,
+.np-editor .np-ed-also {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.np-editor .np-ed-phase {
+  margin-left: auto;
+}
+.np-editor .np-ed-date {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-ui-small);
+}
+.np-editor .np-ed-planned {
+  width: 100%;
+}
+.np-editor .np-ed-preview pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 4px 0;
+  padding: 6px 8px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-small);
+}
+.np-editor .np-ed-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}

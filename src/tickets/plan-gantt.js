@@ -12,6 +12,7 @@ const PLAN_SOON_DAYS = 7; // due within this many days: "due soon"
 // bar kinds in the order the legend shows them: [kind, label, Obsidian colour variable, fallback]
 const PLAN_KINDS = [
   ['ready', 'Ready to start', '--color-blue', '#3a7bd5'],
+  ['waiting', 'Waiting on earlier tasks', '--color-blue', '#9dbbe8'], // drawn paler (planColour)
   ['blocked', 'Blocked', '--color-purple', '#8e5bd0'],
   ['doing', 'In progress', '--color-cyan', '#1fa8b8'],
   ['soon', 'Due within a week', '--color-orange', '#e8871e'],
@@ -24,14 +25,14 @@ const planClip = (s, max) => (s.length > max ? s.slice(0, max - 1).trimEnd() + '
 
 /**
  * Kind of a task's bar: outside, done, overdue (its 📅 date has passed, or work in progress was planned to finish
- * before today), soon (📅 within a week), doing, blocked or ready. finish: the bar's last day (date mode) or null.
+ * before today), soon (📅 within a week), doing, blocked, waiting or ready. finish: the bar's last day (date mode) or null.
  */
 function planBarKind(t, state, today, finish = null) {
   if (t.external) return 'outside';
   if (state === 'done') return 'done';
   if (today && ((t.due && t.due < today) || (state === 'doing' && finish && finish < today))) return 'overdue';
   if (today && t.due && t.due <= ymdAdd(today, PLAN_SOON_DAYS)) return 'soon';
-  return state === 'doing' ? 'doing' : state === 'blocked' ? 'blocked' : 'ready';
+  return state === 'doing' || state === 'blocked' || state === 'waiting' ? state : 'ready';
 }
 
 /** { text, sched, bars: [{ id, kind, crit }] }: Mermaid gantt text. base: the project's start date or null. */
@@ -59,7 +60,7 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     for (const r of rows) {
       const t = r.task;
       const label = planClip(mermaidSafe((t.external ? '↗ ' : '') + planText(t.raw)), maxName);
-      const state = planState(t, byId);
+      const state = planState(t, byId, today);
       const crit = r.crit && !t.external && state !== 'done';
       const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
       const id = `np${bars.length + 1}`;

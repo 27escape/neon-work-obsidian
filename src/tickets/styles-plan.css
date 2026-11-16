@@ -304,3 +304,9 @@
 .np-plan .np-ms {
   color: var(--nd-accent);
 }
+.np-plan .np-card-why {
+  margin-top: 4px;
+  font-size: 0.8em;
+  font-style: italic;
+}
+

@@ -20,7 +20,8 @@ function planTask(line, at = {}) {
   const du = raw.match(/\[duration::\s*(\d+(?:\.\d+)?)\s*(d|days?|w|weeks?)?\s*\]/iu);
   const days = du ? Math.max(0, Math.round(parseFloat(du[1]) * (/^w/i.test(du[2] || '') ? 5 : 1))) : null;
   const milestone = /(^|\s)#milestone(?=\s|$)/iu.test(raw); // fork: a milestone is tagged, not just 0 days
-  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
+  const flagged = /(^|\s)#blocked(?=\s|$)/iu.test(raw); // blocked by something outside the plan (a supplier, an approval)
+  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
 }
 
 /** Does the text carry one of the task tags ("#task, #todo"); whole tags, any case. */
@@ -46,11 +47,34 @@ function planIndex(tasks) {
 
 const planClosed = (t) => t.status === 'done' || t.status === 'cancelled';
 
-/** done | doing | blocked (a task it depends on is still open) | ready. Unknown ids don't block. */
-function planState(t, byId) {
+const planOverdue = (t, today) => !!(today && t.due && t.due < today && !planClosed(t));
+
+/**
+ * What blocks a task: the open tasks upstream that are overdue or tagged #blocked, found through tasks that are
+ * themselves waiting on them (a delay reaches everything after it). [] when nothing does.
+ */
+function planBlockers(t, byId, today, seen = new Set()) {
+  const out = [];
+  for (const d of t.deps) {
+    const x = byId.get(d);
+    if (!x || planClosed(x) || seen.has(x)) continue;
+    seen.add(x);
+    if (planOverdue(x, today) || x.flagged) out.push(x);
+    else out.push(...planBlockers(x, byId, today, seen));
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * done | doing | blocked (tagged #blocked, or a task upstream is overdue or #blocked) | waiting (depends on open tasks
+ * that are on time: the plan working as meant) | ready (nothing open before it). Unknown ids don't hold a task up.
+ * Without today nothing counts as overdue.
+ */
+function planState(t, byId, today = null) {
   if (planClosed(t)) return 'done';
   if (t.status === 'doing') return 'doing';
-  return t.deps.some((d) => byId.has(d) && !planClosed(byId.get(d))) ? 'blocked' : 'ready';
+  if (t.flagged || planBlockers(t, byId, today).length) return 'blocked';
+  return t.deps.some((d) => byId.has(d) && !planClosed(byId.get(d))) ? 'waiting' : 'ready';
 }
 
 /** Working days a task takes: its duration, else 1 (as Project Planner draws undated tasks); milestones and cancelled: 0. */
@@ -134,11 +158,11 @@ function planWorkdaysBetween(a, b) {
 function planCounts(tasks, today) {
   const { byId } = planIndex(tasks);
   const week = ymdAdd(today, 7);
-  const c = { total: 0, ready: 0, doing: 0, blocked: 0, done: 0, overdue: 0, week: 0 };
+  const c = { total: 0, ready: 0, waiting: 0, doing: 0, blocked: 0, done: 0, overdue: 0, week: 0 };
   for (const t of tasks) {
     if (t.external) continue;
     c.total++;
-    const s = planState(t, byId);
+    const s = planState(t, byId, today);
     c[s]++;
     if (s === 'done') continue;
     const d = t.due || t.scheduled;
@@ -148,16 +172,17 @@ function planCounts(tasks, today) {
   return c;
 }
 
-/** "2 overdue · 3 due this week · 4 ready · 1 in progress · 12 blocked · 5/49 done"; short: only what needs action. */
+/** "2 overdue · 3 due this week · 1 blocked · 4 ready · 1 in progress · 12 waiting · 5/49 done"; short: what needs action. */
 function planSummaryText(c, short = false) {
   if (!c || !c.total) return '';
   const parts = [];
   if (c.overdue) parts.push(`${c.overdue} overdue`);
   if (c.week) parts.push(`${c.week} due this week`);
+  if (c.blocked) parts.push(`${c.blocked} blocked`);
   if (short) return parts.join(' · ');
   if (c.ready) parts.push(`${c.ready} ready`);
   if (c.doing) parts.push(`${c.doing} in progress`);
-  if (c.blocked) parts.push(`${c.blocked} blocked`);
+  if (c.waiting) parts.push(`${c.waiting} waiting`);
   parts.push(`${c.done}/${c.total} done`);
   return parts.join(' · ');
 }

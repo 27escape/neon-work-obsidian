@@ -50,7 +50,7 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   }
   for (const [k, list] of byKind) {
     const fill = colours[k] || '#888888';
-    const ink = k === 'soon' || k === 'outside' ? '#000000' : '#ffffff'; // as planInk
+    const ink = k === 'soon' || k === 'outside' || k === 'waiting' ? '#000000' : '#ffffff'; // as planInk
     lines.push(`  classDef ${k} fill:${fill},stroke:${fill},color:${ink}`, `  class ${list.join(',')} ${k}`);
   }
   const critIds = sched.rows.filter((r) => r.crit && !r.task.external && !planClosed(r.task)).map((r) => ids.get(r.task));
@@ -87,7 +87,7 @@ Object.assign(PlanView.prototype, {
       const g = svg.querySelector(`g.node[id*="-flowchart-${id}-"], g.node[id^="flowchart-${id}-"]`);
       if (!g) continue;
       g.addClass('np-node');
-      g.addEventListener('click', (e) => openFile(this.app, task.file, e, task.line));
+      g.addEventListener('click', (e) => this.openTask(e, task));
       g.addEventListener('contextmenu', (e) => this.taskMenu(e, task));
     }
   },

@@ -985,7 +985,8 @@ function planTask(line, at = {}) {
   const du = raw.match(/\[duration::\s*(\d+(?:\.\d+)?)\s*(d|days?|w|weeks?)?\s*\]/iu);
   const days = du ? Math.max(0, Math.round(parseFloat(du[1]) * (/^w/i.test(du[2] || '') ? 5 : 1))) : null;
   const milestone = /(^|\s)#milestone(?=\s|$)/iu.test(raw); // fork: a milestone is tagged, not just 0 days
-  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
+  const flagged = /(^|\s)#blocked(?=\s|$)/iu.test(raw); // blocked by something outside the plan (a supplier, an approval)
+  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
 }
 
 /** Does the text carry one of the task tags ("#task, #todo"); whole tags, any case. */
@@ -1011,11 +1012,34 @@ function planIndex(tasks) {
 
 const planClosed = (t) => t.status === 'done' || t.status === 'cancelled';
 
-/** done | doing | blocked (a task it depends on is still open) | ready. Unknown ids don't block. */
-function planState(t, byId) {
+const planOverdue = (t, today) => !!(today && t.due && t.due < today && !planClosed(t));
+
+/**
+ * What blocks a task: the open tasks upstream that are overdue or tagged #blocked, found through tasks that are
+ * themselves waiting on them (a delay reaches everything after it). [] when nothing does.
+ */
+function planBlockers(t, byId, today, seen = new Set()) {
+  const out = [];
+  for (const d of t.deps) {
+    const x = byId.get(d);
+    if (!x || planClosed(x) || seen.has(x)) continue;
+    seen.add(x);
+    if (planOverdue(x, today) || x.flagged) out.push(x);
+    else out.push(...planBlockers(x, byId, today, seen));
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * done | doing | blocked (tagged #blocked, or a task upstream is overdue or #blocked) | waiting (depends on open tasks
+ * that are on time: the plan working as meant) | ready (nothing open before it). Unknown ids don't hold a task up.
+ * Without today nothing counts as overdue.
+ */
+function planState(t, byId, today = null) {
   if (planClosed(t)) return 'done';
   if (t.status === 'doing') return 'doing';
-  return t.deps.some((d) => byId.has(d) && !planClosed(byId.get(d))) ? 'blocked' : 'ready';
+  if (t.flagged || planBlockers(t, byId, today).length) return 'blocked';
+  return t.deps.some((d) => byId.has(d) && !planClosed(byId.get(d))) ? 'waiting' : 'ready';
 }
 
 /** Working days a task takes: its duration, else 1 (as Project Planner draws undated tasks); milestones and cancelled: 0. */
@@ -1099,11 +1123,11 @@ function planWorkdaysBetween(a, b) {
 function planCounts(tasks, today) {
   const { byId } = planIndex(tasks);
   const week = ymdAdd(today, 7);
-  const c = { total: 0, ready: 0, doing: 0, blocked: 0, done: 0, overdue: 0, week: 0 };
+  const c = { total: 0, ready: 0, waiting: 0, doing: 0, blocked: 0, done: 0, overdue: 0, week: 0 };
   for (const t of tasks) {
     if (t.external) continue;
     c.total++;
-    const s = planState(t, byId);
+    const s = planState(t, byId, today);
     c[s]++;
     if (s === 'done') continue;
     const d = t.due || t.scheduled;
@@ -1113,16 +1137,17 @@ function planCounts(tasks, today) {
   return c;
 }
 
-/** "2 overdue · 3 due this week · 4 ready · 1 in progress · 12 blocked · 5/49 done"; short: only what needs action. */
+/** "2 overdue · 3 due this week · 1 blocked · 4 ready · 1 in progress · 12 waiting · 5/49 done"; short: what needs action. */
 function planSummaryText(c, short = false) {
   if (!c || !c.total) return '';
   const parts = [];
   if (c.overdue) parts.push(`${c.overdue} overdue`);
   if (c.week) parts.push(`${c.week} due this week`);
+  if (c.blocked) parts.push(`${c.blocked} blocked`);
   if (short) return parts.join(' · ');
   if (c.ready) parts.push(`${c.ready} ready`);
   if (c.doing) parts.push(`${c.doing} in progress`);
-  if (c.blocked) parts.push(`${c.blocked} blocked`);
+  if (c.waiting) parts.push(`${c.waiting} waiting`);
   parts.push(`${c.done}/${c.total} done`);
   return parts.join(' · ');
 }
@@ -10437,6 +10462,7 @@ const PLAN_SOON_DAYS = 7; // due within this many days: "due soon"
 // bar kinds in the order the legend shows them: [kind, label, Obsidian colour variable, fallback]
 const PLAN_KINDS = [
   ['ready', 'Ready to start', '--color-blue', '#3a7bd5'],
+  ['waiting', 'Waiting on earlier tasks', '--color-blue', '#9dbbe8'], // drawn paler (planColour)
   ['blocked', 'Blocked', '--color-purple', '#8e5bd0'],
   ['doing', 'In progress', '--color-cyan', '#1fa8b8'],
   ['soon', 'Due within a week', '--color-orange', '#e8871e'],
@@ -10449,14 +10475,14 @@ const planClip = (s, max) => (s.length > max ? s.slice(0, max - 1).trimEnd() + '
 
 /**
  * Kind of a task's bar: outside, done, overdue (its 📅 date has passed, or work in progress was planned to finish
- * before today), soon (📅 within a week), doing, blocked or ready. finish: the bar's last day (date mode) or null.
+ * before today), soon (📅 within a week), doing, blocked, waiting or ready. finish: the bar's last day (date mode) or null.
  */
 function planBarKind(t, state, today, finish = null) {
   if (t.external) return 'outside';
   if (state === 'done') return 'done';
   if (today && ((t.due && t.due < today) || (state === 'doing' && finish && finish < today))) return 'overdue';
   if (today && t.due && t.due <= ymdAdd(today, PLAN_SOON_DAYS)) return 'soon';
-  return state === 'doing' ? 'doing' : state === 'blocked' ? 'blocked' : 'ready';
+  return state === 'doing' || state === 'blocked' || state === 'waiting' ? state : 'ready';
 }
 
 /** { text, sched, bars: [{ id, kind, crit }] }: Mermaid gantt text. base: the project's start date or null. */
@@ -10484,7 +10510,7 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     for (const r of rows) {
       const t = r.task;
       const label = planClip(mermaidSafe((t.external ? '↗ ' : '') + planText(t.raw)), maxName);
-      const state = planState(t, byId);
+      const state = planState(t, byId, today);
       const crit = r.crit && !t.external && state !== 'done';
       const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
       const id = `np${bars.length + 1}`;
@@ -10581,7 +10607,7 @@ function planCssHex(name, fallback) {
   return hex || fallback;
 }
 /** Text colour on a filled kind colour: dark on orange and grey, white on the rest. */
-const planInk = (kind) => (kind === 'soon' || kind === 'outside' ? '#000000' : '#ffffff');
+const planInk = (kind) => (kind === 'soon' || kind === 'outside' || kind === 'waiting' ? '#000000' : '#ffffff');
 /** Fill an element with a kind's colour, as the Gantt bars and graph boxes are. */
 function planFill(el, kind) {
   const c = planColour(kind);
@@ -10592,7 +10618,13 @@ function planFill(el, kind) {
 /** The colour in use for a bar kind (Obsidian's colour variables, so it follows the theme), as #rrggbb. */
 function planColour(kind) {
   const k = PLAN_KINDS.find((x) => x[0] === kind) || PLAN_KINDS[0];
-  return planCssHex(k[2], k[3]);
+  const c = planCssHex(k[2], k[3]);
+  return kind === 'waiting' ? planMix(c, planCssHex('--background-primary', '#ffffff'), 0.55) : c;
+}
+/** #rrggbb between two colours: share of b (0–1). Pure. */
+function planMix(a, b, share) {
+  const n = (h, i) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+  return '#' + [0, 1, 2].map((i) => Math.round(n(a, i) * (1 - share) + n(b, i) * share).toString(16).padStart(2, '0')).join('');
 }
 
 /**
@@ -10637,7 +10669,7 @@ const PLAN_MODES = [
   ['graph', 'Graph'],
   ['list', 'List'],
 ];
-const PLAN_STATE_LABEL = { ready: 'Ready', blocked: 'Blocked', doing: 'In progress', done: 'Done' };
+const PLAN_STATE_LABEL = { ready: 'Ready', waiting: 'Waiting', blocked: 'Blocked', doing: 'In progress', done: 'Done' };
 
 /** The plan's title: the project note's name, or the project folder's. */
 function planScopeTitle(scope) {
@@ -10722,6 +10754,7 @@ class PlanView extends ItemView {
       this.app.workspace.requestSaveLayout();
       this.render();
     });
+    button(tools, { icon: 'plus', text: 'New task', cls: 'np-new', title: 'Add a task to this project', onClick: () => this.newTask() });
     button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
     this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
     const g = this.graph;
@@ -10733,6 +10766,26 @@ class PlanView extends ItemView {
     this.svgBtn = button(tools, { icon: 'image-down', text: 'SVG', cls: 'np-save', title: 'Save the chart as an SVG file', onClick: () => planExport(this.bodyEl, this.getDisplayText()) });
     this.issuesEl = root.createDiv('np-issues');
     this.bodyEl = root.createDiv('np-body');
+  }
+  /** The note new tasks go in: the project note, or a project folder's own note. */
+  scopeFile() {
+    let f = this.app.vault.getAbstractFileByPath(this.plan.path);
+    if (f instanceof TFolder) {
+      const rep = projectFolderNote(this.app, f);
+      f = rep && rep.own ? rep.file : null;
+    }
+    return f instanceof TFile ? f : null;
+  }
+  newTask() {
+    const file = this.scopeFile();
+    if (!file) return new Notice('This project folder has no project note to add tasks to');
+    const own = this.tasks.filter((t) => !t.external && t.file === file);
+    this.plugin.openTaskEditor({ scope: this.plan, file, phase: own.length ? own[own.length - 1].phase || '' : '', view: this });
+  }
+  /** Click on a task: the editor; Ctrl/Cmd-click: its line in the note. Outside tasks open their note. */
+  openTask(e, t) {
+    if (t.external || (e && (e.ctrlKey || e.metaKey))) return openFile(this.app, t.file, e, t.line);
+    this.plugin.openTaskEditor({ scope: this.plan, file: t.file, line: t.line, view: this });
   }
   openScope(e) {
     if (!this.plan) return;
@@ -10758,7 +10811,8 @@ class PlanView extends ItemView {
     if (!this.bodyEl) return;
     if (this.dragActive) return void (this.redrawAfterDrag = true); // a card is being dragged: redraw when it lands
     const weeks = this.weeks || !this.base;
-    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: moment().format('YYYY-MM-DD') });
+    this.today = moment().format('YYYY-MM-DD');
+    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today });
     this.src = text;
     this.sched = sched;
     this.kinds = new Map(bars.map((b) => [b.task, b.kind]));
@@ -10834,7 +10888,7 @@ class PlanView extends ItemView {
         phase = ph;
         body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: '9' } });
       }
-      const st = planState(t, byId);
+      const st = planState(t, byId, this.today);
       const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}` });
       tr.addEventListener('contextmenu', (e) => this.taskMenu(e, t));
       tip(tr.createEl('td', { cls: 'np-crit', text: r.crit && st !== 'done' && !t.external ? '●' : '' }), 'On the critical path');
@@ -10842,12 +10896,14 @@ class PlanView extends ItemView {
       const a = name.createEl('a', { text: (t.external ? '↗ ' : '') + planText(t.raw), href: '#' });
       a.addEventListener('click', (e) => {
         e.preventDefault();
-        openFile(this.app, t.file, e, t.line);
+        this.openTask(e, t);
       });
       if (t.external) name.createSpan({ cls: 'np-file', text: ` · ${t.file.basename}` });
       const kind = this.kinds.get(t) || st;
       const chip = tr.createEl('td').createSpan({ cls: `np-state is-${st}`, text: PLAN_STATE_LABEL[st] });
-      planFill(chip, kind);
+      planFill(chip, st === 'blocked' || st === 'waiting' ? st : kind);
+      const why = planBlockedText(t, byId, this.today);
+      if (why) tip(chip, why);
       if (kind === 'overdue' || kind === 'soon') tip(chip, PLAN_KINDS.find(([k]) => k === kind)[1]);
       tr.createEl('td', { cls: 'np-id', text: t.id || '' });
       tr.createEl('td', { cls: 'np-id', text: t.deps.join(', ') });
@@ -10915,16 +10971,18 @@ function planFieldAt(rest) {
   return m ? m.index : rest.length;
 }
 
+/** The line text with its duration set to `days` (pure); null removes it; its place in the line is kept. */
+function planDurRest(rest, days) {
+  const field = days == null ? '' : `[duration:: ${days}d]`;
+  const re = /\s*\[duration::[^\]]*\]/iu;
+  if (re.test(rest)) return rest.replace(re, field ? ` ${field}` : '').replace(/^\s+/, '');
+  if (!field) return rest;
+  const at = planFieldAt(rest);
+  return `${rest.slice(0, at)} ${field}${rest.slice(at)}`;
+}
 /** The duration set to `days` working days ([duration:: Nd]); null removes it. Its place in the line is kept. */
 function planSetDuration(text, t, days) {
-  return planEditLine(text, t, (rest, box) => {
-    const field = days == null ? '' : `[duration:: ${days}d]`;
-    const re = /\s*\[duration::[^\]]*\]/iu;
-    if (re.test(rest)) return { rest: rest.replace(re, field ? ` ${field}` : '').replace(/^\s+/, ''), box };
-    if (!field) return { rest, box };
-    const at = planFieldAt(rest);
-    return { rest: `${rest.slice(0, at)} ${field}${rest.slice(at)}`, box };
-  });
+  return planEditLine(text, t, (rest, box) => ({ rest: planDurRest(rest, days), box }));
 }
 
 /** The #milestone tag on or off; a milestone has no length, so its duration field goes. */
@@ -11005,7 +11063,8 @@ Object.assign(PlanView.prototype, {
   taskMenu(e, t) {
     if (e.preventDefault) e.preventDefault();
     const m = new Menu();
-    m.addItem((i) => i.setTitle('Open the task').setIcon('file-text').onClick(() => openFile(this.app, t.file, null, t.line)));
+    if (!t.external) m.addItem((i) => i.setTitle('Edit…').setIcon('pencil').onClick(() => this.openTask(null, t)));
+    m.addItem((i) => i.setTitle('Open the task in its note').setIcon('file-text').onClick(() => openFile(this.app, t.file, null, t.line)));
     if (t.external) return m.showAtMouseEvent(e);
     m.addSeparator();
     for (const [, label, box] of PLAN_COLUMNS)
@@ -11018,6 +11077,526 @@ Object.assign(PlanView.prototype, {
     m.showAtMouseEvent(e);
   },
 });
+/* @src src/tickets/plan-form.js */
+/* ---- Project plans (fork): the task editor's text work (pure, tested) ------------------------------------------------
+ * The editor (plan-editor.js) only collects a form; these functions turn it into line edits. Fields it doesn't
+ * manage (priority, recurrence, ➕ created, other tags and [key:: value] fields) stay where they are; the ones it
+ * manages are changed in place, removed when cleared, or added before the trailing tags. Ids: the project's
+ * `plan-prefix` property, else the initials of its title, then the next free number (pla-50). */
+
+const PLAN_DATE_SIGNS = [
+  ['start', '🛫'],
+  ['scheduled', '⏳'],
+  ['due', '📅'],
+];
+
+/** "Pilot - Local AI" → "pla". */
+function planInitials(title) {
+  const words = String(title || '').split(/[^A-Za-z0-9]+/).filter(Boolean);
+  return words.map((w) => w[0]).join('').toLowerCase().slice(0, 5) || 'task';
+}
+/** The id prefix: the plan-prefix property (letters, digits, - and _), else the title's initials. */
+function planPrefix(fm, title) {
+  const p = String((fm && (fm['plan-prefix'] != null ? fm['plan-prefix'] : fm.planPrefix)) || '').trim().replace(/[^\w-]/g, '');
+  return p || planInitials(title);
+}
+/** The next free id: prefix-(highest number used + 1). ids: every id in use. */
+function planNextId(ids, prefix) {
+  const used = new Set(ids);
+  const re = new RegExp(`^${prefix}-(\\d+)$`, 'i');
+  let n = 0;
+  for (const id of used) {
+    const m = re.exec(id || '');
+    if (m) n = Math.max(n, +m[1]);
+  }
+  n++;
+  while (used.has(`${prefix}-${n}`)) n++;
+  return `${prefix}-${n}`;
+}
+
+/** A line's text in parts: leading tags, the description, other [key:: value] fields in it, the rest (fields). */
+function planSplit(rest) {
+  const lead = (rest.match(/^(?:#[\w/-]+\s+)+/u) || [''])[0];
+  const body = rest.slice(lead.length);
+  const at = planFieldAt(body);
+  const head = body.slice(0, at);
+  const inline = (head.match(/\[[\w-]+::[^\]]*\]/gu) || []).filter((f) => !/^\[duration::/i.test(f));
+  return { lead, desc: head.replace(/\s*\[[\w-]+::[^\]]*\]/gu, '').trim(), inline, tail: body.slice(at) };
+}
+
+/** An emoji field set to value (in place), removed (null), or added before the trailing tags. */
+function planSetSign(rest, sign, value) {
+  const re = new RegExp(`\\s*${sign}\\uFE0F?\\s*[\\w-]+(?:\\s*,\\s*[\\w-]+)*`, 'u');
+  if (re.test(rest)) return value ? rest.replace(re, ` ${sign} ${value}`) : rest.replace(re, '');
+  if (!value) return rest;
+  const tags = rest.match(/(?:\s+#[\w/-]+)+\s*$/u);
+  const at = tags ? tags.index : rest.length;
+  return `${rest.slice(0, at)} ${sign} ${value}${rest.slice(at)}`;
+}
+/** A tag on (added at the end) or off. */
+function planSetTag(rest, tag, on) {
+  const re = new RegExp(`(^|\\s)#${tag}(?=\\s|$)`, 'iu');
+  if (!on) return rest.replace(re, '$1');
+  return re.test(rest) ? rest : `${rest} #${tag}`;
+}
+/** ⛔ with ids added and removed (order kept). */
+function planDepsRest(rest, add = [], remove = []) {
+  const m = rest.match(/⛔️?\s*([\w-]+(?:\s*,\s*[\w-]+)*)/u);
+  const now = m ? m[1].split(',').map((x) => x.trim()) : [];
+  const next = [...now.filter((d) => !remove.includes(d)), ...add.filter((d) => !now.includes(d))];
+  return planSetSign(rest, '⛔', next.length ? next.join(',') : null);
+}
+
+const planTidy = (r) => r.replace(/[ \t]{2,}/g, ' ').trim();
+
+/**
+ * A task's text after the editor (pure): { rest, box }. f: { desc, box, days (null: no estimate), milestone, flagged,
+ * start, scheduled, due, id, deps: [ids], tag (new tasks: the task tag) }. Done adds ✅ today, cancelled ❌ today.
+ */
+function planApplyForm(rest, box, f, today) {
+  const p = planSplit(rest);
+  let r = `${p.lead}${[String(f.desc || '').replace(/\s+/g, ' ').trim(), ...p.inline].join(' ')}${p.tail}`;
+  r = planDurRest(r, f.milestone ? null : f.days);
+  for (const [k, sign] of PLAN_DATE_SIGNS) r = planSetSign(r, sign, f[k] || null);
+  r = planSetSign(r, '🆔', f.id || null);
+  r = planSetSign(r, '⛔', f.deps && f.deps.length ? f.deps.join(',') : null);
+  r = planSetTag(r, 'milestone', !!f.milestone);
+  r = planSetTag(r, 'blocked', !!f.flagged);
+  if (f.tag) r = planSetTag(r, f.tag.replace(/^#/, ''), true);
+  const nb = f.box != null ? f.box : box;
+  if (nb === 'x' || nb === 'X') {
+    r = planSetSign(r, '❌', null);
+    if (!/✅\s*\d{4}-\d{2}-\d{2}/u.test(r)) r = `${r} ✅ ${today}`;
+  } else if (nb === '-') {
+    r = planSetSign(r, '✅', null);
+    if (!/❌\s*\d{4}-\d{2}-\d{2}/u.test(r)) r = `${r} ❌ ${today}`;
+  } else r = planSetSign(planSetSign(r, '✅', null), '❌', null);
+  return { rest: planTidy(r), box: nb };
+}
+
+/** The note's headings: [{ line, level, text }] (front matter and code blocks skipped). */
+function planHeadings(lines) {
+  const out = [];
+  let fence = false;
+  let front = (lines[0] || '').replace(/\r$/, '') === '---';
+  lines.forEach((raw, i) => {
+    const l = raw.replace(/\r$/, '');
+    if (front) {
+      if (i > 0 && l === '---') front = false;
+      return;
+    }
+    if (/^(```|~~~)/.test(l)) fence = !fence;
+    if (fence) return;
+    const m = l.match(/^(#{1,6})\s+(.*?)\s*$/);
+    if (m) out.push({ line: i, level: m[1].length, text: m[2] });
+  });
+  return out;
+}
+/** Where a task goes under a phase: after the section's last list line, else after the heading; no phase: the end. */
+function planInsertAt(lines, phase) {
+  const hs = planHeadings(lines);
+  const h = phase ? hs.find((x) => x.text === phase) : null;
+  const item = (l) => /^\s*(?:[-*+]|\d+[.)])\s/.test(l || '');
+  if (!h) {
+    let n = lines.length;
+    while (n > 0 && !lines[n - 1].trim()) n--;
+    return { at: n, gap: n > 0 && !item(lines[n - 1]) };
+  }
+  const next = hs.find((x) => x.line > h.line && x.level <= h.level);
+  const end = next ? next.line : lines.length;
+  let last = -1;
+  for (let i = h.line + 1; i < end; i++) if (item(lines[i])) last = i;
+  return last >= 0 ? { at: last + 1, gap: false } : { at: h.line + 1, gap: true };
+}
+/** Lines with a task line put at a phase's insert point (blank lines kept around it). */
+function planPutLine(lines, line, phase, cr) {
+  const { at, gap } = planInsertAt(lines, phase);
+  const add = gap ? ['' + cr, line + cr] : [line + cr];
+  if (gap && lines[at] !== undefined && lines[at].trim()) add.push('' + cr);
+  lines.splice(at, 0, ...add);
+  return at + (gap ? 1 : 0);
+}
+
+/**
+ * The note's text after the editor's save (pure). others: [{ task, fn(rest, box) → { rest, box } }] (dependencies of
+ * other tasks, ids given to them); main: { task (null: a new task), form, phase }. Returns { text, line, raw, box,
+ * missing: [tasks not found] }.
+ */
+function planEditFile(text, { others = [], main = null }, today) {
+  let cur = text;
+  const missing = [];
+  for (const o of others) {
+    const r = planEditLine(cur, o.task, o.fn);
+    if (r) cur = r.text;
+    else missing.push(o.task);
+  }
+  if (!main) return { text: cur, missing, line: -1 };
+  const cr = text.includes('\r\n') ? '\r' : '';
+  if (main.task) {
+    const r = planEditLine(cur, main.task, (rest, box) => planApplyForm(rest, box, main.form, today));
+    if (!r) return { text: cur, missing: [...missing, main.task], line: -1 };
+    let line = r.line;
+    cur = r.text;
+    if (main.phase != null && main.phase !== (main.task.phase || '')) {
+      const lines = cur.split('\n');
+      const [l] = lines.splice(line, 1);
+      line = planPutLine(lines, l.replace(/\r$/, ''), main.phase, cr);
+      cur = lines.join('\n');
+    }
+    return { text: cur, line, raw: r.raw, box: r.box, missing };
+  }
+  const { rest, box } = planApplyForm('', ' ', main.form, today);
+  const lines = cur.split('\n');
+  const line = planPutLine(lines, `- [${box}] ${rest}`, main.phase || '', cr);
+  return { text: lines.join('\n'), line, raw: rest, box, missing };
+}
+
+/** Tasks that depend on `t`, directly or further on (so `t` can't depend on them: a loop). */
+function planDownstream(tasks, t) {
+  const kids = new Map();
+  for (const x of tasks) for (const d of x.deps) (kids.get(d) || kids.set(d, []).get(d)).push(x);
+  const out = new Set();
+  const walk = (id) => {
+    for (const k of kids.get(id) || []) {
+      if (out.has(k)) continue;
+      out.add(k);
+      if (k.id) walk(k.id);
+    }
+  };
+  if (t && t.id) walk(t.id);
+  return out;
+}
+/** Tasks `t` depends on, directly or further back (so they can't depend on `t`). */
+function planUpstream(byId, t) {
+  const out = new Set();
+  const walk = (x) => {
+    for (const d of x.deps) {
+      const y = byId.get(d);
+      if (!y || out.has(y)) continue;
+      out.add(y);
+      walk(y);
+    }
+  };
+  if (t) walk(t);
+  return out;
+}
+
+/** The plan's dates for each task: Map task → { start, due }, as the Gantt draws them (needs the project's start). */
+function planPlannedDates(tasks, base, today) {
+  const out = new Map();
+  if (!base) return out;
+  const from = planWorkdays(base, 0);
+  const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today) : 0 });
+  for (const r of sched.rows) out.set(r.task, { start: planWorkdays(from, r.es), due: planWorkdays(from, Math.max(r.es, r.ef - 1)) });
+  return out;
+}
+/* @src src/tickets/plan-editor.js */
+/* ---- Project plans (fork): the task editor ----------------------------------------------------------------------------
+ * A form for one task of a project note: description, status, phase, duration or milestone, #blocked, what it
+ * depends on and what it blocks (pickers over the note's tasks, loops refused), dates (with the plan's own dates),
+ * and an id given automatically. A preview shows the exact line, and what changes in other tasks, before saving.
+ * The text work is in plan-form.js; this file is only the form. One save is one write to the note. */
+
+const PLAN_STATUS_CHOICES = [
+  [' ', 'To do'],
+  ['/', 'In progress'],
+  ['x', 'Done'],
+  ['-', 'Cancelled'],
+];
+
+class PlanTaskModal extends Modal {
+  /** ctx: { scope, file, text (the note now), tasks (the plan), task (null: new), phase, base, onSaved } */
+  constructor(app, ctx) {
+    super(app);
+    this.ctx = ctx;
+    const t = ctx.task;
+    const { byId } = planIndex(ctx.tasks);
+    this.byId = byId;
+    this.today = moment().format('YYYY-MM-DD');
+    this.form = {
+      desc: t ? planSplit(t.raw).desc : '',
+      box: t ? (t.box === 'X' ? 'x' : t.box) : ' ',
+      days: t ? t.days : null,
+      milestone: !!(t && t.milestone),
+      flagged: !!(t && t.flagged),
+      start: (t && t.start) || null,
+      scheduled: (t && t.scheduled) || null,
+      due: (t && t.due) || null,
+      id: (t && t.id) || null,
+    };
+    // the note's other tasks: what the pickers offer
+    this.mine = ctx.tasks.filter((x) => !x.external && x.file.path === ctx.file.path && x !== t);
+    this.deps = t ? t.deps.map((id) => ({ id, task: byId.get(id) || null })) : [];
+    this.blocks = new Set(t && t.id ? this.mine.filter((x) => x.deps.includes(t.id)) : []);
+    this.blocks0 = new Set(this.blocks);
+    this.phase = t ? t.phase || '' : ctx.phase || '';
+    this.phases = planHeadings(ctx.text.split('\n')).map((h) => h.text);
+    const fm = (app.metadataCache.getFileCache(ctx.file) || {}).frontmatter || {};
+    this.prefix = planPrefix(fm, planScopeTitle(ctx.scope));
+    this.planned = t ? planPlannedDates(ctx.tasks, ctx.base, this.today).get(t) : null;
+  }
+
+  onOpen() {
+    const { contentEl: el, modalEl } = this;
+    modalEl.addClass('nd-modal', 'np-editor');
+    this.titleEl.setText(this.ctx.task ? 'Edit task' : 'New task');
+    if (NEON_GUARD.readOnly) el.createDiv({ cls: 'np-ed-warn', text: 'Read-only is on, so saving is blocked. Turn it off in the plugin’s settings to change notes.' });
+    const f = this.form;
+    const row = (label, cls = '') => {
+      const r = el.createDiv(`np-ed-row ${cls}`.trim());
+      r.createDiv({ cls: 'np-ed-label', text: label });
+      return r.createDiv('np-ed-field');
+    };
+    // description
+    const desc = row('Description').createEl('textarea', { cls: 'np-ed-desc', attr: { rows: '2', placeholder: 'What needs doing' } });
+    desc.value = f.desc;
+    desc.addEventListener('input', () => ((f.desc = desc.value), this.update()));
+    window.setTimeout(() => desc.focus(), 0);
+    // status and phase
+    const sp = row('Status');
+    const status = sp.createEl('select', { cls: 'dropdown' });
+    const choices = PLAN_STATUS_CHOICES.some(([b]) => b === f.box) ? PLAN_STATUS_CHOICES : [...PLAN_STATUS_CHOICES, [f.box, `Other [${f.box}]`]];
+    for (const [b, label] of choices) status.createEl('option', { text: label, attr: { value: b } });
+    status.value = f.box;
+    status.addEventListener('change', () => ((f.box = status.value), this.update()));
+    sp.createSpan({ cls: 'np-ed-sub', text: 'Phase' });
+    const phase = sp.createEl('select', { cls: 'dropdown' });
+    phase.createEl('option', { text: '(end of the note)', attr: { value: '' } });
+    for (const p of this.phases) phase.createEl('option', { text: p, attr: { value: p } });
+    phase.value = this.phases.includes(this.phase) ? this.phase : '';
+    phase.addEventListener('change', () => ((this.phase = phase.value), this.update()));
+    // duration, milestone, blocked
+    const dr = row('Duration');
+    const weeks = f.days != null && f.days >= 5 && f.days % 5 === 0;
+    const num = dr.createEl('input', { cls: 'np-ed-num', attr: { type: 'number', min: '0', step: '1' } });
+    num.value = f.days == null ? '' : String(weeks ? f.days / 5 : f.days);
+    const unit = dr.createEl('select', { cls: 'dropdown' });
+    for (const [v, label] of [['d', 'days'], ['w', 'weeks']]) unit.createEl('option', { text: label, attr: { value: v } });
+    unit.value = weeks ? 'w' : 'd';
+    const readDays = () => {
+      const v = num.value.trim();
+      f.days = v === '' ? null : Math.max(0, Math.round(parseFloat(v) * (unit.value === 'w' ? 5 : 1)));
+      this.update();
+    };
+    num.addEventListener('input', readDays);
+    unit.addEventListener('change', readDays);
+    const chips = dr.createDiv('np-ed-chips');
+    for (const [d, label] of [[1, '1d'], [2, '2d'], [3, '3d'], [5, '1w'], [10, '2w']]) {
+      const b = chips.createEl('button', { cls: 'np-ed-chip', text: label, attr: { type: 'button' } });
+      b.addEventListener('click', () => {
+        num.value = String(d >= 5 ? d / 5 : d);
+        unit.value = d >= 5 ? 'w' : 'd';
+        readDays();
+      });
+    }
+    const none = chips.createEl('button', { cls: 'np-ed-chip', text: 'No estimate', attr: { type: 'button' } });
+    none.addEventListener('click', () => ((num.value = ''), readDays()));
+    const flags = row('');
+    const toggle = (label, key, title) => {
+      const l = flags.createEl('label', { cls: 'np-ed-check' });
+      const c = l.createEl('input', { attr: { type: 'checkbox' } });
+      c.checked = !!f[key];
+      l.createSpan({ text: label });
+      tip(l, title);
+      c.addEventListener('change', () => {
+        f[key] = c.checked;
+        if (key === 'milestone') num.disabled = unit.disabled = c.checked;
+        this.update();
+      });
+      return c;
+    };
+    toggle('Milestone (#milestone)', 'milestone', 'A point in time, no length: a diamond on the Gantt chart');
+    toggle('Blocked (#blocked)', 'flagged', 'Held up by something outside the plan (a supplier, an approval); everything after it is blocked too');
+    num.disabled = unit.disabled = f.milestone;
+    // dependencies
+    this.depsEl = row('Depends on', 'np-ed-pick');
+    this.blocksEl = row('Blocks', 'np-ed-pick');
+    // dates
+    const dt = row('Dates');
+    for (const [key, sign, label] of [['start', '🛫', 'Start'], ['scheduled', '⏳', 'Scheduled'], ['due', '📅', 'Due']]) {
+      const w = dt.createDiv('np-ed-date');
+      w.createSpan({ text: `${sign} ${label}` });
+      const i = w.createEl('input', { attr: { type: 'date' } });
+      i.value = f[key] || '';
+      i.addEventListener('change', () => ((f[key] = i.value || null), this.update()));
+      this[`${key}El`] = i;
+    }
+    if (this.planned) {
+      const p = dt.createDiv('np-ed-planned');
+      p.createSpan({ text: `Planned: ${moment(this.planned.start).format('ddd D MMM')} – ${moment(this.planned.due).format('ddd D MMM')} ` });
+      const use = p.createEl('button', { cls: 'np-ed-chip', text: 'Use planned dates', attr: { type: 'button' } });
+      use.addEventListener('click', () => {
+        f.start = this.startEl.value = this.planned.start;
+        f.due = this.dueEl.value = this.planned.due;
+        this.update();
+      });
+    } else if (this.ctx.task) dt.createDiv({ cls: 'np-ed-planned', text: 'Set the project’s started date to see the plan’s dates here.' });
+    // id and preview
+    this.idEl = row('Id').createDiv('np-ed-id');
+    const pv = el.createDiv('np-ed-preview');
+    pv.createDiv({ cls: 'np-ed-label', text: 'Will write' });
+    this.previewEl = pv.createEl('pre');
+    this.alsoEl = pv.createDiv('np-ed-also');
+    // buttons
+    const bar = el.createDiv('np-ed-buttons');
+    const save = bar.createEl('button', { cls: 'mod-cta', text: 'Save' });
+    save.addEventListener('click', () => this.save());
+    bar.createEl('button', { text: 'Cancel' }).addEventListener('click', () => this.close());
+    this.scope.register(['Mod'], 'Enter', () => (this.save(), false));
+    this.update();
+  }
+
+  /** Tasks that can't be picked: the task itself and anything that would make a loop. */
+  forbidden() {
+    const t = this.ctx.task;
+    const deps = new Set();
+    const blocks = new Set();
+    if (t) for (const x of planDownstream(this.ctx.tasks, t)) deps.add(x);
+    for (const b of this.blocks) {
+      deps.add(b);
+      for (const x of planDownstream(this.ctx.tasks, b)) deps.add(x);
+    }
+    for (const d of this.deps)
+      if (d.task) {
+        blocks.add(d.task);
+        for (const x of planUpstream(this.byId, d.task)) blocks.add(x);
+      }
+    return { deps, blocks };
+  }
+
+  /** A picker: chips of what's chosen, a search box, matching tasks of the note (loops greyed out). */
+  picker(el, { chosen, add, remove, bad, hint }) {
+    el.empty();
+    const chips = el.createDiv('np-ed-chips');
+    for (const c of chosen) {
+      const chip = chips.createSpan({ cls: 'np-ed-tag', text: c.label });
+      const x = chip.createSpan({ cls: 'np-ed-x', text: '×' });
+      x.addEventListener('click', () => (remove(c), this.update()));
+    }
+    const q = el.createEl('input', { cls: 'np-ed-search', attr: { type: 'search', placeholder: hint } });
+    const list = el.createDiv('np-ed-list');
+    const taken = new Set(chosen.map((c) => c.task).filter(Boolean));
+    const draw = () => {
+      list.empty();
+      const s = q.value.trim().toLowerCase();
+      if (!s) return;
+      const hits = this.mine.filter((x) => !taken.has(x) && `${x.id || ''} ${planText(x.raw)} ${x.phase || ''}`.toLowerCase().includes(s)).slice(0, 8);
+      if (!hits.length) list.createDiv({ cls: 'np-ed-none', text: 'No task in this note matches' });
+      for (const x of hits) {
+        const no = bad.has(x);
+        const item = list.createDiv({ cls: `np-ed-hit${no ? ' is-off' : ''}` });
+        const dot = item.createSpan('np-swatch');
+        dot.style.backgroundColor = planColour(planBarKind(x, planState(x, this.byId, this.today), this.today));
+        item.createSpan({ cls: 'np-id', text: x.id || 'no id' });
+        item.createSpan({ text: planClip(planText(x.raw), 60) });
+        item.createSpan({ cls: 'np-ed-phase', text: x.phase || '' });
+        if (no) tip(item, 'That would make a loop: it already comes after this task');
+        else item.addEventListener('click', () => (add(x), this.update()));
+      }
+    };
+    q.addEventListener('input', draw);
+  }
+
+  /** The planned change: ids given out, the main task's form, edits of other tasks; and the notes for the preview. */
+  plan() {
+    const t = this.ctx.task;
+    const used = new Set(this.ctx.tasks.map((x) => x.id).filter(Boolean));
+    const f = Object.assign({}, this.form);
+    const notes = [];
+    if (!f.id) {
+      f.id = planNextId(used, this.prefix);
+      used.add(f.id);
+    }
+    const ops = new Map(); // task → { add, remove, id }
+    const op = (x) => ops.get(x) || ops.set(x, { add: [], remove: [], id: null }).get(x);
+    f.deps = this.deps.map((d) => {
+      if (d.id) return d.id;
+      const o = op(d.task);
+      if (!o.id) {
+        o.id = planNextId(used, this.prefix);
+        used.add(o.id);
+        notes.push(`gives “${planClip(planText(d.task.raw), 40)}” the id ${o.id}`);
+      }
+      return o.id;
+    });
+    for (const b of this.blocks)
+      if (!this.blocks0.has(b)) {
+        op(b).add.push(f.id);
+        notes.push(`adds ⛔ ${f.id} to “${planClip(planText(b.raw), 40)}”`);
+      }
+    for (const b of this.blocks0)
+      if (!this.blocks.has(b)) {
+        op(b).remove.push(f.id);
+        notes.push(`removes ⛔ ${f.id} from “${planClip(planText(b.raw), 40)}”`);
+      }
+    if (!t) f.tag = taskTagFirst();
+    const others = [...ops].map(([task, o]) => ({
+      task,
+      fn: (rest, box) => ({ rest: planDepsRest(o.id ? planSetSign(rest, '🆔', o.id) : rest, o.add, o.remove), box }),
+    }));
+    return { plan: { others, main: { task: t, form: f, phase: this.phase } }, notes, f };
+  }
+
+  update() {
+    const bad = this.forbidden();
+    this.picker(this.depsEl, {
+      chosen: this.deps.map((d) => ({ task: d.task, label: d.task ? `${d.task.id || 'new id'} · ${planClip(planText(d.task.raw), 30)}${d.task.external ? ' ↗' : ''}` : `${d.id} (not found)`, d })),
+      add: (x) => this.deps.push({ id: x.id || null, task: x }),
+      remove: (c) => (this.deps = this.deps.filter((d) => d !== c.d)),
+      bad: bad.deps,
+      hint: 'Search this note’s tasks that must be done first…',
+    });
+    this.picker(this.blocksEl, {
+      chosen: [...this.blocks].map((x) => ({ task: x, label: `${x.id || 'no id'} · ${planClip(planText(x.raw), 30)}` })),
+      add: (x) => this.blocks.add(x),
+      remove: (c) => this.blocks.delete(c.task),
+      bad: bad.blocks,
+      hint: 'Search this note’s tasks that wait for this one…',
+    });
+    const { plan, notes, f } = this.plan();
+    this.idEl.setText(this.form.id ? f.id : `${f.id} (new)`);
+    const res = planEditFile(this.ctx.text, plan, this.today);
+    const lines = res.text.split('\n');
+    this.previewEl.setText(res.line >= 0 ? lines[res.line].replace(/\r$/, '') : '(this task has changed in the note: close and open it again)');
+    this.alsoEl.empty();
+    for (const n of notes) this.alsoEl.createDiv({ text: `Also ${n}` });
+    const where = this.phase ? `under “${this.phase}”` : 'at the end of the note';
+    if (!this.ctx.task) this.alsoEl.createDiv({ text: `Goes ${where}` });
+    else if (this.phase !== (this.ctx.task.phase || '')) this.alsoEl.createDiv({ text: `Moves ${where}` });
+  }
+
+  async save() {
+    if (!this.form.desc.trim()) return new Notice('A task needs a description');
+    const { plan } = this.plan();
+    let res = null;
+    try {
+      await writeNote(this.app, this.ctx.file, (text) => {
+        res = planEditFile(text, plan, moment().format('YYYY-MM-DD'));
+        return res.text;
+      });
+    } catch (e) {
+      if (!(e && e.neonReadOnly)) {
+        console.error('Planning: could not save the task', e);
+        new Notice('Could not save the task. Details in the console.');
+      }
+      return;
+    }
+    if (res && res.line < 0) return new Notice('That task changed in the note in the meantime: nothing saved. Open it again.');
+    if (res && res.missing.length) new Notice(`Saved; ${res.missing.length} other task(s) had changed and were left alone`);
+    this.close();
+    if (this.ctx.onSaved) this.ctx.onSaved();
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+/** The first task tag (from the Tasks section's setting), for new tasks. */
+function taskTagFirst() {
+  const t = String(NEON_PLAN.taskTag || '').split(',')[0].trim();
+  return t ? (t.startsWith('#') ? t : `#${t}`) : '';
+}
 /* @src src/tickets/plan-graph.js */
 /* ---- Project plans (fork): the dependency graph (Mermaid flowchart) -----------------------------------------------
  * One box per task, an arrow from each task to the tasks that depend on it, one group per phase, outside tasks in
@@ -11071,7 +11650,7 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   }
   for (const [k, list] of byKind) {
     const fill = colours[k] || '#888888';
-    const ink = k === 'soon' || k === 'outside' ? '#000000' : '#ffffff'; // as planInk
+    const ink = k === 'soon' || k === 'outside' || k === 'waiting' ? '#000000' : '#ffffff'; // as planInk
     lines.push(`  classDef ${k} fill:${fill},stroke:${fill},color:${ink}`, `  class ${list.join(',')} ${k}`);
   }
   const critIds = sched.rows.filter((r) => r.crit && !r.task.external && !planClosed(r.task)).map((r) => ids.get(r.task));
@@ -11108,25 +11687,35 @@ Object.assign(PlanView.prototype, {
       const g = svg.querySelector(`g.node[id*="-flowchart-${id}-"], g.node[id^="flowchart-${id}-"]`);
       if (!g) continue;
       g.addClass('np-node');
-      g.addEventListener('click', (e) => openFile(this.app, task.file, e, task.line));
+      g.addEventListener('click', (e) => this.openTask(e, task));
       g.addEventListener('contextmenu', (e) => this.taskMenu(e, task));
     }
   },
 });
 /* @src src/tickets/plan-board.js */
 /* ---- Project plans (fork): the board ---------------------------------------------------------------------------
- * Columns by state: Ready, Blocked (worked out from ⛔, so nothing can be dropped there), In progress, Done; rows by
- * phase. Dragging a card (or its menu) changes only the checkbox in the note, through writeNote: [ ] / [/] / [x],
+ * Columns by state: Ready, Waiting (worked out from ⛔, so nothing can be dropped there; blocked cards sit here,
+ * purple, with what blocks them), In progress, Done; rows by phase. Dragging a card (or its menu) changes only the checkbox in the note, through writeNote: [ ] / [/] / [x],
  * adding ✅ today when done and removing it when reopened. Nothing is written while read-only is on.
  * Dragging uses pointer events, not the browser's drag and drop: inside Obsidian the drop of an HTML5 drag never
  * reached the board (the target lit up, nothing moved). Pointer events also work with touch. */
 
 const PLAN_COLUMNS = [
   ['ready', 'Ready', ' '],
-  ['blocked', 'Blocked', null],
+  ['waiting', 'Waiting', null], // waiting and blocked tasks
   ['doing', 'In progress', '/'],
   ['done', 'Done', 'x'],
 ];
+
+/** "blocked by pla-gp3 (overdue)" / "blocked: #blocked" for a blocked task, else ''. */
+function planBlockedText(t, byId, today) {
+  if (!t || planClosed(t) || !byId) return '';
+  if (t.flagged) return 'blocked: tagged #blocked';
+  const by = planBlockers(t, byId, today);
+  if (!by.length) return '';
+  const name = (x) => `${x.id || planClip(planText(x.raw), 30)} (${x.flagged ? '#blocked' : 'overdue'})`;
+  return `blocked by ${by.slice(0, 2).map(name).join(', ')}${by.length > 2 ? ` +${by.length - 2}` : ''}`;
+}
 
 Object.assign(PlanView.prototype, {
   renderBoard() {
@@ -11139,22 +11728,29 @@ Object.assign(PlanView.prototype, {
       lanes.get(k).push(t);
     }
     const board = this.bodyEl.createDiv('np-board');
+    const today = this.today;
+    const column = (t) => {
+      const s = planState(t, byId, today);
+      return s === 'blocked' ? 'waiting' : s;
+    };
     for (const [key, label] of PLAN_COLUMNS) {
       const head = board.createDiv({ cls: `np-col-head is-${key}` });
       head.createSpan({ text: label });
-      head.createSpan({ cls: 'np-col-n', text: String(own.filter((t) => planState(t, byId) === key).length) });
-      if (key === 'blocked') tip(head, 'Waiting on a task it depends on: worked out from ⛔, so cards can’t be dropped here');
+      const n = own.filter((t) => column(t) === key).length;
+      const blocked = key === 'waiting' ? own.filter((t) => planState(t, byId, today) === 'blocked').length : 0;
+      head.createSpan({ cls: 'np-col-n', text: blocked ? `${n} · ${blocked} blocked` : String(n) });
+      if (key === 'waiting') tip(head, 'Waiting on earlier tasks (worked out from ⛔, so cards can’t be dropped here). Purple: blocked by an overdue or #blocked task upstream');
     }
     for (const [lane, list] of lanes) {
       board.createDiv({ cls: 'np-lane', text: lane });
       for (const [key, , box] of PLAN_COLUMNS) {
         const cell = board.createDiv({ cls: `np-cell is-${key}` });
-        if (box !== null) cell.dataset.box = box; // a drop target (Blocked has none)
-        for (const t of list.filter((x) => planState(x, byId) === key)) this.card(cell, t);
+        if (box !== null) cell.dataset.box = box; // a drop target (Waiting has none)
+        for (const t of list.filter((x) => column(x) === key)) this.card(cell, t, byId);
       }
     }
   },
-  card(cell, t) {
+  card(cell, t, byId) {
     const kind = this.kinds.get(t) || 'ready';
     const c = cell.createDiv({ cls: `np-card is-${kind}${t.status === 'cancelled' ? ' is-cancelled' : ''}` });
     planFill(c, kind); // same colours as the Gantt bars and graph boxes
@@ -11164,10 +11760,12 @@ Object.assign(PlanView.prototype, {
     meta.createSpan({ text: t.milestone ? '◆ milestone' : `${planDays(t)}d` });
     if (t.due) meta.createSpan({ cls: kind === 'overdue' || kind === 'soon' ? `is-${kind}` : '', text: `📅 ${moment(t.due, 'YYYY-MM-DD').format('D MMM')}` });
     if (t.status === 'cancelled') meta.createSpan({ text: 'cancelled' });
+    const why = planBlockedText(t, byId, this.today);
+    if (why) c.createDiv({ cls: 'np-card-why', text: why });
     c.addEventListener('pointerdown', (e) => this.dragStart(e, c, t));
     c.addEventListener('click', (e) => {
-      if (Date.now() - (this.dragEndAt || 0) < 400) return; // the click that ends a drag doesn't open the note
-      openFile(this.app, t.file, e, t.line);
+      if (Date.now() - (this.dragEndAt || 0) < 400) return; // the click that ends a drag doesn't open anything
+      this.openTask(e, t);
     });
     c.addEventListener('contextmenu', (e) => this.taskMenu(e, t));
   },
@@ -11272,6 +11870,23 @@ Object.assign(NeonProjects.prototype, {
         },
       });
     cmd('plan-gantt', 'Project: open Planning', 'gantt');
+    // fork: the task editor from a project note's right-click menu (the task under the cursor, or a new one)
+    this.registerEvent(
+      this.app.workspace.on('editor-menu', (menu, editor, info) => {
+        const file = info && info.file;
+        const scope = file && planScopeOf(this.app, file);
+        if (!scope) return;
+        const n = editor.getCursor().line;
+        const t = planTask(editor.getLine(n));
+        const isTask = !!t && (!!t.id || planHasTag(t.raw, NEON_PLAN.taskTag));
+        menu.addItem((i) =>
+          i
+            .setTitle(isTask ? 'Planning: edit this task' : 'Planning: new task here')
+            .setIcon('calendar-range')
+            .onClick(() => this.openTaskEditor({ scope, file, line: isTask ? n : null, at: n })),
+        );
+      }),
+    );
   },
   /** Adds or removes the header buttons so they match each open note. */
   syncPlanButtons() {
@@ -11298,6 +11913,33 @@ Object.assign(NeonProjects.prototype, {
       const had = this.planButtons && this.planButtons.get(leaf.view);
       if (had) had.els.forEach((e) => e.remove());
     }
+  },
+  /**
+   * Opens the task editor: the task on `line` of `file`, or a new task (its phase: the heading above `at`).
+   * view: the Planning view it came from (its tasks are used, and it is refreshed after saving).
+   */
+  async openTaskEditor({ scope, file, line = null, at = null, phase = null, view = null }) {
+    const tasks = view ? view.tasks : await planCollect(this.app, scope);
+    const open = this.app.workspace.getLeavesOfType('markdown').find((l) => l.view.file === file && l.view.editor);
+    const text = open ? open.view.editor.getValue() : await this.app.vault.cachedRead(file);
+    const lines = text.split('\n');
+    const above = (n) => (planHeadings(lines).filter((h) => h.line < n).pop() || {}).text || '';
+    let task = null;
+    if (line != null) {
+      const want = planTask(lines[line]);
+      task = tasks.find((t) => t.file === file && t.line === line && want && t.raw === want.raw) || (want && tasks.find((t) => t.file === file && (want.id ? t.id === want.id : t.raw === want.raw))) || null;
+      if (!task && want) task = Object.assign(want, { file, line, phase: above(line) }); // not read into the plan yet
+    }
+    new PlanTaskModal(this.app, {
+      scope,
+      file,
+      text,
+      tasks: task && !tasks.includes(task) ? [...tasks, task] : tasks,
+      task,
+      phase: phase != null ? phase : at != null ? above(at + 1) : '',
+      base: planBaseDate(this.app, scope),
+      onSaved: () => view && view.refresh(),
+    }).open();
   },
   /** Opens the plan in a tab: the one already showing this plan, else a new tab. */
   async openPlan(scope, mode = 'gantt') {

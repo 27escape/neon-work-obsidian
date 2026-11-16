@@ -54,16 +54,18 @@ function planFieldAt(rest) {
   return m ? m.index : rest.length;
 }
 
+/** The line text with its duration set to `days` (pure); null removes it; its place in the line is kept. */
+function planDurRest(rest, days) {
+  const field = days == null ? '' : `[duration:: ${days}d]`;
+  const re = /\s*\[duration::[^\]]*\]/iu;
+  if (re.test(rest)) return rest.replace(re, field ? ` ${field}` : '').replace(/^\s+/, '');
+  if (!field) return rest;
+  const at = planFieldAt(rest);
+  return `${rest.slice(0, at)} ${field}${rest.slice(at)}`;
+}
 /** The duration set to `days` working days ([duration:: Nd]); null removes it. Its place in the line is kept. */
 function planSetDuration(text, t, days) {
-  return planEditLine(text, t, (rest, box) => {
-    const field = days == null ? '' : `[duration:: ${days}d]`;
-    const re = /\s*\[duration::[^\]]*\]/iu;
-    if (re.test(rest)) return { rest: rest.replace(re, field ? ` ${field}` : '').replace(/^\s+/, ''), box };
-    if (!field) return { rest, box };
-    const at = planFieldAt(rest);
-    return { rest: `${rest.slice(0, at)} ${field}${rest.slice(at)}`, box };
-  });
+  return planEditLine(text, t, (rest, box) => ({ rest: planDurRest(rest, days), box }));
 }
 
 /** The #milestone tag on or off; a milestone has no length, so its duration field goes. */
@@ -144,7 +146,8 @@ Object.assign(PlanView.prototype, {
   taskMenu(e, t) {
     if (e.preventDefault) e.preventDefault();
     const m = new Menu();
-    m.addItem((i) => i.setTitle('Open the task').setIcon('file-text').onClick(() => openFile(this.app, t.file, null, t.line)));
+    if (!t.external) m.addItem((i) => i.setTitle('Edit…').setIcon('pencil').onClick(() => this.openTask(null, t)));
+    m.addItem((i) => i.setTitle('Open the task in its note').setIcon('file-text').onClick(() => openFile(this.app, t.file, null, t.line)));
     if (t.external) return m.showAtMouseEvent(e);
     m.addSeparator();
     for (const [, label, box] of PLAN_COLUMNS)

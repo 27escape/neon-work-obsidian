@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 
-const P = load('neon-tickets', ['planTask', 'planHasTag', 'planIndex', 'planState', 'planSchedule', 'planWorkdays', 'planCounts', 'planSummaryText', 'planFolderOf', 'planScopeOf', 'NEON_PLAN', 'NEON_PROJECTS', 'planWorkdaysBetween']);
+const P = load('neon-tickets', ['planTask', 'planHasTag', 'planIndex', 'planState', 'planSchedule', 'planWorkdays', 'planCounts', 'planSummaryText', 'planFolderOf', 'planScopeOf', 'NEON_PLAN', 'NEON_PROJECTS', 'planWorkdaysBetween', 'planBlockers']);
 const T = (line, at) => P.planTask(line, at);
 
 test('plan task: status, id, dependencies, duration and dates', () => {
@@ -32,18 +32,36 @@ test('plan tags: whole tags from the comma list', () => {
   assert.equal(P.planHasTag('do it #task', ''), false);
 });
 
-test('plan state: ready, blocked, doing, done; unknown ids do not block', () => {
+test('plan state: ready, waiting, doing, done; unknown ids do not hold a task up', () => {
   const a = T('- [ ] a 🆔 a');
   const b = T('- [ ] b 🆔 b ⛔ a');
   const c = T('- [/] c 🆔 c ⛔ a');
   const d = T('- [ ] d ⛔ nowhere');
   const { byId } = P.planIndex([a, b, c, d]);
   assert.equal(P.planState(a, byId), 'ready');
-  assert.equal(P.planState(b, byId), 'blocked');
+  assert.equal(P.planState(b, byId), 'waiting');
   assert.equal(P.planState(c, byId), 'doing');
   assert.equal(P.planState(d, byId), 'ready');
   a.status = 'cancelled';
   assert.equal(P.planState(b, byId), 'ready');
+});
+
+test('blocked: an overdue or #blocked task upstream, passed down the chain; waiting when upstream is on time', () => {
+  const a = T('- [ ] a 🆔 a 📅 2026-11-10');
+  const b = T('- [ ] b 🆔 b ⛔ a');
+  const c = T('- [ ] c 🆔 c ⛔ b');
+  const s = T('- [ ] supplier 🆔 s #blocked');
+  const e = T('- [ ] e 🆔 e ⛔ s');
+  const { byId } = P.planIndex([a, b, c, s, e]);
+  const today = '2026-11-16';
+  assert.equal(P.planState(a, byId, today), 'ready'); // overdue itself, not blocked
+  assert.equal(P.planState(b, byId, today), 'blocked');
+  assert.equal(P.planState(c, byId, today), 'blocked'); // A's delay reaches C
+  assert.equal(P.planBlockers(c, byId, today)[0], a); // the root cause
+  assert.equal(P.planState(s, byId, today), 'blocked'); // tagged
+  assert.equal(P.planState(e, byId, today), 'blocked');
+  assert.equal(P.planState(c, byId, '2026-11-01'), 'waiting'); // before the due date: on time
+  assert.equal(P.planState(b, byId), 'waiting'); // no today: nothing is overdue
 });
 
 test('schedule: starts after dependencies, critical path, loops and missing ids reported', () => {
@@ -84,9 +102,9 @@ test('counts and summary text leave outside tasks out', () => {
     Object.assign(T('- [ ] outside 📅 2026-11-01'), { external: true }),
   ];
   const c = P.planCounts(tasks, '2026-11-16');
-  assert.deepEqual({ ...c }, { total: 4, ready: 1, doing: 1, blocked: 1, done: 1, overdue: 1, week: 1 });
-  assert.equal(P.planSummaryText(c), '1 overdue · 1 due this week · 1 ready · 1 in progress · 1 blocked · 1/4 done');
-  assert.equal(P.planSummaryText(c, true), '1 overdue · 1 due this week');
+  assert.deepEqual({ ...c }, { total: 4, ready: 1, waiting: 0, doing: 1, blocked: 1, done: 1, overdue: 1, week: 1 });
+  assert.equal(P.planSummaryText(c), '1 overdue · 1 due this week · 1 blocked · 1 ready · 1 in progress · 1/4 done');
+  assert.equal(P.planSummaryText(c, true), '1 overdue · 1 due this week · 1 blocked');
   assert.equal(P.planSummaryText({ total: 0 }), '');
 });
 

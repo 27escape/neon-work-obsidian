@@ -62,7 +62,7 @@ function planCssHex(name, fallback) {
   return hex || fallback;
 }
 /** Text colour on a filled kind colour: dark on orange and grey, white on the rest. */
-const planInk = (kind) => (kind === 'soon' || kind === 'outside' ? '#000000' : '#ffffff');
+const planInk = (kind) => (kind === 'soon' || kind === 'outside' || kind === 'waiting' ? '#000000' : '#ffffff');
 /** Fill an element with a kind's colour, as the Gantt bars and graph boxes are. */
 function planFill(el, kind) {
   const c = planColour(kind);
@@ -73,7 +73,13 @@ function planFill(el, kind) {
 /** The colour in use for a bar kind (Obsidian's colour variables, so it follows the theme), as #rrggbb. */
 function planColour(kind) {
   const k = PLAN_KINDS.find((x) => x[0] === kind) || PLAN_KINDS[0];
-  return planCssHex(k[2], k[3]);
+  const c = planCssHex(k[2], k[3]);
+  return kind === 'waiting' ? planMix(c, planCssHex('--background-primary', '#ffffff'), 0.55) : c;
+}
+/** #rrggbb between two colours: share of b (0–1). Pure. */
+function planMix(a, b, share) {
+  const n = (h, i) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+  return '#' + [0, 1, 2].map((i) => Math.round(n(a, i) * (1 - share) + n(b, i) * share).toString(16).padStart(2, '0')).join('');
 }
 
 /**
