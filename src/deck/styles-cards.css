@@ -52,7 +52,7 @@
   color: var(--nd-muted);
   cursor: pointer;
   white-space: nowrap;
-  border-radius: 8px;
+  border-radius: var(--nd-radius-xs);
 }
 .nd-crumb:hover {
   color: var(--nd-text);
@@ -184,7 +184,7 @@
   place-items: center;
   width: 38px;
   height: 38px;
-  border-radius: 12px;
+  border-radius: var(--nd-radius-s);
   color: var(--folder-accent);
   background: color-mix(in srgb, var(--folder-accent) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--folder-accent) 35%, transparent);
@@ -231,13 +231,13 @@
   margin-top: 7px;
   height: 4px;
   max-width: 230px;
-  border-radius: 99px;
+  border-radius: var(--nd-radius-pill);
   background: var(--nd-surface2);
   overflow: hidden;
 }
 .nd-ci-progress-fill {
   height: 100%;
-  border-radius: 99px;
+  border-radius: var(--nd-radius-pill);
   background: var(--nd-cat-school);
   transition: width 0.6s var(--nd-ease);
 }
@@ -245,7 +245,7 @@
   --tag-accent: var(--nd-muted);
   flex: none;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   font: 600 11px var(--nd-mono);
   color: var(--tag-accent);
   background: color-mix(in srgb, var(--tag-accent) 14%, transparent);
@@ -300,7 +300,7 @@
   color: var(--nd-accent);
   background: color-mix(in srgb, var(--nd-accent) 12%, transparent);
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   white-space: nowrap;
 }
 .nd-ci-links {
@@ -454,7 +454,7 @@
   height: auto;
   padding: 7px 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--nd-radius-xs);
   background: transparent;
   box-shadow: none;
   color: var(--nd-muted);
@@ -499,7 +499,7 @@
   gap: 10px;
   padding: 7px 10px;
   margin-bottom: 6px;
-  border-radius: 14px;
+  border-radius: calc(var(--nd-radius-s) + 2px);
   border: 1px solid var(--nd-line);
   background: var(--nd-surface);
   cursor: pointer;
@@ -571,7 +571,7 @@
   min-height: 44px;
   padding: 7px 10px;
   margin-bottom: 5px;
-  border-radius: 12px;
+  border-radius: var(--nd-radius-s);
   border: 1px solid var(--nd-line);
   border-left: 3px solid var(--row-accent);
   background: var(--nd-surface);
@@ -604,8 +604,8 @@
   background:
     radial-gradient(circle, color-mix(in srgb, var(--row-tint) 38%, transparent) 1.1px, transparent 1.8px) 0 0 / 8px 8px,
     color-mix(in srgb, var(--row-tint) 9%, transparent);
-  -webkit-mask-image: linear-gradient(to left, #000 0%, rgba(0, 0, 0, 0.6) 30%, transparent 72%);
-  mask-image: linear-gradient(to left, #000 0%, rgba(0, 0, 0, 0.6) 30%, transparent 72%);
+  -webkit-mask-image: linear-gradient(to left, black 0%, rgba(0, 0, 0, 0.6) 30%, transparent 72%);
+  mask-image: linear-gradient(to left, black 0%, rgba(0, 0, 0, 0.6) 30%, transparent 72%);
 }
 .nd-side-row.is-drop {
   outline: 2px dashed var(--nd-go);
@@ -699,8 +699,8 @@
   background:
     radial-gradient(circle, color-mix(in srgb, var(--tone) 14%, transparent) 1px, transparent 1.6px) 0 0 / 9px 9px,
     color-mix(in srgb, var(--tone) 4%, transparent);
-  -webkit-mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, #000 100%);
-  mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, #000 100%);
+  -webkit-mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, black 100%);
+  mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, black 100%);
 }
 /* folders: the same dots, fainter, fading in toward the right edge */
 .nd-ci-folder::before {
@@ -708,8 +708,8 @@
     radial-gradient(circle, color-mix(in srgb, var(--tone) 8%, transparent) 1px, transparent 1.6px) 0 0 / 9px 9px,
     color-mix(in srgb, var(--tone) 2%, transparent);
   /* only toward the right edge */
-  -webkit-mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, #000 100%);
-  mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, #000 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, black 100%);
+  mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, black 100%);
 }
 /* notes: a soft smooth edge glow in their colour (folders keep the dotted one) */
 .nd-ci-note::before {
@@ -779,7 +779,7 @@
   color: var(--nd-muted);
   text-align: center;
   cursor: pointer;
-  border-radius: 12px;
+  border-radius: var(--nd-radius-s);
 }
 .nd-side-more:hover {
   color: var(--nd-text);

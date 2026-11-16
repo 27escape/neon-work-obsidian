@@ -75,7 +75,7 @@
   color: var(--nd-on-accent);
   background: var(--nd-accent);
   padding: 5px 10px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   box-shadow: 0 0 16px -2px color-mix(in srgb, var(--nd-accent) 45%, transparent);
   white-space: nowrap;
 }
@@ -252,7 +252,7 @@
   font: 700 11px var(--nd-mono);
   color: var(--nd-accent);
   background: color-mix(in srgb, var(--nd-accent) 15%, transparent);
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   padding: 2px 8px;
 }
 .nd-card-badge:empty {
@@ -295,7 +295,7 @@
   --tile-accent: var(--nd-text);
   position: relative;
   padding: 11px 12px;
-  border-radius: 14px;
+  border-radius: calc(var(--nd-radius-s) + 2px);
   border: 1px solid var(--nd-line);
   background: linear-gradient(160deg, color-mix(in srgb, var(--nd-text) 4%, var(--nd-surface2)), var(--nd-surface2));
   min-width: 0;
@@ -674,7 +674,7 @@
 .nd-claude-head { margin: 6px 0 2px; font-size: var(--font-ui-smaller); color: var(--nd-muted, var(--text-muted)); text-transform: uppercase; letter-spacing: 0.06em; }
 .nd-claude-row { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: var(--nd-radius-s, 6px); cursor: pointer; min-width: 0; }
 .nd-claude-row:hover { background: var(--nd-sel, var(--background-modifier-hover)); }
-.nd-claude-v { flex: none; padding: 0 6px; border-radius: 999px; font-size: var(--font-ui-smaller); font-weight: 600; --cl: var(--nd-warn, var(--text-warning)); color: var(--cl); border: 1px solid color-mix(in srgb, var(--cl) 45%, transparent); }
+.nd-claude-v { flex: none; padding: 0 6px; border-radius: var(--nd-radius-pill); font-size: var(--font-ui-smaller); font-weight: 600; --cl: var(--nd-warn, var(--text-warning)); color: var(--cl); border: 1px solid color-mix(in srgb, var(--cl) 45%, transparent); }
 .nd-claude-v.is-review { --cl: var(--nd-info, var(--text-accent)); }
 .nd-claude-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nd-claude-where { flex: none; color: var(--nd-faint, var(--text-faint)); font-size: var(--font-ui-smaller); }

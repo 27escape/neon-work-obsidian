@@ -55,7 +55,7 @@
   left: 12px;
   bottom: 10px;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   font-size: 12px;
   color: var(--text-faint);
   background: color-mix(in srgb, var(--background-primary) 75%, transparent);
@@ -110,7 +110,7 @@
 }
 .nd-diversity {
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: calc(var(--nd-radius-s) + 2px);
   color: var(--nd-on-go);
   background: var(--nd-go);
 }
@@ -175,7 +175,7 @@
   gap: 10px;
   align-items: center;
   padding: 8px;
-  border-radius: 12px;
+  border-radius: var(--nd-radius-s);
   cursor: pointer;
   border: 1px solid transparent;
   transition: background var(--nd-fast) ease, border-color var(--nd-fast) ease;
@@ -207,7 +207,7 @@
 }
 .nd-topic-meter {
   height: 5px;
-  border-radius: 99px;
+  border-radius: var(--nd-radius-pill);
   background: var(--nd-surface2);
   margin: 4px 0 2px;
   overflow: hidden;
@@ -216,7 +216,7 @@
   height: 100%;
   width: var(--w);
   background: var(--topic);
-  border-radius: 99px;
+  border-radius: var(--nd-radius-pill);
 }
 .nd-topic-share {
   font: 12px var(--nd-mono);
@@ -224,7 +224,7 @@
 }
 .nd-gap {
   padding: 10px;
-  border-radius: 14px;
+  border-radius: calc(var(--nd-radius-s) + 2px);
   border: 1px dashed var(--nd-line-strong);
   display: flex;
   flex-direction: column;
@@ -246,7 +246,7 @@
 }
 .nd-gap-side {
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   background: color-mix(in srgb, var(--topic) 22%, transparent);
   border: 1px solid var(--topic);
 }
@@ -268,7 +268,7 @@
 }
 .nd-chip {
   padding: 2px 9px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   border: 1px solid var(--nd-line);
   background: var(--nd-surface2);
   color: var(--nd-text);
@@ -288,7 +288,7 @@
   align-items: center;
   gap: 5px;
   font: 700 12px var(--nd-mono);
-  border-radius: 8px;
+  border-radius: var(--nd-radius-xs);
   padding: 0 6px;
 }
 .nd-status-icon {
@@ -510,7 +510,7 @@ body.nd-themed .notice {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
 }
 .nd-done-chip.is-done {
   color: var(--nd-go);

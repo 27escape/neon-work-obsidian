@@ -5,10 +5,10 @@
 .nd-island,
 .nd-ticker {
   /* dark: the theme's deepest background, darker still, with a breath of its accent */
-  --nd-fluid: color-mix(in srgb, color-mix(in srgb, var(--nd-bg2, #111215) 55%, #000) 92%, var(--nd-accent, #888));
+  --nd-fluid: color-mix(in srgb, color-mix(in srgb, var(--nd-bg2, #111215) 55%, black) 92%, var(--nd-accent, #888));
   --nd-fluid-text: var(--nd-text, #eceef2);
-  --nd-fluid-hi: color-mix(in srgb, var(--nd-fluid) 84%, #fff);
-  --nd-fluid-lo: color-mix(in srgb, var(--nd-fluid) 65%, #000);
+  --nd-fluid-hi: color-mix(in srgb, var(--nd-fluid) 84%, white);
+  --nd-fluid-lo: color-mix(in srgb, var(--nd-fluid) 65%, black);
   --nd-fluid-muted: color-mix(in srgb, var(--nd-fluid-text) 60%, transparent);
   --nd-fluid-glass: color-mix(in srgb, var(--nd-fluid-text) 7%, transparent);
   --nd-fluid-edge: color-mix(in srgb, var(--nd-fluid-text) 11%, transparent);
@@ -53,7 +53,7 @@ body.theme-light .nd-ticker {
 .nd-goo-core {
   position: absolute;
   inset: 0;
-  border-radius: 26px;
+  border-radius: calc(var(--nd-radius) + 4px);
   background: var(--nd-fluid);
   transition: transform var(--nd-med, 250ms) var(--nd-ease, ease);
 }
@@ -61,7 +61,7 @@ body.theme-light .nd-ticker {
   position: absolute;
   inset: 0;
   z-index: 0;
-  border-radius: 26px;
+  border-radius: calc(var(--nd-radius) + 4px);
   pointer-events: none;
   background:
     radial-gradient(120% 90% at 22% -30%, rgba(255, 255, 255, 0.16), transparent 52%),
@@ -138,7 +138,7 @@ body.theme-light .nd-ticker {
 .nd-island .nd-island-input {
   height: 32px;
   border: 1px solid var(--nd-fluid-edge);
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   background-color: var(--nd-fluid-glass);
   color: var(--nd-fluid-text);
   box-shadow: none;
@@ -178,7 +178,7 @@ body.theme-light .nd-ticker {
   max-width: 100%;
   padding: 4px 4px 4px 11px;
   border: 1px solid var(--nd-fluid-edge);
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
   color: var(--nd-fluid-text);
   font-size: 13px;
@@ -263,7 +263,7 @@ body.theme-light .nd-ticker {
   max-width: 100%;
   margin: 0 auto;
   padding: 6px 18px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   background:
     radial-gradient(120% 140% at 25% -60%, rgba(255, 255, 255, 0.14), transparent 55%),
     linear-gradient(180deg, var(--nd-fluid-hi), var(--nd-fluid) 45%, var(--nd-fluid-lo));

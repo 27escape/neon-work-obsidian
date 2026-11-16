@@ -20,6 +20,8 @@ body {
   --nd-med: 250ms;
   --nd-radius: 22px;
   --nd-radius-s: 12px;
+  --nd-radius-xs: 8px;
+  --nd-radius-pill: 999px;
   --nd-border: 1px;
   --nd-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.8);
   --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.06);
