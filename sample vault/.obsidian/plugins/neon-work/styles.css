@@ -5324,6 +5324,236 @@ body:not(.nd-themed) .nd-empty {
     stroke-dashoffset: 0;
   }
 }
+/* @css src/tickets/styles-plan.css */
+/* Project plans (fork): task counts on the project rows */
+.tk-plan.is-overdue {
+  color: var(--nd-accent);
+}
+.tk-plan.is-short {
+  margin-left: 0;
+  font-size: inherit;
+}
+
+/* the Plan view */
+.np-plan {
+  padding: 18px 22px 40px;
+}
+.np-plan .np-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.np-plan .np-title {
+  font-size: 1.5em;
+  font-weight: 600;
+  color: var(--nd-text);
+}
+.np-plan .np-sum {
+  color: var(--nd-faint);
+  font-size: 0.9em;
+}
+.np-plan .np-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.np-plan .is-hidden {
+  display: none;
+}
+.np-plan .np-issue {
+  color: var(--nd-accent);
+  font-size: 0.9em;
+  margin-bottom: 4px;
+}
+.np-plan .np-chart {
+  overflow-x: auto;
+}
+.np-plan .np-chart svg {
+  max-width: none;
+}
+.np-plan .np-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+.np-plan .np-table th {
+  text-align: left;
+  color: var(--nd-faint);
+  font-weight: 500;
+  border-bottom: 1px solid var(--nd-line);
+  padding: 4px 6px;
+}
+.np-plan .np-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--nd-line) 50%, transparent);
+  vertical-align: top;
+}
+.np-plan .np-phase td {
+  padding-top: 14px;
+  font-weight: 600;
+  color: var(--nd-text);
+  border-bottom: 1px solid var(--nd-line);
+}
+.np-plan .np-crit {
+  color: var(--nd-accent);
+  width: 1em;
+}
+.np-plan .np-id,
+.np-plan .np-file {
+  color: var(--nd-faint);
+  font-family: var(--font-monospace);
+  font-size: 0.9em;
+}
+.np-plan .np-num {
+  text-align: right;
+}
+.np-plan .np-row.is-done .np-name a {
+  text-decoration: line-through;
+  color: var(--nd-faint);
+}
+.np-plan .np-row.is-external {
+  opacity: 0.65;
+}
+.np-plan .np-state {
+  padding: 1px 7px;
+  border-radius: var(--nd-radius-s);
+  font-size: 0.85em;
+  border: 1px solid var(--nd-line);
+  white-space: nowrap;
+}
+.np-plan .np-state.is-ready {
+  color: var(--nd-go);
+}
+.np-plan .np-state.is-doing {
+  color: var(--nd-accent);
+}
+.np-plan .np-state.is-blocked,
+.np-plan .np-state.is-done {
+  color: var(--nd-faint);
+}
+
+/* buttons on project notes: an icon and a word */
+.view-action.np-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  padding: 0 6px;
+}
+.view-action.np-action .np-action-label {
+  font-size: var(--font-ui-small);
+}
+
+/* colour key */
+.np-plan .np-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 10px;
+  font-size: 0.85em;
+  color: var(--nd-faint);
+}
+.np-plan .np-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.np-plan .np-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.np-plan .np-key-crit {
+  border: 2px solid var(--text-normal);
+  border-radius: 3px;
+  padding: 0 5px;
+}
+
+/* board: a column per state, a row per phase */
+.np-plan .np-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 6px 10px;
+  align-items: start;
+}
+.np-plan .np-col-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 2px solid var(--nd-line);
+  position: sticky;
+  top: 0;
+  background: var(--background-primary);
+  z-index: 1;
+}
+.np-plan .np-col-n {
+  color: var(--nd-faint);
+  font-weight: 400;
+}
+.np-plan .np-lane {
+  grid-column: 1 / -1;
+  margin-top: 10px;
+  color: var(--nd-faint);
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.np-plan .np-cell {
+  min-height: 34px;
+  padding: 4px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--nd-line) 25%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.np-plan .np-cell.is-over {
+  outline: 2px dashed var(--nd-accent);
+}
+.np-plan .np-cell.is-blocked {
+  background: color-mix(in srgb, var(--nd-line) 12%, transparent);
+}
+.np-plan .np-card {
+  background: var(--background-primary);
+  border: 1px solid var(--nd-line);
+  border-left: 4px solid var(--nd-line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: grab;
+  font-size: 0.9em;
+}
+.np-plan .np-card.is-dragging {
+  opacity: 0.4;
+}
+.np-plan .np-card.is-done .np-card-text,
+.np-plan .np-card.is-cancelled .np-card-text {
+  text-decoration: line-through;
+  color: var(--nd-faint);
+}
+.np-plan .np-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 0.85em;
+  color: var(--nd-faint);
+}
+.np-plan .np-card-meta .is-overdue {
+  color: var(--color-red);
+}
+.np-plan .np-card-meta .is-soon {
+  color: var(--color-orange);
+}
+
+/* graph: boxes open their task */
+.np-plan .np-graph .np-node {
+  cursor: pointer;
+}
 /* @src neon-research/styles.css */
 /* @css src/research/styles.css */
 /* NEON RESEARCH — uses the --nd-* tokens from Neon Deck */

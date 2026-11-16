@@ -23,24 +23,24 @@ const PLAN_KINDS = [
 const planClip = (s, max) => (s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s);
 
 /**
- * Kind of a task's bar: outside, done, overdue (open, due or planned to finish before today), soon (within a week),
- * doing, blocked or ready. finish: the bar's last day (date mode) or null (weeks: only a 📅 due date counts).
+ * Kind of a task's bar: outside, done, overdue (its 📅 date has passed, or work in progress was planned to finish
+ * before today), soon (📅 within a week), doing, blocked or ready. finish: the bar's last day (date mode) or null.
  */
 function planBarKind(t, state, today, finish = null) {
   if (t.external) return 'outside';
   if (state === 'done') return 'done';
-  const due = t.due || finish;
-  if (due && today && due < today) return 'overdue';
-  if (due && today && due <= ymdAdd(today, PLAN_SOON_DAYS)) return 'soon';
+  if (today && ((t.due && t.due < today) || (state === 'doing' && finish && finish < today))) return 'overdue';
+  if (today && t.due && t.due <= ymdAdd(today, PLAN_SOON_DAYS)) return 'soon';
   return state === 'doing' ? 'doing' : state === 'blocked' ? 'blocked' : 'ready';
 }
 
 /** { text, sched, bars: [{ id, kind, crit }] }: Mermaid gantt text. base: the project's start date or null. */
 function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45 } = {}) {
-  const sched = planSchedule(tasks);
-  const { byId } = planIndex(tasks);
   const relative = weeks || !base;
   const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
+  // with real dates, work not started yet is forecast from today, not from the project's start
+  const sched = planSchedule(tasks, { notBefore: !relative && today ? planWorkdaysBetween(from, today) : 0 });
+  const { byId } = planIndex(tasks);
   const lines = ['gantt', '  dateFormat YYYY-MM-DD', `  axisFormat ${relative ? 'Wk %W' : '%d %b'}`, '  tickInterval 1week', '  weekday monday', '  excludes weekends', `  todayMarker ${!relative && today ? 'on' : 'off'}`];
   const groups = new Map();
   for (const r of sched.rows) {

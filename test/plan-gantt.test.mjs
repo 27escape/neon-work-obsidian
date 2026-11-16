@@ -53,7 +53,8 @@ test('bar kinds: done, overdue, due soon, in progress, blocked, ready, outside',
   const k = (line, state, finish = null, extra = {}) => P.planBarKind(Object.assign(T(line), extra), state, '2026-11-16', finish);
   assert.equal(k('- [x] a', 'done'), 'done');
   assert.equal(k('- [ ] a 📅 2026-11-13', 'ready'), 'overdue');
-  assert.equal(k('- [ ] a', 'blocked', '2026-11-13'), 'overdue'); // planned to finish before today
+  assert.equal(k('- [/] a', 'doing', '2026-11-13'), 'overdue'); // in progress, planned to finish before today
+  assert.equal(k('- [ ] a', 'ready', '2026-11-18'), 'ready'); // a forecast finish alone is not a due date
   assert.equal(k('- [/] a 📅 2026-11-20', 'doing'), 'soon');
   assert.equal(k('- [/] a', 'doing', '2026-12-20'), 'doing');
   assert.equal(k('- [ ] a', 'blocked'), 'blocked');

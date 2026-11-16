@@ -32,4 +32,5 @@ attendees:
 
 - [ ] #task share the workshop write-up with [[@Sofia Reyes]] ➕ 2026-11-10 📅 2027-01-08
 - [/] #task gather portal analytics ➕ 2026-11-10 🛫 2026-11-11 📅 2027-02-05
+- [ ] #task get the service desk licence quote from procurement 🆔 glx-quote ➕ 2026-11-10 📅 2026-11-24
 

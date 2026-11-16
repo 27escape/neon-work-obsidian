@@ -962,6 +962,260 @@ function timelinePanel(app, parent, component, { build, zoom = '12m', onZoom, em
   redraw();
   return { redraw, el: wrap };
 }
+/* @src src/shared/plan.js */
+/* ---- Project plans (fork): task lines with 🆔 ids, ⛔ dependencies and [duration:: …] (pure) -----------------
+ * A plan is the tasks of one project (see plan-scope.js). These functions only read text and work out the plan:
+ * which tasks are ready or blocked, a schedule in working days from durations and dependencies, and the critical
+ * path (the chain with no slack). Ideas from the Project Planner plugin (Harrison Milburn, MIT); no code taken.
+ * Dates are YYYY-MM-DD strings throughout. */
+
+const PLAN_BOX_RE = /^\s*(?:[-*+]|\d+[.)])\s+\[(.)\]\s+(.*)$/u;
+// checkbox character → plan status; note-style boxes ([n], [i], [*], …) are not tasks
+const PLAN_STATES = { ' ': 'todo', '/': 'doing', '!': 'todo', '?': 'todo', '>': 'todo', '<': 'todo', x: 'done', X: 'done', '-': 'cancelled' };
+
+/** A task from one line (the text after the checkbox is `raw`), or null. `at` adds file, line, phase… */
+function planTask(line, at = {}) {
+  const m = String(line || '').replace(/\r$/, '').match(PLAN_BOX_RE);
+  if (!m || !(m[1] in PLAN_STATES) || !m[2].trim()) return null;
+  const raw = m[2];
+  const date = (sign) => (raw.match(new RegExp(`${sign}\\s*(\\d{4}-\\d{2}-\\d{2})`, 'u')) || [])[1] || null;
+  const id = (raw.match(/🆔\s*([\w-]+)/u) || [])[1] || null;
+  const dm = raw.match(/⛔️?\s*([\w-]+(?:\s*,\s*[\w-]+)*)/u);
+  const deps = dm ? [...new Set(dm[1].split(',').map((x) => x.trim()).filter(Boolean))] : [];
+  const du = raw.match(/\[duration::\s*(\d+(?:\.\d+)?)\s*(d|days?|w|weeks?)?\s*\]/iu);
+  const days = du ? Math.max(0, Math.round(parseFloat(du[1]) * (/^w/i.test(du[2] || '') ? 5 : 1))) : null;
+  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
+}
+
+/** Does the text carry one of the task tags ("#task, #todo"); whole tags, any case. */
+function planHasTag(raw, tags) {
+  return String(tags || '')
+    .split(',')
+    .map((t) => t.trim().replace(/^#?/, '#'))
+    .filter((t) => t.length > 1)
+    .some((t) => new RegExp(`(^|\\s)${t.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}(?=$|\\s)`, 'iu').test(raw));
+}
+
+/** id → task (the first one wins, so tasks of the project come before outside ones), and the ids used twice. */
+function planIndex(tasks) {
+  const byId = new Map();
+  const dups = new Set();
+  for (const t of tasks) {
+    if (!t.id) continue;
+    if (byId.has(t.id)) dups.add(t.id);
+    else byId.set(t.id, t);
+  }
+  return { byId, dups };
+}
+
+const planClosed = (t) => t.status === 'done' || t.status === 'cancelled';
+
+/** done | doing | blocked (a task it depends on is still open) | ready. Unknown ids don't block. */
+function planState(t, byId) {
+  if (planClosed(t)) return 'done';
+  if (t.status === 'doing') return 'doing';
+  return t.deps.some((d) => byId.has(d) && !planClosed(byId.get(d))) ? 'blocked' : 'ready';
+}
+
+/** Working days a task takes: its duration, else 1 (as Project Planner draws undated tasks); cancelled: 0. */
+const planDays = (t) => (t.status === 'cancelled' ? 0 : t.days == null ? 1 : t.days);
+
+/**
+ * Schedule in working days from the start (day 0): each task starts when the last task it depends on ends. With
+ * notBefore (today, as a working-day offset), a task not started yet ([ ]) starts no earlier than today: a forecast,
+ * so only a 📅 date that has passed (or work in progress running late) makes a task overdue.
+ * Returns { rows: [{ task, es, ef, slack, crit }] in the tasks' order, length, cycles: [task], missing: [{ task, id }],
+ * dups: [id] }. Tasks in a dependency loop are reported and scheduled as if the loop's last link were absent.
+ */
+function planSchedule(tasks, { notBefore = 0 } = {}) {
+  const { byId, dups } = planIndex(tasks);
+  const n = tasks.length;
+  const pos = new Map(tasks.map((t, i) => [t, i]));
+  const preds = tasks.map((t) => t.deps.filter((d) => byId.has(d)).map((d) => pos.get(byId.get(d))));
+  const succs = tasks.map(() => []);
+  preds.forEach((ps, i) => ps.forEach((p) => succs[p].push(i)));
+  const missing = [];
+  for (const t of tasks) for (const d of t.deps) if (!byId.has(d)) missing.push({ task: t, id: d });
+  const cycles = new Set();
+  const es = new Array(n).fill(0);
+  const seen = new Array(n).fill(0); // 0 new, 1 on the path, 2 done
+  const finish = (i) => {
+    if (seen[i] === 2) return es[i] + planDays(tasks[i]);
+    if (seen[i] === 1) {
+      cycles.add(i);
+      return 0;
+    }
+    seen[i] = 1;
+    let s = 0;
+    for (const p of preds[i]) s = Math.max(s, finish(p));
+    if (tasks[i].status === 'todo') s = Math.max(s, notBefore);
+    es[i] = s;
+    seen[i] = 2;
+    return s + planDays(tasks[i]);
+  };
+  let length = 0;
+  for (let i = 0; i < n; i++) length = Math.max(length, finish(i));
+  const lf = new Array(n).fill(null);
+  const late = (i, path = new Set()) => {
+    if (lf[i] != null) return lf[i] - planDays(tasks[i]);
+    if (path.has(i)) return length;
+    path.add(i);
+    let f = length;
+    for (const s of succs[i]) f = Math.min(f, late(s, path));
+    path.delete(i);
+    lf[i] = f;
+    return f - planDays(tasks[i]);
+  };
+  for (let i = 0; i < n; i++) late(i);
+  const rows = tasks.map((task, i) => {
+    const ef = es[i] + planDays(task);
+    const slack = Math.max(0, lf[i] - ef);
+    return { task, es: es[i], ef, slack, crit: slack === 0 && n > 0 };
+  });
+  return { rows, length, cycles: [...cycles].map((i) => tasks[i]), missing, dups: [...dups] };
+}
+
+/** The date `n` working days after a date (a weekend date first moves to the Monday). */
+function planWorkdays(ymd, n = 0) {
+  const t = new Date(`${ymd}T00:00:00Z`);
+  const weekday = () => t.getUTCDay() !== 0 && t.getUTCDay() !== 6;
+  while (!weekday()) t.setUTCDate(t.getUTCDate() + 1);
+  for (let k = n; k > 0; ) {
+    t.setUTCDate(t.getUTCDate() + 1);
+    if (weekday()) k--;
+  }
+  return t.toISOString().slice(0, 10);
+}
+
+/** Working days from one date to a later one (0 when b is not after a). */
+function planWorkdaysBetween(a, b) {
+  let n = 0;
+  for (let d = planWorkdays(a, 0); d < b && n < 5000; d = planWorkdays(d, 1)) n++;
+  return n;
+}
+
+/** Counts for a project's own tasks (outside ones left out): total, ready, doing, blocked, done, overdue, week. */
+function planCounts(tasks, today) {
+  const { byId } = planIndex(tasks);
+  const week = ymdAdd(today, 7);
+  const c = { total: 0, ready: 0, doing: 0, blocked: 0, done: 0, overdue: 0, week: 0 };
+  for (const t of tasks) {
+    if (t.external) continue;
+    c.total++;
+    const s = planState(t, byId);
+    c[s]++;
+    if (s === 'done') continue;
+    const d = t.due || t.scheduled;
+    if (d && d < today) c.overdue++;
+    else if (d && d <= week) c.week++;
+  }
+  return c;
+}
+
+/** "2 overdue · 3 due this week · 4 ready · 1 in progress · 12 blocked · 5/49 done"; short: only what needs action. */
+function planSummaryText(c, short = false) {
+  if (!c || !c.total) return '';
+  const parts = [];
+  if (c.overdue) parts.push(`${c.overdue} overdue`);
+  if (c.week) parts.push(`${c.week} due this week`);
+  if (short) return parts.join(' · ');
+  if (c.ready) parts.push(`${c.ready} ready`);
+  if (c.doing) parts.push(`${c.doing} in progress`);
+  if (c.blocked) parts.push(`${c.blocked} blocked`);
+  parts.push(`${c.done}/${c.total} done`);
+  return parts.join(' · ');
+}
+
+/** A task's text for charts and lists: plan fields, dates, priorities, tags and link brackets taken out. */
+function planText(raw) {
+  return String(raw || '')
+    .replace(/🆔\s*[\w-]+/gu, '')
+    .replace(/⛔️?\s*[\w-]+(?:\s*,\s*[\w-]+)*/gu, '')
+    .replace(/\[[\w-]+::[^\]]*\]/gu, '')
+    .replace(/(?:📅|⏳|🛫|✅|➕|❌)\s*\d{4}-\d{2}-\d{2}/gu, '')
+    .replace(/🔁[^📅⏳🛫✅➕]*/gu, '')
+    .replace(/[⏫🔼🔽🔺⏬]/gu, '')
+    .replace(/\[\[([^\]|]*)\|([^\]]*)\]\]/g, '$2')
+    .replace(/\[\[([^\]]*)\]\]/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(^|\s)#[\w/-]+/gu, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+/* @src src/shared/plan-scope.js */
+/* ---- Project plans (fork): which tasks belong to a project ---------------------------------------------------
+ * A project's plan is the tasks in its note, or in every note of its folder for a project folder (the Projects
+ * section's "Project folders"), plus outside tasks linked to them by a dependency in either direction: those are
+ * marked `external` and their own chains are not followed. A task is a checkbox line with a task tag or a 🆔 id. */
+
+// filled by the modules that own the settings: Tasks (task tags) and Projects (project folders)
+const NEON_PLAN = { taskTag: '#task', folders: '' };
+
+/** The project folder a path sits in (<project folders>/<folder>), or null. */
+function planFolderOf(path) {
+  const root = normalizePath(String(NEON_PLAN.folders || '').trim());
+  if (!root || !path || !path.startsWith(root + '/')) return null;
+  const rest = path.slice(root.length + 1);
+  const i = rest.indexOf('/');
+  return i > 0 ? `${root}/${rest.slice(0, i)}` : null;
+}
+/** The plan a note belongs to: { kind: 'folder' | 'note', path }, or null for a note outside any project. */
+function planScopeOf(app, file, cache) {
+  if (!file || !file.path) return null;
+  const folder = planFolderOf(file.path);
+  if (folder) return { kind: 'folder', path: folder };
+  const c = cache || app.metadataCache.getFileCache(file);
+  return isProjectCache(c) ? { kind: 'note', path: file.path } : null;
+}
+/** The notes of a plan. */
+function planScopeFiles(app, scope) {
+  if (scope.kind === 'note') {
+    const f = app.vault.getAbstractFileByPath(scope.path);
+    return f instanceof TFile ? [f] : [];
+  }
+  return app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(scope.path + '/'));
+}
+/** The plan tasks of one note, each with file, line and phase (the nearest heading above it). */
+async function planReadFile(app, f) {
+  const cache = app.metadataCache.getFileCache(f);
+  if (!cache || !cache.listItems || !cache.listItems.some((li) => li.task !== undefined)) return [];
+  const lines = (await app.vault.cachedRead(f)).split('\n');
+  const heads = (cache.headings || []).map((h) => ({ line: h.position.start.line, text: h.heading }));
+  const out = [];
+  for (const li of cache.listItems) {
+    if (li.task === undefined) continue;
+    const n = li.position.start.line;
+    const h = heads.filter((x) => x.line < n).pop();
+    const t = planTask(lines[n], { file: f, line: n, phase: h ? h.text : '' });
+    if (t && (t.id || planHasTag(t.raw, NEON_PLAN.taskTag))) out.push(t);
+  }
+  return out;
+}
+/**
+ * All tasks of a plan. With neighbours (the default), outside tasks that a plan task depends on, or that depend on
+ * one, are added after them, marked external. Excluded folders (archive, templates) are skipped.
+ */
+async function planCollect(app, scope, { neighbours = true } = {}) {
+  const files = planScopeFiles(app, scope);
+  const tasks = [];
+  for (const f of files) tasks.push(...(await planReadFile(app, f)));
+  if (!neighbours) return tasks;
+  const ids = new Set(tasks.filter((t) => t.id).map((t) => t.id));
+  const wanted = new Set(tasks.flatMap((t) => t.deps).filter((d) => !ids.has(d)));
+  if (!ids.size && !wanted.size) return tasks;
+  const inside = new Set(files.map((f) => f.path));
+  const deck = neonPlugin(app, 'neon-deck');
+  for (const f of app.vault.getMarkdownFiles()) {
+    if (inside.has(f.path) || (deck && deck.isExcluded && deck.isExcluded(f))) continue;
+    const cache = app.metadataCache.getFileCache(f);
+    if (!cache || !cache.listItems || !cache.listItems.some((li) => li.task !== undefined)) continue;
+    const text = await app.vault.cachedRead(f);
+    if (!text.includes('🆔') && !text.includes('⛔')) continue;
+    for (const t of await planReadFile(app, f))
+      if ((t.id && wanted.has(t.id)) || t.deps.some((d) => ids.has(d))) tasks.push(Object.assign(t, { external: true }));
+  }
+  return tasks;
+}
 /* ==== module neon-deck ==== */
 const NeonDeckModule = (() => {
 /* @src src/deck/helpers.js */
@@ -6431,6 +6685,7 @@ const TASKS_DEFAULTS = {
   // fork: one Todo note replaces both "Quick tasks" and the Global tasks list kept in plugin data
   quickTasksPath: '', // the Todo note ('' = <base folder>/Todo.md): new tasks go at its head; its open tasks fill the Todo card
   taskTag: '#task', // fork: a checkbox line with this tag is a task wherever it is (Tasks-plugin style); empty = off
+  projectTasks: 'none', // fork: tasks in project notes and project folders belong to the project's plan ('all' = show them here too)
   askOnCreate: false, // fork: off — Templater, daily notes and your own habits make new notes
   stampDone: true,
   showTimeline: true, // fork: the timeline card on the Tasks tab
@@ -6489,6 +6744,10 @@ function addTaskAtHead(text, line) {
 function taskDisplay(raw, tag = '#task') {
   return excerptOf(
     raw
+      // plan fields: 🆔 id, ⛔ depends-on ids, Dataview [key:: value] fields such as [duration:: 3d]
+      .replace(/🆔\s*[\w-]+/gu, '')
+      .replace(/⛔\uFE0F?\s*[\w-]+(?:\s*,\s*[\w-]+)*/gu, '')
+      .replace(/\[[\w-]+::[^\]]*\]/gu, '')
       .replace(taskTags(tag).length ? new RegExp(`(^|\\s)(?:${taskTags(tag).map(escTag).join('|')})(?=$|\\s)`, 'giu') : /$^/, '$1')
       .replace(/(?:📅|⏳|🛫|✅|➕)\s*\d{4}-\d{2}-\d{2}/gu, '')
       .replace(/🔁[^📅⏳🛫✅➕]*/gu, '')
@@ -6711,7 +6970,11 @@ class NeonTasksSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('Task tags')
       .setDesc('A checkbox line with one of these tags is a task wherever it is, as in the Tasks plugin. Several: separate with commas (#task, #todo); new tasks get the first. Empty: only tagged notes, daily notes and the Todo note.')
-      .addText((t) => t.setPlaceholder('#task').setValue(s.taskTag).onChange((v) => ((s.taskTag = taskTags(v).join(', ')), save(), p.emit())));
+      .addText((t) => t.setPlaceholder('#task').setValue(s.taskTag).onChange((v) => ((s.taskTag = taskTags(v).join(', ')), (NEON_PLAN.taskTag = s.taskTag), save(), p.emit())));
+    new Setting(containerEl)
+      .setName('Tasks in projects')
+      .setDesc('Tasks in project notes (and in project folders) belong to the project: its plan and the counts on the Projects card and tab. Show them on the Tasks card and tab as well?')
+      .addDropdown((d) => d.addOption('none', 'No: only in the project').addOption('all', 'Yes: with the other tasks').setValue(s.projectTasks === 'all' ? 'all' : 'none').onChange((v) => ((s.projectTasks = v), save(), p.emit())));
     numSetting(new Setting(containerEl).setName('Carry over unfinished daily-note tasks (days)').setDesc('Open tasks from earlier daily or weekly notes show under Today. 0 = only the current note.'), s, 'carryDays', 0, 90, save);
     new Setting(containerEl)
       .setName('Stamp completion date')
@@ -6783,6 +7046,7 @@ class NeonTasks extends Plugin {
     if (!Array.isArray(s.doneLog)) s.doneLog = [];
     if (!Array.isArray(s.noteTypes) || !s.noteTypes.length) s.noteTypes = noteTypesFrom(s); // fork: older per-kind settings → the types list
     if (!s.installedAt) s.installedAt = Date.now();
+    NEON_PLAN.taskTag = s.taskTag; // fork: project plans read the same task tags
     dropOldDefaults(this.app, s, { quickTasksPath: 'Todo.md' }); // fork: the Todo note follows the base folder unless set
     this.freshData = !raw;
     await this.saveSettings();
@@ -7462,6 +7726,8 @@ Object.assign(NeonTasks.prototype, {
     const sources = new Map();
     for (const { file: f, cache } of noteIndex(app).withOpenTasks()) {
       if (this.isLegacyTicket(cache)) continue;
+      // fork: tasks in a project note or project folder are the project's plan (Projects), not shown here
+      if (this.settings.projectTasks !== 'all' && f.path !== todo && planScopeOf(app, f, cache)) continue;
       if (deck && deck.isExcluded && deck.isExcluded(f)) continue;
       const d = dailyDateOf(app, f);
       const daily = d && !d.isAfter(today) && today.diff(d, 'days') <= this.settings.carryDays ? d : null;
@@ -9033,6 +9299,7 @@ const NeonProjectsModule = (() => {
 // The module keeps upstream's id (neon-tickets) and view type, so its data folder and saved layouts carry on.
 
 const VIEW_TICKETS = 'neon-deck-tickets';
+const VIEW_PLAN = 'neon-plan'; // fork: one project's plan (plan-view.js)
 /** The four status groups: how a project is counted and coloured. */
 const PROJECT_KINDS = ['open', 'in-progress', 'waiting', 'done'];
 const PROJECT_KIND_LABEL = { open: 'Not started', 'in-progress': 'Active', waiting: 'On hold', done: 'Closed' };
@@ -9325,6 +9592,7 @@ class ProjectsView extends ItemView {
     });
     if (t.customer && p.settings.tabSort !== 'customer') meta.createSpan({ cls: 'tk-age tk-customer', text: t.customer });
     if (t.stage) meta.createSpan({ cls: 'tk-age', text: `stage: ${t.stage}` });
+    p.renderPlanSummary(meta, t); // fork: the project's tasks
     meta.createSpan({ cls: 'tk-age', text: `${t.startedOn ? 'started' : 'created'} ${(t.startedOn || t.created).format('D MMM')} · ${t.age}d` });
     if (t.remind && t.status !== 'done') meta.createSpan({ cls: 'tk-age', text: `🔔 ${t.remind.format('D MMM')}` });
     if (t.note) tip(main.createDiv({ cls: 'tk-row-note', text: t.note }), 'The project’s note property');
@@ -9490,6 +9758,7 @@ class NeonProjects extends Plugin {
     this.cache = null;
 
     this.registerView(VIEW_TICKETS, (leaf) => new ProjectsView(leaf, this));
+    this.hookPlans(); // fork: Plan view and the buttons on project notes
     this.addRibbonIcon('briefcase', 'Projects', () => this.openTracker());
     this.addCommand({ id: 'open-tickets', name: 'Open the Projects tab', callback: () => this.openTracker() });
     this.addCommand({ id: 'new-ticket', name: 'New project', callback: () => this.newProject() });
@@ -9520,6 +9789,7 @@ class NeonProjects extends Plugin {
     // only project notes invalidate the list: typing in other notes costs nothing
     const dirty = () => {
       this.cache = null;
+      this.planCache = null; // fork: plan counts on the rows
       this.emitSoon();
       const api = deckApi(this.app);
       if (api && api.activityChanged) api.activityChanged(); // Recently done reads the closed dates
@@ -9717,6 +9987,7 @@ function projectStatusPatch(value, prevKind, today, cfg) {
 Object.assign(NeonProjects.prototype, {
   applyProjectSettings() {
     Object.assign(NEON_PROJECTS, projectConfig(this.settings));
+    NEON_PLAN.folders = this.settings.projectFolders || ''; // fork: project folders are plans too
     NEON_CATS.label = this.settings.groupLabel || 'Customer'; // fork
     NEON_CATS.prop = (this.settings.groupProperty || 'customer').trim() || 'customer';
     NEON_CATS.skip = String(this.settings.groupSkip || '').split(',').map((x) => x.trim()).filter(Boolean); // fork
@@ -10020,6 +10291,10 @@ Object.assign(NeonProjects.prototype, {
 function projectMenu(plugin, t, m) {
   m.addItem((i) => i.setTitle('Open').setIcon('briefcase').onClick(() => plugin.openProject(t.file)));
   m.addItem((i) => i.setTitle('Open in new tab').setIcon('file-plus-2').onClick(() => plugin.app.workspace.getLeaf('tab').openFile(t.file)));
+  m.addItem((i) => i.setTitle('Plan: Gantt chart').setIcon('calendar-range').onClick(() => plugin.openPlan(plugin.planScope(t), 'gantt'))); // fork
+  m.addItem((i) => i.setTitle('Plan: board').setIcon('kanban').onClick(() => plugin.openPlan(plugin.planScope(t), 'board')));
+  m.addItem((i) => i.setTitle('Plan: dependency graph').setIcon('git-fork').onClick(() => plugin.openPlan(plugin.planScope(t), 'graph')));
+  m.addItem((i) => i.setTitle('Plan: task list').setIcon('list-checks').onClick(() => plugin.openPlan(plugin.planScope(t), 'list')));
   m.addSeparator();
   if (t.noNote) {
     // fork: a project folder without a note of its own: offer to make one rather than write to its index note
@@ -10060,6 +10335,7 @@ Object.assign(NeonProjects.prototype, {
         const txt = r.createDiv('tk-mini-text');
         txt.createSpan({ cls: 'tk-mini-title', text: t.title });
         if (t.customer) txt.createSpan({ cls: 'tk-id', text: ` · ${t.customer}` });
+        p.renderPlanSummary(txt, t, true); // fork: overdue and due-this-week tasks of the project
         if (t.statusRaw) r.createSpan({ cls: `tk-tag-wait s-${t.status}`, text: t.statusRaw });
         r.addEventListener('click', (e) => p.openProject(t.file, e));
         r.addEventListener('contextmenu', (e) => {
@@ -10108,6 +10384,731 @@ Object.assign(NeonProjects.prototype, {
       el.addClass('tk-notice');
       el.addEventListener('click', () => this.openTracker());
     }
+  },
+});
+/* @src src/tickets/plan-summary.js */
+/* ---- Project plans (fork): task counts on the project rows ------------------------------------------------------
+ * Tasks in project notes don't show on the Tasks card (setting in the Tasks section); each project's row shows how
+ * its own tasks stand instead, so nothing overdue goes unseen. Counts are cached until a project note changes. */
+
+Object.assign(NeonProjects.prototype, {
+  /** The plan a project row stands for: its folder, else the folder or note its note belongs to. */
+  planScope(t) {
+    if (t.folder) return { kind: 'folder', path: t.folder };
+    return planScopeOf(this.app, t.file) || { kind: 'note', path: t.file.path };
+  },
+  /** Promise of the project's task counts (planCounts), or null when they can't be read. */
+  planSummary(t) {
+    const scope = this.planScope(t);
+    const key = `${scope.kind}:${scope.path}`;
+    if (!this.planCache) this.planCache = new Map();
+    if (!this.planCache.has(key)) {
+      const today = moment().format('YYYY-MM-DD');
+      const job = planCollect(this.app, scope, { neighbours: false })
+        .then((tasks) => planCounts(tasks, today))
+        .catch((e) => {
+          console.error('Projects: could not read the project tasks', e);
+          return null;
+        });
+      this.planCache.set(key, job);
+    }
+    return this.planCache.get(key);
+  },
+  /** Adds the counts to a row once read; short: only overdue and due this week. */
+  renderPlanSummary(el, t, short = false) {
+    this.planSummary(t).then((c) => {
+      const text = planSummaryText(c, short);
+      if (!text || !el.isConnected) return;
+      const s = el.createSpan({ cls: `tk-age tk-plan${c.overdue ? ' is-overdue' : ''}${short ? ' is-short' : ''}`, text: short ? ` · ${text}` : text });
+      tip(s, 'This project’s tasks (ready: nothing it depends on is still open)');
+    });
+  },
+});
+/* @src src/tickets/plan-gantt.js */
+/* ---- Project plans (fork): a plan as Mermaid Gantt text (pure) ----------------------------------------------------
+ * Bars come from the schedule (planSchedule): working days, weekends left out. With the project's start date the
+ * axis shows dates; without one (or with weeks chosen) it counts weeks from a fixed Monday, so it reads Wk 01, Wk 02…
+ * In date mode a task's own 🛫 start / 📅 due dates win over the schedule. One section per phase (the heading the
+ * task sits under), in note order; tasks outside the project last. The text keeps Mermaid's own tags (done, active,
+ * crit) for when it is pasted into a note; the Plan view colours each bar by its kind (planBarKind). */
+
+const PLAN_WEEK_BASE = '2026-01-05'; // a Monday, week 01 of its year: "Wk %W" then counts weeks from the start
+const PLAN_OUTSIDE = 'Outside this project';
+const PLAN_SOON_DAYS = 7; // due within this many days: "due soon"
+
+// bar kinds in the order the legend shows them: [kind, label, Obsidian colour variable, fallback]
+const PLAN_KINDS = [
+  ['ready', 'Ready to start', '--color-blue', '#3a7bd5'],
+  ['blocked', 'Blocked', '--color-purple', '#8e5bd0'],
+  ['doing', 'In progress', '--color-cyan', '#1fa8b8'],
+  ['soon', 'Due within a week', '--color-orange', '#e8871e'],
+  ['overdue', 'Overdue', '--color-red', '#d93b3b'],
+  ['done', 'Done', '--color-green', '#2e9e5b'],
+  ['outside', 'Outside this project', '--text-faint', '#999999'],
+];
+
+const planClip = (s, max) => (s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s);
+
+/**
+ * Kind of a task's bar: outside, done, overdue (its 📅 date has passed, or work in progress was planned to finish
+ * before today), soon (📅 within a week), doing, blocked or ready. finish: the bar's last day (date mode) or null.
+ */
+function planBarKind(t, state, today, finish = null) {
+  if (t.external) return 'outside';
+  if (state === 'done') return 'done';
+  if (today && ((t.due && t.due < today) || (state === 'doing' && finish && finish < today))) return 'overdue';
+  if (today && t.due && t.due <= ymdAdd(today, PLAN_SOON_DAYS)) return 'soon';
+  return state === 'doing' ? 'doing' : state === 'blocked' ? 'blocked' : 'ready';
+}
+
+/** { text, sched, bars: [{ id, kind, crit }] }: Mermaid gantt text. base: the project's start date or null. */
+function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45 } = {}) {
+  const relative = weeks || !base;
+  const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
+  // with real dates, work not started yet is forecast from today, not from the project's start
+  const sched = planSchedule(tasks, { notBefore: !relative && today ? planWorkdaysBetween(from, today) : 0 });
+  const { byId } = planIndex(tasks);
+  const lines = ['gantt', '  dateFormat YYYY-MM-DD', `  axisFormat ${relative ? 'Wk %W' : '%d %b'}`, '  tickInterval 1week', '  weekday monday', '  excludes weekends', `  todayMarker ${!relative && today ? 'on' : 'off'}`];
+  const groups = new Map();
+  for (const r of sched.rows) {
+    const k = r.task.external ? PLAN_OUTSIDE : r.task.phase || 'Tasks';
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  if (groups.has(PLAN_OUTSIDE)) {
+    const out = groups.get(PLAN_OUTSIDE);
+    groups.delete(PLAN_OUTSIDE);
+    groups.set(PLAN_OUTSIDE, out);
+  }
+  const bars = [];
+  for (const [name, rows] of groups) {
+    lines.push(`  section ${mermaidSafe(name)}`);
+    for (const r of rows) {
+      const t = r.task;
+      const label = planClip(mermaidSafe((t.external ? '↗ ' : '') + planText(t.raw)), maxName);
+      const state = planState(t, byId);
+      const crit = r.crit && !t.external && state !== 'done';
+      const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
+      const id = `np${bars.length + 1}`;
+      const days = planDays(t);
+      let when;
+      let finish = null;
+      if (!relative && t.start && t.due && t.due >= t.start) {
+        when = `${t.start}, ${ymdAdd(t.due, 1)}`;
+        finish = t.due;
+      } else {
+        const start = !relative && t.start ? t.start : planWorkdays(from, r.es);
+        when = `${start}, ${days}d`;
+        if (!relative) finish = planWorkdays(start, Math.max(0, days - 1));
+      }
+      bars.push({ id, task: t, kind: planBarKind(t, state, today, finish), crit });
+      if (!days && !(t.start && t.due && !relative)) lines.push(`  ${label} :${[...tags, 'milestone', id].join(', ')}, ${when.replace(/, \d+d$/, ', 0d')}`);
+      else lines.push(`  ${label} :${[...tags, id].join(', ')}, ${when}`);
+    }
+  }
+  return { text: bars.length ? lines.join('\n') : '', sched, bars };
+}
+
+/** "Wk 3" (relative) or "Mon 23 Nov" for a working-day offset from the start. */
+function planDayLabel(offset, base, weeks) {
+  if (weeks || !base) return `Wk ${Math.floor(offset / 5) + 1}`;
+  const d = planWorkdays(base, offset);
+  return moment(d, 'YYYY-MM-DD').format('ddd D MMM');
+}
+/* @src src/tickets/plan-export.js */
+/* ---- Project plans (fork): save a drawn chart as SVG, colour its bars ------------------------------------------------------
+ * Everything stays on this computer: the chart already drawn in the view is copied into a file that the system's
+ * download handling saves (a blob: link, no network). Theme colours given as CSS variables are written in, so the
+ * file looks the same outside Obsidian. (PNG was dropped: Obsidian would not load the chart as an image.) */
+
+/** The SVG text of a drawn chart, with sizes, a background and the theme's CSS variables resolved. */
+function planSvgText(svg) {
+  const css = getComputedStyle(document.body);
+  const box = svg.getBoundingClientRect();
+  const copy = svg.cloneNode(true);
+  copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  copy.setAttribute('width', String(Math.ceil(box.width)));
+  copy.setAttribute('height', String(Math.ceil(box.height)));
+  copy.style.maxWidth = 'none';
+  copy.style.backgroundColor = css.getPropertyValue('--background-primary').trim() || '#ffffff';
+  const text = new XMLSerializer().serializeToString(copy);
+  // var(--name) or var(--name, fallback) → the value in use now
+  return text.replace(/var\((--[\w-]+)(?:\s*,\s*([^()]*))?\)/g, (m, name, fb) => css.getPropertyValue(name).trim() || (fb || '').trim() || m);
+}
+
+/** Hand a file to the system's download handling (Obsidian asks where to save it, or uses Downloads). */
+function planDownload(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.body.createEl('a', { attr: { href: url, download: name } });
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+/** Save the chart in `el` as an SVG file, named after the plan. */
+function planExport(el, title) {
+  const svg = el.querySelector('svg');
+  if (!svg) return new Notice('Nothing to save yet');
+  const name = `${safeName(title) || 'Plan'} ${moment().format('YYYY-MM-DD')}`;
+  try {
+    planDownload(new Blob([planSvgText(svg)], { type: 'image/svg+xml' }), `${name}.svg`);
+  } catch (e) {
+    console.error('Plan: could not save the chart', e);
+    new Notice('Could not save the chart. Details in the console.');
+  }
+}
+
+/** #rrggbb from #rgb, #rrggbb, rgb() or rgba() (alpha dropped), else null (pure). */
+function planToHex(c) {
+  const s = String(c || '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(s)) return s.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(s)) return ('#' + s.slice(1).replace(/./g, '$&$&')).toLowerCase();
+  const m = s.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i);
+  if (!m) return null;
+  return '#' + m.slice(1, 4).map((v) => Math.max(0, Math.min(255, Math.round(+v))).toString(16).padStart(2, '0')).join('');
+}
+/** A theme colour variable as #rrggbb (Mermaid's classDef can't take rgb() or hsl()); any CSS colour is resolved. */
+function planCssHex(name, fallback) {
+  const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  let hex = planToHex(v);
+  if (!hex && v) {
+    const probe = document.body.createDiv({ attr: { style: 'display:none' } });
+    probe.style.color = v;
+    hex = planToHex(getComputedStyle(probe).color);
+    probe.remove();
+  }
+  return hex || fallback;
+}
+/** The colour in use for a bar kind (Obsidian's colour variables, so it follows the theme), as #rrggbb. */
+function planColour(kind) {
+  const k = PLAN_KINDS.find((x) => x[0] === kind) || PLAN_KINDS[0];
+  return planCssHex(k[2], k[3]);
+}
+
+/**
+ * Colour the bars of a drawn Gantt by kind, as inline styles so a saved SVG keeps them. Mermaid names each
+ * bar <svg id>-<task id> (older versions: the task id). Critical-path bars get an outline. Waits for the drawing.
+ */
+async function planPaint(el, bars) {
+  let svg = el.querySelector('svg');
+  for (let i = 0; !svg && i < 30 && el.isConnected; i++) {
+    await new Promise((r) => window.setTimeout(r, 100));
+    svg = el.querySelector('svg');
+  }
+  if (!svg) return;
+  const edge = planCssHex('--text-normal', '#222222');
+  for (const b of bars) {
+    const rect = svg.querySelector(`rect[id="${b.id}"], rect[id$="-${b.id}"]`);
+    if (!rect) continue;
+    const c = planColour(b.kind);
+    rect.style.fill = c;
+    rect.style.stroke = b.crit ? edge : c;
+    rect.style.strokeWidth = b.crit ? '2px' : '1px';
+    const label = svg.querySelector(`text[id="${b.id}-text"], text[id$="-${b.id}-text"]`);
+    if (label && !/Outside/i.test(label.getAttribute('class') || '')) label.style.fill = b.kind === 'soon' || b.kind === 'outside' ? '#000000' : '#ffffff';
+  }
+}
+/* @src src/tickets/plan-view.js */
+/* ---- Project plans (fork): the Plan view, one project's plan in its own tab -----------------------------------------
+ * Opened from the buttons on a project note's header (plan-actions.js). Modes: Gantt (Mermaid, drawn by Obsidian),
+ * Board (plan-board.js), Graph (plan-graph.js) and List. Follows changes in the notes; only the board writes. */
+
+const PLAN_MODES = [
+  ['gantt', 'Gantt'],
+  ['board', 'Board'],
+  ['graph', 'Graph'],
+  ['list', 'List'],
+];
+const PLAN_STATE_LABEL = { ready: 'Ready', blocked: 'Blocked', doing: 'In progress', done: 'Done' };
+
+/** The plan's title: the project note's name, or the project folder's. */
+function planScopeTitle(scope) {
+  const last = scope.path.split('/').pop();
+  return scope.kind === 'note' ? projectTitle(last.replace(/\.md$/i, '')) : last;
+}
+/** The project's start date (its `started` property) as YYYY-MM-DD, or null. */
+function planBaseDate(app, scope) {
+  let f = app.vault.getAbstractFileByPath(scope.path);
+  if (scope.kind === 'folder') {
+    const rep = f instanceof TFolder ? projectFolderNote(app, f) : null;
+    f = rep ? rep.file : null;
+  }
+  const fm = f instanceof TFile ? (app.metadataCache.getFileCache(f) || {}).frontmatter || {} : {};
+  const m = String(fm.started || '').match(/^\d{4}-\d{2}-\d{2}/);
+  return m ? m[0] : null;
+}
+
+class PlanView extends ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.plugin = plugin;
+    this.plan = null;
+    this.mode = 'gantt';
+    this.weeks = false;
+    this.tasks = [];
+    this.paths = new Set();
+    this.src = '';
+  }
+  getViewType() {
+    return VIEW_PLAN;
+  }
+  getDisplayText() {
+    return this.plan ? `Plan: ${planScopeTitle(this.plan)}` : 'Plan';
+  }
+  getIcon() {
+    return 'calendar-range';
+  }
+  getState() {
+    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks } : {});
+  }
+  async setState(state, result) {
+    if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
+    if (state && PLAN_MODES.some(([k]) => k === state.mode)) this.mode = state.mode;
+    if (state && typeof state.weeks === 'boolean') this.weeks = state.weeks;
+    await super.setState(state, result);
+    this.build();
+    await this.refresh();
+  }
+  async onOpen() {
+    this.contentEl.addClass('nd-root', 'np-plan');
+    const soon = debounce(() => this.refresh(), 600, true);
+    this.registerEvent(this.app.metadataCache.on('changed', (f) => this.touches(f.path) && soon()));
+    this.registerEvent(this.app.vault.on('rename', () => soon()));
+    this.build();
+    await this.refresh();
+  }
+  /** Is this note part of the plan (or one of its outside neighbours)? */
+  touches(path) {
+    if (!this.plan) return false;
+    if (this.paths.has(path)) return true;
+    return this.plan.kind === 'note' ? path === this.plan.path : path.startsWith(this.plan.path + '/');
+  }
+  build() {
+    const root = this.contentEl;
+    root.empty();
+    const bar = root.createDiv('np-bar');
+    const head = bar.createDiv('np-head');
+    head.createDiv({ cls: 'tk-k', text: 'Plan' });
+    this.titleEl = head.createDiv({ cls: 'np-title', text: this.plan ? planScopeTitle(this.plan) : '' });
+    this.sumEl = head.createDiv('np-sum');
+    const tools = bar.createDiv('np-tools');
+    pills(tools, PLAN_MODES, this.mode, (v) => {
+      this.mode = v || 'gantt';
+      this.app.workspace.requestSaveLayout();
+      this.render();
+    });
+    this.weeksEl = pills(tools, [['dates', 'Dates'], ['weeks', 'Weeks']], this.weeks ? 'weeks' : 'dates', (v) => {
+      this.weeks = v === 'weeks';
+      this.app.workspace.requestSaveLayout();
+      this.render();
+    });
+    button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
+    this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
+    this.svgBtn = button(tools, { icon: 'image-down', text: 'SVG', cls: 'np-save', title: 'Save the chart as an SVG file', onClick: () => planExport(this.bodyEl, this.getDisplayText()) });
+    this.issuesEl = root.createDiv('np-issues');
+    this.bodyEl = root.createDiv('np-body');
+  }
+  openScope(e) {
+    if (!this.plan) return;
+    let f = this.app.vault.getAbstractFileByPath(this.plan.path);
+    if (f instanceof TFolder) f = (projectFolderNote(this.app, f) || {}).file;
+    if (f instanceof TFile) openFile(this.app, f, e);
+  }
+  async refresh() {
+    if (!this.plan || !this.bodyEl) return;
+    try {
+      this.tasks = await planCollect(this.app, this.plan);
+    } catch (e) {
+      console.error('Plan: could not read the project', e);
+      this.tasks = [];
+    }
+    this.paths = new Set(this.tasks.map((t) => t.file.path));
+    this.base = planBaseDate(this.app, this.plan);
+    this.titleEl.setText(planScopeTitle(this.plan));
+    this.leaf.updateHeader && this.leaf.updateHeader();
+    this.render();
+  }
+  render() {
+    if (!this.bodyEl) return;
+    const weeks = this.weeks || !this.base;
+    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: moment().format('YYYY-MM-DD') });
+    this.src = text;
+    this.sched = sched;
+    this.kinds = new Map(bars.map((b) => [b.task, b.kind]));
+    const own = this.tasks.filter((t) => !t.external);
+    this.sumEl.setText(planSummaryText(planCounts(this.tasks, moment().format('YYYY-MM-DD'))) + (own.length ? ` · about ${Math.ceil(sched.length / 5)} weeks of work` : ''));
+    this.weeksEl.el.toggleClass('is-hidden', this.mode !== 'gantt' && this.mode !== 'list');
+    this.weeksEl.set(weeks ? 'weeks' : 'dates');
+    this.weeksEl.btns.get('dates').disabled = !this.base;
+    if (!this.base) tip(this.weeksEl.btns.get('dates'), 'Set the project’s started date to see dates');
+    for (const b of [this.copyBtn, this.svgBtn]) b.toggleClass('is-hidden', this.mode !== 'gantt' && this.mode !== 'graph');
+    this.renderIssues(sched);
+    this.bodyEl.empty();
+    if (!own.length) {
+      emptyState(this.bodyEl, 'No tasks in this project yet. A task is a checkbox line with the task tag or a 🆔 id.');
+      return;
+    }
+    this.renderLegend(bars);
+    if (this.mode === 'list') return this.renderList(sched, weeks);
+    if (this.mode === 'board') return this.renderBoard();
+    if (this.mode === 'graph') return this.renderGraph(sched);
+    const chart = this.bodyEl.createDiv('np-chart');
+    renderMermaid(this.app, chart, text, this).then(() => planPaint(chart, bars));
+  }
+  /** Colour key for the kinds in this plan; outlined bars are on the critical path. */
+  renderLegend(bars) {
+    const used = new Set(bars.map((b) => b.kind));
+    const el = this.bodyEl.createDiv('np-legend');
+    for (const [kind, label] of PLAN_KINDS) {
+      if (!used.has(kind)) continue;
+      const item = el.createSpan('np-key');
+      item.createSpan({ cls: 'np-swatch' }).style.backgroundColor = planColour(kind);
+      item.createSpan({ text: label });
+    }
+    if (this.mode === 'gantt' && bars.some((b) => b.crit)) el.createSpan({ cls: 'np-key np-key-crit', text: 'Outlined: critical path' });
+    if (this.mode === 'graph' && bars.some((b) => b.crit)) el.createSpan({ cls: 'np-key np-key-crit', text: 'Outlined, thick arrows: critical path' });
+  }
+  renderIssues(sched) {
+    const el = this.issuesEl;
+    el.empty();
+    const lines = [];
+    if (sched.cycles.length) lines.push(`Dependency loop around: ${sched.cycles.map((t) => t.id || planText(t.raw)).join(', ')}`);
+    if (sched.missing.length) lines.push(`Unknown ids: ${[...new Set(sched.missing.map((m) => m.id))].join(', ')}`);
+    if (sched.dups.length) lines.push(`Ids used more than once: ${sched.dups.join(', ')}`);
+    for (const l of lines) el.createDiv({ cls: 'np-issue', text: `⚠ ${l}` });
+  }
+  renderList(sched, weeks) {
+    const { byId } = planIndex(this.tasks);
+    const table = this.bodyEl.createEl('table', { cls: 'np-table' });
+    const hr = table.createEl('thead').createEl('tr');
+    for (const h of ['', 'Task', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack']) hr.createEl('th', { text: h });
+    const body = table.createEl('tbody');
+    let phase = null;
+    for (const r of sched.rows) {
+      const t = r.task;
+      const ph = t.external ? PLAN_OUTSIDE : t.phase || 'Tasks';
+      if (ph !== phase) {
+        phase = ph;
+        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: '9' } });
+      }
+      const st = planState(t, byId);
+      const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}` });
+      tip(tr.createEl('td', { cls: 'np-crit', text: r.crit && st !== 'done' && !t.external ? '●' : '' }), 'On the critical path');
+      const name = tr.createEl('td', { cls: 'np-name' });
+      const a = name.createEl('a', { text: (t.external ? '↗ ' : '') + planText(t.raw), href: '#' });
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        openFile(this.app, t.file, e, t.line);
+      });
+      if (t.external) name.createSpan({ cls: 'np-file', text: ` · ${t.file.basename}` });
+      const kind = this.kinds.get(t) || st;
+      const chip = tr.createEl('td').createSpan({ cls: `np-state is-${st}`, text: PLAN_STATE_LABEL[st] });
+      chip.style.borderColor = chip.style.color = planColour(kind);
+      if (kind === 'overdue' || kind === 'soon') tip(chip, PLAN_KINDS.find(([k]) => k === kind)[1]);
+      tr.createEl('td', { cls: 'np-id', text: t.id || '' });
+      tr.createEl('td', { cls: 'np-id', text: t.deps.join(', ') });
+      tr.createEl('td', { cls: 'np-num', text: String(planDays(t)) });
+      tr.createEl('td', { text: planDayLabel(r.es, this.base, weeks) });
+      tr.createEl('td', { text: planDayLabel(Math.max(r.es, r.ef - 1), this.base, weeks) });
+      tr.createEl('td', { cls: 'np-num', text: r.slack ? `${r.slack}d` : '' });
+    }
+  }
+}
+/* @src src/tickets/plan-graph.js */
+/* ---- Project plans (fork): the dependency graph (Mermaid flowchart) -----------------------------------------------
+ * One box per task, an arrow from each task to the tasks that depend on it, one group per phase, outside tasks in
+ * their own group. Boxes take the bar colours (planBarKind); thick arrows join the critical path. Clicking a box
+ * opens the task's line. Colours are written into the text, so a copied or saved graph keeps them. */
+
+/** Text for a box: quotes and brackets Mermaid would read as syntax swapped out, clipped. */
+const planNodeLabel = (t, max = 40) => planClip(((t.external ? '↗ ' : '') + planText(t.raw)).replace(/"/g, "'").replace(/[[\]{}<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'Untitled', max);
+
+/**
+ * { text, nodes: [{ id, task }] }. kinds: Map task → bar kind; colours: { kind: '#hex' }; edge: colour of the
+ * critical path's outline. sched: planSchedule(tasks) (its rows give the critical path).
+ */
+function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '#222222', dir = 'LR' } = {}) {
+  const { byId } = planIndex(tasks);
+  const crit = new Map(sched.rows.map((r) => [r.task, r]));
+  const ids = new Map(tasks.map((t, i) => [t, `n${i + 1}`]));
+  const lines = [`flowchart ${dir}`];
+  const groups = new Map();
+  for (const t of tasks) {
+    const k = t.external ? PLAN_OUTSIDE : t.phase || 'Tasks';
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(t);
+  }
+  if (groups.has(PLAN_OUTSIDE)) {
+    const out = groups.get(PLAN_OUTSIDE);
+    groups.delete(PLAN_OUTSIDE);
+    groups.set(PLAN_OUTSIDE, out);
+  }
+  let g = 0;
+  for (const [name, list] of groups) {
+    lines.push(`  subgraph s${++g}["${planNodeLabel({ raw: name }, 60)}"]`);
+    for (const t of list) lines.push(`    ${ids.get(t)}["${planNodeLabel(t)}"]`);
+    lines.push('  end');
+  }
+  const onPath = (a, b) => {
+    const ra = crit.get(a);
+    const rb = crit.get(b);
+    return ra && rb && ra.crit && rb.crit && !planClosed(b) && !a.external && !b.external && ra.ef === rb.es;
+  };
+  for (const t of tasks)
+    for (const d of t.deps) {
+      const from = byId.get(d);
+      if (from) lines.push(`  ${ids.get(from)} ${onPath(from, t) ? '==>' : '-->'} ${ids.get(t)}`);
+    }
+  const byKind = new Map();
+  for (const t of tasks) {
+    const k = kinds.get(t) || 'ready';
+    if (!byKind.has(k)) byKind.set(k, []);
+    byKind.get(k).push(ids.get(t));
+  }
+  for (const [k, list] of byKind) {
+    const fill = colours[k] || '#888888';
+    const ink = k === 'soon' || k === 'outside' ? '#000000' : '#ffffff';
+    lines.push(`  classDef ${k} fill:${fill},stroke:${fill},color:${ink}`, `  class ${list.join(',')} ${k}`);
+  }
+  const critIds = sched.rows.filter((r) => r.crit && !r.task.external && !planClosed(r.task)).map((r) => ids.get(r.task));
+  if (critIds.length) lines.push(`  classDef crit stroke:${edge},stroke-width:3px`, `  class ${critIds.join(',')} crit`);
+  return { text: tasks.length ? lines.join('\n') : '', nodes: tasks.map((t) => ({ id: ids.get(t), task: t })) };
+}
+
+Object.assign(PlanView.prototype, {
+  /** Draw the graph and make each box open its task. */
+  renderGraph(sched) {
+    const colours = Object.fromEntries(PLAN_KINDS.map(([k]) => [k, planColour(k)]));
+    const edge = planCssHex('--text-normal', '#222222');
+    const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge });
+    this.src = text;
+    const chart = this.bodyEl.createDiv('np-chart np-graph');
+    renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes));
+  },
+  async linkNodes(chart, nodes) {
+    let svg = chart.querySelector('svg');
+    for (let i = 0; !svg && i < 30 && chart.isConnected; i++) {
+      await new Promise((r) => window.setTimeout(r, 100));
+      svg = chart.querySelector('svg');
+    }
+    if (!svg) return;
+    for (const { id, task } of nodes) {
+      const g = svg.querySelector(`g.node[id*="-flowchart-${id}-"], g.node[id^="flowchart-${id}-"]`);
+      if (!g) continue;
+      g.addClass('np-node');
+      g.addEventListener('click', (e) => openFile(this.app, task.file, e, task.line));
+    }
+  },
+});
+/* @src src/tickets/plan-board.js */
+/* ---- Project plans (fork): the board ---------------------------------------------------------------------------
+ * Columns by state: Ready, Blocked (worked out from ⛔, so nothing can be dropped there), In progress, Done; rows by
+ * phase. Dragging a card (or its menu) changes only the checkbox in the note, through writeNote: [ ] / [/] / [x],
+ * adding ✅ today when done and removing it when reopened. Nothing is written while read-only is on. */
+
+const PLAN_COLUMNS = [
+  ['ready', 'Ready', ' '],
+  ['blocked', 'Blocked', null],
+  ['doing', 'In progress', '/'],
+  ['done', 'Done', 'x'],
+];
+
+/**
+ * Text with the task's checkbox set to `box` (pure), or null when the task can't be found. The task is looked for on
+ * its line, else on the one line that holds the same text. Done adds "✅ today" if missing; reopening removes it.
+ */
+function planSetBox(text, t, box, today) {
+  const lines = text.split('\n');
+  const re = /^(\s*(?:[-*+]|\d+[.)])\s+\[)(.)(\]\s+)(.*)$/u;
+  const fits = (l) => {
+    const m = (l || '').replace(/\r$/, '').match(re);
+    return !!m && m[4] === t.raw;
+  };
+  let n = fits(lines[t.line]) ? t.line : -1;
+  if (n < 0) {
+    const hits = lines.map((l, i) => (fits(l) ? i : -1)).filter((i) => i >= 0);
+    if (hits.length !== 1) return null;
+    n = hits[0];
+  }
+  const cr = lines[n].endsWith('\r') ? '\r' : '';
+  const m = lines[n].replace(/\r$/, '').match(re);
+  let rest = m[4];
+  if (box === 'x' || box === 'X') {
+    if (!/✅\s*\d{4}-\d{2}-\d{2}/u.test(rest)) rest = `${rest} ✅ ${today}`;
+  } else rest = rest.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/gu, '');
+  lines[n] = m[1] + box + m[3] + rest + cr;
+  return lines.join('\n');
+}
+
+Object.assign(PlanView.prototype, {
+  renderBoard() {
+    const { byId } = planIndex(this.tasks);
+    const own = this.tasks.filter((t) => !t.external);
+    const lanes = new Map();
+    for (const t of own) {
+      const k = t.phase || 'Tasks';
+      if (!lanes.has(k)) lanes.set(k, []);
+      lanes.get(k).push(t);
+    }
+    const board = this.bodyEl.createDiv('np-board');
+    for (const [key, label] of PLAN_COLUMNS) {
+      const head = board.createDiv({ cls: `np-col-head is-${key}` });
+      head.createSpan({ text: label });
+      head.createSpan({ cls: 'np-col-n', text: String(own.filter((t) => planState(t, byId) === key).length) });
+      if (key === 'blocked') tip(head, 'Waiting on a task it depends on: worked out from ⛔, so cards can’t be dropped here');
+    }
+    for (const [lane, list] of lanes) {
+      board.createDiv({ cls: 'np-lane', text: lane });
+      for (const [key, , box] of PLAN_COLUMNS) {
+        const cell = board.createDiv({ cls: `np-cell is-${key}` });
+        if (box !== null) this.dropTarget(cell, box);
+        for (const t of list.filter((x) => planState(x, byId) === key)) this.card(cell, t);
+      }
+    }
+  },
+  card(cell, t) {
+    const kind = this.kinds.get(t) || 'ready';
+    const c = cell.createDiv({ cls: `np-card is-${kind}${t.status === 'cancelled' ? ' is-cancelled' : ''}`, attr: { draggable: 'true' } });
+    c.style.borderLeftColor = planColour(kind);
+    c.createDiv({ cls: 'np-card-text', text: planText(t.raw) });
+    const meta = c.createDiv('np-card-meta');
+    if (t.id) meta.createSpan({ cls: 'np-id', text: t.id });
+    meta.createSpan({ text: `${planDays(t)}d` });
+    if (t.due) meta.createSpan({ cls: kind === 'overdue' || kind === 'soon' ? `is-${kind}` : '', text: `📅 ${moment(t.due, 'YYYY-MM-DD').format('D MMM')}` });
+    if (t.status === 'cancelled') meta.createSpan({ text: 'cancelled' });
+    c.addEventListener('dragstart', (e) => {
+      this.dragging = t;
+      e.dataTransfer.setData('text/plain', t.id || planText(t.raw));
+      e.dataTransfer.effectAllowed = 'move';
+      c.addClass('is-dragging');
+    });
+    c.addEventListener('dragend', () => {
+      c.removeClass('is-dragging');
+      this.dragging = null;
+    });
+    c.addEventListener('click', (e) => openFile(this.app, t.file, e, t.line));
+    c.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const m = new Menu();
+      m.addItem((i) => i.setTitle('Open').setIcon('file-text').onClick(() => openFile(this.app, t.file, null, t.line)));
+      m.addSeparator();
+      for (const [key, label, box] of PLAN_COLUMNS) if (box !== null) m.addItem((i) => i.setTitle(`Move to ${label}`).setChecked(t.box === box || (box === 'x' && t.status === 'done')).onClick(() => this.moveTask(t, box)));
+      m.showAtMouseEvent(e);
+    });
+  },
+  dropTarget(cell, box) {
+    cell.addEventListener('dragover', (e) => {
+      if (!this.dragging) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      cell.addClass('is-over');
+    });
+    cell.addEventListener('dragleave', () => cell.removeClass('is-over'));
+    cell.addEventListener('drop', (e) => {
+      e.preventDefault();
+      cell.removeClass('is-over');
+      const t = this.dragging;
+      this.dragging = null;
+      if (t) this.moveTask(t, box);
+    });
+  },
+  /** Set a task's checkbox in its note; the view redraws when the note changes. */
+  async moveTask(t, box) {
+    if (t.box === box || (box === 'x' && t.status === 'done')) return;
+    let found = true;
+    try {
+      await writeNote(this.app, t.file, (text) => {
+        const next = planSetBox(text, t, box, moment().format('YYYY-MM-DD'));
+        if (next === null) found = false;
+        return next === null ? text : next;
+      });
+      if (!found) {
+        new Notice('That task changed in the meantime: refreshed');
+        this.refresh();
+      }
+    } catch (e) {
+      if (!(e && e.neonReadOnly)) {
+        console.error('Plan: could not move the task', e);
+        new Notice('Could not change the task. Details in the console.');
+      }
+    }
+  },
+});
+/* @src src/tickets/plan-actions.js */
+/* ---- Project plans (fork): buttons on project notes, opening the Plan view, commands ---------------------------
+ * A note that belongs to a project (a project note, or any note in a project folder) gets buttons in its header:
+ * Gantt, Board, Graph and List. They open the Plan view in a new tab; nothing is added to the note. */
+
+// header buttons, left to right (Obsidian puts the last one added first, so they are added in reverse)
+const PLAN_BUTTONS = [
+  ['gantt', 'calendar-range', 'Gantt', 'Plan: Gantt chart'],
+  ['board', 'kanban', 'Board', 'Plan: board'],
+  ['graph', 'git-fork', 'Graph', 'Plan: dependency graph'],
+  ['list', 'list-checks', 'List', 'Plan: task list'],
+];
+
+Object.assign(NeonProjects.prototype, {
+  hookPlans() {
+    this.registerView(VIEW_PLAN, (leaf) => new PlanView(leaf, this));
+    this.planButtons = new WeakMap();
+    const sync = debounce(() => this.syncPlanButtons(), 300, true);
+    this.registerEvent(this.app.workspace.on('layout-change', sync));
+    this.registerEvent(this.app.workspace.on('file-open', sync));
+    this.registerEvent(this.app.metadataCache.on('changed', sync)); // a note tagged as a project gets its buttons
+    this.app.workspace.onLayoutReady(() => this.syncPlanButtons());
+    this.register(() => this.clearPlanButtons());
+    const cmd = (id, name, mode) =>
+      this.addCommand({
+        id,
+        name,
+        checkCallback: (checking) => {
+          const f = this.app.workspace.getActiveFile();
+          const scope = f && planScopeOf(this.app, f);
+          if (!scope) return false;
+          if (!checking) this.openPlan(scope, mode);
+          return true;
+        },
+      });
+    cmd('plan-gantt', 'Project: open the plan as a Gantt chart', 'gantt');
+    cmd('plan-board', 'Project: open the plan as a board', 'board');
+    cmd('plan-graph', 'Project: open the plan as a dependency graph', 'graph');
+    cmd('plan-list', 'Project: open the plan as a task list', 'list');
+  },
+  /** Adds or removes the header buttons so they match each open note. */
+  syncPlanButtons() {
+    for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
+      const v = leaf.view;
+      if (!v || typeof v.addAction !== 'function') continue;
+      const scope = v.file ? planScopeOf(this.app, v.file) : null;
+      const key = scope ? `${scope.kind}:${scope.path}` : '';
+      const had = this.planButtons.get(v);
+      if ((had ? had.key : '') === key) continue;
+      if (had) had.els.forEach((e) => e.remove());
+      this.planButtons.delete(v);
+      if (!scope) continue;
+      // fork: a word beside each icon, so the buttons are easy to spot
+      const els = [...PLAN_BUTTONS].reverse().map(([mode, ic, label, title]) => {
+        const e = v.addAction(ic, title, () => this.openPlan(scope, mode));
+        e.addClass('np-action');
+        e.createSpan({ cls: 'np-action-label', text: label });
+        return e;
+      });
+      this.planButtons.set(v, { key, els });
+    }
+  },
+  clearPlanButtons() {
+    for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
+      const had = this.planButtons && this.planButtons.get(leaf.view);
+      if (had) had.els.forEach((e) => e.remove());
+    }
+  },
+  /** Opens the plan in a tab: the one already showing this plan, else a new tab. */
+  async openPlan(scope, mode = 'gantt') {
+    const ws = this.app.workspace;
+    let leaf = ws.getLeavesOfType(VIEW_PLAN).find((l) => l.view && l.view.plan && l.view.plan.path === scope.path);
+    if (!leaf) leaf = ws.getLeaf('tab');
+    await leaf.setViewState({ type: VIEW_PLAN, active: true, state: { kind: scope.kind, path: scope.path, mode } });
+    ws.revealLeaf(leaf);
   },
 });
 return NeonProjects;

@@ -56,11 +56,13 @@ function planState(t, byId) {
 const planDays = (t) => (t.status === 'cancelled' ? 0 : t.days == null ? 1 : t.days);
 
 /**
- * Schedule in working days from the start (day 0): each task starts when the last task it depends on ends.
+ * Schedule in working days from the start (day 0): each task starts when the last task it depends on ends. With
+ * notBefore (today, as a working-day offset), a task not started yet ([ ]) starts no earlier than today: a forecast,
+ * so only a 📅 date that has passed (or work in progress running late) makes a task overdue.
  * Returns { rows: [{ task, es, ef, slack, crit }] in the tasks' order, length, cycles: [task], missing: [{ task, id }],
  * dups: [id] }. Tasks in a dependency loop are reported and scheduled as if the loop's last link were absent.
  */
-function planSchedule(tasks) {
+function planSchedule(tasks, { notBefore = 0 } = {}) {
   const { byId, dups } = planIndex(tasks);
   const n = tasks.length;
   const pos = new Map(tasks.map((t, i) => [t, i]));
@@ -81,6 +83,7 @@ function planSchedule(tasks) {
     seen[i] = 1;
     let s = 0;
     for (const p of preds[i]) s = Math.max(s, finish(p));
+    if (tasks[i].status === 'todo') s = Math.max(s, notBefore);
     es[i] = s;
     seen[i] = 2;
     return s + planDays(tasks[i]);
@@ -117,6 +120,13 @@ function planWorkdays(ymd, n = 0) {
     if (weekday()) k--;
   }
   return t.toISOString().slice(0, 10);
+}
+
+/** Working days from one date to a later one (0 when b is not after a). */
+function planWorkdaysBetween(a, b) {
+  let n = 0;
+  for (let d = planWorkdays(a, 0); d < b && n < 5000; d = planWorkdays(d, 1)) n++;
+  return n;
 }
 
 /** Counts for a project's own tasks (outside ones left out): total, ready, doing, blocked, done, overdue, week. */

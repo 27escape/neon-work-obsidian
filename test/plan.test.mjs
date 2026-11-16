@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 
-const P = load('neon-tickets', ['planTask', 'planHasTag', 'planIndex', 'planState', 'planSchedule', 'planWorkdays', 'planCounts', 'planSummaryText', 'planFolderOf', 'planScopeOf', 'NEON_PLAN', 'NEON_PROJECTS']);
+const P = load('neon-tickets', ['planTask', 'planHasTag', 'planIndex', 'planState', 'planSchedule', 'planWorkdays', 'planCounts', 'planSummaryText', 'planFolderOf', 'planScopeOf', 'NEON_PLAN', 'NEON_PROJECTS', 'planWorkdaysBetween']);
 const T = (line, at) => P.planTask(line, at);
 
 test('plan task: status, id, dependencies, duration and dates', () => {
@@ -100,4 +100,12 @@ test('scope: project folders, project notes, other notes', () => {
   assert.deepEqual({ ...P.planScopeOf(app({ tags: ['project'] }), { path: 'C/Projects/Pilot.md' }) }, { kind: 'note', path: 'C/Projects/Pilot.md' });
   assert.equal(P.planScopeOf(app({ tags: ['meeting'] }), { path: 'C/Meetings/m.md' }), null);
   P.NEON_PLAN.folders = '';
+});
+
+test('forecast: tasks not started yet start no earlier than today', () => {
+  assert.equal(P.planWorkdaysBetween('2026-11-02', '2026-11-16'), 10);
+  assert.equal(P.planWorkdaysBetween('2026-11-16', '2026-11-02'), 0);
+  const tasks = [T('- [x] a [duration:: 2d] 🆔 a'), T('- [/] b [duration:: 3d] 🆔 b ⛔ a'), T('- [ ] c [duration:: 1d] 🆔 c ⛔ a'), T('- [ ] d [duration:: 1d] 🆔 d ⛔ c')];
+  const r = P.planSchedule(tasks, { notBefore: 10 }).rows.map((x) => x.es);
+  assert.deepEqual([...r], [0, 2, 10, 11]);
 });
