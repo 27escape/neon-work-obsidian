@@ -37,6 +37,28 @@ function planMarkText(tasks) {
     .join(' · ');
 }
 
+/**
+ * Schedule warnings (pure): a task planned to finish after its 📅 date, due before a task it depends on, or in
+ * progress past its planned finish. ends: Map task → planned last day (the plan with real dates), or none. Returns
+ * [{ task, text }] in the plan's order.
+ */
+function planWarnings(tasks, ends, today) {
+  const { byId } = planIndex(tasks);
+  const name = (t) => t.id || planClip(planText(t.raw), 30);
+  const out = [];
+  for (const t of tasks) {
+    if (t.external || planClosed(t)) continue;
+    const end = ends && ends.get(t);
+    if (end && t.due && end > t.due && !t.milestone) out.push({ task: t, text: `${name(t)}: planned to finish ${planShortDate(end)}, ${planWorkdaysBetween(t.due, end)} working days after its 📅 ${planShortDate(t.due)}` });
+    for (const d of t.deps) {
+      const x = byId.get(d);
+      if (x && t.due && x.due && t.due < x.due) out.push({ task: t, text: `${name(t)}: 📅 ${planShortDate(t.due)} is before ${name(x)}'s 📅 ${planShortDate(x.due)}, which it waits for` });
+    }
+    if (t.status === 'doing' && end && today && end < today) out.push({ task: t, text: `${name(t)}: in progress, planned to finish ${planShortDate(end)}` });
+  }
+  return out;
+}
+
 Object.assign(PlanView.prototype, {
   /** Gantt: Tasks / Phases; Save baseline. */
   buildForecastTools(tools) {

@@ -5975,6 +5975,9 @@ body:not(.nd-themed) .nd-empty {
 .tk-pill.is-blocked {
   color: var(--color-purple);
 }
+.np-plan .np-warn-sign {
+  color: var(--color-orange);
+}
 /* @src neon-research/styles.css */
 /* @css src/research/styles.css */
 /* NEON RESEARCH — uses the --nd-* tokens from Neon Deck */

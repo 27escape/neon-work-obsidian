@@ -272,6 +272,12 @@ class PlanView extends ItemView {
     if (sched.dups.length) lines.push(`Ids used more than once: ${sched.dups.join(', ')}`);
     lines.push(...this.loadLines(sched));
     for (const w of planWeekendDates(this.tasks)) lines.push(`${w.task.id || planClip(planText(w.task.raw), 30)}: ${w.sign} ${planShortDate(w.date)} is a ${w.day}`);
+    // schedule warnings: a handful here, the rest counted (the List shows them on each task)
+    const warn = planWarnings(this.tasks, this.ends, this.today);
+    lines.push(...warn.slice(0, 5).map((w) => w.text));
+    if (warn.length > 5) lines.push(`${warn.length - 5} more schedule warnings: see the List`);
+    this.warnings = new Map();
+    for (const w of warn) this.warnings.set(w.task, [...(this.warnings.get(w.task) || []), w.text]);
     for (const l of lines) el.createDiv({ cls: 'np-issue', text: `⚠ ${l}` });
     if (this.tasks.some((t) => !t.external && /\{\{\s*prefix\s*\}\}/.test(t.raw))) {
       // made from the plan template outside New project: its ids still read {{prefix}}-1
@@ -317,6 +323,8 @@ class PlanView extends ItemView {
       const name = tr.createEl('td', { cls: 'np-name' });
       const mark = planMark(t);
       if (mark) tip(name.createSpan({ cls: `np-mark-sign is-${mark[0]}`, text: `${mark[1]} ` }), mark[2]);
+      const ws = this.warnings && this.warnings.get(t);
+      if (ws) tip(name.createSpan({ cls: 'np-warn-sign', text: '⏰ ' }), ws.join('\n'));
       const a = name.createEl('a', { cls: mark && mark[0] !== 'decision' ? 'np-strong' : '', text: (t.external ? '↗ ' : '') + planText(t.raw), href: '#' }); // risks and issues in bold
       a.addEventListener('click', (e) => {
         e.preventDefault();

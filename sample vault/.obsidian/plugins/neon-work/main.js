@@ -11341,6 +11341,12 @@ class PlanView extends ItemView {
     if (sched.dups.length) lines.push(`Ids used more than once: ${sched.dups.join(', ')}`);
     lines.push(...this.loadLines(sched));
     for (const w of planWeekendDates(this.tasks)) lines.push(`${w.task.id || planClip(planText(w.task.raw), 30)}: ${w.sign} ${planShortDate(w.date)} is a ${w.day}`);
+    // schedule warnings: a handful here, the rest counted (the List shows them on each task)
+    const warn = planWarnings(this.tasks, this.ends, this.today);
+    lines.push(...warn.slice(0, 5).map((w) => w.text));
+    if (warn.length > 5) lines.push(`${warn.length - 5} more schedule warnings: see the List`);
+    this.warnings = new Map();
+    for (const w of warn) this.warnings.set(w.task, [...(this.warnings.get(w.task) || []), w.text]);
     for (const l of lines) el.createDiv({ cls: 'np-issue', text: `⚠ ${l}` });
     if (this.tasks.some((t) => !t.external && /\{\{\s*prefix\s*\}\}/.test(t.raw))) {
       // made from the plan template outside New project: its ids still read {{prefix}}-1
@@ -11386,6 +11392,8 @@ class PlanView extends ItemView {
       const name = tr.createEl('td', { cls: 'np-name' });
       const mark = planMark(t);
       if (mark) tip(name.createSpan({ cls: `np-mark-sign is-${mark[0]}`, text: `${mark[1]} ` }), mark[2]);
+      const ws = this.warnings && this.warnings.get(t);
+      if (ws) tip(name.createSpan({ cls: 'np-warn-sign', text: '⏰ ' }), ws.join('\n'));
       const a = name.createEl('a', { cls: mark && mark[0] !== 'decision' ? 'np-strong' : '', text: (t.external ? '↗ ' : '') + planText(t.raw), href: '#' }); // risks and issues in bold
       a.addEventListener('click', (e) => {
         e.preventDefault();
@@ -12572,6 +12580,28 @@ function planMarkText(tasks) {
   })
     .filter(Boolean)
     .join(' · ');
+}
+
+/**
+ * Schedule warnings (pure): a task planned to finish after its 📅 date, due before a task it depends on, or in
+ * progress past its planned finish. ends: Map task → planned last day (the plan with real dates), or none. Returns
+ * [{ task, text }] in the plan's order.
+ */
+function planWarnings(tasks, ends, today) {
+  const { byId } = planIndex(tasks);
+  const name = (t) => t.id || planClip(planText(t.raw), 30);
+  const out = [];
+  for (const t of tasks) {
+    if (t.external || planClosed(t)) continue;
+    const end = ends && ends.get(t);
+    if (end && t.due && end > t.due && !t.milestone) out.push({ task: t, text: `${name(t)}: planned to finish ${planShortDate(end)}, ${planWorkdaysBetween(t.due, end)} working days after its 📅 ${planShortDate(t.due)}` });
+    for (const d of t.deps) {
+      const x = byId.get(d);
+      if (x && t.due && x.due && t.due < x.due) out.push({ task: t, text: `${name(t)}: 📅 ${planShortDate(t.due)} is before ${name(x)}'s 📅 ${planShortDate(x.due)}, which it waits for` });
+    }
+    if (t.status === 'doing' && end && today && end < today) out.push({ task: t, text: `${name(t)}: in progress, planned to finish ${planShortDate(end)}` });
+  }
+  return out;
 }
 
 Object.assign(PlanView.prototype, {

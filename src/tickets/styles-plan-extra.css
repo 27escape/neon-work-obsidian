@@ -162,3 +162,6 @@
 .tk-pill.is-blocked {
   color: var(--color-purple);
 }
+.np-plan .np-warn-sign {
+  color: var(--color-orange);
+}

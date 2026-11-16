@@ -56,3 +56,19 @@ test('slip in working days, either way', () => {
   assert.equal(P.planShortDate('2026-12-04'), '4 Dec');
 });
 
+
+const W = load('neon-tickets', ['planTask', 'planWarnings', 'planGanttText']);
+
+test('schedule warnings: will miss its date, due before what it waits for, in progress past its planned finish', () => {
+  const a = W.planTask('- [ ] A [duration:: 5d] 🆔 a 📅 2026-11-30');
+  const b = W.planTask('- [ ] B [duration:: 5d] 🆔 b ⛔ a 📅 2026-11-27');
+  const c = W.planTask('- [/] C [duration:: 2d] 🆔 c');
+  const tasks = [a, b, c];
+  const ends = new Map([[a, '2026-11-20'], [b, '2026-12-04'], [c, '2026-11-13']]);
+  const w = W.planWarnings(tasks, ends, '2026-11-16').map((x) => x.text);
+  assert.ok(w.includes('b: planned to finish 4 Dec, 5 working days after its 📅 27 Nov'));
+  assert.ok(w.includes("b: 📅 27 Nov is before a's 📅 30 Nov, which it waits for"));
+  assert.ok(w.includes('c: in progress, planned to finish 13 Nov'));
+  assert.equal(w.length, 3);
+  assert.equal(W.planWarnings(tasks, null, '2026-11-16').length, 1); // without dates only the order of due dates
+});
