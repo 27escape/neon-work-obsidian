@@ -68,6 +68,7 @@ Object.assign(PlanView.prototype, {
       this.render();
     });
     tip(this.phasesOnlyEl.el, 'One bar per phase, or every task');
+    this.reportBtn = button(tools, { icon: 'file-output', text: 'Report', cls: 'np-report-btn', title: 'Save a printable report of this plan (a note with the chart) in the reports folder', onClick: () => this.writeReport() });
     this.datesBtn = button(tools, { icon: 'calendar-check', text: 'Dates…', cls: 'np-dates-btn', title: 'Write the planned dates into the tasks (🛫 start, 📅 due), choosing which', onClick: () => new PlanDatesModal(this.app, this).open() });
     this.baselineBtn = button(tools, { icon: 'flag', text: 'Baseline', cls: 'np-baseline', title: 'Save today’s plan as the baseline, to see later how far tasks slip', onClick: (e) => this.baselineMenu(e) });
   },

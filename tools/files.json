@@ -132,6 +132,7 @@
         "src/tickets/plan-people.js",
         "src/tickets/plan-forecast.js",
         "src/tickets/plan-dates.js",
+        "src/tickets/plan-report.js",
         "src/tickets/plan-actions.js"
       ],
       "css": [

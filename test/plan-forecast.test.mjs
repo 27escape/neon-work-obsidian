@@ -72,3 +72,31 @@ test('schedule warnings: will miss its date, due before what it waits for, in pr
   assert.equal(w.length, 3);
   assert.equal(W.planWarnings(tasks, null, '2026-11-16').length, 1); // without dates only the order of due dates
 });
+
+const R = load('neon-tickets', ['planReportText']);
+
+test('report note: front matter, summary, chart, phases, attention, markers, critical path, workload, every task', () => {
+  const md = R.planReportText({
+    title: 'Pilot - Local AI', note: 'Pilot - Local AI', today: '2026-11-16',
+    summary: '1 overdue · 3 ready · 0/5 done', forecast: 'forecast finish 27 Nov, 2 working days after the due date', baseline: '(+2 since the baseline of 10 Nov)',
+    svg: 'Pilot - Local AI – plan 2026-11-16.svg',
+    phases: [{ name: '1. Scope', total: 2, done: 1, start: '2026-11-16', end: '2026-11-18', state: 'Overdue' }],
+    attention: ['**Overdue:** `a` A (📅 13 Nov)'],
+    marks: [{ sign: '⚠', label: 'Risk', text: 'Vendor | late', owner: 'Sam', state: 'Ready' }],
+    crit: [{ id: 'a', text: 'A', start: '2026-11-16', end: '2026-11-17' }, { id: 'b', text: 'B', start: '2026-11-18', end: '2026-11-27' }],
+    load: ['Sam has 7 days of work in the week of Mon 16 Nov (5 available)'],
+    tasks: [{ phase: '1. Scope', id: 'a', text: 'A | pipe', owner: 'Sam', state: 'Ready', days: 2, start: '2026-11-16', end: '2026-11-17', deps: '' }],
+  });
+  const has = (s) => assert.ok(md.includes(s), s);
+  has('title: "Plan report: Pilot - Local AI"');
+  has('project: "[[Pilot - Local AI]]"');
+  has('- **Forecast:** forecast finish 27 Nov, 2 working days after the due date (+2 since the baseline of 10 Nov)');
+  has('- **Critical path:** 2 tasks, 16 Nov to 27 Nov');
+  has('![[Pilot - Local AI – plan 2026-11-16.svg]]');
+  has('| 1. Scope | 1/2 | 16 Nov | 18 Nov | Overdue |');
+  has('- **Overdue:** `a` A (📅 13 Nov)');
+  has('- ⚠ **Risk:** Vendor | late (Sam) · Ready');
+  has('1. `a` A (16 Nov to 17 Nov)');
+  has('- Sam has 7 days of work');
+  has('| 1. Scope | a A \\| pipe | Sam | Ready | 2 | 16 Nov | 17 Nov |  |'); // pipes in table cells escaped
+});

@@ -17,6 +17,7 @@ const PROJECT_BUCKETS = [
   ['done', 'Closed'],
 ];
 const PROJECTS_DEFAULTS = {
+  planReportsFolder: '', // fork: where Planning reports go ('' = <base folder>/Reports)
   planBaselines: {}, // fork: Planning baselines per project: { path: { saved, end, tasks: { id: finish } } }
   // which notes are projects, and their status values (comma lists, in the order offered)
   projectTag: 'project',

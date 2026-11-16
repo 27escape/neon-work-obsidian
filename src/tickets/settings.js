@@ -50,6 +50,11 @@ class NeonProjectsSettingTab extends PluginSettingTab {
       .setDesc('Note that new projects start from; {{title}}, {{date}}, <% tp.file.title %> and <% tp.date.now() %> are filled in. Empty: title, tags, started, due, completed and status.')
       .addText((t) => suggestPaths(p.app, t.setPlaceholder('templates/project_template.md').setValue(s.projectTemplate).onChange((v) => ((s.projectTemplate = v.trim()), save())), 'file'));
 
+    new Setting(containerEl)
+      .setName('Planning reports folder')
+      .setDesc(`Where Report (in the Planning view) saves a plan's report note and its chart. Empty: ${basePath('Reports')} (in the base folder).`)
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Reports')).setValue(s.planReportsFolder || '').onChange((v) => ((s.planReportsFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'));
+
     new Setting(containerEl).setName('Status values').setHeading();
     containerEl.createEl('p', { cls: 'setting-item-description', text: 'Comma-separated, in the order they are offered. The group decides how a project is counted and coloured; unknown values count as not started. Changing a status only updates properties.' });
     const statuses = (name, key, desc, ph) => new Setting(containerEl).setName(name).setDesc(desc).addText((t) => t.setPlaceholder(ph).setValue(s[key]).onChange((v) => ((s[key] = v), proj())));
