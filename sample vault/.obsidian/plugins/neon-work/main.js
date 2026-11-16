@@ -5772,11 +5772,18 @@ Object.assign(NeonDeck.prototype, {
     const rl = app.metadataCache.resolvedLinks;
     const incoming = new Set();
     let links = 0;
-    for (const src in rl)
+    // fork: links from excluded notes (archive, ignored tags such as generated index notes) don't count
+    const counts = (path) => {
+      const f = app.vault.getAbstractFileByPath(path);
+      return !(f instanceof TFile) || !this.isExcluded(f);
+    };
+    for (const src in rl) {
+      if (!counts(src)) continue;
       for (const dst in rl[src]) {
         links += rl[src][dst];
         incoming.add(dst);
       }
+    }
     const orphans = md.filter((f) => !incoming.has(f.path) && !(rl[f.path] && Object.keys(rl[f.path]).length));
     const startToday = moment().startOf('day').valueOf();
     const editedToday = md.filter((f) => f.stat.mtime >= startToday);
@@ -9460,7 +9467,12 @@ function projectCustomer(path, fm, customersFolder) {
   const k = rest.length > 1 ? rest[0] : '';
   return k && !(NEON_CATS.skip || []).some((x) => x.toLowerCase() === k.toLowerCase()) ? k : ''; // fork: not the "Not groups" folders
 }
-/** fork: the note that stands for a project folder (see folderProjects), or null when the folder has no notes. */
+/**
+ * fork: the note that stands for a project folder (see folderProjects): { file, own }, or null when the folder has
+ * no notes. own: a note named like the folder, or one with a status, which may hold the project's status. Otherwise
+ * file is only for opening (an index note, say) and is never written to: notes with an ignored tag (generated index
+ * notes) are not "own".
+ */
 function projectFolderNote(app, folder) {
   const notes = [];
   const walk = (fd, depth) => {
@@ -9471,15 +9483,15 @@ function projectFolderNote(app, folder) {
   };
   walk(folder, 0);
   if (!notes.length) return null;
-  const own = notes.filter((n) => n.depth === 0).map((n) => n.file);
+  const top = notes.filter((n) => n.depth === 0).map((n) => n.file);
   const fm = (f) => (app.metadataCache.getFileCache(f) || {}).frontmatter || {};
-  const same = own.find((f) => f.basename.toLowerCase() === folder.name.toLowerCase());
-  if (same) return same;
-  const withStatus = own.find((f) => fm(f).status != null && String(fm(f).status).trim());
-  if (withStatus) return withStatus;
-  const index = own.find((f) => /^(0\.?\s*index|index|readme)$/i.test(f.basename));
-  if (index) return index;
-  return own[0] || notes[0].file;
+  const mine = top.filter((f) => !isIgnoredNote(app, f));
+  const same = mine.find((f) => f.basename.toLowerCase() === folder.name.toLowerCase());
+  if (same) return { file: same, own: true };
+  const withStatus = mine.find((f) => fm(f).status != null && String(fm(f).status).trim());
+  if (withStatus) return { file: withStatus, own: true };
+  const index = top.find((f) => /^(0\.?\s*index|index|readme)$/i.test(f.basename));
+  return { file: index || top[0] || notes[0].file, own: false };
 }
 /** A project's display title: the file name, without a leading "Project : ". */
 function projectTitle(basename) {
@@ -9537,14 +9549,19 @@ Object.assign(NeonProjects.prototype, {
   projectFolder() {
     return locPath(this.settings.projectFolder, 'Projects');
   },
+  /** fork: a project folder without a note of its own gets one, <folder>/<folder name>.md, from the project template. */
+  createFolderProjectNote(t) {
+    if (!t.folder) return;
+    return this.createProject(t.title, '', t.folder);
+  },
   newProject(opts = {}) {
     new NewProjectModal(this, opts).open();
   },
   /** Make a project note from the template (or the standard properties) and open it. */
-  async createProject(title, customer) {
+  async createProject(title, customer, inFolder) {
     const s = this.settings;
     const day = moment();
-    const folder = customer ? normalizePath(`${s.customersFolder}/${customer}/${s.projectsFolderName || 'Projects'}`) : this.projectFolder();
+    const folder = inFolder || (customer ? normalizePath(`${s.customersFolder}/${customer}/${s.projectsFolderName || 'Projects'}`) : this.projectFolder());
     let body = '';
     if (s.projectTemplate) {
       const tf = this.app.metadataCache.getFirstLinkpathDest(s.projectTemplate.replace(/\.md$/, ''), '') || this.app.vault.getAbstractFileByPath(normalizePath(s.projectTemplate));
@@ -9679,11 +9696,15 @@ Object.assign(NeonProjects.prototype, {
       if (!(folder instanceof TFolder)) continue;
       if (deck && deck.isExcluded && deck.excludedPaths && deck.excludedPaths().some((p) => folder.path === p || folder.path.startsWith(p + '/'))) continue;
       if (tagged.some((t) => t.file.path.startsWith(folder.path + '/'))) continue;
-      const note = projectFolderNote(this.app, folder);
-      if (!note) continue;
-      const t = this.toProject(note, this.app.metadataCache.getFileCache(note), today);
+      const rep = projectFolderNote(this.app, folder);
+      if (!rep) continue;
+      const t = this.toProject(rep.file, this.app.metadataCache.getFileCache(rep.file), today);
       t.title = folder.name;
       t.folder = folder.path;
+      if (!rep.own) {
+        // fork: its note is only for opening (e.g. a generated index): no status of its own, nothing written there
+        Object.assign(t, { noNote: true, statusRaw: '', status: 'open', stage: '', note: '', due: null, daysLeft: null, remind: null, completed: null, bucket: 'nodate', progress: 0 });
+      }
       if (!t.customer) t.customer = projectCustomer(folder.path + '/x.md', null, this.settings.customersFolder);
       out.push(t);
     }
@@ -9799,6 +9820,11 @@ function projectMenu(plugin, t, m) {
   m.addItem((i) => i.setTitle('Open').setIcon('briefcase').onClick(() => plugin.openProject(t.file)));
   m.addItem((i) => i.setTitle('Open in new tab').setIcon('file-plus-2').onClick(() => plugin.app.workspace.getLeaf('tab').openFile(t.file)));
   m.addSeparator();
+  if (t.noNote) {
+    // fork: a project folder without a note of its own: offer to make one rather than write to its index note
+    m.addItem((i) => i.setTitle(`Create “${t.title}.md” to track this project`).setIcon('file-plus').onClick(() => plugin.createFolderProjectNote(t)));
+    return;
+  }
   for (const v of plugin.statusChoices()) m.addItem((i) => i.setTitle(`Status: ${v}`).setChecked((t.statusRaw || '').toLowerCase() === v.toLowerCase()).onClick(() => plugin.setStatus(t, v)));
   m.addSeparator();
   m.addItem((i) => i.setTitle('Set note…').setIcon('message-square').onClick(() => plugin.promptNote(t)));

@@ -268,11 +268,18 @@ Object.assign(NeonDeck.prototype, {
     const rl = app.metadataCache.resolvedLinks;
     const incoming = new Set();
     let links = 0;
-    for (const src in rl)
+    // fork: links from excluded notes (archive, ignored tags such as generated index notes) don't count
+    const counts = (path) => {
+      const f = app.vault.getAbstractFileByPath(path);
+      return !(f instanceof TFile) || !this.isExcluded(f);
+    };
+    for (const src in rl) {
+      if (!counts(src)) continue;
       for (const dst in rl[src]) {
         links += rl[src][dst];
         incoming.add(dst);
       }
+    }
     const orphans = md.filter((f) => !incoming.has(f.path) && !(rl[f.path] && Object.keys(rl[f.path]).length));
     const startToday = moment().startOf('day').valueOf();
     const editedToday = md.filter((f) => f.stat.mtime >= startToday);

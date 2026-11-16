@@ -82,6 +82,11 @@ function projectMenu(plugin, t, m) {
   m.addItem((i) => i.setTitle('Open').setIcon('briefcase').onClick(() => plugin.openProject(t.file)));
   m.addItem((i) => i.setTitle('Open in new tab').setIcon('file-plus-2').onClick(() => plugin.app.workspace.getLeaf('tab').openFile(t.file)));
   m.addSeparator();
+  if (t.noNote) {
+    // fork: a project folder without a note of its own: offer to make one rather than write to its index note
+    m.addItem((i) => i.setTitle(`Create “${t.title}.md” to track this project`).setIcon('file-plus').onClick(() => plugin.createFolderProjectNote(t)));
+    return;
+  }
   for (const v of plugin.statusChoices()) m.addItem((i) => i.setTitle(`Status: ${v}`).setChecked((t.statusRaw || '').toLowerCase() === v.toLowerCase()).onClick(() => plugin.setStatus(t, v)));
   m.addSeparator();
   m.addItem((i) => i.setTitle('Set note…').setIcon('message-square').onClick(() => plugin.promptNote(t)));

@@ -65,11 +65,15 @@ Object.assign(NeonProjects.prototype, {
       if (!(folder instanceof TFolder)) continue;
       if (deck && deck.isExcluded && deck.excludedPaths && deck.excludedPaths().some((p) => folder.path === p || folder.path.startsWith(p + '/'))) continue;
       if (tagged.some((t) => t.file.path.startsWith(folder.path + '/'))) continue;
-      const note = projectFolderNote(this.app, folder);
-      if (!note) continue;
-      const t = this.toProject(note, this.app.metadataCache.getFileCache(note), today);
+      const rep = projectFolderNote(this.app, folder);
+      if (!rep) continue;
+      const t = this.toProject(rep.file, this.app.metadataCache.getFileCache(rep.file), today);
       t.title = folder.name;
       t.folder = folder.path;
+      if (!rep.own) {
+        // fork: its note is only for opening (e.g. a generated index): no status of its own, nothing written there
+        Object.assign(t, { noNote: true, statusRaw: '', status: 'open', stage: '', note: '', due: null, daysLeft: null, remind: null, completed: null, bucket: 'nodate', progress: 0 });
+      }
       if (!t.customer) t.customer = projectCustomer(folder.path + '/x.md', null, this.settings.customersFolder);
       out.push(t);
     }

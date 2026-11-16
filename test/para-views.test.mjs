@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 
-const S = load('neon-tickets', ['groupFromValue', 'groupFromProps', 'refreshCategories', 'NEON_CATS', 'CATS', 'projectFolderNote', 'projectCustomer', 'TFolder', 'TFile']);
+const S = load('neon-tickets', ['groupFromValue', 'groupFromProps', 'refreshCategories', 'NEON_CATS', 'CATS', 'projectFolderNote', 'projectCustomer', 'TFolder', 'TFile', 'setIgnoredTags']);
 const D = load('neon-deck', ['areaRows']);
 
 // a tiny vault: 2.Areas/{Photography, Recipes, Dailynotes}; the stand-in folder/file classes come from the sandbox
@@ -38,17 +38,23 @@ test('groups from names, links, paths and lists; "Not groups" folders skipped', 
   S.NEON_CATS.skip = [];
 });
 
-test('a project folder is represented by a note named like it, a note with a status, or its index', () => {
+test('a project folder: its own note (named like it, or with a status); an ignored index note is only for opening', () => {
   const { app, folder, file } = vault();
-  const fm = new Map();
+  const fm = new Map([['1.Projects/Oven Cleaning/0.Index.md', { tags: ['vault_index'], status: 'open' }]]);
   app.metadataCache.getFileCache = (f) => ({ frontmatter: fm.get(f.path) || {} });
+  S.setIgnoredTags('vault_index');
   const a = folder('1.Projects/Oven Cleaning', [file('1.Projects/Oven Cleaning/0.Index.md'), file('1.Projects/Oven Cleaning/Oven Pro - Van.md')]);
-  assert.equal(S.projectFolderNote(app, a).basename, '0.Index');
+  let r = S.projectFolderNote(app, a);
+  assert.equal(r.file.basename, '0.Index');
+  assert.equal(r.own, false); // generated index: never written to, even with a status
   fm.set('1.Projects/Oven Cleaning/Oven Pro - Van.md', { status: 'paused' });
-  assert.equal(S.projectFolderNote(app, a).basename, 'Oven Pro - Van');
+  r = S.projectFolderNote(app, a);
+  assert.equal(r.file.basename, 'Oven Pro - Van');
+  assert.equal(r.own, true);
   a.children.push(file('1.Projects/Oven Cleaning/Oven Cleaning.md'));
-  assert.equal(S.projectFolderNote(app, a).basename, 'Oven Cleaning');
+  assert.equal(S.projectFolderNote(app, a).file.basename, 'Oven Cleaning');
   assert.equal(S.projectFolderNote(app, folder('1.Projects/Empty')), null);
+  S.setIgnoredTags('');
 });
 
 test('areas: counts, quiet areas, quietest first', () => {
@@ -65,4 +71,20 @@ test('areas: counts, quiet areas, quietest first', () => {
   assert.deepEqual(plain.map((r) => r.label), ['Walking', 'Recipes', 'Photography']);
   assert.deepEqual(plain.map((r) => r.quiet), [true, true, false]);
   assert.deepEqual(plain[2], { key: 'photography', label: 'Photography', projects: 1, tasks: 2, notes: 2, recent: 1, last: now - 2 * day, quiet: false });
+});
+
+test('orphans: links from ignored notes (generated index notes) do not count', () => {
+  const D2 = load('neon-deck', ['NeonDeck', 'TFile']);
+  const f = (path) => Object.assign(Object.create(D2.TFile.prototype), { path, stat: { mtime: 0 }, extension: 'md' });
+  const files = [f('A/0.Index.md'), f('A/Lonely.md'), f('A/Linked.md'), f('A/Mine.md')];
+  const self = {
+    app: {
+      vault: { getMarkdownFiles: () => files, getAbstractFileByPath: (p) => files.find((x) => x.path === p) || null },
+      metadataCache: { resolvedLinks: { 'A/0.Index.md': { 'A/Lonely.md': 1, 'A/Linked.md': 1, 'A/Mine.md': 1 }, 'A/Mine.md': { 'A/Linked.md': 1 } } },
+    },
+    isExcluded: (x) => x.path.endsWith('0.Index.md'),
+  };
+  const d = D2.NeonDeck.prototype.collectVaultData.call(self);
+  assert.deepEqual(d.orphans.map((x) => x.path), ['A/Lonely.md']);
+  assert.equal(d.links, 1);
 });

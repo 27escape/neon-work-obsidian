@@ -44,7 +44,12 @@ function projectCustomer(path, fm, customersFolder) {
   const k = rest.length > 1 ? rest[0] : '';
   return k && !(NEON_CATS.skip || []).some((x) => x.toLowerCase() === k.toLowerCase()) ? k : ''; // fork: not the "Not groups" folders
 }
-/** fork: the note that stands for a project folder (see folderProjects), or null when the folder has no notes. */
+/**
+ * fork: the note that stands for a project folder (see folderProjects): { file, own }, or null when the folder has
+ * no notes. own: a note named like the folder, or one with a status, which may hold the project's status. Otherwise
+ * file is only for opening (an index note, say) and is never written to: notes with an ignored tag (generated index
+ * notes) are not "own".
+ */
 function projectFolderNote(app, folder) {
   const notes = [];
   const walk = (fd, depth) => {
@@ -55,15 +60,15 @@ function projectFolderNote(app, folder) {
   };
   walk(folder, 0);
   if (!notes.length) return null;
-  const own = notes.filter((n) => n.depth === 0).map((n) => n.file);
+  const top = notes.filter((n) => n.depth === 0).map((n) => n.file);
   const fm = (f) => (app.metadataCache.getFileCache(f) || {}).frontmatter || {};
-  const same = own.find((f) => f.basename.toLowerCase() === folder.name.toLowerCase());
-  if (same) return same;
-  const withStatus = own.find((f) => fm(f).status != null && String(fm(f).status).trim());
-  if (withStatus) return withStatus;
-  const index = own.find((f) => /^(0\.?\s*index|index|readme)$/i.test(f.basename));
-  if (index) return index;
-  return own[0] || notes[0].file;
+  const mine = top.filter((f) => !isIgnoredNote(app, f));
+  const same = mine.find((f) => f.basename.toLowerCase() === folder.name.toLowerCase());
+  if (same) return { file: same, own: true };
+  const withStatus = mine.find((f) => fm(f).status != null && String(fm(f).status).trim());
+  if (withStatus) return { file: withStatus, own: true };
+  const index = top.find((f) => /^(0\.?\s*index|index|readme)$/i.test(f.basename));
+  return { file: index || top[0] || notes[0].file, own: false };
 }
 /** A project's display title: the file name, without a leading "Project : ". */
 function projectTitle(basename) {
@@ -121,14 +126,19 @@ Object.assign(NeonProjects.prototype, {
   projectFolder() {
     return locPath(this.settings.projectFolder, 'Projects');
   },
+  /** fork: a project folder without a note of its own gets one, <folder>/<folder name>.md, from the project template. */
+  createFolderProjectNote(t) {
+    if (!t.folder) return;
+    return this.createProject(t.title, '', t.folder);
+  },
   newProject(opts = {}) {
     new NewProjectModal(this, opts).open();
   },
   /** Make a project note from the template (or the standard properties) and open it. */
-  async createProject(title, customer) {
+  async createProject(title, customer, inFolder) {
     const s = this.settings;
     const day = moment();
-    const folder = customer ? normalizePath(`${s.customersFolder}/${customer}/${s.projectsFolderName || 'Projects'}`) : this.projectFolder();
+    const folder = inFolder || (customer ? normalizePath(`${s.customersFolder}/${customer}/${s.projectsFolderName || 'Projects'}`) : this.projectFolder());
     let body = '';
     if (s.projectTemplate) {
       const tf = this.app.metadataCache.getFirstLinkpathDest(s.projectTemplate.replace(/\.md$/, ''), '') || this.app.vault.getAbstractFileByPath(normalizePath(s.projectTemplate));
