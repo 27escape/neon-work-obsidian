@@ -47,7 +47,7 @@ function planColour(kind) {
 }
 
 /**
- * Colour the bars of a drawn Gantt by kind, as inline styles so a saved SVG or PNG keeps them. Mermaid names each
+ * Colour the bars of a drawn Gantt by kind, as inline styles so a saved SVG keeps them. Mermaid names each
  * bar <svg id>-<task id> (older versions: the task id). Critical-path bars get an outline. Waits for the drawing.
  */
 async function planPaint(el, bars) {
