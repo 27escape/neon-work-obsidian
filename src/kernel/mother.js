@@ -6,7 +6,7 @@
 const KERNEL_FILE = 'modules.json'; // { off: { 'neon-time': true }, readOnly: bool, baseFolder } — synced with the vault
 // fork: start-up checks and safe mode are per device (this vault's local storage on this device), never synced:
 // a phone and a laptop sharing .obsidian must not put each other into safe mode.
-const LOCAL_KEYS = { unfinished: 'neon-work-unfinished-starts', safe: 'neon-work-safe-mode', error: 'neon-work-last-error', section: 'neon-work-settings-section', timing: 'neon-work-start-timing' };
+const LOCAL_KEYS = { unfinished: 'neon-work-unfinished-starts', safe: 'neon-work-safe-mode', error: 'neon-work-last-error', section: 'neon-work-settings-section', stoppedAt: 'neon-work-stopped-at', timing: 'neon-work-start-timing', step: 'neon-work-start-step' };
 const UNFINISHED_LIMIT = 2; // two starts in a row that never finished (closing the app once is not a crash)
 
 class NeonMother extends Plugin {
@@ -42,6 +42,8 @@ class NeonMother extends Plugin {
     const unfinished = Number(this.local('unfinished')) || 0;
     this.setLocal('unfinished', unfinished + 1);
     const crashed = unfinished >= UNFINISHED_LIMIT && !this.safeMode();
+    if (unfinished) this.setLocal('stoppedAt', this.local('step')); // where the last unfinished start got to
+    this.step('starting');
     if (crashed) this.setLocal('safe', true); // stays on (on this device) until turned off in settings
     // enabled community plugins, from the public config file (old 1.x copies must not run twice)
     try {
@@ -62,13 +64,14 @@ class NeonMother extends Plugin {
       const err = this.local('error');
       new Notice(
         crashed
-          ? `${appName()} did not finish starting twice in a row on this device, so its modules are off here (safe mode).${err ? ` Last error: ${err}.` : ''} Turn safe mode off in the plugin’s settings.`
+          ? `${appName()} did not finish starting twice in a row on this device, so its modules are off here (safe mode).${this.local('stoppedAt') ? ` It stopped during: ${this.local('stoppedAt')}.` : ''}${err ? ` Last error: ${err}.` : ''} Turn safe mode off in the plugin’s settings.`
           : `${appName()} safe mode on this device: modules are off. Turn it off in the plugin’s settings.`,
         0,
       );
     } else for (const m of NEON_MODULES) await this.start(m);
     // modules finish starting asynchronously: only call the start done once the workspace is ready
     this.app.workspace.onLayoutReady(() => {
+      this.step('workspace ready, opening views');
       this.doneTimer = window.setTimeout(() => this.startDone(), 3000);
       // fork: first start — ask where Neon Deck may keep what it makes for itself
       if (this.state.baseFolder === undefined) new BaseFolderModal(this).open();
@@ -88,8 +91,15 @@ class NeonMother extends Plugin {
     if (neonMother === this) neonMother = null;
     neonIndex = null;
   }
+  /** fork: the start-up step reached, kept on the device so a hang can be traced afterwards (no console on phones). */
+  step(what) {
+    if (this.startedUp) return; // only while starting
+    this.setLocal('step', `${what} (${((Date.now() - this.t0) / 1000).toFixed(1)} s)`);
+  }
   startDone() {
+    this.startedUp = true;
     this.setLocal('unfinished', 0);
+    this.setLocal('step', null);
     if (this.timing) this.setLocal('timing', `${this.timing.join(' · ')}${this.timing.length ? ' · ' : ''}ready after ${((Date.now() - this.t0) / 1000).toFixed(1)} s (${moment().format('D MMM HH:mm')})`);
   }
   /* fork: per-device values (Obsidian keeps them per vault on this device; not in .obsidian, so not synced) */
@@ -150,9 +160,12 @@ class NeonMother extends Plugin {
       const load = child.onload;
       child.onload = async () => {
         const t = Date.now();
+        const label = SECTION_LABEL[m.id] || m.name;
         try {
+          this.step(`${label} starting`);
           await load.call(child);
-          this.timing.push(`${SECTION_LABEL[m.id] || m.name} ${Date.now() - t} ms`);
+          this.step(`${label} started`);
+          this.timing.push(`${label} ${Date.now() - t} ms`);
         } catch (e) {
           console.error(`Neon Deck: ${m.name} failed to start`, e);
           this.failed.set(m.id, String((e && e.message) || e));

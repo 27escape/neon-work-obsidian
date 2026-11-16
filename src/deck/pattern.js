@@ -190,6 +190,11 @@ class PatternLayer {
     this.last = 0;
     this.raf = 0;
     this.dirty = true;
+    // fork: no WebGL pattern on phones and tablets (a full-pane shader can freeze a phone); plain background
+    if (NEON_MOBILE.on) {
+      this.canvas = null;
+      return;
+    }
     this.canvas = host.createEl('canvas', { cls: 'nd-pattern-canvas' });
     host.prepend(this.canvas);
     const gl = this.canvas.getContext('webgl', { premultipliedAlpha: true, alpha: true, antialias: false });

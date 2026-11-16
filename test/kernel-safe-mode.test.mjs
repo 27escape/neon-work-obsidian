@@ -75,11 +75,14 @@ test('one unfinished start is forgiven; two in a row turn on safe mode on this d
   const files = new Map([['.obsidian/plugins/neon-work/modules.json', JSON.stringify({ off: {}, baseFolder: 'x' })]]);
   const phone = device(files);
   await phone.start(false); // app closed before the start finished
-  assert.equal((await phone.start(false)).safeMode(), false);
+  const second = await phone.start(false);
+  assert.equal(second.safeMode(), false);
+  assert.match(String(second.local('stoppedAt')), /^starting \(/); // where the unfinished start got to
   notices.length = 0;
   const third = await phone.start(false);
   assert.equal(third.safeMode(), true);
   assert.match(notices.join(' '), /twice in a row on this device/);
+  assert.match(notices.join(' '), /It stopped during: starting/);
   const laptop = device(files); // same synced files, its own local storage
   assert.equal((await laptop.start(true)).safeMode(), false);
   await third.setSafe(false);

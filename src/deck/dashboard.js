@@ -52,6 +52,7 @@ class DashboardView extends ItemView {
   }
 
   async onOpen() {
+    if (neonMother) neonMother.step('opening the dashboard'); // fork: start-up trace
     const root = this.contentEl;
     root.empty();
     root.addClass('nd-root', 'nd-dash', 'nd-pattern-host');

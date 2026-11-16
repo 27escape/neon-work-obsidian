@@ -28,7 +28,7 @@ function mobileOnlyNote(el, what) {
   el.createDiv({ cls: 'nd-empty', text: `${what} is only on the desktop. Close this tab.` });
 }
 
-const ND_VERSION = '1.1.2'; // set from the manifest by tools/build.mjs
+const ND_VERSION = '1.1.3'; // set from the manifest by tools/build.mjs
 // Categories colour notes and split tracked time. Upstream: four fixed ones (UPSTREAM_CATS).
 // fork: your customers instead — one per folder in the customers folder (1.Customers), keyed in lower case;
 // a note's category is its customer property, else the customer folder it is in. CATS, CAT_LABEL and
@@ -1816,6 +1816,11 @@ class PatternLayer {
     this.last = 0;
     this.raf = 0;
     this.dirty = true;
+    // fork: no WebGL pattern on phones and tablets (a full-pane shader can freeze a phone); plain background
+    if (NEON_MOBILE.on) {
+      this.canvas = null;
+      return;
+    }
     this.canvas = host.createEl('canvas', { cls: 'nd-pattern-canvas' });
     host.prepend(this.canvas);
     const gl = this.canvas.getContext('webgl', { premultipliedAlpha: true, alpha: true, antialias: false });
@@ -2294,6 +2299,7 @@ class DashboardView extends ItemView {
   }
 
   async onOpen() {
+    if (neonMother) neonMother.step('opening the dashboard'); // fork: start-up trace
     const root = this.contentEl;
     root.empty();
     root.addClass('nd-root', 'nd-dash', 'nd-pattern-host');
@@ -11267,7 +11273,7 @@ const NEON_MODULES = [
 const KERNEL_FILE = 'modules.json'; // { off: { 'neon-time': true }, readOnly: bool, baseFolder } — synced with the vault
 // fork: start-up checks and safe mode are per device (this vault's local storage on this device), never synced:
 // a phone and a laptop sharing .obsidian must not put each other into safe mode.
-const LOCAL_KEYS = { unfinished: 'neon-work-unfinished-starts', safe: 'neon-work-safe-mode', error: 'neon-work-last-error', section: 'neon-work-settings-section', timing: 'neon-work-start-timing' };
+const LOCAL_KEYS = { unfinished: 'neon-work-unfinished-starts', safe: 'neon-work-safe-mode', error: 'neon-work-last-error', section: 'neon-work-settings-section', stoppedAt: 'neon-work-stopped-at', timing: 'neon-work-start-timing', step: 'neon-work-start-step' };
 const UNFINISHED_LIMIT = 2; // two starts in a row that never finished (closing the app once is not a crash)
 
 class NeonMother extends Plugin {
@@ -11303,6 +11309,8 @@ class NeonMother extends Plugin {
     const unfinished = Number(this.local('unfinished')) || 0;
     this.setLocal('unfinished', unfinished + 1);
     const crashed = unfinished >= UNFINISHED_LIMIT && !this.safeMode();
+    if (unfinished) this.setLocal('stoppedAt', this.local('step')); // where the last unfinished start got to
+    this.step('starting');
     if (crashed) this.setLocal('safe', true); // stays on (on this device) until turned off in settings
     // enabled community plugins, from the public config file (old 1.x copies must not run twice)
     try {
@@ -11323,13 +11331,14 @@ class NeonMother extends Plugin {
       const err = this.local('error');
       new Notice(
         crashed
-          ? `${appName()} did not finish starting twice in a row on this device, so its modules are off here (safe mode).${err ? ` Last error: ${err}.` : ''} Turn safe mode off in the plugin’s settings.`
+          ? `${appName()} did not finish starting twice in a row on this device, so its modules are off here (safe mode).${this.local('stoppedAt') ? ` It stopped during: ${this.local('stoppedAt')}.` : ''}${err ? ` Last error: ${err}.` : ''} Turn safe mode off in the plugin’s settings.`
           : `${appName()} safe mode on this device: modules are off. Turn it off in the plugin’s settings.`,
         0,
       );
     } else for (const m of NEON_MODULES) await this.start(m);
     // modules finish starting asynchronously: only call the start done once the workspace is ready
     this.app.workspace.onLayoutReady(() => {
+      this.step('workspace ready, opening views');
       this.doneTimer = window.setTimeout(() => this.startDone(), 3000);
       // fork: first start — ask where Neon Deck may keep what it makes for itself
       if (this.state.baseFolder === undefined) new BaseFolderModal(this).open();
@@ -11349,8 +11358,15 @@ class NeonMother extends Plugin {
     if (neonMother === this) neonMother = null;
     neonIndex = null;
   }
+  /** fork: the start-up step reached, kept on the device so a hang can be traced afterwards (no console on phones). */
+  step(what) {
+    if (this.startedUp) return; // only while starting
+    this.setLocal('step', `${what} (${((Date.now() - this.t0) / 1000).toFixed(1)} s)`);
+  }
   startDone() {
+    this.startedUp = true;
     this.setLocal('unfinished', 0);
+    this.setLocal('step', null);
     if (this.timing) this.setLocal('timing', `${this.timing.join(' · ')}${this.timing.length ? ' · ' : ''}ready after ${((Date.now() - this.t0) / 1000).toFixed(1)} s (${moment().format('D MMM HH:mm')})`);
   }
   /* fork: per-device values (Obsidian keeps them per vault on this device; not in .obsidian, so not synced) */
@@ -11411,9 +11427,12 @@ class NeonMother extends Plugin {
       const load = child.onload;
       child.onload = async () => {
         const t = Date.now();
+        const label = SECTION_LABEL[m.id] || m.name;
         try {
+          this.step(`${label} starting`);
           await load.call(child);
-          this.timing.push(`${SECTION_LABEL[m.id] || m.name} ${Date.now() - t} ms`);
+          this.step(`${label} started`);
+          this.timing.push(`${label} ${Date.now() - t} ms`);
         } catch (e) {
           console.error(`Neon Deck: ${m.name} failed to start`, e);
           this.failed.set(m.id, String((e && e.message) || e));
@@ -11572,6 +11591,8 @@ class NeonModulesTab extends PluginSettingTab {
       .setName('Safe mode on this device')
       .setDesc('Start with every module off, on this device only. Turns on by itself if the plugin twice in a row did not finish starting here.')
       .addToggle((t) => t.setValue(p.safeMode()).onChange((v) => p.setSafe(v)));
+    const stopped = p.local('stoppedAt');
+    if (stopped) new Setting(el).setName('Last unfinished start on this device stopped during').setDesc(stopped).addButton((b) => b.setButtonText('Clear').onClick(() => (p.setLocal('stoppedAt', null), this.display())));
     const timing = p.local('timing');
     if (timing) new Setting(el).setName('Last start-up on this device').setDesc(timing);
     const err = p.local('error');

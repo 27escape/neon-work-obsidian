@@ -1,6 +1,6 @@
 # Neon Work
 
-**Plugin id:** `neon-work` · **Name:** Neon Work · **Version:** 1.1.2 ([release notes](docs/release-notes/1.1.2.md); its own numbering, starting again from upstream Neon Deck 2.2.0)
+**Plugin id:** `neon-work` · **Name:** Neon Work · **Version:** 1.1.3 ([release notes](docs/release-notes/1.1.3.md); its own numbering, starting again from upstream Neon Deck 2.2.0)
 **Fork by:** Kevin Mulholland, with Claude
 **Repository:** <https://github.com/27escape/neon-work-obsidian>
 **Based on:** [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs, version 2.2.0 (CC BY-NC-SA 4.0). The same licence applies to this fork; the changes are listed below.
