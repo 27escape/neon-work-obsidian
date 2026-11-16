@@ -66,7 +66,7 @@ Object.assign(PlanView.prototype, {
   card(cell, t) {
     const kind = this.kinds.get(t) || 'ready';
     const c = cell.createDiv({ cls: `np-card is-${kind}${t.status === 'cancelled' ? ' is-cancelled' : ''}`, attr: { draggable: 'true' } });
-    c.style.borderLeftColor = planColour(kind);
+    planFill(c, kind); // same colours as the Gantt bars and graph boxes
     c.createDiv({ cls: 'np-card-text', text: planText(t.raw) });
     const meta = c.createDiv('np-card-meta');
     if (t.id) meta.createSpan({ cls: 'np-id', text: t.id });

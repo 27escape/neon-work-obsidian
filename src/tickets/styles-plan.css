@@ -227,3 +227,30 @@
 .np-plan .np-graph .np-node {
   cursor: pointer;
 }
+
+/* the same colours everywhere: filled board cards and list chips (colours set by planFill) */
+.np-plan .np-card {
+  border-left-width: 1px;
+}
+.np-plan .np-card .np-card-meta,
+.np-plan .np-card .np-id {
+  color: inherit;
+  opacity: 0.85;
+}
+.np-plan .np-card.is-done .np-card-text,
+.np-plan .np-card.is-cancelled .np-card-text {
+  color: inherit;
+}
+.np-plan .np-card-meta .is-overdue,
+.np-plan .np-card-meta .is-soon {
+  color: inherit;
+  font-weight: 600;
+}
+.np-plan .np-graph:not(.is-fit) {
+  overflow: auto;
+  max-height: 80vh;
+}
+.np-plan .np-graph.is-fit svg {
+  width: 100%;
+  height: auto;
+}

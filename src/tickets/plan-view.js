@@ -34,6 +34,7 @@ class PlanView extends ItemView {
     this.plan = null;
     this.mode = 'gantt';
     this.weeks = false;
+    this.graph = { dir: 'TB', phases: false, fit: false }; // graph layout: Down / Across, phase groups, fit or full size
     this.tasks = [];
     this.paths = new Set();
     this.src = '';
@@ -48,12 +49,13 @@ class PlanView extends ItemView {
     return 'calendar-range';
   }
   getState() {
-    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks } : {});
+    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph } : {});
   }
   async setState(state, result) {
     if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
     if (state && PLAN_MODES.some(([k]) => k === state.mode)) this.mode = state.mode;
     if (state && typeof state.weeks === 'boolean') this.weeks = state.weeks;
+    if (state && state.graph && typeof state.graph === 'object') Object.assign(this.graph, state.graph);
     await super.setState(state, result);
     this.build();
     await this.refresh();
@@ -93,6 +95,12 @@ class PlanView extends ItemView {
     });
     button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
     this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
+    const g = this.graph;
+    const saveGraph = () => (this.app.workspace.requestSaveLayout(), this.render());
+    this.dirEl = pills(tools, [['TB', 'Down'], ['LR', 'Across']], g.dir, (v) => ((g.dir = v || 'TB'), saveGraph()));
+    this.phaseEl = pills(tools, [['on', 'Phases']], g.phases ? 'on' : null, (v) => ((g.phases = v === 'on'), saveGraph()), 'can-clear');
+    tip(this.phaseEl.el, 'Group the boxes by phase (wider)');
+    this.fitEl = pills(tools, [['fit', 'Fit'], ['full', 'Full size']], g.fit ? 'fit' : 'full', (v) => ((g.fit = v === 'fit'), saveGraph()));
     this.svgBtn = button(tools, { icon: 'image-down', text: 'SVG', cls: 'np-save', title: 'Save the chart as an SVG file', onClick: () => planExport(this.bodyEl, this.getDisplayText()) });
     this.issuesEl = root.createDiv('np-issues');
     this.bodyEl = root.createDiv('np-body');
@@ -131,6 +139,7 @@ class PlanView extends ItemView {
     this.weeksEl.btns.get('dates').disabled = !this.base;
     if (!this.base) tip(this.weeksEl.btns.get('dates'), 'Set the project’s started date to see dates');
     for (const b of [this.copyBtn, this.svgBtn]) b.toggleClass('is-hidden', this.mode !== 'gantt' && this.mode !== 'graph');
+    for (const p of [this.dirEl, this.phaseEl, this.fitEl]) p.el.toggleClass('is-hidden', this.mode !== 'graph');
     this.renderIssues(sched);
     this.bodyEl.empty();
     if (!own.length) {
@@ -192,7 +201,7 @@ class PlanView extends ItemView {
       if (t.external) name.createSpan({ cls: 'np-file', text: ` · ${t.file.basename}` });
       const kind = this.kinds.get(t) || st;
       const chip = tr.createEl('td').createSpan({ cls: `np-state is-${st}`, text: PLAN_STATE_LABEL[st] });
-      chip.style.borderColor = chip.style.color = planColour(kind);
+      planFill(chip, kind);
       if (kind === 'overdue' || kind === 'soon') tip(chip, PLAN_KINDS.find(([k]) => k === kind)[1]);
       tr.createEl('td', { cls: 'np-id', text: t.id || '' });
       tr.createEl('td', { cls: 'np-id', text: t.deps.join(', ') });

@@ -10579,6 +10579,15 @@ function planCssHex(name, fallback) {
   }
   return hex || fallback;
 }
+/** Text colour on a filled kind colour: dark on orange and grey, white on the rest. */
+const planInk = (kind) => (kind === 'soon' || kind === 'outside' ? '#000000' : '#ffffff');
+/** Fill an element with a kind's colour, as the Gantt bars and graph boxes are. */
+function planFill(el, kind) {
+  const c = planColour(kind);
+  el.style.backgroundColor = c;
+  el.style.borderColor = c;
+  el.style.color = planInk(kind);
+}
 /** The colour in use for a bar kind (Obsidian's colour variables, so it follows the theme), as #rrggbb. */
 function planColour(kind) {
   const k = PLAN_KINDS.find((x) => x[0] === kind) || PLAN_KINDS[0];
@@ -10605,7 +10614,7 @@ async function planPaint(el, bars) {
     rect.style.stroke = b.crit ? edge : c;
     rect.style.strokeWidth = b.crit ? '2px' : '1px';
     const label = svg.querySelector(`text[id="${b.id}-text"], text[id$="-${b.id}-text"]`);
-    if (label && !/Outside/i.test(label.getAttribute('class') || '')) label.style.fill = b.kind === 'soon' || b.kind === 'outside' ? '#000000' : '#ffffff';
+    if (label && !/Outside/i.test(label.getAttribute('class') || '')) label.style.fill = planInk(b.kind);
   }
 }
 /* @src src/tickets/plan-view.js */
@@ -10645,6 +10654,7 @@ class PlanView extends ItemView {
     this.plan = null;
     this.mode = 'gantt';
     this.weeks = false;
+    this.graph = { dir: 'TB', phases: false, fit: false }; // graph layout: Down / Across, phase groups, fit or full size
     this.tasks = [];
     this.paths = new Set();
     this.src = '';
@@ -10659,12 +10669,13 @@ class PlanView extends ItemView {
     return 'calendar-range';
   }
   getState() {
-    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks } : {});
+    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph } : {});
   }
   async setState(state, result) {
     if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
     if (state && PLAN_MODES.some(([k]) => k === state.mode)) this.mode = state.mode;
     if (state && typeof state.weeks === 'boolean') this.weeks = state.weeks;
+    if (state && state.graph && typeof state.graph === 'object') Object.assign(this.graph, state.graph);
     await super.setState(state, result);
     this.build();
     await this.refresh();
@@ -10704,6 +10715,12 @@ class PlanView extends ItemView {
     });
     button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
     this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
+    const g = this.graph;
+    const saveGraph = () => (this.app.workspace.requestSaveLayout(), this.render());
+    this.dirEl = pills(tools, [['TB', 'Down'], ['LR', 'Across']], g.dir, (v) => ((g.dir = v || 'TB'), saveGraph()));
+    this.phaseEl = pills(tools, [['on', 'Phases']], g.phases ? 'on' : null, (v) => ((g.phases = v === 'on'), saveGraph()), 'can-clear');
+    tip(this.phaseEl.el, 'Group the boxes by phase (wider)');
+    this.fitEl = pills(tools, [['fit', 'Fit'], ['full', 'Full size']], g.fit ? 'fit' : 'full', (v) => ((g.fit = v === 'fit'), saveGraph()));
     this.svgBtn = button(tools, { icon: 'image-down', text: 'SVG', cls: 'np-save', title: 'Save the chart as an SVG file', onClick: () => planExport(this.bodyEl, this.getDisplayText()) });
     this.issuesEl = root.createDiv('np-issues');
     this.bodyEl = root.createDiv('np-body');
@@ -10742,6 +10759,7 @@ class PlanView extends ItemView {
     this.weeksEl.btns.get('dates').disabled = !this.base;
     if (!this.base) tip(this.weeksEl.btns.get('dates'), 'Set the project’s started date to see dates');
     for (const b of [this.copyBtn, this.svgBtn]) b.toggleClass('is-hidden', this.mode !== 'gantt' && this.mode !== 'graph');
+    for (const p of [this.dirEl, this.phaseEl, this.fitEl]) p.el.toggleClass('is-hidden', this.mode !== 'graph');
     this.renderIssues(sched);
     this.bodyEl.empty();
     if (!own.length) {
@@ -10803,7 +10821,7 @@ class PlanView extends ItemView {
       if (t.external) name.createSpan({ cls: 'np-file', text: ` · ${t.file.basename}` });
       const kind = this.kinds.get(t) || st;
       const chip = tr.createEl('td').createSpan({ cls: `np-state is-${st}`, text: PLAN_STATE_LABEL[st] });
-      chip.style.borderColor = chip.style.color = planColour(kind);
+      planFill(chip, kind);
       if (kind === 'overdue' || kind === 'soon') tip(chip, PLAN_KINDS.find(([k]) => k === kind)[1]);
       tr.createEl('td', { cls: 'np-id', text: t.id || '' });
       tr.createEl('td', { cls: 'np-id', text: t.deps.join(', ') });
@@ -10827,7 +10845,7 @@ const planNodeLabel = (t, max = 40) => planClip(((t.external ? '↗ ' : '') + pl
  * { text, nodes: [{ id, task }] }. kinds: Map task → bar kind; colours: { kind: '#hex' }; edge: colour of the
  * critical path's outline. sched: planSchedule(tasks) (its rows give the critical path).
  */
-function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '#222222', dir = 'LR' } = {}) {
+function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '#222222', dir = 'TB', phases = true } = {}) {
   const { byId } = planIndex(tasks);
   const crit = new Map(sched.rows.map((r) => [r.task, r]));
   const ids = new Map(tasks.map((t, i) => [t, `n${i + 1}`]));
@@ -10845,9 +10863,9 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   }
   let g = 0;
   for (const [name, list] of groups) {
-    lines.push(`  subgraph s${++g}["${planNodeLabel({ raw: name }, 60)}"]`);
-    for (const t of list) lines.push(`    ${ids.get(t)}["${planNodeLabel(t)}"]`);
-    lines.push('  end');
+    if (phases) lines.push(`  subgraph s${++g}["${planNodeLabel({ raw: name }, 60)}"]`);
+    for (const t of list) lines.push(`${phases ? '    ' : '  '}${ids.get(t)}["${planNodeLabel(t)}"]`);
+    if (phases) lines.push('  end');
   }
   const onPath = (a, b) => {
     const ra = crit.get(a);
@@ -10867,7 +10885,7 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   }
   for (const [k, list] of byKind) {
     const fill = colours[k] || '#888888';
-    const ink = k === 'soon' || k === 'outside' ? '#000000' : '#ffffff';
+    const ink = k === 'soon' || k === 'outside' ? '#000000' : '#ffffff'; // as planInk
     lines.push(`  classDef ${k} fill:${fill},stroke:${fill},color:${ink}`, `  class ${list.join(',')} ${k}`);
   }
   const critIds = sched.rows.filter((r) => r.crit && !r.task.external && !planClosed(r.task)).map((r) => ids.get(r.task));
@@ -10880,18 +10898,26 @@ Object.assign(PlanView.prototype, {
   renderGraph(sched) {
     const colours = Object.fromEntries(PLAN_KINDS.map(([k]) => [k, planColour(k)]));
     const edge = planCssHex('--text-normal', '#222222');
-    const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge });
+    const { dir, phases, fit } = this.graph;
+    const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases });
     this.src = text;
-    const chart = this.bodyEl.createDiv('np-chart np-graph');
-    renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes));
+    const chart = this.bodyEl.createDiv(`np-chart np-graph${fit ? ' is-fit' : ''}`);
+    renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes, fit));
   },
-  async linkNodes(chart, nodes) {
+  /** Boxes open their task; at full size the drawing keeps its own width (scrolls) rather than shrinking to fit. */
+  async linkNodes(chart, nodes, fit) {
     let svg = chart.querySelector('svg');
     for (let i = 0; !svg && i < 30 && chart.isConnected; i++) {
       await new Promise((r) => window.setTimeout(r, 100));
       svg = chart.querySelector('svg');
     }
     if (!svg) return;
+    const vb = svg.viewBox && svg.viewBox.baseVal;
+    if (!fit && vb && vb.width) {
+      svg.style.maxWidth = 'none';
+      svg.style.width = `${Math.ceil(vb.width)}px`;
+      svg.style.height = `${Math.ceil(vb.height)}px`;
+    }
     for (const { id, task } of nodes) {
       const g = svg.querySelector(`g.node[id*="-flowchart-${id}-"], g.node[id^="flowchart-${id}-"]`);
       if (!g) continue;
@@ -10969,7 +10995,7 @@ Object.assign(PlanView.prototype, {
   card(cell, t) {
     const kind = this.kinds.get(t) || 'ready';
     const c = cell.createDiv({ cls: `np-card is-${kind}${t.status === 'cancelled' ? ' is-cancelled' : ''}`, attr: { draggable: 'true' } });
-    c.style.borderLeftColor = planColour(kind);
+    planFill(c, kind); // same colours as the Gantt bars and graph boxes
     c.createDiv({ cls: 'np-card-text', text: planText(t.raw) });
     const meta = c.createDiv('np-card-meta');
     if (t.id) meta.createSpan({ cls: 'np-id', text: t.id });

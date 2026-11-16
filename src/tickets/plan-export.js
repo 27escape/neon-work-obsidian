@@ -61,6 +61,15 @@ function planCssHex(name, fallback) {
   }
   return hex || fallback;
 }
+/** Text colour on a filled kind colour: dark on orange and grey, white on the rest. */
+const planInk = (kind) => (kind === 'soon' || kind === 'outside' ? '#000000' : '#ffffff');
+/** Fill an element with a kind's colour, as the Gantt bars and graph boxes are. */
+function planFill(el, kind) {
+  const c = planColour(kind);
+  el.style.backgroundColor = c;
+  el.style.borderColor = c;
+  el.style.color = planInk(kind);
+}
 /** The colour in use for a bar kind (Obsidian's colour variables, so it follows the theme), as #rrggbb. */
 function planColour(kind) {
   const k = PLAN_KINDS.find((x) => x[0] === kind) || PLAN_KINDS[0];
@@ -87,6 +96,6 @@ async function planPaint(el, bars) {
     rect.style.stroke = b.crit ? edge : c;
     rect.style.strokeWidth = b.crit ? '2px' : '1px';
     const label = svg.querySelector(`text[id="${b.id}-text"], text[id$="-${b.id}-text"]`);
-    if (label && !/Outside/i.test(label.getAttribute('class') || '')) label.style.fill = b.kind === 'soon' || b.kind === 'outside' ? '#000000' : '#ffffff';
+    if (label && !/Outside/i.test(label.getAttribute('class') || '')) label.style.fill = planInk(b.kind);
   }
 }

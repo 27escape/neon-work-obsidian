@@ -30,7 +30,7 @@ test('graph: groups per phase, arrows from dependency to task, thick on the crit
     Object.assign(P.planTask('- [ ] Outside 🆔 x ⛔ b'), { external: true }),
   ];
   const kinds = new Map([[tasks[0], 'ready'], [tasks[1], 'blocked'], [tasks[2], 'blocked'], [tasks[3], 'outside']]);
-  const { text, nodes } = P.planGraphText(tasks, P.planSchedule(tasks), { kinds, colours: { ready: '#0000ff', blocked: '#800080', outside: '#999999' }, edge: '#111111' });
+  const { text, nodes } = P.planGraphText(tasks, P.planSchedule(tasks), { kinds, colours: { ready: '#0000ff', blocked: '#800080', outside: '#999999' }, edge: '#111111', dir: 'LR' });
   const lines = text.split('\n');
   assert.equal(lines[0], 'flowchart LR');
   assert.ok(lines.includes('  subgraph s1["1. Scope"]'));
@@ -52,4 +52,14 @@ test('theme colours become #rrggbb for Mermaid (rgb() broke the graph: "Expectin
   assert.equal(P.planToHex('#ABC'), '#aabbcc');
   assert.equal(P.planToHex('#3a7bd5'), '#3a7bd5');
   assert.equal(P.planToHex('hsl(10, 50%, 50%)'), null);
+});
+
+test('graph: top to bottom by default, phase groups can be left out', () => {
+  const tasks = [P.planTask('- [ ] A 🆔 a', { phase: 'One' }), P.planTask('- [ ] B 🆔 b ⛔ a', { phase: 'Two' })];
+  const { text } = P.planGraphText(tasks, P.planSchedule(tasks), { phases: false });
+  const lines = text.split('\n');
+  assert.equal(lines[0], 'flowchart TB');
+  assert.equal(lines.some((l) => l.includes('subgraph')), false);
+  assert.ok(lines.includes('  n1["A"]'));
+  assert.ok(lines.includes('  n1 ==> n2'));
 });

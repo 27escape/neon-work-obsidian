@@ -10,7 +10,7 @@ const planNodeLabel = (t, max = 40) => planClip(((t.external ? '↗ ' : '') + pl
  * { text, nodes: [{ id, task }] }. kinds: Map task → bar kind; colours: { kind: '#hex' }; edge: colour of the
  * critical path's outline. sched: planSchedule(tasks) (its rows give the critical path).
  */
-function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '#222222', dir = 'LR' } = {}) {
+function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '#222222', dir = 'TB', phases = true } = {}) {
   const { byId } = planIndex(tasks);
   const crit = new Map(sched.rows.map((r) => [r.task, r]));
   const ids = new Map(tasks.map((t, i) => [t, `n${i + 1}`]));
@@ -28,9 +28,9 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   }
   let g = 0;
   for (const [name, list] of groups) {
-    lines.push(`  subgraph s${++g}["${planNodeLabel({ raw: name }, 60)}"]`);
-    for (const t of list) lines.push(`    ${ids.get(t)}["${planNodeLabel(t)}"]`);
-    lines.push('  end');
+    if (phases) lines.push(`  subgraph s${++g}["${planNodeLabel({ raw: name }, 60)}"]`);
+    for (const t of list) lines.push(`${phases ? '    ' : '  '}${ids.get(t)}["${planNodeLabel(t)}"]`);
+    if (phases) lines.push('  end');
   }
   const onPath = (a, b) => {
     const ra = crit.get(a);
@@ -50,7 +50,7 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   }
   for (const [k, list] of byKind) {
     const fill = colours[k] || '#888888';
-    const ink = k === 'soon' || k === 'outside' ? '#000000' : '#ffffff';
+    const ink = k === 'soon' || k === 'outside' ? '#000000' : '#ffffff'; // as planInk
     lines.push(`  classDef ${k} fill:${fill},stroke:${fill},color:${ink}`, `  class ${list.join(',')} ${k}`);
   }
   const critIds = sched.rows.filter((r) => r.crit && !r.task.external && !planClosed(r.task)).map((r) => ids.get(r.task));
@@ -63,18 +63,26 @@ Object.assign(PlanView.prototype, {
   renderGraph(sched) {
     const colours = Object.fromEntries(PLAN_KINDS.map(([k]) => [k, planColour(k)]));
     const edge = planCssHex('--text-normal', '#222222');
-    const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge });
+    const { dir, phases, fit } = this.graph;
+    const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases });
     this.src = text;
-    const chart = this.bodyEl.createDiv('np-chart np-graph');
-    renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes));
+    const chart = this.bodyEl.createDiv(`np-chart np-graph${fit ? ' is-fit' : ''}`);
+    renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes, fit));
   },
-  async linkNodes(chart, nodes) {
+  /** Boxes open their task; at full size the drawing keeps its own width (scrolls) rather than shrinking to fit. */
+  async linkNodes(chart, nodes, fit) {
     let svg = chart.querySelector('svg');
     for (let i = 0; !svg && i < 30 && chart.isConnected; i++) {
       await new Promise((r) => window.setTimeout(r, 100));
       svg = chart.querySelector('svg');
     }
     if (!svg) return;
+    const vb = svg.viewBox && svg.viewBox.baseVal;
+    if (!fit && vb && vb.width) {
+      svg.style.maxWidth = 'none';
+      svg.style.width = `${Math.ceil(vb.width)}px`;
+      svg.style.height = `${Math.ceil(vb.height)}px`;
+    }
     for (const { id, task } of nodes) {
       const g = svg.querySelector(`g.node[id*="-flowchart-${id}-"], g.node[id^="flowchart-${id}-"]`);
       if (!g) continue;
