@@ -299,94 +299,9 @@ function noteCategory(cache, path) {
 function fileCategory(app, file) {
   return file instanceof TFile && file.extension === 'md' ? noteCategory(app.metadataCache.getFileCache(file), file.path) : null;
 }
-
-/* ---- modals --------------------------------------------------------- */
-class PromptModal extends Modal {
-  constructor(app, { title, value = '', placeholder = '', cta = 'OK', onSubmit }) {
-    super(app);
-    Object.assign(this, { title, value, placeholder, cta, onSubmit });
-  }
-  onOpen() {
-    this.modalEl.addClass('nd-modal');
-    this.titleEl.setText(this.title);
-    const input = this.contentEl.createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: this.placeholder } });
-    input.value = this.value;
-    const submit = () => {
-      const v = input.value.trim();
-      this.close();
-      this.onSubmit(v);
-    };
-    const row = this.contentEl.createDiv('nd-modal-row');
-    button(row, { text: 'Cancel', onClick: () => this.close() });
-    button(row, { text: this.cta, cls: 'mod-cta', onClick: submit });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.isComposing) {
-        e.preventDefault();
-        submit();
-      }
-    });
-    window.setTimeout(() => {
-      input.focus();
-      input.select();
-    }, 10);
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-class ConfirmModal extends Modal {
-  constructor(app, { title, text, cta = 'Confirm', warning = true, onConfirm }) {
-    super(app);
-    Object.assign(this, { title, text, cta, warning, onConfirm });
-  }
-  onOpen() {
-    this.modalEl.addClass('nd-modal');
-    this.titleEl.setText(this.title);
-    this.contentEl.createEl('p', { text: this.text });
-    const row = this.contentEl.createDiv('nd-modal-row');
-    button(row, { text: 'Cancel', onClick: () => this.close() });
-    button(row, {
-      text: this.cta,
-      cls: this.warning ? 'mod-warning' : 'mod-cta',
-      onClick: () => {
-        this.close();
-        this.onConfirm();
-      },
-    });
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-class DatePromptModal extends Modal {
-  constructor(app, { title, value, time = false, onSubmit }) {
-    super(app);
-    Object.assign(this, { title, value, time, onSubmit });
-  }
-  onOpen() {
-    this.modalEl.addClass('nd-modal');
-    this.titleEl.setText(this.title);
-    const input = this.contentEl.createEl('input', { cls: 'nd-input', attr: { type: this.time ? 'datetime-local' : 'date' } });
-    input.value = this.value || '';
-    const done = (v) => {
-      this.close();
-      this.onSubmit(this.time && v ? v.replace('T', ' ') : v);
-    };
-    const row = this.contentEl.createDiv('nd-modal-row');
-    button(row, { text: 'Clear', onClick: () => done('') });
-    button(row, { text: 'Save', cls: 'mod-cta', onClick: () => done(input.value) });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        done(input.value);
-      }
-    });
-    window.setTimeout(() => input.focus(), 10);
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-}
+/* @src src/shared/shared-notes.js */
+/* ---- shared note helpers: files and navigation, daily notes, note writes, cross-module glue, base folder,
+   notes ignored by tag (split from shared.js) ---- */
 
 /* ---- files & navigation ----------------------------------------------- */
 async function ensureFolder(app, path) {
@@ -613,6 +528,113 @@ function dropOldDefaults(app, s, olds) {
   return changed;
 }
 
+/* ---- notes to ignore by tag (fork) -----------------------------------------------------
+ * e.g. folder index notes (tags: vault_index): left out of stats, tasks, projects and research.
+ * Set from the Dashboard setting "Ignored tags"; matches the note's tags property, case-insensitive. */
+const NEON_IGNORE = { tags: [] };
+function setIgnoredTags(text) {
+  NEON_IGNORE.tags = String(text || '')
+    .split(/[,\s]+/)
+    .map((t) => t.trim().replace(/^#/, '').toLowerCase())
+    .filter(Boolean);
+}
+function isIgnoredNote(app, file) {
+  if (!NEON_IGNORE.tags.length || !file || file.extension !== 'md') return false;
+  const cache = app.metadataCache.getFileCache(file);
+  const tags = fmTags(cache && cache.frontmatter);
+  return tags.some((t) => NEON_IGNORE.tags.includes(t));
+}
+/* @src src/shared/shared-ui.js */
+/* ---- shared UI helpers: modals, path suggestions, long press (split from shared.js) ---- */
+
+/* ---- modals --------------------------------------------------------- */
+class PromptModal extends Modal {
+  constructor(app, { title, value = '', placeholder = '', cta = 'OK', onSubmit }) {
+    super(app);
+    Object.assign(this, { title, value, placeholder, cta, onSubmit });
+  }
+  onOpen() {
+    this.modalEl.addClass('nd-modal');
+    this.titleEl.setText(this.title);
+    const input = this.contentEl.createEl('input', { cls: 'nd-input', attr: { type: 'text', placeholder: this.placeholder } });
+    input.value = this.value;
+    const submit = () => {
+      const v = input.value.trim();
+      this.close();
+      this.onSubmit(v);
+    };
+    const row = this.contentEl.createDiv('nd-modal-row');
+    button(row, { text: 'Cancel', onClick: () => this.close() });
+    button(row, { text: this.cta, cls: 'mod-cta', onClick: submit });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing) {
+        e.preventDefault();
+        submit();
+      }
+    });
+    window.setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 10);
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+class ConfirmModal extends Modal {
+  constructor(app, { title, text, cta = 'Confirm', warning = true, onConfirm }) {
+    super(app);
+    Object.assign(this, { title, text, cta, warning, onConfirm });
+  }
+  onOpen() {
+    this.modalEl.addClass('nd-modal');
+    this.titleEl.setText(this.title);
+    this.contentEl.createEl('p', { text: this.text });
+    const row = this.contentEl.createDiv('nd-modal-row');
+    button(row, { text: 'Cancel', onClick: () => this.close() });
+    button(row, {
+      text: this.cta,
+      cls: this.warning ? 'mod-warning' : 'mod-cta',
+      onClick: () => {
+        this.close();
+        this.onConfirm();
+      },
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+class DatePromptModal extends Modal {
+  constructor(app, { title, value, time = false, onSubmit }) {
+    super(app);
+    Object.assign(this, { title, value, time, onSubmit });
+  }
+  onOpen() {
+    this.modalEl.addClass('nd-modal');
+    this.titleEl.setText(this.title);
+    const input = this.contentEl.createEl('input', { cls: 'nd-input', attr: { type: this.time ? 'datetime-local' : 'date' } });
+    input.value = this.value || '';
+    const done = (v) => {
+      this.close();
+      this.onSubmit(this.time && v ? v.replace('T', ' ') : v);
+    };
+    const row = this.contentEl.createDiv('nd-modal-row');
+    button(row, { text: 'Clear', onClick: () => done('') });
+    button(row, { text: 'Save', cls: 'mod-cta', onClick: () => done(input.value) });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        done(input.value);
+      }
+    });
+    window.setTimeout(() => input.focus(), 10);
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 /* ---- path suggestions (fork) ----------------------------------------------
  * As you type in a folder or file setting, matching vault paths drop down (Obsidian's own suggest UI). */
 const PathSuggestBase = obsidian.AbstractInputSuggest || null;
@@ -647,7 +669,6 @@ function suggestPaths(app, text, kind) {
   if (PathSuggestBase && text && text.inputEl) new PathSuggest(app, text.inputEl, kind);
   return text;
 }
-/* ---- end shared ------------------------------------------------------- */
 
 /* ---- long press = right-click on phones and tablets (fork) ------------------------------
  * Inside Neon Work's own views, holding a finger still for half a second sends the same
@@ -687,23 +708,6 @@ function installLongPress(plugin) {
     if (e.isTrusted && recent() && inNeon(e.target)) (e.preventDefault(), e.stopPropagation());
   }, true);
   plugin.register(cancel);
-}
-
-/* ---- notes to ignore by tag (fork) -----------------------------------------------------
- * e.g. folder index notes (tags: vault_index): left out of stats, tasks, projects and research.
- * Set from the Dashboard setting "Ignored tags"; matches the note's tags property, case-insensitive. */
-const NEON_IGNORE = { tags: [] };
-function setIgnoredTags(text) {
-  NEON_IGNORE.tags = String(text || '')
-    .split(/[,\s]+/)
-    .map((t) => t.trim().replace(/^#/, '').toLowerCase())
-    .filter(Boolean);
-}
-function isIgnoredNote(app, file) {
-  if (!NEON_IGNORE.tags.length || !file || file.extension !== 'md') return false;
-  const cache = app.metadataCache.getFileCache(file);
-  const tags = fmTags(cache && cache.frontmatter);
-  return tags.some((t) => NEON_IGNORE.tags.includes(t));
 }
 /* @src src/shared/guard.js */
 /* ---- read-only guard ----------------------------------------------------
@@ -2291,12 +2295,8 @@ class ForceSim {
   }
 }
 
-/* @src src/deck/pattern.js */
-/* ------------------------------------------------------------------ */
-/* Live pattern background (WebGL)                                     */
-/* One canvas behind a view. Cards are solid in the middle, so the     */
-/* pattern only shows at card edges and, very faintly, in the gaps.    */
-/* ------------------------------------------------------------------ */
+/* @src src/deck/pattern-shader.js */
+/* Live pattern background: the patterns, their settings labels and the WebGL shaders (used by pattern.js) */
 
 const PATTERNS = ['damascus', 'prism', 'meteorite', 'topo', 'hex', 'datastream', 'blackice', 'none'];
 const PATTERN_LABEL = {
@@ -2469,6 +2469,12 @@ void main(){
   float al=min(1.,a*mix(uAOut*(uMode>5.5?2.6:1.),uAIn,inside));
   gl_FragColor=vec4(uCol*al,al);
 }`;
+/* @src src/deck/pattern.js */
+/* ------------------------------------------------------------------ */
+/* Live pattern background (WebGL)                                     */
+/* One canvas behind a view. Cards are solid in the middle, so the     */
+/* pattern only shows at card edges and, very faintly, in the gaps.    */
+/* ------------------------------------------------------------------ */
 
 class PatternLayer {
   /**
@@ -3636,15 +3642,17 @@ class CardsView extends ItemView {
     );
     this.registerEvent(this.app.workspace.on('file-open', () => this.markActive()));
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.markNav()));
-    this.registerEvent(this.app.workspace.on('layout-change', () => this.markNav()));
     this.registerEvent(this.app.workspace.on('neon-deck:slots-changed', () => this.renderNav()));
     this.registerEvent(this.app.workspace.on('neon-deck:pins-changed', () => this.refresh(0, true)));
     this.registerEvent(this.app.workspace.on('neon-deck:seen-changed', debounce(() => this.refresh(0, true), 600, true)));
+    // one layout-change handler: rebuild when the view moved between the sidebar and the main area, else just mark the nav
     this.registerEvent(
       this.app.workspace.on('layout-change', () => {
-        if (this.isSidebar() === this.sidebar) return;
-        this.build();
-        this.refresh(0);
+        if (this.isSidebar() !== this.sidebar) {
+          this.build();
+          this.refresh(0);
+        }
+        this.markNav();
       }),
     );
     this.registerDomEvent(this.contentEl, 'mouseup', (e) => {
@@ -4581,7 +4589,7 @@ class GraphView extends ItemView {
 
   scopeFiles() {
     const excl = (f) => this.plugin.isExcluded(f);
-    let files = this.app.vault.getMarkdownFiles().filter((f) => !excl(f));
+    let files = this.plugin.includedNotes();
     this.builtFor = null;
     if (this.scope === 'note') {
       const f = this.plugin.lastFile;
@@ -5877,9 +5885,8 @@ Object.assign(NeonDeck.prototype, {
     const app = this.app;
     const groupOf = (f) => noteCategory(app.metadataCache.getFileCache(f), f.path);
     const groups = NEON_CATS.customers ? CATS.map((k) => [k, CAT_LABEL[k] || k]) : [];
-    const notes = app.vault
-      .getMarkdownFiles()
-      .filter((f) => !this.isExcluded(f))
+    const notes = this
+      .includedNotes()
       .map((f) => ({ group: groupOf(f), mtime: f.stat.mtime }));
     const tk = neonPlugin(app, 'neon-tickets');
     const projects = tk && tk.activeProjects ? tk.activeProjects().map((t) => ({ group: String(t.customer || '').toLowerCase() })) : [];
@@ -6182,7 +6189,7 @@ Object.assign(NeonDeck.prototype, {
         console.error('Neon Deck week line', e);
       }
     }
-    const md = this.app.vault.getMarkdownFiles().filter((f) => !this.isExcluded(f));
+    const md = this.includedNotes();
     const made = md.filter((f) => f.stat.ctime >= start.valueOf() && f.stat.ctime < end.valueOf()).length;
     if (!parts.length || made) parts.push(`${made} new note${made === 1 ? '' : 's'}`);
     const s = parts.join(', ');
@@ -6197,7 +6204,7 @@ Object.assign(NeonDeck.prototype, {
     if (existing instanceof TFile) return openFile(this.app, existing);
 
     const inWeek = (t) => t >= m.valueOf() && t < end.valueOf();
-    const md = this.app.vault.getMarkdownFiles().filter((f) => !this.isExcluded(f));
+    const md = this.includedNotes();
     const created = md.filter((f) => inWeek(f.stat.ctime)).sort((a, b) => a.stat.ctime - b.stat.ctime);
     const touched = md.filter((f) => inWeek(f.stat.mtime) && !inWeek(f.stat.ctime)).sort((a, b) => b.stat.mtime - a.stat.mtime);
     const link = (f) => `- [[${f.path.replace(/\.md$/, '')}|${f.basename}]]`;
@@ -6315,6 +6322,14 @@ Object.assign(NeonDeck.prototype, {
     if (!quiet) this.app.workspace.trigger('neon-deck:seen-changed');
   },
 
+  /** The notes that aren't excluded: one vault scan shared by everything drawn in the same pass (cleared after it). A copy, so callers may sort it. */
+  includedNotes() {
+    if (!this._notes) {
+      this._notes = this.app.vault.getMarkdownFiles().filter((f) => !this.isExcluded(f));
+      queueMicrotask(() => (this._notes = null));
+    }
+    return this._notes.slice();
+  },
   /** Excluded folders/files (settings + other Neon plugins). Cached briefly: isExcluded runs once per note in vault scans. */
   excludedPaths() {
     const now = Date.now();
@@ -6544,7 +6559,7 @@ Object.assign(NeonDeck.prototype, {
   /* vault data ------------------------------------------------------------- */
   collectVaultData() {
     const app = this.app;
-    const md = app.vault.getMarkdownFiles().filter((f) => !this.isExcluded(f));
+    const md = this.includedNotes();
     const rl = app.metadataCache.resolvedLinks;
     const incoming = new Set();
     let links = 0;

@@ -125,6 +125,8 @@ body {
   --nd-med: 250ms;
   --nd-radius: 22px;
   --nd-radius-s: 12px;
+  --nd-radius-xs: 8px;
+  --nd-radius-pill: 999px;
   --nd-border: 1px;
   --nd-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.8);
   --nd-hi: inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -381,7 +383,7 @@ body.nd-themed .workspace-tab-header.is-active {
   color: var(--nd-text);
 }
 /* every Neon tab lays out by its own width (a narrow sidebar fits on any screen); not the ticket popup, sized by its content */
-.workspace-leaf-content[data-type^="neon"]:not(.tk-popup-wrap) > .view-content {
+.workspace-leaf-content[data-type^="neon"] > .view-content {
   container-type: inline-size;
 }
 .nd-ico {
@@ -399,7 +401,7 @@ body.nd-themed .workspace-tab-header.is-active {
   min-width: 0;
   max-width: 100%;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   border: var(--nd-border) solid var(--nd-line);
   background: var(--nd-surface2);
   color: var(--nd-text);
@@ -502,7 +504,7 @@ textarea.nd-input {
   align-items: center;
   gap: 5px;
   padding: 5px 12px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   border: var(--nd-border) solid var(--nd-line);
   background: var(--nd-surface2);
   color: var(--nd-muted);
@@ -529,14 +531,14 @@ textarea.nd-input {
   display: inline-flex;
   padding: 3px;
   gap: 2px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   background: var(--nd-surface2);
   border: var(--nd-border) solid var(--nd-line);
 }
 .nd-seg-btn {
   padding: 5px 11px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   background: transparent;
   color: var(--nd-muted);
   font: 600 12px var(--nd-font-ui);
@@ -731,7 +733,7 @@ button.nd-swatch.is-on {
   color: var(--nd-on-accent);
   background: var(--nd-accent);
   padding: 5px 10px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   box-shadow: 0 0 16px -2px color-mix(in srgb, var(--nd-accent) 45%, transparent);
   white-space: nowrap;
 }
@@ -744,8 +746,7 @@ button.nd-swatch.is-on {
   color: var(--nd-muted);
   white-space: nowrap;
 }
-.nd-hero-actions,
-.nd-hero-looks {
+.nd-hero-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -780,30 +781,6 @@ button.nd-swatch.is-on {
     justify-content: flex-start;
     margin-left: 0;
   }
-}
-.nd-look-select {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 4px 0 10px;
-  border-radius: var(--nd-radius-s);
-  border: var(--nd-border) solid var(--nd-line);
-  background: var(--nd-bg);
-}
-.nd-look-k {
-  font: 600 10px var(--nd-mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--nd-faint);
-}
-.nd-look-select select.dropdown {
-  border: 0;
-  box-shadow: none;
-  background-color: transparent;
-  font: 600 12px var(--nd-font-ui);
-  padding: 5px 22px 5px 4px;
-  height: auto;
-  max-width: 130px;
 }
 /* ticker */
 /* ticker: still, one line of facts at a time, swapped every 10 s with a quick fade */
@@ -933,7 +910,7 @@ button.nd-swatch.is-on {
   font: 700 11px var(--nd-mono);
   color: var(--nd-accent);
   background: color-mix(in srgb, var(--nd-accent) 15%, transparent);
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   padding: 2px 8px;
 }
 .nd-card-badge:empty {
@@ -966,6 +943,8 @@ button.nd-swatch.is-on {
   color: var(--nd-faint);
   padding: 0 4px;
 }
+/* @css src/deck/styles-dashboard-cards.css */
+/* ---------- 4b. dashboard cards: vault pulse, stats, capture, recent, activity, Claude ---------- */
 /* vault pulse */
 .nd-tiles {
   display: grid;
@@ -976,7 +955,7 @@ button.nd-swatch.is-on {
   --tile-accent: var(--nd-text);
   position: relative;
   padding: 11px 12px;
-  border-radius: 14px;
+  border-radius: calc(var(--nd-radius-s) + 2px);
   border: 1px solid var(--nd-line);
   background: linear-gradient(160deg, color-mix(in srgb, var(--nd-text) 4%, var(--nd-surface2)), var(--nd-surface2));
   min-width: 0;
@@ -1002,14 +981,6 @@ button.nd-swatch.is-on {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--nd-muted);
-}
-.nd-tile-sub {
-  margin-top: 2px;
-  font: 11px var(--nd-mono);
-  color: var(--nd-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 /* fork: the Stats card (Vault pulse and Totals merged): compact tiles in as many columns as fit the card */
 .nd-w-stats {
@@ -1114,13 +1085,6 @@ button.nd-swatch.is-on {
 .nd-mini-title {
   font-size: 13px;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.nd-mini-meta {
-  font-size: 12px;
-  color: var(--nd-faint);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1370,11 +1334,10 @@ button.nd-swatch.is-on {
 .nd-claude-head { margin: 6px 0 2px; font-size: var(--font-ui-smaller); color: var(--nd-muted, var(--text-muted)); text-transform: uppercase; letter-spacing: 0.06em; }
 .nd-claude-row { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: var(--nd-radius-s, 6px); cursor: pointer; min-width: 0; }
 .nd-claude-row:hover { background: var(--nd-sel, var(--background-modifier-hover)); }
-.nd-claude-v { flex: none; padding: 0 6px; border-radius: 999px; font-size: var(--font-ui-smaller); font-weight: 600; --cl: var(--nd-warn, var(--text-warning)); color: var(--cl); border: 1px solid color-mix(in srgb, var(--cl) 45%, transparent); }
+.nd-claude-v { flex: none; padding: 0 6px; border-radius: var(--nd-radius-pill); font-size: var(--font-ui-smaller); font-weight: 600; --cl: var(--nd-warn, var(--text-warning)); color: var(--cl); border: 1px solid color-mix(in srgb, var(--cl) 45%, transparent); }
 .nd-claude-v.is-review { --cl: var(--nd-info, var(--text-accent)); }
 .nd-claude-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nd-claude-where { flex: none; color: var(--nd-faint, var(--text-faint)); font-size: var(--font-ui-smaller); }
-
 /* @css src/deck/styles-fork-cards.css */
 /* ---- fork: Areas and Inbox cards on the dashboard ---- */
 /* fork: Areas card */
@@ -1564,7 +1527,7 @@ body.is-phone .nd-inbox-view-inner {
   color: var(--nd-muted);
   cursor: pointer;
   white-space: nowrap;
-  border-radius: 8px;
+  border-radius: var(--nd-radius-xs);
 }
 .nd-crumb:hover {
   color: var(--nd-text);
@@ -1696,7 +1659,7 @@ body.is-phone .nd-inbox-view-inner {
   place-items: center;
   width: 38px;
   height: 38px;
-  border-radius: 12px;
+  border-radius: var(--nd-radius-s);
   color: var(--folder-accent);
   background: color-mix(in srgb, var(--folder-accent) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--folder-accent) 35%, transparent);
@@ -1743,13 +1706,13 @@ body.is-phone .nd-inbox-view-inner {
   margin-top: 7px;
   height: 4px;
   max-width: 230px;
-  border-radius: 99px;
+  border-radius: var(--nd-radius-pill);
   background: var(--nd-surface2);
   overflow: hidden;
 }
 .nd-ci-progress-fill {
   height: 100%;
-  border-radius: 99px;
+  border-radius: var(--nd-radius-pill);
   background: var(--nd-cat-school);
   transition: width 0.6s var(--nd-ease);
 }
@@ -1757,7 +1720,7 @@ body.is-phone .nd-inbox-view-inner {
   --tag-accent: var(--nd-muted);
   flex: none;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   font: 600 11px var(--nd-mono);
   color: var(--tag-accent);
   background: color-mix(in srgb, var(--tag-accent) 14%, transparent);
@@ -1812,7 +1775,7 @@ body.is-phone .nd-inbox-view-inner {
   color: var(--nd-accent);
   background: color-mix(in srgb, var(--nd-accent) 12%, transparent);
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   white-space: nowrap;
 }
 .nd-ci-links {
@@ -1903,6 +1866,8 @@ body.is-phone .nd-inbox-view-inner {
   font: 700 38px var(--nd-font-display);
   color: var(--nd-accent);
 }
+/* @css src/deck/styles-sidebar.css */
+/* ---------- 5b. card explorer: hover preview and the sidebar ---------- */
 /* hover preview */
 .nd-preview {
   position: absolute;
@@ -1966,7 +1931,7 @@ body.is-phone .nd-inbox-view-inner {
   height: auto;
   padding: 7px 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--nd-radius-xs);
   background: transparent;
   box-shadow: none;
   color: var(--nd-muted);
@@ -2011,7 +1976,7 @@ body.is-phone .nd-inbox-view-inner {
   gap: 10px;
   padding: 7px 10px;
   margin-bottom: 6px;
-  border-radius: 14px;
+  border-radius: calc(var(--nd-radius-s) + 2px);
   border: 1px solid var(--nd-line);
   background: var(--nd-surface);
   cursor: pointer;
@@ -2083,7 +2048,7 @@ body.is-phone .nd-inbox-view-inner {
   min-height: 44px;
   padding: 7px 10px;
   margin-bottom: 5px;
-  border-radius: 12px;
+  border-radius: var(--nd-radius-s);
   border: 1px solid var(--nd-line);
   border-left: 3px solid var(--row-accent);
   background: var(--nd-surface);
@@ -2116,8 +2081,8 @@ body.is-phone .nd-inbox-view-inner {
   background:
     radial-gradient(circle, color-mix(in srgb, var(--row-tint) 38%, transparent) 1.1px, transparent 1.8px) 0 0 / 8px 8px,
     color-mix(in srgb, var(--row-tint) 9%, transparent);
-  -webkit-mask-image: linear-gradient(to left, #000 0%, rgba(0, 0, 0, 0.6) 30%, transparent 72%);
-  mask-image: linear-gradient(to left, #000 0%, rgba(0, 0, 0, 0.6) 30%, transparent 72%);
+  -webkit-mask-image: linear-gradient(to left, black 0%, rgba(0, 0, 0, 0.6) 30%, transparent 72%);
+  mask-image: linear-gradient(to left, black 0%, rgba(0, 0, 0, 0.6) 30%, transparent 72%);
 }
 .nd-side-row.is-drop {
   outline: 2px dashed var(--nd-go);
@@ -2134,6 +2099,8 @@ body.is-phone .nd-inbox-view-inner {
 .nd-side-row.needs-revisit .nd-side-count {
   color: var(--nd-go);
 }
+/* @css src/deck/styles-tones.css */
+/* ---------- 5c. card explorer and sidebar: colour tones, halftones, new-note buttons, motion ---------- */
 /* sidebar + cards: folders in shades of the accent (red in Marathon), notes in shades of go (acid lime) */
 .nd-side-pin,
 .nd-side-row.is-folder,
@@ -2211,8 +2178,8 @@ body.is-phone .nd-inbox-view-inner {
   background:
     radial-gradient(circle, color-mix(in srgb, var(--tone) 14%, transparent) 1px, transparent 1.6px) 0 0 / 9px 9px,
     color-mix(in srgb, var(--tone) 4%, transparent);
-  -webkit-mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, #000 100%);
-  mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, #000 100%);
+  -webkit-mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, black 100%);
+  mask-image: radial-gradient(closest-side, transparent 88%, rgba(0, 0, 0, 0.4) 96%, black 100%);
 }
 /* folders: the same dots, fainter, fading in toward the right edge */
 .nd-ci-folder::before {
@@ -2220,8 +2187,8 @@ body.is-phone .nd-inbox-view-inner {
     radial-gradient(circle, color-mix(in srgb, var(--tone) 8%, transparent) 1px, transparent 1.6px) 0 0 / 9px 9px,
     color-mix(in srgb, var(--tone) 2%, transparent);
   /* only toward the right edge */
-  -webkit-mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, #000 100%);
-  mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, #000 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, black 100%);
+  mask-image: linear-gradient(to right, transparent 55%, rgba(0, 0, 0, 0.5) 80%, black 100%);
 }
 /* notes: a soft smooth edge glow in their colour (folders keep the dotted one) */
 .nd-ci-note::before {
@@ -2291,7 +2258,7 @@ body.is-phone .nd-inbox-view-inner {
   color: var(--nd-muted);
   text-align: center;
   cursor: pointer;
-  border-radius: 12px;
+  border-radius: var(--nd-radius-s);
 }
 .nd-side-more:hover {
   color: var(--nd-text);
@@ -2309,7 +2276,7 @@ body.is-phone .nd-inbox-view-inner {
 .nd-ci.is-new {
   animation: nd-card-in 0.25s var(--nd-ease) backwards;
 }
-/* @css src/deck/styles-graph-motion.css */
+/* @css src/deck/styles-graph.css */
 /* ---------- 6. graph ---------- */
 .nd-graph.view-content {
   padding: 0;
@@ -2367,7 +2334,7 @@ body.is-phone .nd-inbox-view-inner {
   left: 12px;
   bottom: 10px;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   font-size: 12px;
   color: var(--text-faint);
   background: color-mix(in srgb, var(--background-primary) 75%, transparent);
@@ -2422,7 +2389,7 @@ body.is-phone .nd-inbox-view-inner {
 }
 .nd-diversity {
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: calc(var(--nd-radius-s) + 2px);
   color: var(--nd-on-go);
   background: var(--nd-go);
 }
@@ -2487,7 +2454,7 @@ body.is-phone .nd-inbox-view-inner {
   gap: 10px;
   align-items: center;
   padding: 8px;
-  border-radius: 12px;
+  border-radius: var(--nd-radius-s);
   cursor: pointer;
   border: 1px solid transparent;
   transition: background var(--nd-fast) ease, border-color var(--nd-fast) ease;
@@ -2519,7 +2486,7 @@ body.is-phone .nd-inbox-view-inner {
 }
 .nd-topic-meter {
   height: 5px;
-  border-radius: 99px;
+  border-radius: var(--nd-radius-pill);
   background: var(--nd-surface2);
   margin: 4px 0 2px;
   overflow: hidden;
@@ -2528,7 +2495,7 @@ body.is-phone .nd-inbox-view-inner {
   height: 100%;
   width: var(--w);
   background: var(--topic);
-  border-radius: 99px;
+  border-radius: var(--nd-radius-pill);
 }
 .nd-topic-share {
   font: 12px var(--nd-mono);
@@ -2536,7 +2503,7 @@ body.is-phone .nd-inbox-view-inner {
 }
 .nd-gap {
   padding: 10px;
-  border-radius: 14px;
+  border-radius: calc(var(--nd-radius-s) + 2px);
   border: 1px dashed var(--nd-line-strong);
   display: flex;
   flex-direction: column;
@@ -2558,7 +2525,7 @@ body.is-phone .nd-inbox-view-inner {
 }
 .nd-gap-side {
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   background: color-mix(in srgb, var(--topic) 22%, transparent);
   border: 1px solid var(--topic);
 }
@@ -2580,7 +2547,7 @@ body.is-phone .nd-inbox-view-inner {
 }
 .nd-chip {
   padding: 2px 9px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   border: 1px solid var(--nd-line);
   background: var(--nd-surface2);
   color: var(--nd-text);
@@ -2600,7 +2567,7 @@ body.is-phone .nd-inbox-view-inner {
   align-items: center;
   gap: 5px;
   font: 700 12px var(--nd-mono);
-  border-radius: 8px;
+  border-radius: var(--nd-radius-xs);
   padding: 0 6px;
 }
 .nd-status-icon {
@@ -2614,7 +2581,7 @@ body.is-phone .nd-inbox-view-inner {
   color: var(--nd-on-accent);
   background: var(--nd-accent);
 }
-
+/* @css src/deck/styles-motion.css */
 /* ---------- 8. motion ---------- */
 /* dashboard opens: hero drops in, cards rise and settle one after another */
 .nd-dash-inner > .nd-hero {
@@ -2822,7 +2789,7 @@ body.nd-themed .notice {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
 }
 .nd-done-chip.is-done {
   color: var(--nd-go);
@@ -2938,10 +2905,10 @@ body.nd-themed .notice {
 .nd-island,
 .nd-ticker {
   /* dark: the theme's deepest background, darker still, with a breath of its accent */
-  --nd-fluid: color-mix(in srgb, color-mix(in srgb, var(--nd-bg2, #111215) 55%, #000) 92%, var(--nd-accent, #888));
+  --nd-fluid: color-mix(in srgb, color-mix(in srgb, var(--nd-bg2, #111215) 55%, black) 92%, var(--nd-accent, #888));
   --nd-fluid-text: var(--nd-text, #eceef2);
-  --nd-fluid-hi: color-mix(in srgb, var(--nd-fluid) 84%, #fff);
-  --nd-fluid-lo: color-mix(in srgb, var(--nd-fluid) 65%, #000);
+  --nd-fluid-hi: color-mix(in srgb, var(--nd-fluid) 84%, white);
+  --nd-fluid-lo: color-mix(in srgb, var(--nd-fluid) 65%, black);
   --nd-fluid-muted: color-mix(in srgb, var(--nd-fluid-text) 60%, transparent);
   --nd-fluid-glass: color-mix(in srgb, var(--nd-fluid-text) 7%, transparent);
   --nd-fluid-edge: color-mix(in srgb, var(--nd-fluid-text) 11%, transparent);
@@ -2986,7 +2953,7 @@ body.theme-light .nd-ticker {
 .nd-goo-core {
   position: absolute;
   inset: 0;
-  border-radius: 26px;
+  border-radius: calc(var(--nd-radius) + 4px);
   background: var(--nd-fluid);
   transition: transform var(--nd-med, 250ms) var(--nd-ease, ease);
 }
@@ -2994,7 +2961,7 @@ body.theme-light .nd-ticker {
   position: absolute;
   inset: 0;
   z-index: 0;
-  border-radius: 26px;
+  border-radius: calc(var(--nd-radius) + 4px);
   pointer-events: none;
   background:
     radial-gradient(120% 90% at 22% -30%, rgba(255, 255, 255, 0.16), transparent 52%),
@@ -3071,7 +3038,7 @@ body.theme-light .nd-ticker {
 .nd-island .nd-island-input {
   height: 32px;
   border: 1px solid var(--nd-fluid-edge);
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   background-color: var(--nd-fluid-glass);
   color: var(--nd-fluid-text);
   box-shadow: none;
@@ -3111,7 +3078,7 @@ body.theme-light .nd-ticker {
   max-width: 100%;
   padding: 4px 4px 4px 11px;
   border: 1px solid var(--nd-fluid-edge);
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
   color: var(--nd-fluid-text);
   font-size: 13px;
@@ -3196,7 +3163,7 @@ body.theme-light .nd-ticker {
   max-width: 100%;
   margin: 0 auto;
   padding: 6px 18px;
-  border-radius: 999px;
+  border-radius: var(--nd-radius-pill);
   background:
     radial-gradient(120% 140% at 25% -60%, rgba(255, 255, 255, 0.14), transparent 55%),
     linear-gradient(180deg, var(--nd-fluid-hi), var(--nd-fluid) 45%, var(--nd-fluid-lo));
@@ -3406,23 +3373,7 @@ body.theme-light .nd-ticker {
   color: var(--nd-faint, var(--text-faint));
 }
 /* global tasks */
-.nt-gtask {
-  cursor: grab;
-}
-.nt-grip {
-  flex: none;
-  color: var(--nd-faint, var(--text-faint));
-  opacity: 0;
-  margin-right: -6px;
-  transition: opacity var(--nd-fast, 150ms) ease;
-}
-.nt-grip svg {
-  width: 13px;
-  height: 13px;
-}
-.nt-gtask:hover .nt-grip,
-.nt-task:hover .nt-edit-btn,
-.nt-gtask:hover .nt-del {
+.nt-task:hover .nt-edit-btn {
   opacity: 1;
 }
 .nt-del {
@@ -3442,15 +3393,6 @@ body.theme-light .nd-ticker {
 .nt-del svg {
   width: 13px;
   height: 13px;
-}
-.nt-gtask.is-dragging {
-  opacity: 0.4;
-}
-.nt-gtask.is-drop-above {
-  box-shadow: inset 0 2px 0 var(--nd-accent, var(--interactive-accent));
-}
-.nt-gtask.is-drop-below {
-  box-shadow: inset 0 -2px 0 var(--nd-accent, var(--interactive-accent));
 }
 .nt-edit {
   flex: 1;
@@ -3528,7 +3470,8 @@ body.theme-light .nd-ticker {
 .nt-status {
   color: var(--nd-warn, var(--text-muted));
 }
-
+/* @css src/tasks/styles-extras.css */
+/* NEON TASKS (continued): fallback tokens, motion, the Tasks tab, settings table, timeline */
 /* Fallback when the Neon Deck core plugin is off: map the --nd-* tokens to
    Obsidian's own colours and give the shared controls a plain look. Inert
    while the core is on (it puts .nd-themed on body). */
@@ -3687,11 +3630,6 @@ body:not(.nd-themed) .nd-empty {
   }
 }
 /* global tasks: the dragged row lifts */
-.nt-gtask.is-dragging {
-  opacity: 0.55;
-  transform: scale(0.98);
-  transition: transform 0.15s ease, opacity 0.15s ease;
-}
 .nt-edit {
   animation: nt-fade 0.15s ease both;
 }
@@ -3704,8 +3642,7 @@ body:not(.nd-themed) .nd-empty {
   .nt-edit {
     animation: none;
   }
-  .nt-task.is-leaving,
-  .nt-gtask.is-dragging {
+  .nt-task.is-leaving {
     transition: none;
   }
 }
@@ -4134,11 +4071,6 @@ body:not(.nd-themed) .nd-empty {
 .tm-entry-note.is-link:hover {
   text-decoration: underline;
 }
-.tm-entry-jira {
-  flex: none;
-  font: 600 12px var(--nd-mono);
-  color: var(--nd-go);
-}
 .tm-entry-src {
   flex: none;
   font: 12px var(--nd-mono);
@@ -4178,6 +4110,8 @@ body:not(.nd-themed) .nd-empty {
 .tm-foot {
   text-align: right;
 }
+/* @css src/time/styles-extras.css */
+/* NEON TIME (continued): motion on open, widget hover, modals, fallback tokens, motion, narrow tabs */
 /* cards fade in on first open, like the dashboard */
 .tm-inner.is-entering > .nd-card,
 .tm-inner.is-entering > .tm-top > .nd-card {
@@ -4631,15 +4565,6 @@ body:not(.nd-themed) .nd-empty {
   transition: border-color var(--nd-fast) ease, transform var(--nd-fast) ease, opacity 0.3s ease;
 }
 /* tk-row is also the form's grid row; the tracker one is scoped by .tk-list */
-.tk-form .tk-row {
-  display: grid;
-  padding: 0;
-  margin: 0;
-  border: 0;
-  background: none;
-  cursor: auto;
-  animation: none;
-}
 .tk-list .tk-row:hover {
   border-color: var(--nd-line-strong);
   transform: translateX(2px);
@@ -4660,22 +4585,6 @@ body:not(.nd-themed) .nd-empty {
 }
 .tk-row.is-completing {
   opacity: 0.3;
-}
-.tk-row-check {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  border: 1.6px solid var(--nd-muted);
-  border-radius: 50%;
-  transition: background var(--nd-fast) ease, border-color var(--nd-fast) ease;
-}
-.tk-row-check:hover {
-  border-color: var(--nd-go);
-}
-.tk-row.status-done .tk-row-check,
-.tk-row.is-completing .tk-row-check {
-  background: var(--nd-go);
-  border-color: var(--nd-go);
 }
 .tk-row-main {
   flex: 1;
@@ -4771,17 +4680,8 @@ body:not(.nd-themed) .nd-empty {
   }
 }
 @media (max-width: 560px) {
-  .tk-row-due-date,
-  .tk-inline-hint,
-  .tk-corner {
+  .tk-row-due-date {
     display: none;
-  }
-  .tk-card {
-    padding: 16px 14px;
-  }
-  .tk-log {
-    grid-template-columns: 1fr;
-    gap: 0;
   }
 }
 
@@ -4822,14 +4722,6 @@ body:not(.nd-themed) .nd-empty {
 }
 .tk-mini.is-today .tk-mini-due {
   color: var(--nd-go);
-}
-.tk-mini-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-size: 13px;
 }
 .tk-mini-title {
   white-space: nowrap;
@@ -4883,9 +4775,7 @@ body:not(.nd-themed) .nd-empty {
 
 /* the same for a narrow tab on a wide screen; the status tabs wrap, the due column goes under the title */
 @container (max-width: 560px) {
-  .tk-row-due-date,
-  .tk-inline-hint,
-  .tk-corner {
+  .tk-row-due-date {
     display: none;
   }
   .tk-row {
@@ -5003,352 +4893,23 @@ body:not(.nd-themed) .nd-empty {
     transition: none;
   }
 }
-.tk-step.is-pending { opacity: 0.75; }
-
-/* ---- ticket templates ---- */
-.tk-tpl-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.tk-tpl-head .tk-tpl-new {
-  margin-left: auto;
-}
-.tk-list .tk-row.tk-tpl {
-  border-left-color: var(--nd-info);
-}
-.tk-tpl-icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  color: var(--nd-info);
-  background: color-mix(in srgb, var(--nd-info) 14%, transparent);
-}
-.tk-tpl-icon svg {
-  width: 16px;
-  height: 16px;
-}
-.tk-tpl-name {
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tk-row.tk-tpl .tk-row-main {
-  min-width: 0;
-}
-.tk-tpl-meta {
-  font: 11px var(--nd-mono);
-  color: var(--nd-muted);
-  margin-top: 1px;
-}
-.tk-tpl-steps {
-  margin-top: 3px;
-  font-size: 12px;
-  color: var(--nd-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tk-tpl-acts {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: none;
-}
-.tk-tpl-acts .nd-icon-btn {
-  opacity: 0.55;
-  transition: opacity var(--nd-fast, 150ms) ease;
-}
-.tk-row.tk-tpl:hover .tk-tpl-acts .nd-icon-btn,
-.tk-tpl-acts .nd-icon-btn:focus-visible {
-  opacity: 1;
-}
-/* editor */
-.tk-tpl-edit-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 6px;
-}
-.tk-tpl-step {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.tk-tpl-step .nd-input {
-  flex: 1;
-  min-width: 0;
-}
-.tk-tpl-step .nd-icon-btn {
-  flex: none;
-  width: 26px;
-  height: 26px;
-}
-.tk-tpl-pick .nd-pill-btn.is-on {
-  background: color-mix(in srgb, var(--nd-info) 22%, transparent);
-  border-color: color-mix(in srgb, var(--nd-info) 60%, transparent);
-  color: var(--nd-text);
-}
-/* long template names don't stretch the picker */
-.tk-tpl-pick .nd-pill-btn {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* ---- screenshots on a ticket ---- */
-.tk-shots {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 8px;
-  margin-top: 6px;
-}
-.tk-shot {
-  position: relative;
-  aspect-ratio: 16 / 10;
-  border: 1px solid var(--nd-line);
-  border-radius: var(--nd-radius-s, 10px);
-  overflow: hidden;
-  background: var(--nd-surface2);
-  cursor: zoom-in;
-  transition: transform var(--nd-fast, 150ms) var(--nd-ease, ease), border-color var(--nd-fast, 150ms) ease;
-}
-.tk-shot:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--nd-accent) 45%, var(--nd-line));
-}
-.tk-shot img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.tk-shot.is-missing {
-  display: grid;
-  place-items: center;
-  padding: 8px;
-  cursor: default;
-}
-.tk-shot .tk-shot-x {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 24px;
-  height: 24px;
-  background: color-mix(in srgb, var(--nd-bg) 75%, transparent);
-  opacity: 0;
-  transition: opacity var(--nd-fast, 150ms) ease;
-}
-.tk-shot:hover .tk-shot-x,
-.tk-shot .tk-shot-x:focus-visible {
-  opacity: 1;
-}
-@media (hover: none) {
-  .tk-shot .tk-shot-x { opacity: 1; }
-}
 /* dropping image files onto a ticket */
 .tk-host.is-dropping {
   outline: 2px dashed var(--nd-go);
   outline-offset: -6px;
 }
-.tk-shot-modal {
-  width: min(92vw, 1400px);
-  max-width: none;
-}
-.tk-shot-modal img {
-  display: block;
-  max-width: 100%;
-  max-height: 78vh;
-  margin: 0 auto;
-  border-radius: var(--nd-radius-s, 10px);
-}
-/* exported report (note view and PDF): screenshots full width, framed */
-.tk-report img {
-  max-width: 100%;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-}
-/* the report reads as a document: no properties box, no file-name title above the real one */
-.tk-report {
-  --metadata-display-reading: none;
-  --metadata-display-editing: none;
-}
-.tk-report .metadata-container,
-.tk-report .inline-title {
-  display: none !important;
-}
 
-/* ---- clear done tickets ---- */
-.tk-clear-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 2px 0 10px;
-}
-.tk-clear-bar .tk-clear-btn:hover {
-  color: var(--text-error);
-  border-color: color-mix(in srgb, var(--text-error) 50%, var(--nd-line));
-}
-.tk-clear-modal .tk-chips {
-  flex-wrap: wrap;
-}
-.tk-clear-extra {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  font-size: 13px;
-}
 /* progress bars after a filter switch: fill without the waiting delay */
 .tk-list.is-refilter .tk-progress-fill {
   animation-duration: 0.25s;
   animation-delay: 0s;
 }
 
-/* ticking a step: the box pops, the text eases to faint; a new log line slides in */
-.tk-step .tk-step-text {
-  transition: color var(--nd-fast) ease;
-}
-.tk-step.is-pop .tk-box {
-  animation: tk-pop 0.24s ease-out;
-}
-@keyframes tk-pop {
-  45% {
-    transform: scale(1.28);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--nd-go) 25%, transparent);
-  }
-}
-.tk-log.is-fresh {
-  animation: tk-log-in 0.32s ease-out both;
-}
-@keyframes tk-log-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-    background: color-mix(in srgb, var(--nd-accent) 14%, transparent);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tk-step.is-pop .tk-box,
-  .tk-log.is-fresh {
-    animation: none;
-  }
-}
-
-/* Mark done: the card dims and a checkmark draws itself, then the ticket closes */
-.tk-done-mark {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: grid;
-  place-items: center;
-  border-radius: inherit;
-  background: color-mix(in srgb, var(--nd-bg, var(--background-primary)) 72%, transparent);
-  animation: tk-fade-in 0.18s ease-out both;
-}
-.tk-done-check {
-  display: grid;
-  place-items: center;
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  color: var(--nd-go);
-  background: color-mix(in srgb, var(--nd-go) 14%, transparent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--nd-go) 55%, transparent), 0 0 32px -6px var(--nd-go);
-  animation: tk-done-pop 0.38s cubic-bezier(0.3, 1.6, 0.5, 1) both;
-}
-.tk-done-check svg {
-  width: 40px;
-  height: 40px;
-  stroke-width: 3;
-}
-.tk-done-check svg path {
-  stroke-dasharray: 24;
-  stroke-dashoffset: 24;
-  animation: tk-draw 0.34s 0.16s ease-out forwards;
-}
-@keyframes tk-fade-in {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes tk-done-pop {
-  from {
-    transform: scale(0.4);
-    opacity: 0;
-  }
-}
-@keyframes tk-draw {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tk-done-mark,
-  .tk-done-check,
-  .tk-done-check svg path {
-    animation: none;
-    stroke-dashoffset: 0;
-  }
-}
-
-/* small ticket rows: the done circle draws a checkmark; with open steps it shakes instead */
-.tk-row-check {
-  display: grid;
-  place-items: center;
-  color: var(--nd-bg, var(--background-primary));
-}
-.tk-row-check svg {
-  width: 12px;
-  height: 12px;
-  stroke-width: 3.5;
-}
-.tk-row.is-completing .tk-row-check {
-  animation: tk-pop 0.3s ease-out;
-}
-.tk-row.is-completing .tk-row-check svg path {
-  stroke-dasharray: 24;
-  stroke-dashoffset: 24;
-  animation: tk-draw 0.3s 0.05s ease-out forwards;
-}
+/* small ticket rows: a completed row fades out */
 .tk-row.is-completing {
   transition: opacity 0.35s 0.2s ease;
-}
-.tk-row-check.is-shake {
-  animation: tk-shake 0.32s ease;
-  border-color: var(--nd-warn);
-}
-@keyframes tk-shake {
-  25% {
-    transform: translateX(-3px);
-  }
-  75% {
-    transform: translateX(3px);
-  }
-}
-.tk-done.is-blocked {
-  opacity: 0.55;
-}
-.tk-all-done {
-  margin-left: auto;
-  font-size: 12px;
-}
-.tk-all-done + .tk-sec-plus {
-  margin-left: 6px;
-}
-@media (prefers-reduced-motion: reduce) {
-  .tk-row.is-completing .tk-row-check,
-  .tk-row.is-completing .tk-row-check svg path,
-  .tk-row-check.is-shake {
-    animation: none;
-    stroke-dashoffset: 0;
-  }
 }
 /* @css src/tickets/styles-plan.css */
 /* Project plans (fork): task counts on the project rows */
@@ -6212,60 +5773,6 @@ body:not(.nd-themed) .nd-empty {
   margin-top: 2px;
 }
 
-/* quiz picker */
-.nr-pick {
-  width: min(520px, 92vw);
-}
-.nr-pick-top {
-  margin-bottom: 8px;
-}
-.nr-pick-switch {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-}
-.nr-pick-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 60vh;
-  overflow: auto;
-}
-.nr-pick-row {
-  --depth: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 8px 7px calc(8px + (var(--depth) + 1) * 18px);
-  border-radius: 8px;
-  cursor: pointer;
-}
-.nr-pick-row:hover {
-  background: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 10%, transparent);
-}
-.nr-pick-row.is-empty {
-  opacity: 0.45;
-  cursor: default;
-}
-.nr-pick-row.is-empty:hover {
-  background: none;
-}
-.nr-pick-n,
-.nr-pick-due {
-  flex: none;
-  font: 11.5px var(--nd-mono, var(--font-monospace));
-  color: var(--nd-faint, var(--text-faint));
-}
-.nr-pick-due {
-  width: 52px;
-  text-align: right;
-}
-.nr-pick-due.has-due {
-  color: var(--nd-accent, var(--interactive-accent));
-  font-weight: 600;
-}
-
 /* link suggestions */
 .nr-links {
   display: flex;
@@ -6301,63 +5808,12 @@ body:not(.nd-themed) .nd-empty {
   text-overflow: ellipsis;
 }
 
-/* quiz */
-.nr-study {
-  width: min(640px, 92vw);
-}
-.nr-study-meta {
-  font: 11px var(--nd-mono, var(--font-monospace));
-  color: var(--nd-faint, var(--text-faint));
-}
-.nr-study-q {
-  margin: 14px 0 10px;
-  font: 700 20px/1.35 var(--nd-font-display, var(--font-interface));
-}
-.nr-study-a {
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--nd-go, var(--interactive-accent)) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--nd-go, var(--interactive-accent)) 35%, transparent);
-  font-size: 15px;
-  animation: nr-in 0.25s var(--nd-ease, ease) backwards;
-}
-.nr-study-done {
-  padding: 20px 0 6px;
-  font: 600 16px var(--nd-font-display, var(--font-interface));
-  text-align: center;
-}
-.nr-again:hover {
-  color: var(--text-error);
-}
-
 /* section switch (Research / School / …) under the title */
 .nr-roots {
   flex-basis: 100%;
 }
-/* add-flashcard form */
-.nr-card-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-.nr-card-label {
-  font: 600 11px var(--nd-mono, monospace);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--nd-faint, var(--text-faint));
-}
-.nr-card-field .nd-input {
-  width: 100%;
-}
-.nr-card-info {
-  flex: 1;
-  font-size: 12px;
-  color: var(--nd-muted, var(--text-muted));
-}
 @media (prefers-reduced-motion: reduce) {
-  .nr-inner.is-entering > *,
-  .nr-study-a {
+  .nr-inner.is-entering > * {
     animation: none;
   }
 }
@@ -6375,66 +5831,6 @@ body:not(.nd-themed) .nd-empty {
 .nr-view-tabs {
   align-self: flex-start;
 }
-.nr-research-add {
-  display: flex;
-  gap: 8px;
-  margin: 2px 2px 14px;
-}
-.nr-research-add .nd-input {
-  flex: 1;
-  min-width: 0;
-}
-.nr-research-list {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.nr-research-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 6px 8px;
-  border: 1px solid var(--nd-line, var(--background-modifier-border));
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--nd-text, var(--text-normal)) 2%, transparent);
-  transition: opacity var(--nd-fast, 150ms) ease, background var(--nd-fast, 150ms) ease;
-}
-.nr-research-row:hover {
-  background: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 5%, transparent);
-}
-.nr-research-topic {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  gap: 11px;
-  min-width: 0;
-  cursor: pointer;
-}
-.nr-research-topic input {
-  flex: none;
-  width: 17px;
-  height: 17px;
-  margin: 0;
-}
-.nr-research-name {
-  overflow-wrap: anywhere;
-}
-.nr-research-row.is-done .nr-research-name {
-  color: var(--nd-faint, var(--text-faint));
-  text-decoration: line-through;
-}
-.nr-research-delete {
-  flex: none;
-  opacity: 0;
-}
-.nr-research-row:hover .nr-research-delete,
-.nr-research-delete:focus-visible {
-  opacity: 1;
-}
-@media (hover: none) {
-  .nr-research-delete { opacity: 1; }
-}
 
 /* ---- Study tab motion (issues 36, 42) ---- */
 /* switching Topics / Research: the panel slides in from the side you're going to */
@@ -6447,59 +5843,8 @@ body:not(.nd-themed) .nd-empty {
     transform: translateX(calc(var(--dir, 1) * 18px));
   }
 }
-/* research rows: rise in one after another on open and switch; a new topic slides in */
-.nr-inner.is-entering .nr-research-row,
-.nr-panel.is-switch .nr-research-row {
-  animation: nr-in 0.3s var(--nd-ease, ease) backwards;
-  animation-delay: calc(var(--i, 0) * 28ms + 60ms);
-}
-.nr-research-row.is-new {
-  /* short and already half visible: the row has to feel instant */
-  animation: nr-row-new 0.2s var(--nd-ease, ease) backwards;
-}
-@keyframes nr-row-new {
-  from {
-    opacity: 0.45;
-    transform: translateX(-6px);
-    background: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 18%, transparent);
-  }
-}
-/* just ticked or unticked: the box pops, the text settles */
-.nr-research-row.is-flipped input {
-  animation: nr-tick 0.3s var(--nd-ease, ease);
-}
-.nr-research-row.is-flipped .nr-research-name {
-  animation: nr-settle 0.3s ease;
-}
-@keyframes nr-tick {
-  45% {
-    transform: scale(1.25);
-  }
-}
-@keyframes nr-settle {
-  from {
-    opacity: 0.4;
-  }
-}
-/* removed: folds away before the list redraws */
-.nr-research-row.is-leaving {
-  pointer-events: none;
-  animation: nr-leave 0.18s ease forwards;
-}
-@keyframes nr-leave {
-  to {
-    opacity: 0;
-    transform: translateX(12px);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  .nr-panel.is-switch,
-  .nr-inner.is-entering .nr-research-row,
-  .nr-panel.is-switch .nr-research-row,
-  .nr-research-row.is-new,
-  .nr-research-row.is-flipped input,
-  .nr-research-row.is-flipped .nr-research-name,
-  .nr-research-row.is-leaving {
+  .nr-panel.is-switch {
     animation: none;
   }
 }
@@ -6508,26 +5853,6 @@ body:not(.nd-themed) .nd-empty {
 .block-language-neon-cards,
 .cm-preview-code-block:has(> .block-language-neon-cards),
 .cm-embed-block:has(.block-language-neon-cards) { display: none !important; }
-.view-action.nr-card-btn {
-  display: inline-flex; align-items: center; gap: 3px; width: auto; padding-inline: 6px;
-  color: var(--nd-accent, var(--interactive-accent));
-}
-.view-action.nr-card-btn:hover, .view-action.nr-card-btn:focus-visible {
-  color: var(--nd-accent, var(--interactive-accent)); background: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 16%, transparent);
-}
-.nr-card-btn-n { font-size: var(--font-ui-smaller); font-weight: 600; font-variant-numeric: tabular-nums; }
-.nr-card-btn-n:empty { display: none; }
-.nr-card-list { display: flex; flex-direction: column; gap: 4px; max-height: 40vh; overflow-y: auto; margin-bottom: 12px; }
-.nr-card-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-s); cursor: pointer; }
-.nr-card-row:hover, .nr-card-row.is-editing { background: var(--background-modifier-hover); }
-.nr-card-row-q { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nr-card-row-a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
-.nr-card-kind { font-size: var(--font-ui-smaller); color: var(--text-faint); }
-.nr-card-types { margin-bottom: 8px; }
-.nr-study-input { width: 100%; margin: 8px 0; }
-.nr-study-verdict { margin-top: 6px; font-weight: 600; }
-.nr-study-verdict.is-match { color: var(--color-green); }
-.nr-study-verdict.is-diff { color: var(--color-orange); }
 
 /* ---- fork: research status (pills in the tree, the By status tab) ---- */
 .nr-status-pill {
@@ -6567,8 +5892,7 @@ body:not(.nd-themed) .nd-empty {
 /* @src neon-write/styles.css */
 /* @css src/write/styles.css */
 /* NEON WRITE — uses the --nd-* tokens from Neon Deck, with Obsidian fallbacks when it's off */
-.nw-table-picker,
-.nw-toolbar {
+.nw-table-picker {
   --nw-bg: var(--nd-surface, var(--background-secondary));
   --nw-line: var(--nd-line, var(--background-modifier-border));
   --nw-text: var(--nd-text, var(--text-normal));
@@ -6624,75 +5948,6 @@ body:not(.nd-themed) .nd-empty {
   margin-top: 2px;
   font: 11px var(--nd-mono, var(--font-monospace));
   color: var(--nw-muted);
-}
-
-/* ---- selection toolbar ---- */
-.nw-toolbar {
-  display: none;
-  align-items: center;
-  gap: 2px;
-  padding: 4px;
-}
-.nw-toolbar.is-shown {
-  display: flex;
-  animation: nw-pop 0.14s var(--nd-ease, ease) backwards;
-}
-.nw-toolbar .nw-tb-btn {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  box-shadow: none;
-  color: var(--nw-muted);
-  cursor: pointer;
-  transition: background var(--nd-fast, 150ms) ease, color var(--nd-fast, 150ms) ease;
-}
-.nw-toolbar .nw-tb-btn svg {
-  width: 16px;
-  height: 16px;
-}
-.nw-toolbar .nw-tb-btn:hover {
-  background: color-mix(in srgb, var(--nw-accent) 16%, transparent);
-  color: var(--nw-text);
-}
-.nw-tb-sep {
-  width: 1px;
-  height: 18px;
-  margin: 0 3px;
-  background: var(--nw-line);
-}
-
-/* ---- slash menu (Obsidian's suggestion popup, our rows) ---- */
-.suggestion-item.nw-slash-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.nw-slash-ico {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  color: var(--nd-accent, var(--interactive-accent));
-  background: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 12%, transparent);
-}
-.nw-slash-ico svg {
-  width: 15px;
-  height: 15px;
-}
-.nw-slash-label {
-  flex: 1;
-  font-weight: 600;
-}
-.nw-slash-hint {
-  font: 11px var(--nd-mono, var(--font-monospace));
-  color: var(--text-faint);
 }
 
 /* ---- pattern behind the note: barely there ---- */
@@ -6865,12 +6120,10 @@ body.nw-tables .workspace-leaf-content[data-type='markdown'] .markdown-rendered 
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .nw-table-picker,
-  .nw-toolbar.is-shown {
+  .nw-table-picker {
     animation: none;
   }
-  .nw-tp-cell,
-  .nw-toolbar .nw-tb-btn {
+  .nw-tp-cell {
     transition: none;
   }
 }
@@ -6959,7 +6212,8 @@ body.nw-fonts.nd-themed .print {
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
-
+/* @css src/write/styles-locks.css */
+/* NEON WRITE (continued): lockable callouts, merged table cells, lockable math blocks */
 /* ---- lockable callouts (item 31): a small lock at the right of the title ---- */
 .callout-title .nw-lock {
   margin-left: auto;
@@ -7076,161 +6330,6 @@ body.nw-fonts.nd-themed .print {
 }
 .cm-embed-block.nw-math-lock.is-locked {
   cursor: default;
-}
-/* ---- /flashcard popup: preview card, fields, list of cards to insert ---- */
-.nw-fc-modal {
-  width: min(560px, calc(100vw - 32px));
-}
-.nw-fc-modal .modal-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.nw-fc-ico {
-  display: inline-flex;
-  color: var(--nd-accent, var(--interactive-accent));
-}
-.nw-fc-preview {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin-bottom: 14px;
-  border: 1px solid var(--nd-line, var(--background-modifier-border));
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--background-secondary);
-}
-.nw-fc-side {
-  position: relative;
-  min-height: 92px;
-  padding: 26px 14px 14px;
-  display: flex;
-  align-items: center;
-}
-.nw-fc-side.is-a {
-  border-left: 1px dashed var(--nd-line, var(--background-modifier-border));
-  background: color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 6%, transparent);
-}
-.nw-fc-tag {
-  position: absolute;
-  top: 8px;
-  left: 12px;
-  font: 600 10px var(--nd-mono, var(--font-monospace));
-  letter-spacing: 0.14em;
-  color: var(--nd-accent, var(--interactive-accent));
-}
-.nw-fc-side.is-a .nw-fc-tag {
-  color: var(--nd-muted, var(--text-muted));
-}
-.nw-fc-text {
-  font-size: 15px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-.nw-fc-side.is-q .nw-fc-text {
-  font-weight: 600;
-}
-.nw-fc-text.is-empty {
-  color: var(--nd-faint, var(--text-faint));
-  font-weight: 400;
-  font-style: italic;
-}
-.nw-fc-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-.nw-fc-label {
-  font: 600 11px var(--nd-mono, var(--font-monospace));
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--nd-faint, var(--text-faint));
-}
-.nw-fc-field .nd-input {
-  width: 100%;
-}
-.nw-fc-list {
-  display: flex;
-  flex-direction: column;
-  max-height: 220px;
-  overflow-y: auto;
-  margin: 4px 0 10px;
-  border-top: 1px solid var(--nd-line, var(--background-modifier-border));
-}
-.nw-fc-list.is-empty {
-  display: none;
-}
-.nw-fc-row {
-  display: grid;
-  grid-template-columns: 26px 1fr 1fr 28px;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 4px;
-  border-bottom: 1px solid var(--nd-line, var(--background-modifier-border));
-  font-size: 13px;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background-color var(--nd-fast, 150ms) ease;
-}
-.nw-fc-row:hover {
-  background: var(--background-modifier-hover);
-}
-.nw-fc-n {
-  font: 600 11px var(--nd-mono, var(--font-monospace));
-  color: var(--nd-faint, var(--text-faint));
-}
-.nw-fc-rq {
-  font-weight: 600;
-}
-.nw-fc-ra {
-  color: var(--nd-muted, var(--text-muted));
-}
-.nw-fc-rq,
-.nw-fc-ra {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.nw-fc-del {
-  opacity: 0;
-}
-.nw-fc-row:hover .nw-fc-del,
-.nw-fc-del:focus-visible {
-  opacity: 1;
-}
-.nw-fc-row.is-new {
-  animation: nw-fc-in 260ms ease-out;
-}
-@keyframes nw-fc-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-.nw-fc-foot {
-  align-items: center;
-}
-.nw-fc-info {
-  flex: 1;
-  font-size: 12px;
-  color: var(--nd-muted, var(--text-muted));
-}
-.nw-fc-info.is-hidden {
-  visibility: hidden;
-}
-@media (max-width: 520px) {
-  .nw-fc-preview {
-    grid-template-columns: 1fr;
-  }
-  .nw-fc-side.is-a {
-    border-left: 0;
-    border-top: 1px dashed var(--nd-line, var(--background-modifier-border));
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .nw-fc-row.is-new {
-    animation: none;
-  }
 }
 /* @css src/shared/mobile.css */
 /* ---------- phones and tablets (fork) ----------
