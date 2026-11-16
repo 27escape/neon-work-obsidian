@@ -81,10 +81,7 @@ Object.assign(NeonProjects.prototype, {
 function projectMenu(plugin, t, m) {
   m.addItem((i) => i.setTitle('Open').setIcon('briefcase').onClick(() => plugin.openProject(t.file)));
   m.addItem((i) => i.setTitle('Open in new tab').setIcon('file-plus-2').onClick(() => plugin.app.workspace.getLeaf('tab').openFile(t.file)));
-  m.addItem((i) => i.setTitle('Plan: Gantt chart').setIcon('calendar-range').onClick(() => plugin.openPlan(plugin.planScope(t), 'gantt'))); // fork
-  m.addItem((i) => i.setTitle('Plan: board').setIcon('kanban').onClick(() => plugin.openPlan(plugin.planScope(t), 'board')));
-  m.addItem((i) => i.setTitle('Plan: dependency graph').setIcon('git-fork').onClick(() => plugin.openPlan(plugin.planScope(t), 'graph')));
-  m.addItem((i) => i.setTitle('Plan: task list').setIcon('list-checks').onClick(() => plugin.openPlan(plugin.planScope(t), 'list')));
+  m.addItem((i) => i.setTitle('Planning').setIcon('calendar-range').onClick(() => plugin.openPlan(plugin.planScope(t), 'gantt'))); // fork
   m.addSeparator();
   if (t.noNote) {
     // fork: a project folder without a note of its own: offer to make one rather than write to its index note

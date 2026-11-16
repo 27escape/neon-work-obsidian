@@ -10291,10 +10291,7 @@ Object.assign(NeonProjects.prototype, {
 function projectMenu(plugin, t, m) {
   m.addItem((i) => i.setTitle('Open').setIcon('briefcase').onClick(() => plugin.openProject(t.file)));
   m.addItem((i) => i.setTitle('Open in new tab').setIcon('file-plus-2').onClick(() => plugin.app.workspace.getLeaf('tab').openFile(t.file)));
-  m.addItem((i) => i.setTitle('Plan: Gantt chart').setIcon('calendar-range').onClick(() => plugin.openPlan(plugin.planScope(t), 'gantt'))); // fork
-  m.addItem((i) => i.setTitle('Plan: board').setIcon('kanban').onClick(() => plugin.openPlan(plugin.planScope(t), 'board')));
-  m.addItem((i) => i.setTitle('Plan: dependency graph').setIcon('git-fork').onClick(() => plugin.openPlan(plugin.planScope(t), 'graph')));
-  m.addItem((i) => i.setTitle('Plan: task list').setIcon('list-checks').onClick(() => plugin.openPlan(plugin.planScope(t), 'list')));
+  m.addItem((i) => i.setTitle('Planning').setIcon('calendar-range').onClick(() => plugin.openPlan(plugin.planScope(t), 'gantt'))); // fork
   m.addSeparator();
   if (t.noNote) {
     // fork: a project folder without a note of its own: offer to make one rather than write to its index note
@@ -10618,7 +10615,7 @@ async function planPaint(el, bars) {
   }
 }
 /* @src src/tickets/plan-view.js */
-/* ---- Project plans (fork): the Plan view, one project's plan in its own tab -----------------------------------------
+/* ---- Project plans (fork): the Planning view, one project's plan in its own tab -----------------------------------------
  * Opened from the buttons on a project note's header (plan-actions.js). Modes: Gantt (Mermaid, drawn by Obsidian),
  * Board (plan-board.js), Graph (plan-graph.js) and List. Follows changes in the notes; only the board writes. */
 
@@ -10663,7 +10660,7 @@ class PlanView extends ItemView {
     return VIEW_PLAN;
   }
   getDisplayText() {
-    return this.plan ? `Plan: ${planScopeTitle(this.plan)}` : 'Plan';
+    return this.plan ? `Planning: ${planScopeTitle(this.plan)}` : 'Planning';
   }
   getIcon() {
     return 'calendar-range';
@@ -10699,7 +10696,7 @@ class PlanView extends ItemView {
     root.empty();
     const bar = root.createDiv('np-bar');
     const head = bar.createDiv('np-head');
-    head.createDiv({ cls: 'tk-k', text: 'Plan' });
+    head.createDiv({ cls: 'tk-k', text: 'Planning' });
     this.titleEl = head.createDiv({ cls: 'np-title', text: this.plan ? planScopeTitle(this.plan) : '' });
     this.sumEl = head.createDiv('np-sum');
     const tools = bar.createDiv('np-tools');
@@ -11133,17 +11130,10 @@ Object.assign(PlanView.prototype, {
   },
 });
 /* @src src/tickets/plan-actions.js */
-/* ---- Project plans (fork): buttons on project notes, opening the Plan view, commands ---------------------------
+/* ---- Project plans (fork): the Planning button on project notes, opening the Planning view, a command -----------
  * A note that belongs to a project (a project note, or any note in a project folder) gets buttons in its header:
- * Gantt, Board, Graph and List. They open the Plan view in a new tab; nothing is added to the note. */
-
-// header buttons, left to right (Obsidian puts the last one added first, so they are added in reverse)
-const PLAN_BUTTONS = [
-  ['gantt', 'calendar-range', 'Gantt', 'Plan: Gantt chart'],
-  ['board', 'kanban', 'Board', 'Plan: board'],
-  ['graph', 'git-fork', 'Graph', 'Plan: dependency graph'],
-  ['list', 'list-checks', 'List', 'Plan: task list'],
-];
+ * one Planning button. It opens the Planning view in a new tab, on the Gantt chart; the view switches to the board,
+ * graph and list. Nothing is added to the note. */
 
 Object.assign(NeonProjects.prototype, {
   hookPlans() {
@@ -11167,10 +11157,7 @@ Object.assign(NeonProjects.prototype, {
           return true;
         },
       });
-    cmd('plan-gantt', 'Project: open the plan as a Gantt chart', 'gantt');
-    cmd('plan-board', 'Project: open the plan as a board', 'board');
-    cmd('plan-graph', 'Project: open the plan as a dependency graph', 'graph');
-    cmd('plan-list', 'Project: open the plan as a task list', 'list');
+    cmd('plan-gantt', 'Project: open Planning', 'gantt');
   },
   /** Adds or removes the header buttons so they match each open note. */
   syncPlanButtons() {
@@ -11184,13 +11171,11 @@ Object.assign(NeonProjects.prototype, {
       if (had) had.els.forEach((e) => e.remove());
       this.planButtons.delete(v);
       if (!scope) continue;
-      // fork: a word beside each icon, so the buttons are easy to spot
-      const els = [...PLAN_BUTTONS].reverse().map(([mode, ic, label, title]) => {
-        const e = v.addAction(ic, title, () => this.openPlan(scope, mode));
-        e.addClass('np-action');
-        e.createSpan({ cls: 'np-action-label', text: label });
-        return e;
-      });
+      // fork: one button with a word beside its icon, so it is easy to spot
+      const e = v.addAction('calendar-range', 'Planning: Gantt chart, board, graph and task list', () => this.openPlan(scope, 'gantt'));
+      e.addClass('np-action');
+      e.createSpan({ cls: 'np-action-label', text: 'Planning' });
+      const els = [e];
       this.planButtons.set(v, { key, els });
     }
   },

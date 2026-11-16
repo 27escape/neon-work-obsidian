@@ -1,4 +1,4 @@
-/* ---- Project plans (fork): the Plan view, one project's plan in its own tab -----------------------------------------
+/* ---- Project plans (fork): the Planning view, one project's plan in its own tab -----------------------------------------
  * Opened from the buttons on a project note's header (plan-actions.js). Modes: Gantt (Mermaid, drawn by Obsidian),
  * Board (plan-board.js), Graph (plan-graph.js) and List. Follows changes in the notes; only the board writes. */
 
@@ -43,7 +43,7 @@ class PlanView extends ItemView {
     return VIEW_PLAN;
   }
   getDisplayText() {
-    return this.plan ? `Plan: ${planScopeTitle(this.plan)}` : 'Plan';
+    return this.plan ? `Planning: ${planScopeTitle(this.plan)}` : 'Planning';
   }
   getIcon() {
     return 'calendar-range';
@@ -79,7 +79,7 @@ class PlanView extends ItemView {
     root.empty();
     const bar = root.createDiv('np-bar');
     const head = bar.createDiv('np-head');
-    head.createDiv({ cls: 'tk-k', text: 'Plan' });
+    head.createDiv({ cls: 'tk-k', text: 'Planning' });
     this.titleEl = head.createDiv({ cls: 'np-title', text: this.plan ? planScopeTitle(this.plan) : '' });
     this.sumEl = head.createDiv('np-sum');
     const tools = bar.createDiv('np-tools');

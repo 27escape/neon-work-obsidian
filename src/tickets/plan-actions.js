@@ -1,14 +1,7 @@
-/* ---- Project plans (fork): buttons on project notes, opening the Plan view, commands ---------------------------
+/* ---- Project plans (fork): the Planning button on project notes, opening the Planning view, a command -----------
  * A note that belongs to a project (a project note, or any note in a project folder) gets buttons in its header:
- * Gantt, Board, Graph and List. They open the Plan view in a new tab; nothing is added to the note. */
-
-// header buttons, left to right (Obsidian puts the last one added first, so they are added in reverse)
-const PLAN_BUTTONS = [
-  ['gantt', 'calendar-range', 'Gantt', 'Plan: Gantt chart'],
-  ['board', 'kanban', 'Board', 'Plan: board'],
-  ['graph', 'git-fork', 'Graph', 'Plan: dependency graph'],
-  ['list', 'list-checks', 'List', 'Plan: task list'],
-];
+ * one Planning button. It opens the Planning view in a new tab, on the Gantt chart; the view switches to the board,
+ * graph and list. Nothing is added to the note. */
 
 Object.assign(NeonProjects.prototype, {
   hookPlans() {
@@ -32,10 +25,7 @@ Object.assign(NeonProjects.prototype, {
           return true;
         },
       });
-    cmd('plan-gantt', 'Project: open the plan as a Gantt chart', 'gantt');
-    cmd('plan-board', 'Project: open the plan as a board', 'board');
-    cmd('plan-graph', 'Project: open the plan as a dependency graph', 'graph');
-    cmd('plan-list', 'Project: open the plan as a task list', 'list');
+    cmd('plan-gantt', 'Project: open Planning', 'gantt');
   },
   /** Adds or removes the header buttons so they match each open note. */
   syncPlanButtons() {
@@ -49,13 +39,11 @@ Object.assign(NeonProjects.prototype, {
       if (had) had.els.forEach((e) => e.remove());
       this.planButtons.delete(v);
       if (!scope) continue;
-      // fork: a word beside each icon, so the buttons are easy to spot
-      const els = [...PLAN_BUTTONS].reverse().map(([mode, ic, label, title]) => {
-        const e = v.addAction(ic, title, () => this.openPlan(scope, mode));
-        e.addClass('np-action');
-        e.createSpan({ cls: 'np-action-label', text: label });
-        return e;
-      });
+      // fork: one button with a word beside its icon, so it is easy to spot
+      const e = v.addAction('calendar-range', 'Planning: Gantt chart, board, graph and task list', () => this.openPlan(scope, 'gantt'));
+      e.addClass('np-action');
+      e.createSpan({ cls: 'np-action-label', text: 'Planning' });
+      const els = [e];
       this.planButtons.set(v, { key, els });
     }
   },
