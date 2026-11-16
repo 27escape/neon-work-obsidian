@@ -984,7 +984,8 @@ function planTask(line, at = {}) {
   const deps = dm ? [...new Set(dm[1].split(',').map((x) => x.trim()).filter(Boolean))] : [];
   const du = raw.match(/\[duration::\s*(\d+(?:\.\d+)?)\s*(d|days?|w|weeks?)?\s*\]/iu);
   const days = du ? Math.max(0, Math.round(parseFloat(du[1]) * (/^w/i.test(du[2] || '') ? 5 : 1))) : null;
-  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
+  const milestone = /(^|\s)#milestone(?=\s|$)/iu.test(raw); // fork: a milestone is tagged, not just 0 days
+  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
 }
 
 /** Does the text carry one of the task tags ("#task, #todo"); whole tags, any case. */
@@ -1017,8 +1018,8 @@ function planState(t, byId) {
   return t.deps.some((d) => byId.has(d) && !planClosed(byId.get(d))) ? 'blocked' : 'ready';
 }
 
-/** Working days a task takes: its duration, else 1 (as Project Planner draws undated tasks); cancelled: 0. */
-const planDays = (t) => (t.status === 'cancelled' ? 0 : t.days == null ? 1 : t.days);
+/** Working days a task takes: its duration, else 1 (as Project Planner draws undated tasks); milestones and cancelled: 0. */
+const planDays = (t) => (t.status === 'cancelled' || t.milestone ? 0 : t.days == null ? 1 : t.days);
 
 /**
  * Schedule in working days from the start (day 0): each task starts when the last task it depends on ends. With
@@ -10490,17 +10491,20 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       const days = planDays(t);
       let when;
       let finish = null;
-      if (!relative && t.start && t.due && t.due >= t.start) {
+      if (t.milestone) {
+        // a milestone (#milestone) is a diamond on its 📅 date (with real dates), else where the schedule puts it
+        finish = !relative && (t.due || t.start) ? t.due || t.start : relative ? null : planWorkdays(from, r.es);
+        when = `${finish || planWorkdays(from, r.es)}, 0d`;
+      } else if (!relative && t.start && t.due && t.due >= t.start) {
         when = `${t.start}, ${ymdAdd(t.due, 1)}`;
         finish = t.due;
       } else {
         const start = !relative && t.start ? t.start : planWorkdays(from, r.es);
-        when = `${start}, ${days}d`;
+        when = `${start}, ${days ? `${days}d` : '4h'}`; // a task estimated at 0 days: a thin bar, so it stays visible
         if (!relative) finish = planWorkdays(start, Math.max(0, days - 1));
       }
       bars.push({ id, task: t, kind: planBarKind(t, state, today, finish), crit });
-      if (!days && !(t.start && t.due && !relative)) lines.push(`  ${label} :${[...tags, 'milestone', id].join(', ')}, ${when.replace(/, \d+d$/, ', 0d')}`);
-      else lines.push(`  ${label} :${[...tags, id].join(', ')}, ${when}`);
+      lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), id].join(', ')}, ${when}`);
     }
   }
   return { text: bars.length ? lines.join('\n') : '', sched, bars };
@@ -10595,7 +10599,7 @@ function planColour(kind) {
  * Colour the bars of a drawn Gantt by kind, as inline styles so a saved SVG keeps them. Mermaid names each
  * bar <svg id>-<task id> (older versions: the task id). Critical-path bars get an outline. Waits for the drawing.
  */
-async function planPaint(el, bars) {
+async function planPaint(el, bars, onBar = null) {
   let svg = el.querySelector('svg');
   for (let i = 0; !svg && i < 30 && el.isConnected; i++) {
     await new Promise((r) => window.setTimeout(r, 100));
@@ -10610,8 +10614,16 @@ async function planPaint(el, bars) {
     rect.style.fill = c;
     rect.style.stroke = b.crit ? edge : c;
     rect.style.strokeWidth = b.crit ? '2px' : '1px';
+    if (onBar) {
+      rect.style.cursor = 'pointer';
+      rect.addEventListener('click', (e) => onBar(e, b));
+    }
     const label = svg.querySelector(`text[id="${b.id}-text"], text[id$="-${b.id}-text"]`);
     if (label && !/Outside/i.test(label.getAttribute('class') || '')) label.style.fill = planInk(b.kind);
+    if (label && onBar) {
+      label.style.cursor = 'pointer';
+      label.addEventListener('click', (e) => onBar(e, b));
+    }
   }
 }
 /* @src src/tickets/plan-view.js */
@@ -10769,7 +10781,8 @@ class PlanView extends ItemView {
     if (this.mode === 'board') return this.renderBoard();
     if (this.mode === 'graph') return this.renderGraph(sched);
     const chart = this.bodyEl.createDiv('np-chart');
-    renderMermaid(this.app, chart, text, this).then(() => planPaint(chart, bars));
+    tip(chart, 'Click a bar for its menu: open, move, duration, milestone');
+    renderMermaid(this.app, chart, text, this).then(() => planPaint(chart, bars, (e, b) => this.taskMenu(e, b.task)));
   }
   /** Colour key for the kinds in this plan; outlined bars are on the critical path. */
   renderLegend(bars) {
@@ -10793,6 +10806,20 @@ class PlanView extends ItemView {
     if (sched.dups.length) lines.push(`Ids used more than once: ${sched.dups.join(', ')}`);
     for (const l of lines) el.createDiv({ cls: 'np-issue', text: `⚠ ${l}` });
   }
+  /** The list's Days cell: − days + (click the number to type one); a milestone shows ◆. */
+  daysCell(td, t) {
+    if (t.milestone) return void tip(td.createSpan({ cls: 'np-ms', text: '◆' }), 'Milestone (#milestone)');
+    if (t.external) return void td.setText(String(planDays(t)));
+    const step = (d, label, title) => {
+      const b = td.createEl('button', { cls: 'np-step', text: label, attr: { type: 'button', 'aria-label': title } });
+      b.addEventListener('click', () => this.setDuration(t, Math.max(0, planDays(t) + d)));
+    };
+    step(-1, '−', 'One day less');
+    const n = td.createSpan({ cls: `np-days-n${t.days == null ? ' is-unset' : ''}`, text: String(planDays(t)) });
+    tip(n, t.days == null ? 'No estimate yet (counts as 1 day): click to set' : 'Click to type a duration');
+    n.addEventListener('click', () => this.askDuration(t));
+    step(1, '+', 'One day more');
+  }
   renderList(sched, weeks) {
     const { byId } = planIndex(this.tasks);
     const table = this.bodyEl.createEl('table', { cls: 'np-table' });
@@ -10809,6 +10836,7 @@ class PlanView extends ItemView {
       }
       const st = planState(t, byId);
       const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}` });
+      tr.addEventListener('contextmenu', (e) => this.taskMenu(e, t));
       tip(tr.createEl('td', { cls: 'np-crit', text: r.crit && st !== 'done' && !t.external ? '●' : '' }), 'On the critical path');
       const name = tr.createEl('td', { cls: 'np-name' });
       const a = name.createEl('a', { text: (t.external ? '↗ ' : '') + planText(t.raw), href: '#' });
@@ -10823,13 +10851,173 @@ class PlanView extends ItemView {
       if (kind === 'overdue' || kind === 'soon') tip(chip, PLAN_KINDS.find(([k]) => k === kind)[1]);
       tr.createEl('td', { cls: 'np-id', text: t.id || '' });
       tr.createEl('td', { cls: 'np-id', text: t.deps.join(', ') });
-      tr.createEl('td', { cls: 'np-num', text: String(planDays(t)) });
+      this.daysCell(tr.createEl('td', { cls: 'np-num np-days' }), t);
       tr.createEl('td', { text: planDayLabel(r.es, this.base, weeks) });
       tr.createEl('td', { text: planDayLabel(Math.max(r.es, r.ef - 1), this.base, weeks) });
       tr.createEl('td', { cls: 'np-num', text: r.slack ? `${r.slack}d` : '' });
     }
   }
 }
+/* @src src/tickets/plan-edit.js */
+/* ---- Project plans (fork): changing a task from the Planning view --------------------------------------------------
+ * Pure line edits (tested) and the one place that writes them: the checkbox (board), the duration and the milestone
+ * tag. Each edit finds the task's line again (by its text, else its 🆔 id), changes only that line through writeNote,
+ * then updates the task in memory and redraws, so a quick second edit starts from the note as it is. Nothing is
+ * written while read-only is on. The task menu (right-click on a card, row or box; click on a Gantt bar) offers them. */
+
+const PLAN_LINE_RE = /^(\s*(?:[-*+]|\d+[.)])\s+\[)(.)(\]\s+)(.*)$/u;
+const PLAN_DURATIONS = [1, 2, 3, 5, 10]; // offered in the task menu (working days; 5 = a week)
+
+/**
+ * Edit one task's line (pure): fn(rest, box) → { rest, box } with rest the text after the checkbox. Returns
+ * { text, line, raw, box }, or null when the task can't be found. The task is looked for on its line (same text or
+ * same 🆔 id), else on the one line with the same text, else the same id.
+ */
+function planEditLine(text, t, fn) {
+  const lines = text.split('\n');
+  const parse = (l) => (l || '').replace(/\r$/, '').match(PLAN_LINE_RE);
+  const idRe = t.id ? new RegExp(`🆔\\s*${t.id}(?![\\w-])`, 'u') : null; // ids are letters, digits, - and _
+  const sameText = (l) => {
+    const m = parse(l);
+    return !!m && m[4] === t.raw;
+  };
+  const sameId = (l) => {
+    const m = parse(l);
+    return !!m && !!idRe && idRe.test(m[4]);
+  };
+  const only = (ok) => {
+    const hits = lines.map((l, i) => (ok(l) ? i : -1)).filter((i) => i >= 0);
+    return hits.length === 1 ? hits[0] : -1;
+  };
+  let n = sameText(lines[t.line]) || sameId(lines[t.line]) ? t.line : only(sameText);
+  if (n < 0) n = only(sameId);
+  if (n < 0) return null;
+  const cr = lines[n].endsWith('\r') ? '\r' : '';
+  const m = parse(lines[n]);
+  const next = fn(m[4], m[2]);
+  if (next.rest === m[4] && next.box === m[2]) return { text, line: n, raw: m[4], box: m[2] };
+  lines[n] = m[1] + next.box + m[3] + next.rest + cr;
+  return { text: lines.join('\n'), line: n, raw: next.rest, box: next.box };
+}
+
+/** The checkbox set to `box`: done adds "✅ today" if missing, reopening removes it; already there: unchanged. */
+function planSetBox(text, t, box, today) {
+  return planEditLine(text, t, (rest, now) => {
+    if (now === box) return { rest, box };
+    if (box === 'x' || box === 'X') return { rest: /✅\s*\d{4}-\d{2}-\d{2}/u.test(rest) ? rest : `${rest} ✅ ${today}`, box };
+    return { rest: rest.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/gu, ''), box };
+  });
+}
+
+/** Where a new field goes: before the first emoji field or tag, else at the end. */
+function planFieldAt(rest) {
+  const m = rest.match(/\s(?:🆔|⛔|📅|⏳|🛫|✅|➕|❌|🔁|⏫|🔼|🔽|🔺|⏬|#[\w/-])/u);
+  return m ? m.index : rest.length;
+}
+
+/** The duration set to `days` working days ([duration:: Nd]); null removes it. Its place in the line is kept. */
+function planSetDuration(text, t, days) {
+  return planEditLine(text, t, (rest, box) => {
+    const field = days == null ? '' : `[duration:: ${days}d]`;
+    const re = /\s*\[duration::[^\]]*\]/iu;
+    if (re.test(rest)) return { rest: rest.replace(re, field ? ` ${field}` : '').replace(/^\s+/, ''), box };
+    if (!field) return { rest, box };
+    const at = planFieldAt(rest);
+    return { rest: `${rest.slice(0, at)} ${field}${rest.slice(at)}`, box };
+  });
+}
+
+/** The #milestone tag on or off; a milestone has no length, so its duration field goes. */
+function planSetMilestone(text, t, on) {
+  return planEditLine(text, t, (rest, box) => {
+    const re = /(^|\s)#milestone(?=\s|$)/iu;
+    if (!on) return { rest: rest.replace(re, '').replace(/\s{2,}/g, ' ').trim(), box };
+    if (re.test(rest)) return { rest, box };
+    const plain = rest.replace(/\s*\[duration::[^\]]*\]/iu, '');
+    const at = planFieldAt(plain);
+    return { rest: `${plain.slice(0, at)} #milestone${plain.slice(at)}`, box };
+  });
+}
+
+/** "2 days", "1 week", "Milestone", "1 day (no estimate)". */
+function planDaysText(t) {
+  if (t.milestone) return 'Milestone';
+  const d = planDays(t);
+  const s = d % 5 === 0 && d >= 5 ? `${d / 5} week${d === 5 ? '' : 's'}` : `${d} day${d === 1 ? '' : 's'}`;
+  return t.days == null ? `${s} (no estimate)` : s;
+}
+
+Object.assign(PlanView.prototype, {
+  /** Run an edit on a task's line; one at a time, each from the note as it is then. */
+  editTask(t, edit) {
+    const job = (this.editing || Promise.resolve()).then(() => this.writeEdit(t, edit));
+    this.editing = job.catch(() => {});
+    return job;
+  },
+  async writeEdit(t, edit) {
+    let res = null;
+    try {
+      await writeNote(this.app, t.file, (text) => {
+        res = edit(text);
+        return res ? res.text : text;
+      });
+    } catch (e) {
+      if (!(e && e.neonReadOnly)) {
+        console.error('Planning: could not change the task', e);
+        new Notice('Could not change the task. Details in the console.');
+      }
+      return this.refresh();
+    }
+    if (!res) {
+      new Notice('Could not find that task in its note any more: refreshed');
+      return this.refresh();
+    }
+    // the task as it is now, so the view is right at once and a next edit starts from here
+    const now = planTask(`- [${res.box}] ${res.raw}`, { file: t.file, line: res.line, phase: t.phase });
+    if (now) Object.assign(t, now);
+    this.render();
+  },
+  moveTask(t, box) {
+    return this.editTask(t, (text) => planSetBox(text, t, box, moment().format('YYYY-MM-DD')));
+  },
+  setDuration(t, days) {
+    return this.editTask(t, (text) => planSetDuration(text, t, days));
+  },
+  setMilestone(t, on) {
+    return this.editTask(t, (text) => planSetMilestone(text, t, on));
+  },
+  /** Ask for a duration: a number of days, or "2w" for weeks; empty removes the estimate. */
+  askDuration(t) {
+    new PromptModal(this.app, {
+      title: `Duration of “${planClip(planText(t.raw), 50)}”`,
+      value: t.days == null ? '' : String(t.days),
+      placeholder: 'Working days, e.g. 3, or 2w for two weeks; empty: no estimate',
+      cta: 'Set',
+      onSubmit: (v) => {
+        const m = String(v || '').trim().match(/^(\d+(?:\.\d+)?)\s*(d|days?|w|weeks?)?$/i);
+        if (!String(v || '').trim()) return this.setDuration(t, null);
+        if (!m) return new Notice('A number of days (3) or weeks (2w), please');
+        this.setDuration(t, Math.max(0, Math.round(parseFloat(m[1]) * (/^w/i.test(m[2] || '') ? 5 : 1))));
+      },
+    }).open();
+  },
+  /** The task menu: open, move, duration, milestone. */
+  taskMenu(e, t) {
+    if (e.preventDefault) e.preventDefault();
+    const m = new Menu();
+    m.addItem((i) => i.setTitle('Open the task').setIcon('file-text').onClick(() => openFile(this.app, t.file, null, t.line)));
+    if (t.external) return m.showAtMouseEvent(e);
+    m.addSeparator();
+    for (const [, label, box] of PLAN_COLUMNS)
+      if (box !== null) m.addItem((i) => i.setTitle(`Move to ${label}`).setChecked(t.box === box || (box === 'x' && t.status === 'done')).onClick(() => this.moveTask(t, box)));
+    m.addSeparator();
+    for (const d of PLAN_DURATIONS)
+      m.addItem((i) => i.setTitle(`Duration: ${planDaysText({ days: d })}`).setChecked(!t.milestone && t.days === d).onClick(() => this.setDuration(t, d)));
+    m.addItem((i) => i.setTitle('Duration…').setIcon('timer').onClick(() => this.askDuration(t)));
+    m.addItem((i) => i.setTitle('Milestone').setIcon('diamond').setChecked(!!t.milestone).onClick(() => this.setMilestone(t, !t.milestone)));
+    m.showAtMouseEvent(e);
+  },
+});
 /* @src src/tickets/plan-graph.js */
 /* ---- Project plans (fork): the dependency graph (Mermaid flowchart) -----------------------------------------------
  * One box per task, an arrow from each task to the tasks that depend on it, one group per phase, outside tasks in
@@ -10921,6 +11109,7 @@ Object.assign(PlanView.prototype, {
       if (!g) continue;
       g.addClass('np-node');
       g.addEventListener('click', (e) => openFile(this.app, task.file, e, task.line));
+      g.addEventListener('contextmenu', (e) => this.taskMenu(e, task));
     }
   },
 });
@@ -10938,43 +11127,6 @@ const PLAN_COLUMNS = [
   ['doing', 'In progress', '/'],
   ['done', 'Done', 'x'],
 ];
-
-/**
- * The note's text with the task's checkbox set to `box` (pure): { text, line, raw } (raw: the line's new text after the
- * checkbox), or null when the task can't be found. The task is looked for on its line (same text, or same 🆔 id), else
- * on the one line in the note with the same text, else the same id: a quick second move may come before the view has
- * re-read the note. Done adds "✅ today" if missing; reopening removes it. Already in that state: text unchanged.
- */
-function planSetBox(text, t, box, today) {
-  const lines = text.split('\n');
-  const re = /^(\s*(?:[-*+]|\d+[.)])\s+\[)(.)(\]\s+)(.*)$/u;
-  const parse = (l) => (l || '').replace(/\r$/, '').match(re);
-  const idRe = t.id ? new RegExp(`🆔\\s*${t.id}(?![\\w-])`, 'u') : null; // ids are letters, digits, - and _
-  const sameText = (l) => {
-    const m = parse(l);
-    return !!m && m[4] === t.raw;
-  };
-  const sameId = (l) => {
-    const m = parse(l);
-    return !!m && !!idRe && idRe.test(m[4]);
-  };
-  const only = (fn) => {
-    const hits = lines.map((l, i) => (fn(l) ? i : -1)).filter((i) => i >= 0);
-    return hits.length === 1 ? hits[0] : -1;
-  };
-  let n = sameText(lines[t.line]) || sameId(lines[t.line]) ? t.line : only(sameText);
-  if (n < 0) n = only(sameId);
-  if (n < 0) return null;
-  const cr = lines[n].endsWith('\r') ? '\r' : '';
-  const m = parse(lines[n]);
-  let rest = m[4];
-  if (m[2] === box) return { text, line: n, raw: rest };
-  if (box === 'x' || box === 'X') {
-    if (!/✅\s*\d{4}-\d{2}-\d{2}/u.test(rest)) rest = `${rest} ✅ ${today}`;
-  } else rest = rest.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/gu, '');
-  lines[n] = m[1] + box + m[3] + rest + cr;
-  return { text: lines.join('\n'), line: n, raw: rest };
-}
 
 Object.assign(PlanView.prototype, {
   renderBoard() {
@@ -11009,7 +11161,7 @@ Object.assign(PlanView.prototype, {
     c.createDiv({ cls: 'np-card-text', text: planText(t.raw) });
     const meta = c.createDiv('np-card-meta');
     if (t.id) meta.createSpan({ cls: 'np-id', text: t.id });
-    meta.createSpan({ text: `${planDays(t)}d` });
+    meta.createSpan({ text: t.milestone ? '◆ milestone' : `${planDays(t)}d` });
     if (t.due) meta.createSpan({ cls: kind === 'overdue' || kind === 'soon' ? `is-${kind}` : '', text: `📅 ${moment(t.due, 'YYYY-MM-DD').format('D MMM')}` });
     if (t.status === 'cancelled') meta.createSpan({ text: 'cancelled' });
     c.addEventListener('pointerdown', (e) => this.dragStart(e, c, t));
@@ -11017,14 +11169,7 @@ Object.assign(PlanView.prototype, {
       if (Date.now() - (this.dragEndAt || 0) < 400) return; // the click that ends a drag doesn't open the note
       openFile(this.app, t.file, e, t.line);
     });
-    c.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      const m = new Menu();
-      m.addItem((i) => i.setTitle('Open').setIcon('file-text').onClick(() => openFile(this.app, t.file, null, t.line)));
-      m.addSeparator();
-      for (const [key, label, box] of PLAN_COLUMNS) if (box !== null) m.addItem((i) => i.setTitle(`Move to ${label}`).setChecked(t.box === box || (box === 'x' && t.status === 'done')).onClick(() => this.moveTask(t, box)));
-      m.showAtMouseEvent(e);
-    });
+    c.addEventListener('contextmenu', (e) => this.taskMenu(e, t));
   },
   /**
    * Drag with the pointer: past a few pixels a copy of the card follows the pointer, the cell under it lights up when
@@ -11096,37 +11241,6 @@ Object.assign(PlanView.prototype, {
     );
     window.addEventListener('pointercancel', end, { signal: stop.signal });
     window.addEventListener('keydown', (ev) => ev.key === 'Escape' && end(), { signal: stop.signal });
-  },
-  /** Set a task's checkbox in its note; the view redraws when the note changes. */
-  async moveTask(t, box) {
-    // one move at a time, each from the note as it is then: a quick second drag waits for the first
-    const prev = this.moving || Promise.resolve();
-    const job = prev.then(() => this.writeMove(t, box));
-    this.moving = job.catch(() => {});
-    return job;
-  },
-  async writeMove(t, box) {
-    let res = null;
-    try {
-      await writeNote(this.app, t.file, (text) => {
-        res = planSetBox(text, t, box, moment().format('YYYY-MM-DD'));
-        return res ? res.text : text;
-      });
-    } catch (e) {
-      if (!(e && e.neonReadOnly)) {
-        console.error('Plan: could not move the task', e);
-        new Notice('Could not change the task. Details in the console.');
-      }
-      return this.refresh();
-    }
-    if (!res) {
-      new Notice('Could not find that task in its note any more: refreshed');
-      return this.refresh();
-    }
-    // the task as it is now, so the board is right at once and a next move starts from here
-    const now = planTask(`- [${box}] ${res.raw}`, { file: t.file, line: res.line, phase: t.phase });
-    if (now) Object.assign(t, now);
-    this.render();
   },
 });
 /* @src src/tickets/plan-actions.js */

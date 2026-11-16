@@ -152,7 +152,8 @@ class PlanView extends ItemView {
     if (this.mode === 'board') return this.renderBoard();
     if (this.mode === 'graph') return this.renderGraph(sched);
     const chart = this.bodyEl.createDiv('np-chart');
-    renderMermaid(this.app, chart, text, this).then(() => planPaint(chart, bars));
+    tip(chart, 'Click a bar for its menu: open, move, duration, milestone');
+    renderMermaid(this.app, chart, text, this).then(() => planPaint(chart, bars, (e, b) => this.taskMenu(e, b.task)));
   }
   /** Colour key for the kinds in this plan; outlined bars are on the critical path. */
   renderLegend(bars) {
@@ -176,6 +177,20 @@ class PlanView extends ItemView {
     if (sched.dups.length) lines.push(`Ids used more than once: ${sched.dups.join(', ')}`);
     for (const l of lines) el.createDiv({ cls: 'np-issue', text: `⚠ ${l}` });
   }
+  /** The list's Days cell: − days + (click the number to type one); a milestone shows ◆. */
+  daysCell(td, t) {
+    if (t.milestone) return void tip(td.createSpan({ cls: 'np-ms', text: '◆' }), 'Milestone (#milestone)');
+    if (t.external) return void td.setText(String(planDays(t)));
+    const step = (d, label, title) => {
+      const b = td.createEl('button', { cls: 'np-step', text: label, attr: { type: 'button', 'aria-label': title } });
+      b.addEventListener('click', () => this.setDuration(t, Math.max(0, planDays(t) + d)));
+    };
+    step(-1, '−', 'One day less');
+    const n = td.createSpan({ cls: `np-days-n${t.days == null ? ' is-unset' : ''}`, text: String(planDays(t)) });
+    tip(n, t.days == null ? 'No estimate yet (counts as 1 day): click to set' : 'Click to type a duration');
+    n.addEventListener('click', () => this.askDuration(t));
+    step(1, '+', 'One day more');
+  }
   renderList(sched, weeks) {
     const { byId } = planIndex(this.tasks);
     const table = this.bodyEl.createEl('table', { cls: 'np-table' });
@@ -192,6 +207,7 @@ class PlanView extends ItemView {
       }
       const st = planState(t, byId);
       const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}` });
+      tr.addEventListener('contextmenu', (e) => this.taskMenu(e, t));
       tip(tr.createEl('td', { cls: 'np-crit', text: r.crit && st !== 'done' && !t.external ? '●' : '' }), 'On the critical path');
       const name = tr.createEl('td', { cls: 'np-name' });
       const a = name.createEl('a', { text: (t.external ? '↗ ' : '') + planText(t.raw), href: '#' });
@@ -206,7 +222,7 @@ class PlanView extends ItemView {
       if (kind === 'overdue' || kind === 'soon') tip(chip, PLAN_KINDS.find(([k]) => k === kind)[1]);
       tr.createEl('td', { cls: 'np-id', text: t.id || '' });
       tr.createEl('td', { cls: 'np-id', text: t.deps.join(', ') });
-      tr.createEl('td', { cls: 'np-num', text: String(planDays(t)) });
+      this.daysCell(tr.createEl('td', { cls: 'np-num np-days' }), t);
       tr.createEl('td', { text: planDayLabel(r.es, this.base, weeks) });
       tr.createEl('td', { text: planDayLabel(Math.max(r.es, r.ef - 1), this.base, weeks) });
       tr.createEl('td', { cls: 'np-num', text: r.slack ? `${r.slack}d` : '' });

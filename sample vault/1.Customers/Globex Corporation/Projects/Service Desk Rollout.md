@@ -13,13 +13,13 @@ note: Sample plan for the Gantt, Board, Graph and List views
 
 # Service Desk Rollout
 
-Replace Globex's shared inbox with a service desk tool. This note is a sample plan: each task has an id (🆔), the tasks it depends on (⛔) and an estimate in working days (`[duration:: …]`). Open it with the **Gantt**, **Board**, **Graph** or **List** buttons in the note's header.
+Replace Globex's shared inbox with a service desk tool. This note is a sample plan: each task has an id (🆔), the tasks it depends on (⛔) and an estimate in working days (`[duration:: …]`). Open it with the **Planning** button in the note's header. In the Planning view, right-click a card, row or box (or click a Gantt bar) to move a task, change its duration or make it a milestone; the List view's Days column has − and + buttons.
 
 What it shows:
 
 - done, in progress, cancelled, ready and blocked tasks;
 - an overdue task (📅 13 Nov) and one due soon (📅 19 Nov);
-- a milestone (0 days), and a duration in weeks (`1w`);
+- a milestone (tagged `#milestone`), a task estimated at 0 days and a duration in weeks (`1w`);
 - a dependency on a task outside the project (the licence quote in [[2026-11-10 Portal Discovery Workshop]]) and an outside task that depends on this plan (in the weekly note [[2026-47]]).
 
 ### 1. Discovery
@@ -49,5 +49,6 @@ What it shows:
 - [ ] Book the training room 📅 2026-11-27 #task
 - [ ] Train the service desk team [duration:: 2d] 🆔 sdr-g1 ⛔ sdr-b2,sdr-b3 #task
 - [ ] Pilot with the finance department [duration:: 1w] 🆔 sdr-g2 ⛔ sdr-g1,sdr-b4,sdr-b5,sdr-g0 #task
-- [ ] Go live for everyone [duration:: 0d] 🆔 sdr-golive ⛔ sdr-g2 #task
+- [ ] Announce the go-live date to staff [duration:: 0d] 🆔 sdr-g4 ⛔ sdr-g1 #task
+- [ ] Go live for everyone 🆔 sdr-golive ⛔ sdr-g2,sdr-g4 #milestone #task
 - [ ] Review after the first month [duration:: 1d] 🆔 sdr-g3 ⛔ sdr-golive #task

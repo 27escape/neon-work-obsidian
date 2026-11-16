@@ -19,7 +19,8 @@ function planTask(line, at = {}) {
   const deps = dm ? [...new Set(dm[1].split(',').map((x) => x.trim()).filter(Boolean))] : [];
   const du = raw.match(/\[duration::\s*(\d+(?:\.\d+)?)\s*(d|days?|w|weeks?)?\s*\]/iu);
   const days = du ? Math.max(0, Math.round(parseFloat(du[1]) * (/^w/i.test(du[2] || '') ? 5 : 1))) : null;
-  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
+  const milestone = /(^|\s)#milestone(?=\s|$)/iu.test(raw); // fork: a milestone is tagged, not just 0 days
+  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
 }
 
 /** Does the text carry one of the task tags ("#task, #todo"); whole tags, any case. */
@@ -52,8 +53,8 @@ function planState(t, byId) {
   return t.deps.some((d) => byId.has(d) && !planClosed(byId.get(d))) ? 'blocked' : 'ready';
 }
 
-/** Working days a task takes: its duration, else 1 (as Project Planner draws undated tasks); cancelled: 0. */
-const planDays = (t) => (t.status === 'cancelled' ? 0 : t.days == null ? 1 : t.days);
+/** Working days a task takes: its duration, else 1 (as Project Planner draws undated tasks); milestones and cancelled: 0. */
+const planDays = (t) => (t.status === 'cancelled' || t.milestone ? 0 : t.days == null ? 1 : t.days);
 
 /**
  * Schedule in working days from the start (day 0): each task starts when the last task it depends on ends. With

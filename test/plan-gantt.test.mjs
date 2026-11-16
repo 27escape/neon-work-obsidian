@@ -16,7 +16,7 @@ test('gantt: phases as sections, weeks from a fixed Monday, critical path, done,
     T('- [x] Scope [duration:: 2d] 🆔 a #task', { phase: '1. Scope' }),
     T('- [ ] Prices: UK [duration:: 3d] 🆔 b ⛔ a #task', { phase: '2. Provider' }),
     T('- [/] Files [duration:: 1d] 🆔 c ⛔ a #task', { phase: '2. Provider' }),
-    T('- [ ] Decide [duration:: 0d] 🆔 d ⛔ b,c,x #task', { phase: '2. Provider' }),
+    T('- [ ] Decide 🆔 d ⛔ b,c,x #milestone #task', { phase: '2. Provider' }),
     Object.assign(T('- [ ] Outside task 🆔 x'), { external: true }),
   ];
   const { text, sched } = P.planGanttText(tasks, {});
@@ -68,4 +68,15 @@ test('the Plan view keeps its plan off View.scope (Obsidian keeps the key scope 
   const v = new P.PlanView({}, {});
   assert.equal(v.scope, undefined);
   assert.equal(v.plan, null);
+});
+
+test('milestones are tagged #milestone; a 0-day task is a thin bar', () => {
+  const tasks = [T('- [ ] A [duration:: 2d] 🆔 a'), T('- [ ] Announce [duration:: 0d] 🆔 b ⛔ a'), T('- [ ] Go live 🆔 c ⛔ a #milestone'), T('- [ ] Plain 🆔 d ⛔ a')];
+  const { text, sched } = P.planGanttText(tasks, {});
+  assert.ok(text.includes('  Announce :np2, 2026-01-07, 4h'));
+  assert.ok(text.includes('  Go live :milestone, np3, 2026-01-07, 0d')); // not on the critical path: Plain ends later
+  assert.ok(text.includes('  Plain :crit, np4, 2026-01-07, 1d')); // no estimate: 1 day
+  assert.equal(sched.length, 3);
+  const dated = P.planGanttText([T('- [ ] Go live #milestone 📅 2026-12-04')], { base: '2026-11-16', today: '2026-11-16' });
+  assert.ok(dated.text.includes('  Go live :crit, milestone, np1, 2026-12-04, 0d'));
 });

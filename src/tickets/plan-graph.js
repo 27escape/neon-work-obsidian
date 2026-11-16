@@ -88,6 +88,7 @@ Object.assign(PlanView.prototype, {
       if (!g) continue;
       g.addClass('np-node');
       g.addEventListener('click', (e) => openFile(this.app, task.file, e, task.line));
+      g.addEventListener('contextmenu', (e) => this.taskMenu(e, task));
     }
   },
 });

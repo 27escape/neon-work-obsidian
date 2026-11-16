@@ -66,17 +66,20 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       const days = planDays(t);
       let when;
       let finish = null;
-      if (!relative && t.start && t.due && t.due >= t.start) {
+      if (t.milestone) {
+        // a milestone (#milestone) is a diamond on its 📅 date (with real dates), else where the schedule puts it
+        finish = !relative && (t.due || t.start) ? t.due || t.start : relative ? null : planWorkdays(from, r.es);
+        when = `${finish || planWorkdays(from, r.es)}, 0d`;
+      } else if (!relative && t.start && t.due && t.due >= t.start) {
         when = `${t.start}, ${ymdAdd(t.due, 1)}`;
         finish = t.due;
       } else {
         const start = !relative && t.start ? t.start : planWorkdays(from, r.es);
-        when = `${start}, ${days}d`;
+        when = `${start}, ${days ? `${days}d` : '4h'}`; // a task estimated at 0 days: a thin bar, so it stays visible
         if (!relative) finish = planWorkdays(start, Math.max(0, days - 1));
       }
       bars.push({ id, task: t, kind: planBarKind(t, state, today, finish), crit });
-      if (!days && !(t.start && t.due && !relative)) lines.push(`  ${label} :${[...tags, 'milestone', id].join(', ')}, ${when.replace(/, \d+d$/, ', 0d')}`);
-      else lines.push(`  ${label} :${[...tags, id].join(', ')}, ${when}`);
+      lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), id].join(', ')}, ${when}`);
     }
   }
   return { text: bars.length ? lines.join('\n') : '', sched, bars };

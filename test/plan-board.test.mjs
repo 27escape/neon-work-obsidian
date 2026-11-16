@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 
-const P = load('neon-tickets', ['planTask', 'planSetBox', 'planGraphText', 'planSchedule', 'planToHex']);
+const P = load('neon-tickets', ['planTask', 'planSetBox', 'planGraphText', 'planSchedule', 'planToHex', 'planSetDuration', 'planSetMilestone', 'planDaysText', 'planDays']);
 
 test('board moves change only the checkbox; done stamps ✅ today, reopening removes it', () => {
   const text = '# Plan\n- [ ] A [duration:: 2d] 🆔 a #task\n- [ ] B 🆔 b ⛔ a #task\n';
@@ -77,4 +77,28 @@ test('graph: top to bottom by default, phase groups can be left out', () => {
   assert.equal(lines.some((l) => l.includes('subgraph')), false);
   assert.ok(lines.includes('  n1["A"]'));
   assert.ok(lines.includes('  n1 ==> n2'));
+});
+
+test('duration: set in place, added before the fields, removed; weeks shown as weeks', () => {
+  const t = (l) => P.planTask(l, { line: 0 });
+  assert.equal(P.planSetDuration('- [ ] A [duration:: 2d] 🆔 a #task', t('- [ ] A [duration:: 2d] 🆔 a #task'), 3).text, '- [ ] A [duration:: 3d] 🆔 a #task');
+  assert.equal(P.planSetDuration('- [ ] A 🆔 a ⛔ b #task', t('- [ ] A 🆔 a ⛔ b #task'), 2).text, '- [ ] A [duration:: 2d] 🆔 a ⛔ b #task');
+  assert.equal(P.planSetDuration('- [ ] Plain words', t('- [ ] Plain words'), 1).text, '- [ ] Plain words [duration:: 1d]');
+  assert.equal(P.planSetDuration('- [ ] A [duration:: 2d] #task', t('- [ ] A [duration:: 2d] #task'), null).text, '- [ ] A #task');
+  assert.equal(P.planSetDuration('- [/] A [duration:: 1w] 🆔 a', t('- [/] A [duration:: 1w] 🆔 a'), 0).raw, 'A [duration:: 0d] 🆔 a');
+  assert.equal(P.planDaysText({ days: 5 }), '1 week');
+  assert.equal(P.planDaysText({ days: 10 }), '2 weeks');
+  assert.equal(P.planDaysText({ days: 3 }), '3 days');
+  assert.equal(P.planDaysText({ days: null }), '1 day (no estimate)');
+});
+
+test('milestone: #milestone tag on (duration dropped) and off; milestones take 0 days', () => {
+  const t = (l) => P.planTask(l, { line: 0 });
+  const on = P.planSetMilestone('- [ ] Go live [duration:: 0d] 🆔 g ⛔ p #task', t('- [ ] Go live [duration:: 0d] 🆔 g ⛔ p #task'), true);
+  assert.equal(on.text, '- [ ] Go live #milestone 🆔 g ⛔ p #task');
+  const ms = t(on.text);
+  assert.equal(ms.milestone, true);
+  assert.equal(P.planDays(ms), 0);
+  assert.equal(P.planSetMilestone(on.text, ms, false).text, '- [ ] Go live 🆔 g ⛔ p #task');
+  assert.equal(t('- [ ] A #milestones').milestone, false);
 });

@@ -12,43 +12,6 @@ const PLAN_COLUMNS = [
   ['done', 'Done', 'x'],
 ];
 
-/**
- * The note's text with the task's checkbox set to `box` (pure): { text, line, raw } (raw: the line's new text after the
- * checkbox), or null when the task can't be found. The task is looked for on its line (same text, or same 🆔 id), else
- * on the one line in the note with the same text, else the same id: a quick second move may come before the view has
- * re-read the note. Done adds "✅ today" if missing; reopening removes it. Already in that state: text unchanged.
- */
-function planSetBox(text, t, box, today) {
-  const lines = text.split('\n');
-  const re = /^(\s*(?:[-*+]|\d+[.)])\s+\[)(.)(\]\s+)(.*)$/u;
-  const parse = (l) => (l || '').replace(/\r$/, '').match(re);
-  const idRe = t.id ? new RegExp(`🆔\\s*${t.id}(?![\\w-])`, 'u') : null; // ids are letters, digits, - and _
-  const sameText = (l) => {
-    const m = parse(l);
-    return !!m && m[4] === t.raw;
-  };
-  const sameId = (l) => {
-    const m = parse(l);
-    return !!m && !!idRe && idRe.test(m[4]);
-  };
-  const only = (fn) => {
-    const hits = lines.map((l, i) => (fn(l) ? i : -1)).filter((i) => i >= 0);
-    return hits.length === 1 ? hits[0] : -1;
-  };
-  let n = sameText(lines[t.line]) || sameId(lines[t.line]) ? t.line : only(sameText);
-  if (n < 0) n = only(sameId);
-  if (n < 0) return null;
-  const cr = lines[n].endsWith('\r') ? '\r' : '';
-  const m = parse(lines[n]);
-  let rest = m[4];
-  if (m[2] === box) return { text, line: n, raw: rest };
-  if (box === 'x' || box === 'X') {
-    if (!/✅\s*\d{4}-\d{2}-\d{2}/u.test(rest)) rest = `${rest} ✅ ${today}`;
-  } else rest = rest.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/gu, '');
-  lines[n] = m[1] + box + m[3] + rest + cr;
-  return { text: lines.join('\n'), line: n, raw: rest };
-}
-
 Object.assign(PlanView.prototype, {
   renderBoard() {
     const { byId } = planIndex(this.tasks);
@@ -82,7 +45,7 @@ Object.assign(PlanView.prototype, {
     c.createDiv({ cls: 'np-card-text', text: planText(t.raw) });
     const meta = c.createDiv('np-card-meta');
     if (t.id) meta.createSpan({ cls: 'np-id', text: t.id });
-    meta.createSpan({ text: `${planDays(t)}d` });
+    meta.createSpan({ text: t.milestone ? '◆ milestone' : `${planDays(t)}d` });
     if (t.due) meta.createSpan({ cls: kind === 'overdue' || kind === 'soon' ? `is-${kind}` : '', text: `📅 ${moment(t.due, 'YYYY-MM-DD').format('D MMM')}` });
     if (t.status === 'cancelled') meta.createSpan({ text: 'cancelled' });
     c.addEventListener('pointerdown', (e) => this.dragStart(e, c, t));
@@ -90,14 +53,7 @@ Object.assign(PlanView.prototype, {
       if (Date.now() - (this.dragEndAt || 0) < 400) return; // the click that ends a drag doesn't open the note
       openFile(this.app, t.file, e, t.line);
     });
-    c.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      const m = new Menu();
-      m.addItem((i) => i.setTitle('Open').setIcon('file-text').onClick(() => openFile(this.app, t.file, null, t.line)));
-      m.addSeparator();
-      for (const [key, label, box] of PLAN_COLUMNS) if (box !== null) m.addItem((i) => i.setTitle(`Move to ${label}`).setChecked(t.box === box || (box === 'x' && t.status === 'done')).onClick(() => this.moveTask(t, box)));
-      m.showAtMouseEvent(e);
-    });
+    c.addEventListener('contextmenu', (e) => this.taskMenu(e, t));
   },
   /**
    * Drag with the pointer: past a few pixels a copy of the card follows the pointer, the cell under it lights up when
@@ -169,36 +125,5 @@ Object.assign(PlanView.prototype, {
     );
     window.addEventListener('pointercancel', end, { signal: stop.signal });
     window.addEventListener('keydown', (ev) => ev.key === 'Escape' && end(), { signal: stop.signal });
-  },
-  /** Set a task's checkbox in its note; the view redraws when the note changes. */
-  async moveTask(t, box) {
-    // one move at a time, each from the note as it is then: a quick second drag waits for the first
-    const prev = this.moving || Promise.resolve();
-    const job = prev.then(() => this.writeMove(t, box));
-    this.moving = job.catch(() => {});
-    return job;
-  },
-  async writeMove(t, box) {
-    let res = null;
-    try {
-      await writeNote(this.app, t.file, (text) => {
-        res = planSetBox(text, t, box, moment().format('YYYY-MM-DD'));
-        return res ? res.text : text;
-      });
-    } catch (e) {
-      if (!(e && e.neonReadOnly)) {
-        console.error('Plan: could not move the task', e);
-        new Notice('Could not change the task. Details in the console.');
-      }
-      return this.refresh();
-    }
-    if (!res) {
-      new Notice('Could not find that task in its note any more: refreshed');
-      return this.refresh();
-    }
-    // the task as it is now, so the board is right at once and a next move starts from here
-    const now = planTask(`- [${box}] ${res.raw}`, { file: t.file, line: res.line, phase: t.phase });
-    if (now) Object.assign(t, now);
-    this.render();
   },
 });

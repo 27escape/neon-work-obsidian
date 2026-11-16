@@ -271,3 +271,36 @@
   touch-action: none;
   user-select: none;
 }
+
+/* list: the Days cell, − n + */
+.np-plan .np-days {
+  white-space: nowrap;
+}
+.np-plan .np-step {
+  padding: 0 5px;
+  height: auto;
+  min-height: 0;
+  line-height: 1.3;
+  font-size: 0.9em;
+  background: transparent;
+  box-shadow: none;
+  border: 1px solid var(--nd-line);
+  opacity: 0.35;
+}
+.np-plan .np-row:hover .np-step {
+  opacity: 1;
+}
+.np-plan .np-days-n {
+  display: inline-block;
+  min-width: 2em;
+  text-align: center;
+  cursor: pointer;
+  border-bottom: 1px dotted var(--nd-faint);
+}
+.np-plan .np-days-n.is-unset {
+  color: var(--nd-faint);
+  font-style: italic;
+}
+.np-plan .np-ms {
+  color: var(--nd-accent);
+}

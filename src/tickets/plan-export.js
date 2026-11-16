@@ -80,7 +80,7 @@ function planColour(kind) {
  * Colour the bars of a drawn Gantt by kind, as inline styles so a saved SVG keeps them. Mermaid names each
  * bar <svg id>-<task id> (older versions: the task id). Critical-path bars get an outline. Waits for the drawing.
  */
-async function planPaint(el, bars) {
+async function planPaint(el, bars, onBar = null) {
   let svg = el.querySelector('svg');
   for (let i = 0; !svg && i < 30 && el.isConnected; i++) {
     await new Promise((r) => window.setTimeout(r, 100));
@@ -95,7 +95,15 @@ async function planPaint(el, bars) {
     rect.style.fill = c;
     rect.style.stroke = b.crit ? edge : c;
     rect.style.strokeWidth = b.crit ? '2px' : '1px';
+    if (onBar) {
+      rect.style.cursor = 'pointer';
+      rect.addEventListener('click', (e) => onBar(e, b));
+    }
     const label = svg.querySelector(`text[id="${b.id}-text"], text[id$="-${b.id}-text"]`);
     if (label && !/Outside/i.test(label.getAttribute('class') || '')) label.style.fill = planInk(b.kind);
+    if (label && onBar) {
+      label.style.cursor = 'pointer';
+      label.addEventListener('click', (e) => onBar(e, b));
+    }
   }
 }
