@@ -10930,7 +10930,9 @@ Object.assign(PlanView.prototype, {
 /* ---- Project plans (fork): the board ---------------------------------------------------------------------------
  * Columns by state: Ready, Blocked (worked out from ⛔, so nothing can be dropped there), In progress, Done; rows by
  * phase. Dragging a card (or its menu) changes only the checkbox in the note, through writeNote: [ ] / [/] / [x],
- * adding ✅ today when done and removing it when reopened. Nothing is written while read-only is on. */
+ * adding ✅ today when done and removing it when reopened. Nothing is written while read-only is on.
+ * Dragging uses pointer events, not the browser's drag and drop: inside Obsidian the drop of an HTML5 drag never
+ * reached the board (the target lit up, nothing moved). Pointer events also work with touch. */
 
 const PLAN_COLUMNS = [
   ['ready', 'Ready', ' '],
@@ -10987,14 +10989,14 @@ Object.assign(PlanView.prototype, {
       board.createDiv({ cls: 'np-lane', text: lane });
       for (const [key, , box] of PLAN_COLUMNS) {
         const cell = board.createDiv({ cls: `np-cell is-${key}` });
-        if (box !== null) this.dropTarget(cell, box);
+        if (box !== null) cell.dataset.box = box; // a drop target (Blocked has none)
         for (const t of list.filter((x) => planState(x, byId) === key)) this.card(cell, t);
       }
     }
   },
   card(cell, t) {
     const kind = this.kinds.get(t) || 'ready';
-    const c = cell.createDiv({ cls: `np-card is-${kind}${t.status === 'cancelled' ? ' is-cancelled' : ''}`, attr: { draggable: 'true' } });
+    const c = cell.createDiv({ cls: `np-card is-${kind}${t.status === 'cancelled' ? ' is-cancelled' : ''}` });
     planFill(c, kind); // same colours as the Gantt bars and graph boxes
     c.createDiv({ cls: 'np-card-text', text: planText(t.raw) });
     const meta = c.createDiv('np-card-meta');
@@ -11002,17 +11004,11 @@ Object.assign(PlanView.prototype, {
     meta.createSpan({ text: `${planDays(t)}d` });
     if (t.due) meta.createSpan({ cls: kind === 'overdue' || kind === 'soon' ? `is-${kind}` : '', text: `📅 ${moment(t.due, 'YYYY-MM-DD').format('D MMM')}` });
     if (t.status === 'cancelled') meta.createSpan({ text: 'cancelled' });
-    c.addEventListener('dragstart', (e) => {
-      this.dragging = t;
-      e.dataTransfer.setData('text/plain', t.id || planText(t.raw));
-      e.dataTransfer.effectAllowed = 'move';
-      c.addClass('is-dragging');
+    c.addEventListener('pointerdown', (e) => this.dragStart(e, c, t));
+    c.addEventListener('click', (e) => {
+      if (this.dragged) return void (this.dragged = false); // the click that ends a drag doesn't open the note
+      openFile(this.app, t.file, e, t.line);
     });
-    c.addEventListener('dragend', () => {
-      c.removeClass('is-dragging');
-      this.dragging = null;
-    });
-    c.addEventListener('click', (e) => openFile(this.app, t.file, e, t.line));
     c.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       const m = new Menu();
@@ -11022,21 +11018,70 @@ Object.assign(PlanView.prototype, {
       m.showAtMouseEvent(e);
     });
   },
-  dropTarget(cell, box) {
-    cell.addEventListener('dragover', (e) => {
-      if (!this.dragging) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      cell.addClass('is-over');
-    });
-    cell.addEventListener('dragleave', () => cell.removeClass('is-over'));
-    cell.addEventListener('drop', (e) => {
-      e.preventDefault();
-      cell.removeClass('is-over');
-      const t = this.dragging;
-      this.dragging = null;
-      if (t) this.moveTask(t, box);
-    });
+  /**
+   * Drag with the pointer: past a few pixels a copy of the card follows the pointer, the cell under it lights up when
+   * it takes drops, and letting go there moves the task. Escape, or letting go elsewhere, cancels.
+   */
+  dragStart(e, card, t) {
+    if (e.button !== 0) return;
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    let ghost = null;
+    let over = null;
+    const stop = new AbortController();
+    const end = () => {
+      stop.abort();
+      if (ghost) ghost.remove();
+      card.removeClass('is-dragging');
+      if (over) over.removeClass('is-over');
+    };
+    this.register(() => stop.abort());
+    const target = (ev) => {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const cell = el && el.closest('.np-cell');
+      return cell && this.bodyEl.contains(cell) && cell.dataset.box !== undefined ? cell : null;
+    };
+    window.addEventListener(
+      'pointermove',
+      (ev) => {
+        if (!ghost) {
+          if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 6) return;
+          const box = card.getBoundingClientRect();
+          ghost = card.cloneNode(true);
+          ghost.addClass('np-ghost');
+          ghost.style.width = `${box.width}px`;
+          document.body.appendChild(ghost);
+          card.addClass('is-dragging');
+        }
+        ghost.style.left = `${ev.clientX + 8}px`;
+        ghost.style.top = `${ev.clientY + 8}px`;
+        const cell = target(ev);
+        if (cell !== over) {
+          if (over) over.removeClass('is-over');
+          over = cell;
+          if (over) over.addClass('is-over');
+        }
+      },
+      { signal: stop.signal },
+    );
+    window.addEventListener(
+      'pointerup',
+      (ev) => {
+        const cell = ghost ? target(ev) : null;
+        const dragged = !!ghost;
+        end();
+        if (!dragged) return;
+        this.dragged = true; // swallow the click that follows
+        window.setTimeout(() => (this.dragged = false), 0);
+        if (!cell) return;
+        NEON_GUARD.lastGesture = Date.now(); // a drop is asked for by you: a read-only refusal gets a notice
+        cell.appendChild(card); // show it at once; the view redraws when the note changes
+        this.moveTask(t, cell.dataset.box);
+      },
+      { signal: stop.signal },
+    );
+    window.addEventListener('pointercancel', end, { signal: stop.signal });
+    window.addEventListener('keydown', (ev) => ev.key === 'Escape' && end(), { signal: stop.signal });
   },
   /** Set a task's checkbox in its note; the view redraws when the note changes. */
   async moveTask(t, box) {

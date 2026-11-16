@@ -5582,6 +5582,22 @@ body:not(.nd-themed) .nd-empty {
   width: 100%;
   height: auto;
 }
+
+/* the card that follows the pointer while dragging (lives on document.body, outside the view) */
+.np-ghost {
+  position: fixed;
+  z-index: var(--layer-popover);
+  pointer-events: none;
+  opacity: 0.9;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: var(--font-ui-small);
+  box-shadow: var(--shadow-s);
+}
+.np-plan .np-card {
+  touch-action: none;
+  user-select: none;
+}
 /* @src neon-research/styles.css */
 /* @css src/research/styles.css */
 /* NEON RESEARCH — uses the --nd-* tokens from Neon Deck */
