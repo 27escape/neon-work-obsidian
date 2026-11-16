@@ -88,8 +88,7 @@
   color: var(--nd-muted);
   white-space: nowrap;
 }
-.nd-hero-actions,
-.nd-hero-looks {
+.nd-hero-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -124,30 +123,6 @@
     justify-content: flex-start;
     margin-left: 0;
   }
-}
-.nd-look-select {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 4px 0 10px;
-  border-radius: var(--nd-radius-s);
-  border: var(--nd-border) solid var(--nd-line);
-  background: var(--nd-bg);
-}
-.nd-look-k {
-  font: 600 10px var(--nd-mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--nd-faint);
-}
-.nd-look-select select.dropdown {
-  border: 0;
-  box-shadow: none;
-  background-color: transparent;
-  font: 600 12px var(--nd-font-ui);
-  padding: 5px 22px 5px 4px;
-  height: auto;
-  max-width: 130px;
 }
 /* ticker */
 /* ticker: still, one line of facts at a time, swapped every 10 s with a quick fade */
@@ -347,14 +322,6 @@
   text-transform: uppercase;
   color: var(--nd-muted);
 }
-.nd-tile-sub {
-  margin-top: 2px;
-  font: 11px var(--nd-mono);
-  color: var(--nd-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 /* fork: the Stats card (Vault pulse and Totals merged): compact tiles in as many columns as fit the card */
 .nd-w-stats {
   container-type: size;
@@ -458,13 +425,6 @@
 .nd-mini-title {
   font-size: 13px;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.nd-mini-meta {
-  font-size: 12px;
-  color: var(--nd-faint);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

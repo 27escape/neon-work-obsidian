@@ -125,15 +125,6 @@
   transition: border-color var(--nd-fast) ease, transform var(--nd-fast) ease, opacity 0.3s ease;
 }
 /* tk-row is also the form's grid row; the tracker one is scoped by .tk-list */
-.tk-form .tk-row {
-  display: grid;
-  padding: 0;
-  margin: 0;
-  border: 0;
-  background: none;
-  cursor: auto;
-  animation: none;
-}
 .tk-list .tk-row:hover {
   border-color: var(--nd-line-strong);
   transform: translateX(2px);
@@ -154,22 +145,6 @@
 }
 .tk-row.is-completing {
   opacity: 0.3;
-}
-.tk-row-check {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  border: 1.6px solid var(--nd-muted);
-  border-radius: 50%;
-  transition: background var(--nd-fast) ease, border-color var(--nd-fast) ease;
-}
-.tk-row-check:hover {
-  border-color: var(--nd-go);
-}
-.tk-row.status-done .tk-row-check,
-.tk-row.is-completing .tk-row-check {
-  background: var(--nd-go);
-  border-color: var(--nd-go);
 }
 .tk-row-main {
   flex: 1;
@@ -265,17 +240,8 @@
   }
 }
 @media (max-width: 560px) {
-  .tk-row-due-date,
-  .tk-inline-hint,
-  .tk-corner {
+  .tk-row-due-date {
     display: none;
-  }
-  .tk-card {
-    padding: 16px 14px;
-  }
-  .tk-log {
-    grid-template-columns: 1fr;
-    gap: 0;
   }
 }
 
@@ -316,14 +282,6 @@
 }
 .tk-mini.is-today .tk-mini-due {
   color: var(--nd-go);
-}
-.tk-mini-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-size: 13px;
 }
 .tk-mini-title {
   white-space: nowrap;
@@ -377,9 +335,7 @@
 
 /* the same for a narrow tab on a wide screen; the status tabs wrap, the due column goes under the title */
 @container (max-width: 560px) {
-  .tk-row-due-date,
-  .tk-inline-hint,
-  .tk-corner {
+  .tk-row-due-date {
     display: none;
   }
   .tk-row {

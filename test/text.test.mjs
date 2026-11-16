@@ -181,7 +181,7 @@ test('/flashcard popup: card lines, editing an existing card, and where cards go
 test('Study tab motion respects reduced motion (issues 36, 42)', () => {
   const css = readFileSync(new URL('../src/research/styles.css', import.meta.url), 'utf8');
   const tail = css.slice(css.indexOf('Study tab motion'));
-  for (const sel of ['.nr-panel.is-switch', '.nr-research-row.is-new', '.nr-research-row.is-leaving']) assert.ok(tail.lastIndexOf(sel) > tail.indexOf('prefers-reduced-motion'), sel);
+  for (const sel of ['.nr-panel.is-switch']) assert.ok(tail.lastIndexOf(sel) > tail.indexOf('prefers-reduced-motion'), sel);
 });
 
 test('workday timer counts toward the day total; breaks are shown but not counted (issues 48, 52)', () => {

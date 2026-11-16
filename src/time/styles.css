@@ -346,11 +346,6 @@
 .tm-entry-note.is-link:hover {
   text-decoration: underline;
 }
-.tm-entry-jira {
-  flex: none;
-  font: 600 12px var(--nd-mono);
-  color: var(--nd-go);
-}
 .tm-entry-src {
   flex: none;
   font: 12px var(--nd-mono);
