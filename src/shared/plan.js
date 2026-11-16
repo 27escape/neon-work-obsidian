@@ -5,6 +5,26 @@
  * Dates are YYYY-MM-DD strings throughout. */
 
 const PLAN_BOX_RE = /^\s*(?:[-*+]|\d+[.)])\s+\[(.)\]\s+(.*)$/u;
+// a Dataview field [key:: value]; the value may hold links: [owner:: [[@Sam Taylor]], [[@Alex]]]
+const PLAN_FIELD_RE = /\[[\w-]+::\s*(?:\[\[[^\]]*\]\]|[^\]\[])*\]/gu;
+const PLAN_OWNER_RE = /\[owner::\s*((?:\[\[[^\]]*\]\]|[^\]\[])*)\]/iu;
+
+/**
+ * The owners in a task's text ([owner:: [[@Sam Taylor]], Alex]): [{ key, name, text }]. key: for grouping (the note
+ * or the plain name, lower case); name: for showing (an alias, else the note name without its @); text: as written.
+ */
+function planOwners(raw) {
+  const m = String(raw || '').match(PLAN_OWNER_RE);
+  if (!m) return [];
+  const out = [];
+  const plain = m[1].replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (all, target, alias) => {
+    const base = target.split('#')[0].split('/').pop().trim();
+    out.push({ key: base.replace(/^@/, '').toLowerCase(), name: (alias || base).replace(/^@/, '').trim(), text: all });
+    return ',';
+  });
+  for (const p of plain.split(',').map((x) => x.trim()).filter(Boolean)) out.push({ key: p.replace(/^@/, '').toLowerCase(), name: p.replace(/^@/, ''), text: p });
+  return out;
+}
 // checkbox character → plan status; note-style boxes ([n], [i], [*], …) are not tasks
 const PLAN_STATES = { ' ': 'todo', '/': 'doing', '!': 'todo', '?': 'todo', '>': 'todo', '<': 'todo', x: 'done', X: 'done', '-': 'cancelled' };
 
@@ -21,7 +41,7 @@ function planTask(line, at = {}) {
   const days = du ? Math.max(0, Math.round(parseFloat(du[1]) * (/^w/i.test(du[2] || '') ? 5 : 1))) : null;
   const milestone = /(^|\s)#milestone(?=\s|$)/iu.test(raw); // fork: a milestone is tagged, not just 0 days
   const flagged = /(^|\s)#blocked(?=\s|$)/iu.test(raw); // blocked by something outside the plan (a supplier, an approval)
-  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
+  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, owners: planOwners(raw), due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
 }
 
 /** Does the text carry one of the task tags ("#task, #todo"); whole tags, any case. */
@@ -192,7 +212,7 @@ function planText(raw) {
   return String(raw || '')
     .replace(/🆔\s*[\w-]+/gu, '')
     .replace(/⛔️?\s*[\w-]+(?:\s*,\s*[\w-]+)*/gu, '')
-    .replace(/\[[\w-]+::[^\]]*\]/gu, '')
+    .replace(PLAN_FIELD_RE, '')
     .replace(/(?:📅|⏳|🛫|✅|➕|❌)\s*\d{4}-\d{2}-\d{2}/gu, '')
     .replace(/🔁[^📅⏳🛫✅➕]*/gu, '')
     .replace(/[⏫🔼🔽🔺⏬]/gu, '')
@@ -202,4 +222,32 @@ function planText(raw) {
     .replace(/(^|\s)#[\w/-]+/gu, '$1')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** "Marcus" / "Marcus/Sofia": owners' first names, for labels. */
+function planOwnerShort(t) {
+  return (t.owners || []).map((o) => o.name.split(/\s+/)[0]).join('/');
+}
+
+/**
+ * Days of work per owner per week (pure): Map key → { name, weeks: Map week → days }, from the schedule (open tasks;
+ * a task with two owners counts in full for both). Weeks count from the plan's day 0 in fives.
+ */
+function planLoad(rows) {
+  const out = new Map();
+  for (const r of rows) {
+    const t = r.task;
+    if (t.external || planClosed(t) || !(t.owners || []).length) continue;
+    for (const o of t.owners) {
+      const me = out.get(o.key) || out.set(o.key, { name: o.name, weeks: new Map() }).get(o.key);
+      for (let d = r.es; d < r.ef; d++) me.weeks.set(Math.floor(d / 5), (me.weeks.get(Math.floor(d / 5)) || 0) + 1);
+    }
+  }
+  return out;
+}
+/** [{ name, week, days }] where someone has more than `cap` days of work in a week. */
+function planOverloads(rows, cap = 5) {
+  const out = [];
+  for (const { name, weeks } of planLoad(rows).values()) for (const [week, days] of weeks) if (days > cap) out.push({ name, week, days });
+  return out.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
 }

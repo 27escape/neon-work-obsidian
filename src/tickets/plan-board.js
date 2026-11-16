@@ -25,12 +25,19 @@ function planBlockedText(t, byId, today) {
 Object.assign(PlanView.prototype, {
   renderBoard() {
     const { byId } = planIndex(this.tasks);
-    const own = this.tasks.filter((t) => !t.external);
+    const own = this.tasks.filter((t) => !t.external && this.shows(t));
     const lanes = new Map();
+    const byPerson = this.lanes === 'person' && planPeople(this.tasks).length;
     for (const t of own) {
-      const k = t.phase || 'Tasks';
+      // by person: a task with two owners sits in its first owner's row
+      const k = byPerson ? ((t.owners || [])[0] || { name: 'No owner' }).name : t.phase || 'Tasks';
       if (!lanes.has(k)) lanes.set(k, []);
       lanes.get(k).push(t);
+    }
+    if (byPerson && lanes.has('No owner')) {
+      const none = lanes.get('No owner');
+      lanes.delete('No owner');
+      lanes.set('No owner', none);
     }
     const board = this.bodyEl.createDiv('np-board');
     const today = this.today;
@@ -63,6 +70,7 @@ Object.assign(PlanView.prototype, {
     const meta = c.createDiv('np-card-meta');
     if (t.id) meta.createSpan({ cls: 'np-id', text: t.id });
     meta.createSpan({ text: t.milestone ? '◆ milestone' : `${planDays(t)}d` });
+    if (this.ownerText(t)) meta.createSpan({ text: this.ownerText(t) });
     if (t.due) meta.createSpan({ cls: kind === 'overdue' || kind === 'soon' ? `is-${kind}` : '', text: `📅 ${moment(t.due, 'YYYY-MM-DD').format('D MMM')}` });
     if (t.status === 'cancelled') meta.createSpan({ text: 'cancelled' });
     const why = planBlockedText(t, byId, this.today);

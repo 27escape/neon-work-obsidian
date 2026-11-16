@@ -40,8 +40,20 @@ function planSplit(rest) {
   const body = rest.slice(lead.length);
   const at = planFieldAt(body);
   const head = body.slice(0, at);
-  const inline = (head.match(/\[[\w-]+::[^\]]*\]/gu) || []).filter((f) => !/^\[duration::/i.test(f));
-  return { lead, desc: head.replace(/\s*\[[\w-]+::[^\]]*\]/gu, '').trim(), inline, tail: body.slice(at) };
+  const inline = (head.match(PLAN_FIELD_RE) || []).filter((f) => !/^\[(duration|owner)::/i.test(f)); // the editor sets those two
+  return { lead, desc: head.replace(PLAN_FIELD_RE, '').replace(/\s+/g, ' ').trim(), inline, tail: body.slice(at) };
+}
+
+/** The [owner:: …] field set to these owners (as written: [[@Sam Taylor]] or a plain name); none removes it. */
+function planOwnerRest(rest, owners) {
+  if (owners === undefined) return rest;
+  const field = owners && owners.length ? `[owner:: ${owners.join(', ')}]` : '';
+  const re = new RegExp(`\\s*${PLAN_OWNER_RE.source}`, 'iu');
+  if (re.test(rest)) return rest.replace(re, field ? ` ${field}` : '').replace(/^\s+/, '');
+  if (!field) return rest;
+  const dur = rest.match(/\[duration::[^\]]*\]/iu); // next to the duration, else before the fields
+  const at = dur ? dur.index + dur[0].length : planFieldAt(rest);
+  return `${rest.slice(0, at)} ${field}${rest.slice(at)}`;
 }
 
 /** An emoji field set to value (in place), removed (null), or added before the trailing tags. */
@@ -77,6 +89,7 @@ function planApplyForm(rest, box, f, today) {
   const p = planSplit(rest);
   let r = `${p.lead}${[String(f.desc || '').replace(/\s+/g, ' ').trim(), ...p.inline].join(' ')}${p.tail}`;
   r = planDurRest(r, f.milestone ? null : f.days);
+  r = planOwnerRest(r, f.owners);
   for (const [k, sign] of PLAN_DATE_SIGNS) r = planSetSign(r, sign, f[k] || null);
   r = planSetSign(r, '🆔', f.id || null);
   r = planSetSign(r, '⛔', f.deps && f.deps.length ? f.deps.join(',') : null);

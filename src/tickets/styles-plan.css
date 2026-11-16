@@ -310,3 +310,7 @@
   font-style: italic;
 }
 
+.np-plan .np-owner {
+  white-space: nowrap;
+  color: var(--nd-faint);
+}

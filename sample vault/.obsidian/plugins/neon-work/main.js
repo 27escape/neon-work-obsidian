@@ -970,6 +970,26 @@ function timelinePanel(app, parent, component, { build, zoom = '12m', onZoom, em
  * Dates are YYYY-MM-DD strings throughout. */
 
 const PLAN_BOX_RE = /^\s*(?:[-*+]|\d+[.)])\s+\[(.)\]\s+(.*)$/u;
+// a Dataview field [key:: value]; the value may hold links: [owner:: [[@Sam Taylor]], [[@Alex]]]
+const PLAN_FIELD_RE = /\[[\w-]+::\s*(?:\[\[[^\]]*\]\]|[^\]\[])*\]/gu;
+const PLAN_OWNER_RE = /\[owner::\s*((?:\[\[[^\]]*\]\]|[^\]\[])*)\]/iu;
+
+/**
+ * The owners in a task's text ([owner:: [[@Sam Taylor]], Alex]): [{ key, name, text }]. key: for grouping (the note
+ * or the plain name, lower case); name: for showing (an alias, else the note name without its @); text: as written.
+ */
+function planOwners(raw) {
+  const m = String(raw || '').match(PLAN_OWNER_RE);
+  if (!m) return [];
+  const out = [];
+  const plain = m[1].replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (all, target, alias) => {
+    const base = target.split('#')[0].split('/').pop().trim();
+    out.push({ key: base.replace(/^@/, '').toLowerCase(), name: (alias || base).replace(/^@/, '').trim(), text: all });
+    return ',';
+  });
+  for (const p of plain.split(',').map((x) => x.trim()).filter(Boolean)) out.push({ key: p.replace(/^@/, '').toLowerCase(), name: p.replace(/^@/, ''), text: p });
+  return out;
+}
 // checkbox character → plan status; note-style boxes ([n], [i], [*], …) are not tasks
 const PLAN_STATES = { ' ': 'todo', '/': 'doing', '!': 'todo', '?': 'todo', '>': 'todo', '<': 'todo', x: 'done', X: 'done', '-': 'cancelled' };
 
@@ -986,7 +1006,7 @@ function planTask(line, at = {}) {
   const days = du ? Math.max(0, Math.round(parseFloat(du[1]) * (/^w/i.test(du[2] || '') ? 5 : 1))) : null;
   const milestone = /(^|\s)#milestone(?=\s|$)/iu.test(raw); // fork: a milestone is tagged, not just 0 days
   const flagged = /(^|\s)#blocked(?=\s|$)/iu.test(raw); // blocked by something outside the plan (a supplier, an approval)
-  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
+  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, owners: planOwners(raw), due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
 }
 
 /** Does the text carry one of the task tags ("#task, #todo"); whole tags, any case. */
@@ -1157,7 +1177,7 @@ function planText(raw) {
   return String(raw || '')
     .replace(/🆔\s*[\w-]+/gu, '')
     .replace(/⛔️?\s*[\w-]+(?:\s*,\s*[\w-]+)*/gu, '')
-    .replace(/\[[\w-]+::[^\]]*\]/gu, '')
+    .replace(PLAN_FIELD_RE, '')
     .replace(/(?:📅|⏳|🛫|✅|➕|❌)\s*\d{4}-\d{2}-\d{2}/gu, '')
     .replace(/🔁[^📅⏳🛫✅➕]*/gu, '')
     .replace(/[⏫🔼🔽🔺⏬]/gu, '')
@@ -1167,6 +1187,34 @@ function planText(raw) {
     .replace(/(^|\s)#[\w/-]+/gu, '$1')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** "Marcus" / "Marcus/Sofia": owners' first names, for labels. */
+function planOwnerShort(t) {
+  return (t.owners || []).map((o) => o.name.split(/\s+/)[0]).join('/');
+}
+
+/**
+ * Days of work per owner per week (pure): Map key → { name, weeks: Map week → days }, from the schedule (open tasks;
+ * a task with two owners counts in full for both). Weeks count from the plan's day 0 in fives.
+ */
+function planLoad(rows) {
+  const out = new Map();
+  for (const r of rows) {
+    const t = r.task;
+    if (t.external || planClosed(t) || !(t.owners || []).length) continue;
+    for (const o of t.owners) {
+      const me = out.get(o.key) || out.set(o.key, { name: o.name, weeks: new Map() }).get(o.key);
+      for (let d = r.es; d < r.ef; d++) me.weeks.set(Math.floor(d / 5), (me.weeks.get(Math.floor(d / 5)) || 0) + 1);
+    }
+  }
+  return out;
+}
+/** [{ name, week, days }] where someone has more than `cap` days of work in a week. */
+function planOverloads(rows, cap = 5) {
+  const out = [];
+  for (const { name, weeks } of planLoad(rows).values()) for (const [week, days] of weeks) if (days > cap) out.push({ name, week, days });
+  return out.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
 }
 /* @src src/shared/plan-scope.js */
 /* ---- Project plans (fork): which tasks belong to a project ---------------------------------------------------
@@ -6773,7 +6821,7 @@ function taskDisplay(raw, tag = '#task') {
       // plan fields: 🆔 id, ⛔ depends-on ids, Dataview [key:: value] fields such as [duration:: 3d]
       .replace(/🆔\s*[\w-]+/gu, '')
       .replace(/⛔\uFE0F?\s*[\w-]+(?:\s*,\s*[\w-]+)*/gu, '')
-      .replace(/\[[\w-]+::[^\]]*\]/gu, '')
+      .replace(/\[[\w-]+::\s*(?:\[\[[^\]]*\]\]|[^\]\[])*\]/gu, '') // fork: [key:: value] fields, links inside them too
       .replace(taskTags(tag).length ? new RegExp(`(^|\\s)(?:${taskTags(tag).map(escTag).join('|')})(?=$|\\s)`, 'giu') : /$^/, '$1')
       .replace(/(?:📅|⏳|🛫|✅|➕)\s*\d{4}-\d{2}-\d{2}/gu, '')
       .replace(/🔁[^📅⏳🛫✅➕]*/gu, '')
@@ -10486,7 +10534,7 @@ function planBarKind(t, state, today, finish = null) {
 }
 
 /** { text, sched, bars: [{ id, kind, crit }] }: Mermaid gantt text. base: the project's start date or null. */
-function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45 } = {}) {
+function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null } = {}) {
   const relative = weeks || !base;
   const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start
@@ -10509,7 +10557,8 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     lines.push(`  section ${mermaidSafe(name)}`);
     for (const r of rows) {
       const t = r.task;
-      const label = planClip(mermaidSafe((t.external ? '↗ ' : '') + planText(t.raw)), maxName);
+      const who = planOwnerShort(t);
+      const label = planClip(mermaidSafe((t.external ? '↗ ' : '') + planText(t.raw)), maxName - (who ? who.length + 3 : 0)) + (who ? ` · ${mermaidSafe(who)}` : '');
       const state = planState(t, byId, today);
       const crit = r.crit && !t.external && state !== 'done';
       const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
@@ -10530,10 +10579,12 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
         if (!relative) finish = planWorkdays(start, Math.max(0, days - 1));
       }
       bars.push({ id, task: t, kind: planBarKind(t, state, today, finish), crit });
+      if (show && !show(t)) continue; // filtered out (one person): still in the schedule, not drawn
       lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), id].join(', ')}, ${when}`);
     }
   }
-  return { text: bars.length ? lines.join('\n') : '', sched, bars };
+  const kept = lines.filter((l, i) => !(l.startsWith('  section ') && (lines[i + 1] === undefined || lines[i + 1].startsWith('  section '))));
+  return { text: kept.some((l) => / :/.test(l)) ? kept.join('\n') : '', sched, bars }; // task lines hold ' :'
 }
 
 /** "Wk 3" (relative) or "Mon 23 Nov" for a working-day offset from the start. */
@@ -10696,6 +10747,8 @@ class PlanView extends ItemView {
     this.mode = 'gantt';
     this.weeks = false;
     this.graph = { dir: 'TB', phases: false, fit: false }; // graph layout: Down / Across, phase groups, fit or full size
+    this.who = null; // one person's tasks (plan-people.js), or everyone
+    this.lanes = 'phase'; // board rows: by phase or by person
     this.tasks = [];
     this.paths = new Set();
     this.src = '';
@@ -10710,13 +10763,15 @@ class PlanView extends ItemView {
     return 'calendar-range';
   }
   getState() {
-    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph } : {});
+    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph, who: this.who, lanes: this.lanes } : {});
   }
   async setState(state, result) {
     if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
     if (state && PLAN_MODES.some(([k]) => k === state.mode)) this.mode = state.mode;
     if (state && typeof state.weeks === 'boolean') this.weeks = state.weeks;
     if (state && state.graph && typeof state.graph === 'object') Object.assign(this.graph, state.graph);
+    if (state && 'who' in state) this.who = state.who || null;
+    if (state && (state.lanes === 'phase' || state.lanes === 'person')) this.lanes = state.lanes;
     await super.setState(state, result);
     this.build();
     await this.refresh();
@@ -10757,6 +10812,7 @@ class PlanView extends ItemView {
     button(tools, { icon: 'plus', text: 'New task', cls: 'np-new', title: 'Add a task to this project', onClick: () => this.newTask() });
     button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
     this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
+    this.buildPeopleTools(tools);
     const g = this.graph;
     const saveGraph = () => (this.app.workspace.requestSaveLayout(), this.render());
     this.dirEl = pills(tools, [['TB', 'Down'], ['LR', 'Across']], g.dir, (v) => ((g.dir = v || 'TB'), saveGraph()));
@@ -10812,7 +10868,7 @@ class PlanView extends ItemView {
     if (this.dragActive) return void (this.redrawAfterDrag = true); // a card is being dragged: redraw when it lands
     const weeks = this.weeks || !this.base;
     this.today = moment().format('YYYY-MM-DD');
-    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today });
+    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t) });
     this.src = text;
     this.sched = sched;
     this.kinds = new Map(bars.map((b) => [b.task, b.kind]));
@@ -10824,6 +10880,7 @@ class PlanView extends ItemView {
     if (!this.base) tip(this.weeksEl.btns.get('dates'), 'Set the project’s started date to see dates');
     for (const b of [this.copyBtn, this.svgBtn]) b.toggleClass('is-hidden', this.mode !== 'gantt' && this.mode !== 'graph');
     for (const p of [this.dirEl, this.phaseEl, this.fitEl]) p.el.toggleClass('is-hidden', this.mode !== 'graph');
+    this.syncPeopleTools();
     this.renderIssues(sched);
     this.bodyEl.empty();
     if (!own.length) {
@@ -10858,6 +10915,7 @@ class PlanView extends ItemView {
     if (sched.cycles.length) lines.push(`Dependency loop around: ${sched.cycles.map((t) => t.id || planText(t.raw)).join(', ')}`);
     if (sched.missing.length) lines.push(`Unknown ids: ${[...new Set(sched.missing.map((m) => m.id))].join(', ')}`);
     if (sched.dups.length) lines.push(`Ids used more than once: ${sched.dups.join(', ')}`);
+    lines.push(...this.loadLines(sched));
     for (const l of lines) el.createDiv({ cls: 'np-issue', text: `⚠ ${l}` });
   }
   /** The list's Days cell: − days + (click the number to type one); a milestone shows ◆. */
@@ -10878,15 +10936,16 @@ class PlanView extends ItemView {
     const { byId } = planIndex(this.tasks);
     const table = this.bodyEl.createEl('table', { cls: 'np-table' });
     const hr = table.createEl('thead').createEl('tr');
-    for (const h of ['', 'Task', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack']) hr.createEl('th', { text: h });
+    for (const h of ['', 'Task', 'Owner', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack']) hr.createEl('th', { text: h });
     const body = table.createEl('tbody');
     let phase = null;
     for (const r of sched.rows) {
       const t = r.task;
+      if (!this.shows(t)) continue;
       const ph = t.external ? PLAN_OUTSIDE : t.phase || 'Tasks';
       if (ph !== phase) {
         phase = ph;
-        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: '9' } });
+        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: '10' } });
       }
       const st = planState(t, byId, this.today);
       const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}` });
@@ -10899,6 +10958,7 @@ class PlanView extends ItemView {
         this.openTask(e, t);
       });
       if (t.external) name.createSpan({ cls: 'np-file', text: ` · ${t.file.basename}` });
+      tr.createEl('td', { cls: 'np-owner', text: (t.owners || []).map((o) => o.name).join(', ') });
       const kind = this.kinds.get(t) || st;
       const chip = tr.createEl('td').createSpan({ cls: `np-state is-${st}`, text: PLAN_STATE_LABEL[st] });
       planFill(chip, st === 'blocked' || st === 'waiting' ? st : kind);
@@ -11120,8 +11180,20 @@ function planSplit(rest) {
   const body = rest.slice(lead.length);
   const at = planFieldAt(body);
   const head = body.slice(0, at);
-  const inline = (head.match(/\[[\w-]+::[^\]]*\]/gu) || []).filter((f) => !/^\[duration::/i.test(f));
-  return { lead, desc: head.replace(/\s*\[[\w-]+::[^\]]*\]/gu, '').trim(), inline, tail: body.slice(at) };
+  const inline = (head.match(PLAN_FIELD_RE) || []).filter((f) => !/^\[(duration|owner)::/i.test(f)); // the editor sets those two
+  return { lead, desc: head.replace(PLAN_FIELD_RE, '').replace(/\s+/g, ' ').trim(), inline, tail: body.slice(at) };
+}
+
+/** The [owner:: …] field set to these owners (as written: [[@Sam Taylor]] or a plain name); none removes it. */
+function planOwnerRest(rest, owners) {
+  if (owners === undefined) return rest;
+  const field = owners && owners.length ? `[owner:: ${owners.join(', ')}]` : '';
+  const re = new RegExp(`\\s*${PLAN_OWNER_RE.source}`, 'iu');
+  if (re.test(rest)) return rest.replace(re, field ? ` ${field}` : '').replace(/^\s+/, '');
+  if (!field) return rest;
+  const dur = rest.match(/\[duration::[^\]]*\]/iu); // next to the duration, else before the fields
+  const at = dur ? dur.index + dur[0].length : planFieldAt(rest);
+  return `${rest.slice(0, at)} ${field}${rest.slice(at)}`;
 }
 
 /** An emoji field set to value (in place), removed (null), or added before the trailing tags. */
@@ -11157,6 +11229,7 @@ function planApplyForm(rest, box, f, today) {
   const p = planSplit(rest);
   let r = `${p.lead}${[String(f.desc || '').replace(/\s+/g, ' ').trim(), ...p.inline].join(' ')}${p.tail}`;
   r = planDurRest(r, f.milestone ? null : f.days);
+  r = planOwnerRest(r, f.owners);
   for (const [k, sign] of PLAN_DATE_SIGNS) r = planSetSign(r, sign, f[k] || null);
   r = planSetSign(r, '🆔', f.id || null);
   r = planSetSign(r, '⛔', f.deps && f.deps.length ? f.deps.join(',') : null);
@@ -11292,7 +11365,7 @@ function planPlannedDates(tasks, base, today) {
 }
 /* @src src/tickets/plan-editor.js */
 /* ---- Project plans (fork): the task editor ----------------------------------------------------------------------------
- * A form for one task of a project note: description, status, phase, duration or milestone, #blocked, what it
+ * A form for one task of a project note: description, status, phase, owners, duration or milestone, #blocked, what it
  * depends on and what it blocks (pickers over the note's tasks, loops refused), dates (with the plan's own dates),
  * and an id given automatically. A preview shows the exact line, and what changes in other tasks, before saving.
  * The text work is in plan-form.js; this file is only the form. One save is one write to the note. */
@@ -11327,6 +11400,8 @@ class PlanTaskModal extends Modal {
     // the note's other tasks: what the pickers offer
     this.mine = ctx.tasks.filter((x) => !x.external && x.file.path === ctx.file.path && x !== t);
     this.deps = t ? t.deps.map((id) => ({ id, task: byId.get(id) || null })) : [];
+    this.owners = t ? (t.owners || []).map((o) => o.text) : []; // as written: [[@Sam Taylor]] or a plain name
+    this.peopleNotes = app.vault.getMarkdownFiles().filter((f) => f.basename.startsWith('@')).map((f) => f.basename).sort();
     this.blocks = new Set(t && t.id ? this.mine.filter((x) => x.deps.includes(t.id)) : []);
     this.blocks0 = new Set(this.blocks);
     this.phase = t ? t.phase || '' : ctx.phase || '';
@@ -11365,6 +11440,7 @@ class PlanTaskModal extends Modal {
     for (const p of this.phases) phase.createEl('option', { text: p, attr: { value: p } });
     phase.value = this.phases.includes(this.phase) ? this.phase : '';
     phase.addEventListener('change', () => ((this.phase = phase.value), this.update()));
+    this.ownerEl = row('Owner', 'np-ed-pick');
     // duration, milestone, blocked
     const dr = row('Duration');
     const weeks = f.days != null && f.days >= 5 && f.days % 5 === 0;
@@ -11497,11 +11573,49 @@ class PlanTaskModal extends Modal {
     q.addEventListener('input', draw);
   }
 
+  /** Owners: chips, and a search over the people notes (@Name); Enter adds a plain name if none matches. */
+  drawOwners() {
+    const el = this.ownerEl;
+    el.empty();
+    const chips = el.createDiv('np-ed-chips');
+    for (const text of this.owners) {
+      const o = planOwners(`[owner:: ${text}]`)[0];
+      const chip = chips.createSpan({ cls: 'np-ed-tag', text: `👤 ${o ? o.name : text}` });
+      chip.createSpan({ cls: 'np-ed-x', text: '×' }).addEventListener('click', () => {
+        this.owners = this.owners.filter((x) => x !== text);
+        this.update();
+      });
+    }
+    const q = el.createEl('input', { cls: 'np-ed-search', attr: { type: 'search', placeholder: 'Search people (@ notes), or type a name and press Enter…' } });
+    const list = el.createDiv('np-ed-list');
+    const add = (text) => {
+      if (!this.owners.includes(text)) this.owners.push(text);
+      this.update();
+    };
+    const hits = () => {
+      const s = q.value.trim().toLowerCase().replace(/^@/, '');
+      return s ? this.peopleNotes.filter((n) => n.toLowerCase().includes(s) && !this.owners.includes(`[[${n}]]`)).slice(0, 8) : [];
+    };
+    q.addEventListener('input', () => {
+      list.empty();
+      for (const n of hits()) {
+        const item = list.createDiv({ cls: 'np-ed-hit', text: n });
+        item.addEventListener('click', () => add(`[[${n}]]`));
+      }
+    });
+    q.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !q.value.trim()) return;
+      e.preventDefault();
+      const h = hits();
+      add(h.length ? `[[${h[0]}]]` : q.value.trim().replace(/[[\],]/g, ''));
+    });
+  }
+
   /** The planned change: ids given out, the main task's form, edits of other tasks; and the notes for the preview. */
   plan() {
     const t = this.ctx.task;
     const used = new Set(this.ctx.tasks.map((x) => x.id).filter(Boolean));
-    const f = Object.assign({}, this.form);
+    const f = Object.assign({}, this.form, { owners: this.owners.slice() });
     const notes = [];
     if (!f.id) {
       f.id = planNextId(used, this.prefix);
@@ -11538,6 +11652,7 @@ class PlanTaskModal extends Modal {
   }
 
   update() {
+    this.drawOwners();
     const bad = this.forbidden();
     this.picker(this.depsEl, {
       chosen: this.deps.map((d) => ({ task: d.task, label: d.task ? `${d.task.id || 'new id'} · ${planClip(planText(d.task.raw), 30)}${d.task.external ? ' ↗' : ''}` : `${d.id} (not found)`, d })),
@@ -11604,13 +11719,17 @@ function taskTagFirst() {
  * opens the task's line. Colours are written into the text, so a copied or saved graph keeps them. */
 
 /** Text for a box: quotes and brackets Mermaid would read as syntax swapped out, clipped. */
-const planNodeLabel = (t, max = 40) => planClip(((t.external ? '↗ ' : '') + planText(t.raw)).replace(/"/g, "'").replace(/[[\]{}<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'Untitled', max);
+const planNodeLabel = (t, max = 40) => {
+  const who = t.owners ? planOwnerShort(t) : '';
+  const text = planClip(((t.external ? '↗ ' : '') + planText(t.raw)).replace(/"/g, "'").replace(/[[\]{}<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'Untitled', max);
+  return who ? `${text} · ${who}` : text;
+};
 
 /**
  * { text, nodes: [{ id, task }] }. kinds: Map task → bar kind; colours: { kind: '#hex' }; edge: colour of the
  * critical path's outline. sched: planSchedule(tasks) (its rows give the critical path).
  */
-function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '#222222', dir = 'TB', phases = true } = {}) {
+function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '#222222', dir = 'TB', phases = true, show = null } = {}) {
   const { byId } = planIndex(tasks);
   const crit = new Map(sched.rows.map((r) => [r.task, r]));
   const ids = new Map(tasks.map((t, i) => [t, `n${i + 1}`]));
@@ -11655,6 +11774,8 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   }
   const critIds = sched.rows.filter((r) => r.crit && !r.task.external && !planClosed(r.task)).map((r) => ids.get(r.task));
   if (critIds.length) lines.push(`  classDef crit stroke:${edge},stroke-width:3px`, `  class ${critIds.join(',')} crit`);
+  const dim = show ? tasks.filter((t) => !show(t)).map((t) => ids.get(t)) : [];
+  if (dim.length) lines.push('  classDef dim opacity:0.25', `  class ${dim.join(',')} dim`); // not this person's: greyed
   return { text: tasks.length ? lines.join('\n') : '', nodes: tasks.map((t) => ({ id: ids.get(t), task: t })) };
 }
 
@@ -11664,7 +11785,7 @@ Object.assign(PlanView.prototype, {
     const colours = Object.fromEntries(PLAN_KINDS.map(([k]) => [k, planColour(k)]));
     const edge = planCssHex('--text-normal', '#222222');
     const { dir, phases, fit } = this.graph;
-    const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases });
+    const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases, show: this.who ? (t) => this.shows(t) : null });
     this.src = text;
     const chart = this.bodyEl.createDiv(`np-chart np-graph${fit ? ' is-fit' : ''}`);
     renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes, fit));
@@ -11720,12 +11841,19 @@ function planBlockedText(t, byId, today) {
 Object.assign(PlanView.prototype, {
   renderBoard() {
     const { byId } = planIndex(this.tasks);
-    const own = this.tasks.filter((t) => !t.external);
+    const own = this.tasks.filter((t) => !t.external && this.shows(t));
     const lanes = new Map();
+    const byPerson = this.lanes === 'person' && planPeople(this.tasks).length;
     for (const t of own) {
-      const k = t.phase || 'Tasks';
+      // by person: a task with two owners sits in its first owner's row
+      const k = byPerson ? ((t.owners || [])[0] || { name: 'No owner' }).name : t.phase || 'Tasks';
       if (!lanes.has(k)) lanes.set(k, []);
       lanes.get(k).push(t);
+    }
+    if (byPerson && lanes.has('No owner')) {
+      const none = lanes.get('No owner');
+      lanes.delete('No owner');
+      lanes.set('No owner', none);
     }
     const board = this.bodyEl.createDiv('np-board');
     const today = this.today;
@@ -11758,6 +11886,7 @@ Object.assign(PlanView.prototype, {
     const meta = c.createDiv('np-card-meta');
     if (t.id) meta.createSpan({ cls: 'np-id', text: t.id });
     meta.createSpan({ text: t.milestone ? '◆ milestone' : `${planDays(t)}d` });
+    if (this.ownerText(t)) meta.createSpan({ text: this.ownerText(t) });
     if (t.due) meta.createSpan({ cls: kind === 'overdue' || kind === 'soon' ? `is-${kind}` : '', text: `📅 ${moment(t.due, 'YYYY-MM-DD').format('D MMM')}` });
     if (t.status === 'cancelled') meta.createSpan({ text: 'cancelled' });
     const why = planBlockedText(t, byId, this.today);
@@ -11839,6 +11968,69 @@ Object.assign(PlanView.prototype, {
     );
     window.addEventListener('pointercancel', end, { signal: stop.signal });
     window.addEventListener('keydown', (ev) => ev.key === 'Escape' && end(), { signal: stop.signal });
+  },
+});
+/* @src src/tickets/plan-people.js */
+/* ---- Project plans (fork): owners in the Planning view -------------------------------------------------------------
+ * Owners come from [owner:: [[@Sam Taylor]], Alex] (people notes or plain names). The view can show one person's
+ * tasks (the Gantt, board and list leave the others out; the graph greys them), group the board by person, and
+ * warns when someone has more than five days of work in a week. */
+
+const PLAN_NOBODY = '\u0000nobody'; // the filter value for tasks without an owner
+
+/** Owners of the plan's own tasks: [{ key, name }] by name. */
+function planPeople(tasks) {
+  const seen = new Map();
+  for (const t of tasks) if (!t.external) for (const o of t.owners || []) if (!seen.has(o.key)) seen.set(o.key, o.name);
+  return [...seen].map(([key, name]) => ({ key, name })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+Object.assign(PlanView.prototype, {
+  /** The person filter (all modes) and the board's Phase / Person rows. */
+  buildPeopleTools(tools) {
+    this.whoEl = tools.createEl('select', { cls: 'dropdown np-who' });
+    tip(this.whoEl, 'Show one person’s tasks');
+    this.whoEl.addEventListener('change', () => {
+      this.who = this.whoEl.value || null;
+      this.app.workspace.requestSaveLayout();
+      this.render();
+    });
+    this.lanesEl = pills(tools, [['phase', 'By phase'], ['person', 'By person']], this.lanes, (v) => {
+      this.lanes = v || 'phase';
+      this.app.workspace.requestSaveLayout();
+      this.render();
+    });
+  },
+  /** Fill the person list from the plan; hide what doesn't apply to this mode. */
+  syncPeopleTools() {
+    const people = planPeople(this.tasks);
+    const sel = this.whoEl;
+    sel.empty();
+    sel.createEl('option', { text: 'Everyone', attr: { value: '' } });
+    for (const p of people) sel.createEl('option', { text: p.name, attr: { value: p.key } });
+    sel.createEl('option', { text: 'No owner', attr: { value: PLAN_NOBODY } });
+    if (this.who && this.who !== PLAN_NOBODY && !people.some((p) => p.key === this.who)) this.who = null;
+    sel.value = this.who || '';
+    sel.toggleClass('is-hidden', !people.length);
+    this.lanesEl.el.toggleClass('is-hidden', this.mode !== 'board' || !people.length);
+  },
+  /** Is this task shown under the person filter? */
+  shows(t) {
+    if (!this.who) return true;
+    const owners = t.owners || [];
+    return this.who === PLAN_NOBODY ? !owners.length : owners.some((o) => o.key === this.who);
+  },
+  /** "Marcus Hale has 7 days of work in the week of Mon 23 Nov (5 available)". */
+  loadLines(sched) {
+    const weeks = this.weeks || !this.base;
+    return planOverloads(sched.rows).map(({ name, week, days }) => {
+      const when = weeks ? `Wk ${week + 1}` : `the week of ${planDayLabel(week * 5, this.base, false)}`;
+      return `${name} has ${days} days of work in ${when} (5 available)`;
+    });
+  },
+  /** "👤 Marcus, Sofia" for a card or row, or ''. */
+  ownerText(t) {
+    return (t.owners || []).length ? `👤 ${t.owners.map((o) => o.name).join(', ')}` : '';
   },
 });
 /* @src src/tickets/plan-actions.js */

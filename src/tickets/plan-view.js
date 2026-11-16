@@ -35,6 +35,8 @@ class PlanView extends ItemView {
     this.mode = 'gantt';
     this.weeks = false;
     this.graph = { dir: 'TB', phases: false, fit: false }; // graph layout: Down / Across, phase groups, fit or full size
+    this.who = null; // one person's tasks (plan-people.js), or everyone
+    this.lanes = 'phase'; // board rows: by phase or by person
     this.tasks = [];
     this.paths = new Set();
     this.src = '';
@@ -49,13 +51,15 @@ class PlanView extends ItemView {
     return 'calendar-range';
   }
   getState() {
-    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph } : {});
+    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph, who: this.who, lanes: this.lanes } : {});
   }
   async setState(state, result) {
     if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
     if (state && PLAN_MODES.some(([k]) => k === state.mode)) this.mode = state.mode;
     if (state && typeof state.weeks === 'boolean') this.weeks = state.weeks;
     if (state && state.graph && typeof state.graph === 'object') Object.assign(this.graph, state.graph);
+    if (state && 'who' in state) this.who = state.who || null;
+    if (state && (state.lanes === 'phase' || state.lanes === 'person')) this.lanes = state.lanes;
     await super.setState(state, result);
     this.build();
     await this.refresh();
@@ -96,6 +100,7 @@ class PlanView extends ItemView {
     button(tools, { icon: 'plus', text: 'New task', cls: 'np-new', title: 'Add a task to this project', onClick: () => this.newTask() });
     button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
     this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
+    this.buildPeopleTools(tools);
     const g = this.graph;
     const saveGraph = () => (this.app.workspace.requestSaveLayout(), this.render());
     this.dirEl = pills(tools, [['TB', 'Down'], ['LR', 'Across']], g.dir, (v) => ((g.dir = v || 'TB'), saveGraph()));
@@ -151,7 +156,7 @@ class PlanView extends ItemView {
     if (this.dragActive) return void (this.redrawAfterDrag = true); // a card is being dragged: redraw when it lands
     const weeks = this.weeks || !this.base;
     this.today = moment().format('YYYY-MM-DD');
-    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today });
+    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t) });
     this.src = text;
     this.sched = sched;
     this.kinds = new Map(bars.map((b) => [b.task, b.kind]));
@@ -163,6 +168,7 @@ class PlanView extends ItemView {
     if (!this.base) tip(this.weeksEl.btns.get('dates'), 'Set the project’s started date to see dates');
     for (const b of [this.copyBtn, this.svgBtn]) b.toggleClass('is-hidden', this.mode !== 'gantt' && this.mode !== 'graph');
     for (const p of [this.dirEl, this.phaseEl, this.fitEl]) p.el.toggleClass('is-hidden', this.mode !== 'graph');
+    this.syncPeopleTools();
     this.renderIssues(sched);
     this.bodyEl.empty();
     if (!own.length) {
@@ -197,6 +203,7 @@ class PlanView extends ItemView {
     if (sched.cycles.length) lines.push(`Dependency loop around: ${sched.cycles.map((t) => t.id || planText(t.raw)).join(', ')}`);
     if (sched.missing.length) lines.push(`Unknown ids: ${[...new Set(sched.missing.map((m) => m.id))].join(', ')}`);
     if (sched.dups.length) lines.push(`Ids used more than once: ${sched.dups.join(', ')}`);
+    lines.push(...this.loadLines(sched));
     for (const l of lines) el.createDiv({ cls: 'np-issue', text: `⚠ ${l}` });
   }
   /** The list's Days cell: − days + (click the number to type one); a milestone shows ◆. */
@@ -217,15 +224,16 @@ class PlanView extends ItemView {
     const { byId } = planIndex(this.tasks);
     const table = this.bodyEl.createEl('table', { cls: 'np-table' });
     const hr = table.createEl('thead').createEl('tr');
-    for (const h of ['', 'Task', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack']) hr.createEl('th', { text: h });
+    for (const h of ['', 'Task', 'Owner', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack']) hr.createEl('th', { text: h });
     const body = table.createEl('tbody');
     let phase = null;
     for (const r of sched.rows) {
       const t = r.task;
+      if (!this.shows(t)) continue;
       const ph = t.external ? PLAN_OUTSIDE : t.phase || 'Tasks';
       if (ph !== phase) {
         phase = ph;
-        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: '9' } });
+        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: '10' } });
       }
       const st = planState(t, byId, this.today);
       const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}` });
@@ -238,6 +246,7 @@ class PlanView extends ItemView {
         this.openTask(e, t);
       });
       if (t.external) name.createSpan({ cls: 'np-file', text: ` · ${t.file.basename}` });
+      tr.createEl('td', { cls: 'np-owner', text: (t.owners || []).map((o) => o.name).join(', ') });
       const kind = this.kinds.get(t) || st;
       const chip = tr.createEl('td').createSpan({ cls: `np-state is-${st}`, text: PLAN_STATE_LABEL[st] });
       planFill(chip, st === 'blocked' || st === 'waiting' ? st : kind);

@@ -5637,6 +5637,10 @@ body:not(.nd-themed) .nd-empty {
   font-style: italic;
 }
 
+.np-plan .np-owner {
+  white-space: nowrap;
+  color: var(--nd-faint);
+}
 /* @css src/tickets/styles-plan-editor.css */
 /* the task editor */
 .np-editor {

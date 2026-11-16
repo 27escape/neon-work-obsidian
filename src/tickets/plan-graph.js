@@ -4,13 +4,17 @@
  * opens the task's line. Colours are written into the text, so a copied or saved graph keeps them. */
 
 /** Text for a box: quotes and brackets Mermaid would read as syntax swapped out, clipped. */
-const planNodeLabel = (t, max = 40) => planClip(((t.external ? '↗ ' : '') + planText(t.raw)).replace(/"/g, "'").replace(/[[\]{}<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'Untitled', max);
+const planNodeLabel = (t, max = 40) => {
+  const who = t.owners ? planOwnerShort(t) : '';
+  const text = planClip(((t.external ? '↗ ' : '') + planText(t.raw)).replace(/"/g, "'").replace(/[[\]{}<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'Untitled', max);
+  return who ? `${text} · ${who}` : text;
+};
 
 /**
  * { text, nodes: [{ id, task }] }. kinds: Map task → bar kind; colours: { kind: '#hex' }; edge: colour of the
  * critical path's outline. sched: planSchedule(tasks) (its rows give the critical path).
  */
-function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '#222222', dir = 'TB', phases = true } = {}) {
+function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '#222222', dir = 'TB', phases = true, show = null } = {}) {
   const { byId } = planIndex(tasks);
   const crit = new Map(sched.rows.map((r) => [r.task, r]));
   const ids = new Map(tasks.map((t, i) => [t, `n${i + 1}`]));
@@ -55,6 +59,8 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   }
   const critIds = sched.rows.filter((r) => r.crit && !r.task.external && !planClosed(r.task)).map((r) => ids.get(r.task));
   if (critIds.length) lines.push(`  classDef crit stroke:${edge},stroke-width:3px`, `  class ${critIds.join(',')} crit`);
+  const dim = show ? tasks.filter((t) => !show(t)).map((t) => ids.get(t)) : [];
+  if (dim.length) lines.push('  classDef dim opacity:0.25', `  class ${dim.join(',')} dim`); // not this person's: greyed
   return { text: tasks.length ? lines.join('\n') : '', nodes: tasks.map((t) => ({ id: ids.get(t), task: t })) };
 }
 
@@ -64,7 +70,7 @@ Object.assign(PlanView.prototype, {
     const colours = Object.fromEntries(PLAN_KINDS.map(([k]) => [k, planColour(k)]));
     const edge = planCssHex('--text-normal', '#222222');
     const { dir, phases, fit } = this.graph;
-    const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases });
+    const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases, show: this.who ? (t) => this.shows(t) : null });
     this.src = text;
     const chart = this.bodyEl.createDiv(`np-chart np-graph${fit ? ' is-fit' : ''}`);
     renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes, fit));

@@ -1,5 +1,5 @@
 /* ---- Project plans (fork): the task editor ----------------------------------------------------------------------------
- * A form for one task of a project note: description, status, phase, duration or milestone, #blocked, what it
+ * A form for one task of a project note: description, status, phase, owners, duration or milestone, #blocked, what it
  * depends on and what it blocks (pickers over the note's tasks, loops refused), dates (with the plan's own dates),
  * and an id given automatically. A preview shows the exact line, and what changes in other tasks, before saving.
  * The text work is in plan-form.js; this file is only the form. One save is one write to the note. */
@@ -34,6 +34,8 @@ class PlanTaskModal extends Modal {
     // the note's other tasks: what the pickers offer
     this.mine = ctx.tasks.filter((x) => !x.external && x.file.path === ctx.file.path && x !== t);
     this.deps = t ? t.deps.map((id) => ({ id, task: byId.get(id) || null })) : [];
+    this.owners = t ? (t.owners || []).map((o) => o.text) : []; // as written: [[@Sam Taylor]] or a plain name
+    this.peopleNotes = app.vault.getMarkdownFiles().filter((f) => f.basename.startsWith('@')).map((f) => f.basename).sort();
     this.blocks = new Set(t && t.id ? this.mine.filter((x) => x.deps.includes(t.id)) : []);
     this.blocks0 = new Set(this.blocks);
     this.phase = t ? t.phase || '' : ctx.phase || '';
@@ -72,6 +74,7 @@ class PlanTaskModal extends Modal {
     for (const p of this.phases) phase.createEl('option', { text: p, attr: { value: p } });
     phase.value = this.phases.includes(this.phase) ? this.phase : '';
     phase.addEventListener('change', () => ((this.phase = phase.value), this.update()));
+    this.ownerEl = row('Owner', 'np-ed-pick');
     // duration, milestone, blocked
     const dr = row('Duration');
     const weeks = f.days != null && f.days >= 5 && f.days % 5 === 0;
@@ -204,11 +207,49 @@ class PlanTaskModal extends Modal {
     q.addEventListener('input', draw);
   }
 
+  /** Owners: chips, and a search over the people notes (@Name); Enter adds a plain name if none matches. */
+  drawOwners() {
+    const el = this.ownerEl;
+    el.empty();
+    const chips = el.createDiv('np-ed-chips');
+    for (const text of this.owners) {
+      const o = planOwners(`[owner:: ${text}]`)[0];
+      const chip = chips.createSpan({ cls: 'np-ed-tag', text: `👤 ${o ? o.name : text}` });
+      chip.createSpan({ cls: 'np-ed-x', text: '×' }).addEventListener('click', () => {
+        this.owners = this.owners.filter((x) => x !== text);
+        this.update();
+      });
+    }
+    const q = el.createEl('input', { cls: 'np-ed-search', attr: { type: 'search', placeholder: 'Search people (@ notes), or type a name and press Enter…' } });
+    const list = el.createDiv('np-ed-list');
+    const add = (text) => {
+      if (!this.owners.includes(text)) this.owners.push(text);
+      this.update();
+    };
+    const hits = () => {
+      const s = q.value.trim().toLowerCase().replace(/^@/, '');
+      return s ? this.peopleNotes.filter((n) => n.toLowerCase().includes(s) && !this.owners.includes(`[[${n}]]`)).slice(0, 8) : [];
+    };
+    q.addEventListener('input', () => {
+      list.empty();
+      for (const n of hits()) {
+        const item = list.createDiv({ cls: 'np-ed-hit', text: n });
+        item.addEventListener('click', () => add(`[[${n}]]`));
+      }
+    });
+    q.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !q.value.trim()) return;
+      e.preventDefault();
+      const h = hits();
+      add(h.length ? `[[${h[0]}]]` : q.value.trim().replace(/[[\],]/g, ''));
+    });
+  }
+
   /** The planned change: ids given out, the main task's form, edits of other tasks; and the notes for the preview. */
   plan() {
     const t = this.ctx.task;
     const used = new Set(this.ctx.tasks.map((x) => x.id).filter(Boolean));
-    const f = Object.assign({}, this.form);
+    const f = Object.assign({}, this.form, { owners: this.owners.slice() });
     const notes = [];
     if (!f.id) {
       f.id = planNextId(used, this.prefix);
@@ -245,6 +286,7 @@ class PlanTaskModal extends Modal {
   }
 
   update() {
+    this.drawOwners();
     const bad = this.forbidden();
     this.picker(this.depsEl, {
       chosen: this.deps.map((d) => ({ task: d.task, label: d.task ? `${d.task.id || 'new id'} · ${planClip(planText(d.task.raw), 30)}${d.task.external ? ' ↗' : ''}` : `${d.id} (not found)`, d })),

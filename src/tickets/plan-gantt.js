@@ -36,7 +36,7 @@ function planBarKind(t, state, today, finish = null) {
 }
 
 /** { text, sched, bars: [{ id, kind, crit }] }: Mermaid gantt text. base: the project's start date or null. */
-function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45 } = {}) {
+function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null } = {}) {
   const relative = weeks || !base;
   const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start
@@ -59,7 +59,8 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     lines.push(`  section ${mermaidSafe(name)}`);
     for (const r of rows) {
       const t = r.task;
-      const label = planClip(mermaidSafe((t.external ? '↗ ' : '') + planText(t.raw)), maxName);
+      const who = planOwnerShort(t);
+      const label = planClip(mermaidSafe((t.external ? '↗ ' : '') + planText(t.raw)), maxName - (who ? who.length + 3 : 0)) + (who ? ` · ${mermaidSafe(who)}` : '');
       const state = planState(t, byId, today);
       const crit = r.crit && !t.external && state !== 'done';
       const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
@@ -80,10 +81,12 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
         if (!relative) finish = planWorkdays(start, Math.max(0, days - 1));
       }
       bars.push({ id, task: t, kind: planBarKind(t, state, today, finish), crit });
+      if (show && !show(t)) continue; // filtered out (one person): still in the schedule, not drawn
       lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), id].join(', ')}, ${when}`);
     }
   }
-  return { text: bars.length ? lines.join('\n') : '', sched, bars };
+  const kept = lines.filter((l, i) => !(l.startsWith('  section ') && (lines[i + 1] === undefined || lines[i + 1].startsWith('  section '))));
+  return { text: kept.some((l) => / :/.test(l)) ? kept.join('\n') : '', sched, bars }; // task lines hold ' :'
 }
 
 /** "Wk 3" (relative) or "Mon 23 Nov" for a working-day offset from the start. */
