@@ -65,6 +65,10 @@ function addTaskAtHead(text, line) {
 function taskDisplay(raw, tag = '#task') {
   return excerptOf(
     raw
+      // plan fields: 🆔 id, ⛔ depends-on ids, Dataview [key:: value] fields such as [duration:: 3d]
+      .replace(/🆔\s*[\w-]+/gu, '')
+      .replace(/⛔\uFE0F?\s*[\w-]+(?:\s*,\s*[\w-]+)*/gu, '')
+      .replace(/\[[\w-]+::[^\]]*\]/gu, '')
       .replace(taskTags(tag).length ? new RegExp(`(^|\\s)(?:${taskTags(tag).map(escTag).join('|')})(?=$|\\s)`, 'giu') : /$^/, '$1')
       .replace(/(?:📅|⏳|🛫|✅|➕)\s*\d{4}-\d{2}-\d{2}/gu, '')
       .replace(/🔁[^📅⏳🛫✅➕]*/gu, '')

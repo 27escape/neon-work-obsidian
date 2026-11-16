@@ -58,3 +58,10 @@ test('weekly notes: a format with folders matches the path inside the notes fold
   assert.deepEqual(asked.pop(), ['2026-11-13', 'YYYY-MM-DD', true]);
   assert.ok(noteDateOf({ folder: '', format: 'YYYY-MM-DD' }, '2026-11-13.md'));
 });
+
+test('display drops plan fields: 🆔 id, ⛔ dependencies and [key:: value] fields', () => {
+  assert.equal(T.taskDisplay('Select the GPU provider [duration:: 1d] 🆔 gp4 ⛔ gp2,gp3,sc5 #task', '#task'), 'Select the GPU provider');
+  assert.equal(T.taskDisplay('#task Number of users [duration:: 2d] 🆔 sc1', '#task'), 'Number of users');
+  assert.equal(T.taskDisplay('Onboard users ⛔️ br3, br4 📅 2026-12-01 #task', '#task'), 'Onboard users');
+  assert.equal(T.taskDisplay('Read [[Note|the note]] and [link](https://x.y) #task', '#task'), 'Read the note and link');
+});
