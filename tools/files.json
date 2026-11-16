@@ -40,6 +40,7 @@
         "src/deck/claude-card.js",
         "src/deck/areas-card.js",
         "src/deck/inbox.js",
+        "src/deck/inbox-view.js",
         "src/deck/workspace.js",
         "src/deck/files.js",
         "src/deck/island.js"

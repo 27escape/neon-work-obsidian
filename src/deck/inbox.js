@@ -52,10 +52,14 @@ Object.assign(NeonDeck.prototype, {
     return out.sort((a, b) => b.file.stat.ctime - a.file.stat.ctime);
   },
   registerInboxCard() {
+    // fork: the Inbox tab is in the sidebar list (not in the dashboard header, which has the card)
+    this.api.registerAction({ id: 'inbox', icon: 'inbox', label: 'Inbox', order: 12, view: VIEW_INBOX, hero: false, run: () => this.activate(VIEW_INBOX, 'tab') });
     if (this.settings.inboxCard === false) return this.api.unregisterWidget('inbox');
-    this.api.registerWidget({ id: 'inbox', slot: 'inbox', title: 'Inbox', icon: 'inbox', sub: this.inboxFolder(), mount: (card) => this.mountInbox(card) });
+    this.api.registerWidget({ id: 'inbox', slot: 'inbox', title: 'Inbox', icon: 'inbox', sub: this.inboxFolder(), mount: (card, view) => this.mountInbox(card, view) });
   },
-  mountInbox(card) {
+  /** The inbox list and its Add box in a card; comp (the dashboard or the Inbox tab) owns the event listeners. */
+  mountInbox(card, comp) {
+    const owner = comp || this;
     const body = card.body;
     body.addClass('nd-inbox-body');
     const list = body.createDiv('nd-inbox');
@@ -94,10 +98,10 @@ Object.assign(NeonDeck.prototype, {
     });
     button(card.actions, { icon: 'folder-open', cls: 'nd-icon-btn', title: 'Show the inbox folder', onClick: () => this.revealFolder(this.inboxFolder()) });
     const soon = debounce(render, 400, true);
-    this.registerEvent(this.app.metadataCache.on('changed', (f) => f.path.startsWith(normalizePath(this.inboxFolder()) + '/') && soon()));
-    this.registerEvent(this.app.vault.on('delete', soon));
-    this.registerEvent(this.app.vault.on('rename', soon));
-    this.registerEvent(this.app.vault.on('create', soon));
+    owner.registerEvent(this.app.metadataCache.on('changed', (f) => f.path.startsWith(normalizePath(this.inboxFolder()) + '/') && soon()));
+    owner.registerEvent(this.app.vault.on('delete', soon));
+    owner.registerEvent(this.app.vault.on('rename', soon));
+    owner.registerEvent(this.app.vault.on('create', soon));
     render();
     return { destroy() {} };
   },

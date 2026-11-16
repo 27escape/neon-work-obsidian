@@ -217,7 +217,7 @@ class DashboardView extends ItemView {
     const acts = [
       { icon: 'file-plus', label: 'New note', run: () => p.newNote('/') },
       { icon: 'calendar-days', label: 'Today', run: () => p.openToday() },
-      ...[...p.actions.values()].sort((a, b) => (a.order ?? 50) - (b.order ?? 50)),
+      ...[...p.actions.values()].filter((a) => a.hero !== false).sort((a, b) => (a.order ?? 50) - (b.order ?? 50)), // fork: hero: false = sidebar only
       ...(NEON_MOBILE.on
         ? [] // fork: the card explorer and graph are desktop-only
         : [

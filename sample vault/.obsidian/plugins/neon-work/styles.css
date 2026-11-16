@@ -1475,6 +1475,40 @@ button.nd-swatch.is-on {
 .nd-inbox-body .nt-add {
   margin-top: 8px;
 }
+
+/* a narrow dashboard (one or two columns, desktop or mobile): what you act on first, the status cards last */
+.nd-dash-grid.is-narrow > .nd-area-inbox { order: 1; }
+.nd-dash-grid.is-narrow > .nd-area-tasks { order: 2; }
+.nd-dash-grid.is-narrow > .nd-area-global { order: 3; }
+.nd-dash-grid.is-narrow > .nd-area-tickets { order: 4; }
+.nd-dash-grid.is-narrow > .nd-area-capture { order: 5; }
+.nd-dash-grid.is-narrow > .nd-area-recent { order: 6; }
+.nd-dash-grid.is-narrow > .nd-area-claude { order: 7; }
+.nd-dash-grid.is-narrow > .nd-area-activity { order: 8; }
+.nd-dash-grid.is-narrow > .nd-area-time { order: 9; }
+.nd-dash-grid.is-narrow > .nd-area-pulse { order: 10; }
+
+/* the Inbox tab: the Inbox card full size */
+.nd-inbox-view.view-content {
+  background: var(--nd-bg);
+  overflow: auto;
+}
+.nd-inbox-view-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 18px 20px 24px;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+.nd-inbox-view-inner > .nd-card {
+  flex: 1;
+  min-height: 300px;
+}
+body.is-phone .nd-inbox-view-inner {
+  padding: 10px;
+}
 /* @css src/deck/styles-cards.css */
 /* ---------- 5. card explorer ---------- */
 .nd-cards.view-content {
@@ -6544,17 +6578,6 @@ body.is-mobile .nd-dash-grid.is-two > .nd-area-activity,
 body.is-mobile .nd-dash-grid.is-two > .nd-area-capture {
   grid-column: 1 / -1;
 }
-/* what you act on first, the overview last */
-body.is-mobile .nd-dash-grid.is-narrow > .nd-area-capture { order: 1; }
-body.is-mobile .nd-dash-grid.is-narrow > .nd-area-tasks { order: 2; }
-body.is-mobile .nd-dash-grid.is-narrow > .nd-area-global { order: 3; }
-body.is-mobile .nd-dash-grid.is-narrow > .nd-area-inbox { order: 3; }
-body.is-mobile .nd-dash-grid.is-narrow > .nd-area-tickets { order: 4; }
-body.is-mobile .nd-dash-grid.is-narrow > .nd-area-recent { order: 5; }
-body.is-mobile .nd-dash-grid.is-narrow > .nd-area-claude { order: 6; }
-body.is-mobile .nd-dash-grid.is-narrow > .nd-area-activity { order: 7; }
-body.is-mobile .nd-dash-grid.is-narrow > .nd-area-pulse { order: 8; }
-body.is-mobile .nd-dash-grid.is-narrow > .nd-area-time { order: 9; }
 
 /* ---- tabs: less padding at the edges on a phone ---- */
 body.is-phone .nt-view-grid {

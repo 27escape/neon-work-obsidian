@@ -40,7 +40,7 @@ Object.assign(NeonDeck.prototype, {
     // fork: the Areas card can take this place instead (a vault without Claude notes, e.g. PARA)
     if (this.settings.areasCard) {
       this.api.unregisterWidget('claude');
-      return this.api.registerWidget({ id: 'areas', slot: 'claude', title: groupWord(true), icon: 'layers', sub: 'Projects, tasks and notes · quietest first', mount: (card) => this.mountAreas(card) });
+      return this.api.registerWidget({ id: 'areas', slot: 'claude', title: groupWord(true), icon: 'layers', sub: 'Projects, tasks and notes · quietest first', mount: (card, view) => this.mountAreas(card, view) });
     }
     this.api.unregisterWidget('areas');
     if (!this.settings.claudeCard) return this.api.unregisterWidget('claude');

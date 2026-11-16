@@ -50,7 +50,8 @@ Object.assign(NeonDeck.prototype, {
     const fx = this.app.internalPlugins && this.app.internalPlugins.getPluginById && this.app.internalPlugins.getPluginById('file-explorer');
     if (fx && fx.enabled && fx.instance && fx.instance.revealInFolder) fx.instance.revealInFolder(folder);
   },
-  mountAreas(card) {
+  mountAreas(card, comp) {
+    const owner = comp || this; // the dashboard view: its listeners go when it closes
     const list = card.body.createDiv('nd-areas');
     const render = () => {
       if (!list.isConnected) return;
@@ -76,10 +77,10 @@ Object.assign(NeonDeck.prototype, {
       }
     };
     const soon = debounce(render, 1500, true);
-    this.registerEvent(this.app.metadataCache.on('changed', soon));
-    this.registerEvent(this.app.vault.on('delete', soon));
-    this.registerEvent(this.app.vault.on('rename', soon));
-    this.registerEvent(this.app.workspace.on('neon-deck:facts-changed', soon));
+    owner.registerEvent(this.app.metadataCache.on('changed', soon));
+    owner.registerEvent(this.app.vault.on('delete', soon));
+    owner.registerEvent(this.app.vault.on('rename', soon));
+    owner.registerEvent(this.app.workspace.on('neon-deck:facts-changed', soon));
     render();
     return { destroy() {} };
   },

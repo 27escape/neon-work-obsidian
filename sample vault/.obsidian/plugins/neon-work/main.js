@@ -1091,8 +1091,9 @@ function createdOf(app, f) {
 const VIEW_DASH = 'neon-deck-dashboard';
 const VIEW_CARDS = 'neon-deck-cards';
 const VIEW_GRAPH = 'neon-deck-graph';
+const VIEW_INBOX = 'neon-inbox-view'; // fork: the Inbox tab
 /** Neon views that live in the main pane (folded into one pane once, see foldNeonTabs). */
-const MAIN_VIEWS = [VIEW_DASH, VIEW_CARDS, VIEW_GRAPH, 'neon-deck-tickets', 'neon-time', 'neon-tasks-view', 'neon-research']; // fork: + Tasks, Research
+const MAIN_VIEWS = [VIEW_DASH, VIEW_CARDS, VIEW_GRAPH, 'neon-deck-tickets', 'neon-time', 'neon-tasks-view', 'neon-research', VIEW_INBOX]; // fork: + Tasks, Research, Inbox
 
 const PALETTE = ['#c6e651', '#e5506a', '#7fb3c9', '#d9c56a', '#e4e6ea', '#b9a0d6', '#5fcf96', '#e08a5a', '#8f86b8', '#8f95a0'];
 const IMG_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif']);
@@ -2533,7 +2534,7 @@ class DashboardView extends ItemView {
     const acts = [
       { icon: 'file-plus', label: 'New note', run: () => p.newNote('/') },
       { icon: 'calendar-days', label: 'Today', run: () => p.openToday() },
-      ...[...p.actions.values()].sort((a, b) => (a.order ?? 50) - (b.order ?? 50)),
+      ...[...p.actions.values()].filter((a) => a.hero !== false).sort((a, b) => (a.order ?? 50) - (b.order ?? 50)), // fork: hero: false = sidebar only
       ...(NEON_MOBILE.on
         ? [] // fork: the card explorer and graph are desktop-only
         : [
@@ -4883,6 +4884,7 @@ class NeonDeck extends Plugin {
     this.applyLook();
 
     this.registerView(VIEW_DASH, (leaf) => new DashboardView(leaf, this));
+    this.registerView(VIEW_INBOX, (leaf) => new InboxView(leaf, this)); // fork
     this.registerView(VIEW_CARDS, (leaf) => new CardsView(leaf, this));
     this.registerView(VIEW_GRAPH, (leaf) => new GraphView(leaf, this));
     for (const [v, d] of [[VIEW_DASH, 'dashboard'], [VIEW_CARDS, 'cards'], [VIEW_GRAPH, 'graph']]) this.registerHoverLinkSource(v, { display: `${appName()} ${d}`, defaultMod: true });
@@ -4896,6 +4898,7 @@ class NeonDeck extends Plugin {
 
     const cmds = [
       ['open-dashboard', 'Open dashboard', () => this.activate(VIEW_DASH, 'tab')],
+      ['open-inbox', 'Open the Inbox tab', () => this.activate(VIEW_INBOX, 'tab')], // fork
       ['open-cards', 'Open card explorer (tab)', () => this.activate(VIEW_CARDS, 'tab')],
       ['open-cards-sidebar', 'Open card explorer (sidebar)', () => this.activate(VIEW_CARDS, 'left')],
       ['open-graph', 'Open note graph', () => this.openGraph('notes')],
@@ -5177,7 +5180,7 @@ Object.assign(NeonDeck.prototype, {
     // fork: the Areas card can take this place instead (a vault without Claude notes, e.g. PARA)
     if (this.settings.areasCard) {
       this.api.unregisterWidget('claude');
-      return this.api.registerWidget({ id: 'areas', slot: 'claude', title: groupWord(true), icon: 'layers', sub: 'Projects, tasks and notes · quietest first', mount: (card) => this.mountAreas(card) });
+      return this.api.registerWidget({ id: 'areas', slot: 'claude', title: groupWord(true), icon: 'layers', sub: 'Projects, tasks and notes · quietest first', mount: (card, view) => this.mountAreas(card, view) });
     }
     this.api.unregisterWidget('areas');
     if (!this.settings.claudeCard) return this.api.unregisterWidget('claude');
@@ -5280,7 +5283,8 @@ Object.assign(NeonDeck.prototype, {
     const fx = this.app.internalPlugins && this.app.internalPlugins.getPluginById && this.app.internalPlugins.getPluginById('file-explorer');
     if (fx && fx.enabled && fx.instance && fx.instance.revealInFolder) fx.instance.revealInFolder(folder);
   },
-  mountAreas(card) {
+  mountAreas(card, comp) {
+    const owner = comp || this; // the dashboard view: its listeners go when it closes
     const list = card.body.createDiv('nd-areas');
     const render = () => {
       if (!list.isConnected) return;
@@ -5306,10 +5310,10 @@ Object.assign(NeonDeck.prototype, {
       }
     };
     const soon = debounce(render, 1500, true);
-    this.registerEvent(this.app.metadataCache.on('changed', soon));
-    this.registerEvent(this.app.vault.on('delete', soon));
-    this.registerEvent(this.app.vault.on('rename', soon));
-    this.registerEvent(this.app.workspace.on('neon-deck:facts-changed', soon));
+    owner.registerEvent(this.app.metadataCache.on('changed', soon));
+    owner.registerEvent(this.app.vault.on('delete', soon));
+    owner.registerEvent(this.app.vault.on('rename', soon));
+    owner.registerEvent(this.app.workspace.on('neon-deck:facts-changed', soon));
     render();
     return { destroy() {} };
   },
@@ -5369,10 +5373,14 @@ Object.assign(NeonDeck.prototype, {
     return out.sort((a, b) => b.file.stat.ctime - a.file.stat.ctime);
   },
   registerInboxCard() {
+    // fork: the Inbox tab is in the sidebar list (not in the dashboard header, which has the card)
+    this.api.registerAction({ id: 'inbox', icon: 'inbox', label: 'Inbox', order: 12, view: VIEW_INBOX, hero: false, run: () => this.activate(VIEW_INBOX, 'tab') });
     if (this.settings.inboxCard === false) return this.api.unregisterWidget('inbox');
-    this.api.registerWidget({ id: 'inbox', slot: 'inbox', title: 'Inbox', icon: 'inbox', sub: this.inboxFolder(), mount: (card) => this.mountInbox(card) });
+    this.api.registerWidget({ id: 'inbox', slot: 'inbox', title: 'Inbox', icon: 'inbox', sub: this.inboxFolder(), mount: (card, view) => this.mountInbox(card, view) });
   },
-  mountInbox(card) {
+  /** The inbox list and its Add box in a card; comp (the dashboard or the Inbox tab) owns the event listeners. */
+  mountInbox(card, comp) {
+    const owner = comp || this;
     const body = card.body;
     body.addClass('nd-inbox-body');
     const list = body.createDiv('nd-inbox');
@@ -5411,10 +5419,10 @@ Object.assign(NeonDeck.prototype, {
     });
     button(card.actions, { icon: 'folder-open', cls: 'nd-icon-btn', title: 'Show the inbox folder', onClick: () => this.revealFolder(this.inboxFolder()) });
     const soon = debounce(render, 400, true);
-    this.registerEvent(this.app.metadataCache.on('changed', (f) => f.path.startsWith(normalizePath(this.inboxFolder()) + '/') && soon()));
-    this.registerEvent(this.app.vault.on('delete', soon));
-    this.registerEvent(this.app.vault.on('rename', soon));
-    this.registerEvent(this.app.vault.on('create', soon));
+    owner.registerEvent(this.app.metadataCache.on('changed', (f) => f.path.startsWith(normalizePath(this.inboxFolder()) + '/') && soon()));
+    owner.registerEvent(this.app.vault.on('delete', soon));
+    owner.registerEvent(this.app.vault.on('rename', soon));
+    owner.registerEvent(this.app.vault.on('create', soon));
     render();
     return { destroy() {} };
   },
@@ -5462,6 +5470,37 @@ Object.assign(NeonDeck.prototype, {
     }
   },
 });
+/* @src src/deck/inbox-view.js */
+/* ---- Inbox tab (fork) ----------------------------------------------------------------
+ * The Inbox card full size in the main pane, listed in the sidebar with Dashboard, Tasks, Projects… */
+class InboxView extends ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.navigation = true; // part of the main pane's Back / Forward history
+    this.plugin = plugin;
+  }
+  getViewType() {
+    return VIEW_INBOX;
+  }
+  getDisplayText() {
+    return 'Inbox';
+  }
+  getIcon() {
+    return 'inbox';
+  }
+  async onOpen() {
+    const p = this.plugin;
+    const root = this.contentEl;
+    root.empty();
+    root.addClass('nd-root', 'nd-inbox-view');
+    const inner = root.createDiv('nd-inbox-view-inner');
+    const card = widget(inner, 'nd-inbox-page', 'Inbox', 'inbox', p.inboxFolder());
+    p.mountInbox(card, this);
+  }
+  async onClose() {
+    this.contentEl.empty();
+  }
+}
 /* @src src/deck/workspace.js */
 Object.assign(NeonDeck.prototype, {
   async onReady() {

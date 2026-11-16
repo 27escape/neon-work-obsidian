@@ -33,6 +33,7 @@ class NeonDeck extends Plugin {
     this.applyLook();
 
     this.registerView(VIEW_DASH, (leaf) => new DashboardView(leaf, this));
+    this.registerView(VIEW_INBOX, (leaf) => new InboxView(leaf, this)); // fork
     this.registerView(VIEW_CARDS, (leaf) => new CardsView(leaf, this));
     this.registerView(VIEW_GRAPH, (leaf) => new GraphView(leaf, this));
     for (const [v, d] of [[VIEW_DASH, 'dashboard'], [VIEW_CARDS, 'cards'], [VIEW_GRAPH, 'graph']]) this.registerHoverLinkSource(v, { display: `${appName()} ${d}`, defaultMod: true });
@@ -46,6 +47,7 @@ class NeonDeck extends Plugin {
 
     const cmds = [
       ['open-dashboard', 'Open dashboard', () => this.activate(VIEW_DASH, 'tab')],
+      ['open-inbox', 'Open the Inbox tab', () => this.activate(VIEW_INBOX, 'tab')], // fork
       ['open-cards', 'Open card explorer (tab)', () => this.activate(VIEW_CARDS, 'tab')],
       ['open-cards-sidebar', 'Open card explorer (sidebar)', () => this.activate(VIEW_CARDS, 'left')],
       ['open-graph', 'Open note graph', () => this.openGraph('notes')],
