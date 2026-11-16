@@ -27,6 +27,7 @@
         "src/deck/constants.js",
         "src/deck/text-network.js",
         "src/deck/force-layout.js",
+        "src/deck/pattern-shader.js",
         "src/deck/pattern.js",
         "src/deck/modals.js",
         "src/deck/dashboard.js",

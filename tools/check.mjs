@@ -362,7 +362,7 @@ if (fs.existsSync(deckCss)) {
 }
 if (SRC) {
   const src = (f) => fs.readFileSync(path.join(SRC, f), 'utf8');
-  const pat = src('deck/pattern.js');
+  const pat = src('deck/pattern-shader.js'); // the shaders moved out of pattern.js
   const ice = pat.slice(pat.indexOf('float blackice('), pat.indexOf('float field('));
   const amp = +((pat.match(/vec3 iceV[\s\S]*?\)\*(\.\d+);/) || [])[1] || 1);
   if (!(amp < 0.25)) add('pattern', 'FAIL', `Black ICE corner drift is ${amp}: at .25 or more a triangle can flip over (facets pop, edges vanish)`);
