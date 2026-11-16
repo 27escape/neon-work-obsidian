@@ -80,3 +80,23 @@ test('milestones are tagged #milestone; a 0-day task is a thin bar', () => {
   const dated = P.planGanttText([T('- [ ] Go live #milestone 📅 2026-12-04')], { base: '2026-11-16', today: '2026-11-16' });
   assert.ok(dated.text.includes('  Go live :crit, milestone, np1, 2026-12-04, 0d'));
 });
+
+const L = load('neon-tickets', ['planTask', 'planGanttText', 'planGanttLayout', 'planDayDiff']);
+
+test('drawn Gantt layout: a day scale with weekends, Monday ticks, bars and milestones placed, today line', () => {
+  const tasks = [L.planTask('- [x] A [duration:: 2d] 🆔 a', { phase: 'One' }), L.planTask('- [ ] B [duration:: 3d] 🆔 b ⛔ a', { phase: 'One' }), L.planTask('- [ ] Live 🆔 c ⛔ b #milestone', { phase: 'Two' })];
+  const g = L.planGanttText(tasks, { base: '2026-11-16', today: '2026-11-18', due: '2026-11-27' });
+  assert.equal(JSON.stringify(g.rows.map((r) => (r.section ? `#${r.section}` : r.label))), JSON.stringify(['#One', 'A', 'B', '#Two', 'Live', '#Project', 'Forecast finish 23 Nov', 'Due 27 Nov']));
+  const lay = L.planGanttLayout(g.rows, { today: '2026-11-18', width: 900, labelW: 300 });
+  assert.equal(lay.days[0].date, '2026-11-15'); // a day before the first bar
+  assert.equal(lay.days.length, L.planDayDiff('2026-11-15', '2026-11-29') + 1); // two days after the last
+  assert.ok(lay.days.find((d) => d.date === '2026-11-21').weekend);
+  assert.equal(lay.ticks[0].text, '16 Nov');
+  const bars = lay.items.filter((i) => i.type === 'bar');
+  assert.equal(bars[0].x, lay.dayW); // A starts on day 1 (Mon 16)
+  assert.equal(bars[0].w, 2 * lay.dayW);
+  assert.equal(bars[1].w, 3 * lay.dayW); // B: Wed 18 to Fri 20
+  assert.equal(bars[2].w, 0); // milestone
+  assert.equal(lay.today, 3 * lay.dayW + lay.dayW / 2);
+  assert.equal(L.planGanttLayout([], {}), null);
+});

@@ -56,16 +56,3 @@ test('slip in working days, either way', () => {
   assert.equal(P.planShortDate('2026-12-04'), '4 Dec');
 });
 
-test('Gantt colours travel in the text: a Mermaid init line with themeCSS per bar', () => {
-  const tasks = [T('- [x] A [duration:: 2d] 🆔 a'), T('- [ ] B 🆔 b ⛔ a #issue')];
-  const colours = { done: '#2e9e5b', ready: '#3a7bd5', edge: '#111111', 'mark-issue': '#d93b3b' };
-  const { text } = P.planGanttText(tasks, { colours });
-  const first = text.split('\n')[0];
-  assert.ok(first.startsWith('%%{init: {"themeCSS": "'));
-  assert.ok(first.includes('[id$=-np1]{fill:#2e9e5b !important;stroke:#2e9e5b !important}'));
-  assert.ok(first.includes('[id$=-np2]{fill:#3a7bd5 !important;stroke:#d93b3b !important;stroke-width:3px !important;stroke-dasharray:6 3}'));
-  assert.ok(first.includes('.taskText[id$=-np1-text]{fill:#ffffff !important}'));
-  assert.ok(first.includes('[id$=-np2-text]{font-weight:700 !important}'));
-  assert.equal(text.split('\n')[1], 'gantt');
-  assert.ok(!P.planGanttText(tasks, {}).text.startsWith('%%')); // no colours given: plain text
-});

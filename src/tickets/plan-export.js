@@ -82,49 +82,6 @@ function planMix(a, b, share) {
   return '#' + [0, 1, 2].map((i) => Math.round(n(a, i) * (1 - share) + n(b, i) * share).toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Colour the bars of a drawn Gantt by kind, as inline styles so a saved SVG keeps them. Mermaid names each
- * bar <svg id>-<task id> (older versions: the task id). Critical-path bars get an outline. Waits for the drawing.
- */
-async function planPaint(el, bars, onBar = null) {
-  let svg = el.querySelector('svg');
-  for (let i = 0; !svg && i < 30 && el.isConnected; i++) {
-    await new Promise((r) => window.setTimeout(r, 100));
-    svg = el.querySelector('svg');
-  }
-  if (!svg) return;
-  const edge = planCssHex('--text-normal', '#222222');
-  // !important: a done bar showed white in Obsidian although the plain Mermaid drawing takes the colour, most likely a
-  // theme or app rule on Mermaid's done0 class with !important; an inline !important wins over it
-  const set = (el, prop, v) => el.style.setProperty(prop, v, 'important');
-  for (const b of bars) {
-    const rect = svg.querySelector(`rect[id="${b.id}"], rect[id$="-${b.id}"]`);
-    if (!rect) continue;
-    const c = planColour(b.kind);
-    set(rect, 'fill', c);
-    set(rect, 'stroke', b.crit ? edge : c);
-    set(rect, 'stroke-width', b.crit ? '2px' : '1px');
-    if (b.mark) {
-      // a #risk / #issue / #decision task: a dashed outline in the marker's colour
-      const m = PLAN_MARKS.find(([k]) => k === b.mark);
-      set(rect, 'stroke', planCssHex(m[3], m[4]));
-      set(rect, 'stroke-width', '3px');
-      set(rect, 'stroke-dasharray', '6 3');
-    }
-    if (onBar && b.task) {
-      rect.style.cursor = 'pointer';
-      rect.addEventListener('click', (e) => onBar(e, b));
-    }
-    const label = svg.querySelector(`text[id="${b.id}-text"], text[id$="-${b.id}-text"]`);
-    if (label && !/Outside/i.test(label.getAttribute('class') || '')) set(label, 'fill', planInk(b.kind));
-    if (label && (b.mark === 'risk' || b.mark === 'issue')) set(label, 'font-weight', '700'); // risks and issues stand out
-    if (label && onBar && b.task) {
-      label.style.cursor = 'pointer';
-      label.addEventListener('click', (e) => onBar(e, b));
-    }
-  }
-}
-
 /** Every colour the charts use, as #rrggbb: the kinds, the critical path's outline (edge) and the markers (mark-risk…). */
 function planColourMap() {
   return Object.assign(

@@ -71,6 +71,13 @@ class PlanView extends ItemView {
     this.build();
     await this.refresh();
   }
+  onResize() {
+    // the Gantt fits its width: redraw when the tab changes size
+    if (this.mode === 'gantt' && this.bodyEl) {
+      window.clearTimeout(this.resizeTimer);
+      this.resizeTimer = window.setTimeout(() => this.render(), 200);
+    }
+  }
   async onOpen() {
     this.contentEl.addClass('nd-root', 'np-plan');
     const soon = debounce(() => this.refresh(), 600, true);
@@ -205,7 +212,8 @@ class PlanView extends ItemView {
     if (this.dragActive) return void (this.redrawAfterDrag = true); // a card is being dragged: redraw when it lands
     const weeks = this.weeks || !this.base;
     this.today = moment().format('YYYY-MM-DD');
-    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t), phases: this.mode === 'gantt' && this.ganttPhases, due: this.due, colours: planColourMap() });
+    const g = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t), phases: this.mode === 'gantt' && this.ganttPhases, due: this.due });
+    const { text, sched, bars } = g;
     this.dated = this.datedPlan(); // real dates whatever the switch: forecast, baseline, slip
     this.ends = new Map(((this.dated && this.dated.bars) || []).filter((b) => b.task).map((b) => [b.task, b.end]));
     this.src = text;
@@ -234,9 +242,11 @@ class PlanView extends ItemView {
     if (this.mode === 'list') return this.renderList(sched, weeks);
     if (this.mode === 'board') return this.renderBoard();
     if (this.mode === 'graph') return this.renderGraph(sched);
-    const chart = this.bodyEl.createDiv('np-chart');
-    tip(chart, 'Click a bar for its menu: open, move, duration, milestone');
-    renderMermaid(this.app, chart, text, this).then(() => planPaint(chart, bars, (e, b) => this.taskMenu(e, b.task)));
+    // the plugin draws the Gantt itself (Obsidian's chart engine takes no per-bar colours); Copy as Mermaid gives the text
+    const chart = this.bodyEl.createDiv('np-chart np-gantt-wrap');
+    const lay = planGanttLayout(g.rows, { today: this.today, relative: g.relative, width: this.bodyEl.clientWidth || 900 });
+    if (!lay) return void emptyState(chart, 'Nothing to draw for this filter');
+    planDrawGantt(chart, lay, { colours: planColourMap(), onBar: (e, b) => this.taskMenu(e, b.task), selKey: this.selKey });
   }
   /** Colour key for the kinds in this plan; outlined bars are on the critical path. */
   renderLegend(bars) {

@@ -10565,7 +10565,7 @@ const PLAN_WORST = ['overdue', 'blocked', 'soon', 'doing', 'waiting', 'ready', '
  * task). due: the project's due date; with real dates the plan's forecast finish and the due date are drawn as two
  * milestones, and late says how many working days the forecast is past the due date (0: on time).
  */
-function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null, colours = null } = {}) {
+function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null } = {}) {
   const relative = weeks || !base;
   const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start
@@ -10584,9 +10584,11 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     groups.set(PLAN_OUTSIDE, out);
   }
   const bars = [];
+  const drawn = []; // what is drawn, in order: { section } headings and { bar, label, milestone, thin } rows
   let end = null;
   for (const [name, rows] of groups) {
     lines.push(`  section ${mermaidSafe(name)}`);
+    drawn.push({ section: name });
     const mine = [];
     for (const r of rows) {
       const t = r.task;
@@ -10614,6 +10616,7 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
       const when = t.milestone ? `${start}, 0d` : !relative && t.start && t.due && t.due >= t.start ? `${start}, ${ymdAdd(t.due, 1)}` : `${start}, ${days ? `${days}d` : '4h'}`; // 0 days: a thin bar
       lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), bar.id].join(', ')}, ${when}`);
+      drawn.push({ bar, label: sign + (t.external ? '↗ ' : '') + planText(t.raw), who, milestone: !!t.milestone, thin: !t.milestone && !days });
     }
     if (phases && mine.length) {
       // one bar for the phase: first start to last finish, its worst task's colour
@@ -10627,6 +10630,7 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       bars.push(bar);
       const label = planClip(mermaidSafe(`${marks ? `${marks} ` : ''}${name} (${done}/${mine.length} done)`), maxName + 10);
       lines.push(`  ${label} :${[...(kind === 'done' ? ['done'] : crit ? ['crit'] : []), bar.id].join(', ')}, ${first}, ${ymdAdd(last, 1)}`);
+      drawn.push({ bar, label: `${marks ? `${marks} ` : ''}${name} (${done}/${mine.length} done)`, who: '', milestone: false, thin: false });
     }
   }
   let late = 0;
@@ -10634,38 +10638,22 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     // the project: its forecast finish, and its due date if it has one
     late = due && end > due ? planWorkdaysBetween(due, end) : 0;
     lines.push('  section Project');
+    drawn.push({ section: 'Project' });
     const fin = { id: `np${bars.length + 1}`, task: null, kind: late ? 'overdue' : 'ready', crit: false, mark: null, start: end, end };
     bars.push(fin);
     lines.push(`  Forecast finish ${planShortDate(end)} :milestone, ${fin.id}, ${end}, 0d`);
+    drawn.push({ bar: fin, label: `Forecast finish ${planShortDate(end)}`, who: '', milestone: true, thin: false });
     if (due) {
       const d = { id: `np${bars.length + 1}`, task: null, kind: late ? 'overdue' : 'done', crit: false, mark: null, start: due, end: due };
       bars.push(d);
       lines.push(`  Due ${planShortDate(due)}${late ? ` (${late} working days late)` : ''} :milestone, ${d.id}, ${due}, 0d`);
+      drawn.push({ bar: d, label: `Due ${planShortDate(due)}${late ? ` (${late} working days late)` : ''}`, who: '', milestone: true, thin: false });
     }
   }
   const kept = lines.filter((l, i) => !(l.startsWith('  section ') && (lines[i + 1] === undefined || lines[i + 1].startsWith('  section '))));
-  if (colours) kept.unshift(planGanttStyle(bars, colours)); // the colours travel with the text (copy, SVG)
-  return { text: kept.some((l) => / :/.test(l)) ? kept.join('\n') : '', sched, bars, end, late }; // task lines hold ' :'
-}
-
-/**
- * A Mermaid init line whose themeCSS colours each bar by its kind (pure). Mermaid names a bar <svg id>-<task id>, so
- * [id$=-np3] finds it; labels inside a bar (.taskText) get a readable colour, risks and issues bold. Colouring the
- * drawing afterwards didn't hold in Obsidian (its Mermaid styles won), CSS inside the drawing does. colours: { kind:
- * '#hex', edge, 'mark-risk', … }. Values are plain #hex, so the JSON needs no escaping.
- */
-function planGanttStyle(bars, colours) {
-  const ink = (k) => (k === 'soon' || k === 'outside' || k === 'waiting' ? '#000000' : '#ffffff');
-  const css = [];
-  for (const b of bars) {
-    const c = colours[b.kind] || '#888888';
-    const mark = b.mark ? colours[`mark-${b.mark}`] : null;
-    const stroke = mark ? `stroke:${mark} !important;stroke-width:3px !important;stroke-dasharray:6 3` : b.crit ? `stroke:${colours.edge || '#222222'} !important;stroke-width:2px !important` : `stroke:${c} !important`;
-    css.push(`[id$=-${b.id}]{fill:${c} !important;${stroke}}`);
-    css.push(`.taskText[id$=-${b.id}-text]{fill:${ink(b.kind)} !important}`);
-    if (b.mark === 'risk' || b.mark === 'issue') css.push(`[id$=-${b.id}-text]{font-weight:700 !important}`);
-  }
-  return `%%{init: {"themeCSS": "${css.join(' ')}"}}%%`;
+  // headings with nothing under them (a person's filter) go, as in the text
+  const shown = drawn.filter((r, i) => !(r.section && (!drawn[i + 1] || drawn[i + 1].section)));
+  return { text: kept.some((l) => / :/.test(l)) ? kept.join('\n') : '', sched, bars, rows: shown, end, late, relative }; // task lines hold ' :'
 }
 
 /** "Wk 3" (relative) or "Mon 23 Nov" for a working-day offset from the start. */
@@ -10673,6 +10661,118 @@ function planDayLabel(offset, base, weeks) {
   if (weeks || !base) return `Wk ${Math.floor(offset / 5) + 1}`;
   const d = planWorkdays(base, offset);
   return moment(d, 'YYYY-MM-DD').format('ddd D MMM');
+}
+/* @src src/tickets/plan-gantt-draw.js */
+/* ---- Project plans (fork): the Gantt chart, drawn by the plugin ------------------------------------------------------
+ * Obsidian now draws ```mermaid blocks with Pele, which takes no per-bar styles, so the Planning view draws its own
+ * Gantt as SVG from the rows planGanttText lays out: names on the left, a day scale with weekends shaded and weeks
+ * marked, bars in the kind colours, dashed outlines for risks / issues / decisions, a dark outline on the critical
+ * path, diamonds for milestones, a line for today. The layout is pure (planGanttLayout, tested); planDrawGantt only
+ * turns it into SVG elements (no HTML strings). Copy as Mermaid still gives the text for notes. */
+
+const PLAN_DAY = 86400000;
+/** Calendar days from a to b (pure). */
+const planDayDiff = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / PLAN_DAY);
+
+/**
+ * Where everything goes (pure). rows: planGanttText's rows. Returns { width, height, labelW, dayW, days: [{ x, date,
+ * weekend }], ticks: [{ x, text }], today: x | null, items: [{ type: 'section', y, text } | { type: 'bar', y, x, w,
+ * row }] } with x in the chart area (after the label column).
+ */
+function planGanttLayout(rows, { today = null, relative = false, width = 900, labelW = 300, rowH = 26, headH = 26, minDay = 8, maxDay = 40 } = {}) {
+  const dated = rows.filter((r) => r.bar && r.bar.start);
+  if (!dated.length) return null;
+  let first = dated.reduce((a, r) => (r.bar.start < a ? r.bar.start : a), dated[0].bar.start);
+  let last = dated.reduce((a, r) => (r.bar.end > a ? r.bar.end : a), dated[0].bar.end);
+  if (!relative && today && today < first && planDayDiff(today, first) < 30) first = today;
+  if (!relative && today && today > last && planDayDiff(last, today) < 30) last = today;
+  const from = ymdAdd(first, -1);
+  const n = planDayDiff(from, ymdAdd(last, 2)) + 1;
+  const dayW = Math.max(minDay, Math.min(maxDay, Math.floor((width - labelW - 8) / n)));
+  const x = (d) => planDayDiff(from, d) * dayW;
+  const days = [];
+  const ticks = [];
+  for (let i = 0; i < n; i++) {
+    const date = ymdAdd(from, i);
+    const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
+    days.push({ x: i * dayW, date, weekend: wd === 0 || wd === 6 });
+    if (wd === 1) ticks.push({ x: i * dayW, text: relative ? `Wk ${Math.floor(planDayDiff(PLAN_WEEK_BASE, date) / 7) + 1}` : planShortDate(date) });
+  }
+  const items = [];
+  let y = headH;
+  for (const r of rows) {
+    if (r.section) items.push({ type: 'section', y, text: r.section });
+    else {
+      const b = r.bar;
+      const left = x(b.start);
+      const w = r.milestone ? 0 : r.thin ? Math.max(3, Math.round(dayW / 4)) : (planDayDiff(b.start, b.end) + 1) * dayW;
+      items.push({ type: 'bar', y, x: left, w, row: r });
+    }
+    y += rowH;
+  }
+  const t = !relative && today && today >= from && planDayDiff(from, today) < n ? x(today) + dayW / 2 : null;
+  return { width: labelW + n * dayW + 8, height: y + 6, labelW, dayW, rowH, headH, days, ticks, today: t, items };
+}
+
+/** Draw a layout into `el` as SVG. colours: planColourMap(); onBar(e, bar) for task rows; selKey: the selected task. */
+function planDrawGantt(el, lay, { colours, onBar = null, selKey = null }) {
+  const { labelW, dayW, rowH, headH } = lay;
+  const svg = el.createSvg('svg', { cls: 'np-gantt', attr: { width: lay.width, height: lay.height, viewBox: `0 0 ${lay.width} ${lay.height}`, xmlns: 'http://www.w3.org/2000/svg' } });
+  svg.style.fontFamily = 'var(--font-interface)';
+  svg.style.fontSize = '12px';
+  const add = (tag, attr, style) => {
+    const e = svg.createSvg(tag, { attr });
+    if (style) e.setAttr('style', style);
+    return e;
+  };
+  const text = (x, y, s, style, anchor = 'start') => {
+    const e = add('text', { x, y, 'text-anchor': anchor, 'dominant-baseline': 'middle' }, `fill: var(--text-normal);${style || ''}`);
+    e.textContent = s;
+    return e;
+  };
+  // weekends and week lines
+  for (const d of lay.days) if (d.weekend) add('rect', { x: labelW + d.x, y: headH, width: dayW, height: lay.height - headH }, 'fill: var(--background-modifier-hover)');
+  for (const t of lay.ticks) {
+    add('line', { x1: labelW + t.x, y1: headH - 6, x2: labelW + t.x, y2: lay.height }, 'stroke: var(--background-modifier-border); stroke-width: 1');
+    text(labelW + t.x + 3, headH / 2, t.text, 'fill: var(--text-muted); font-size: 11px');
+  }
+  add('line', { x1: labelW, y1: headH, x2: lay.width, y2: headH }, 'stroke: var(--background-modifier-border)');
+  const maxChars = Math.floor((labelW - 18) / 6.4);
+  for (const it of lay.items) {
+    const mid = it.y + rowH / 2;
+    if (it.type === 'section') {
+      add('rect', { x: 0, y: it.y, width: lay.width, height: rowH }, 'fill: var(--background-secondary)');
+      text(8, mid, planClip(it.text, maxChars + 4), 'font-weight: 600');
+      continue;
+    }
+    const r = it.row;
+    const b = r.bar;
+    const key = b.task ? planKey(b.task) : '';
+    const g = svg.createSvg('g', { cls: 'np-g-row', attr: key ? { 'data-key': key } : {} });
+    const hit = g.createSvg('rect', { cls: 'np-g-hit', attr: { x: 0, y: it.y, width: lay.width, height: rowH } });
+    hit.setAttr('style', `fill: transparent${key && key === selKey ? '; stroke: var(--interactive-accent); stroke-width: 2' : ''}`);
+    const name = `${r.label}${r.who ? ` · ${r.who}` : ''}`;
+    const strong = b.mark === 'risk' || b.mark === 'issue';
+    const label = g.createSvg('text', { attr: { x: 18, y: mid, 'dominant-baseline': 'middle' } });
+    label.setAttr('style', `fill: var(--text-normal)${strong ? '; font-weight: 700' : ''}${b.kind === 'done' ? '; fill: var(--text-muted)' : ''}`);
+    label.textContent = planClip(name, maxChars);
+    g.createSvg('title').textContent = name;
+    const fill = colours[b.kind] || '#888888';
+    const mark = b.mark ? colours[`mark-${b.mark}`] : null;
+    const stroke = mark || (b.crit ? colours.edge : fill);
+    const outline = `stroke: ${stroke}; stroke-width: ${mark ? 2.5 : b.crit ? 2 : 1}${mark ? '; stroke-dasharray: 5 3' : ''}`;
+    if (r.milestone) {
+      const cx = labelW + it.x + dayW / 2;
+      const s = Math.min(rowH / 2 - 3, 9);
+      g.createSvg('polygon', { attr: { points: `${cx},${mid - s} ${cx + s},${mid} ${cx},${mid + s} ${cx - s},${mid}` } }).setAttr('style', `fill: ${fill}; ${outline}`);
+    } else g.createSvg('rect', { attr: { x: labelW + it.x + 1, y: it.y + 5, width: Math.max(2, it.w - 2), height: rowH - 10, rx: 3 } }).setAttr('style', `fill: ${fill}; ${outline}`);
+    if (b.task && onBar) {
+      g.addClass('is-task');
+      g.addEventListener('click', (e) => onBar(e, b));
+    }
+  }
+  if (lay.today != null) add('line', { x1: labelW + lay.today, y1: headH - 4, x2: labelW + lay.today, y2: lay.height }, `stroke: ${colours.overdue || '#d93b3b'}; stroke-width: 2`);
+  return svg;
 }
 /* @src src/tickets/plan-export.js */
 /* ---- Project plans (fork): save a drawn chart as SVG, colour its bars ------------------------------------------------------
@@ -10759,49 +10859,6 @@ function planMix(a, b, share) {
   return '#' + [0, 1, 2].map((i) => Math.round(n(a, i) * (1 - share) + n(b, i) * share).toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Colour the bars of a drawn Gantt by kind, as inline styles so a saved SVG keeps them. Mermaid names each
- * bar <svg id>-<task id> (older versions: the task id). Critical-path bars get an outline. Waits for the drawing.
- */
-async function planPaint(el, bars, onBar = null) {
-  let svg = el.querySelector('svg');
-  for (let i = 0; !svg && i < 30 && el.isConnected; i++) {
-    await new Promise((r) => window.setTimeout(r, 100));
-    svg = el.querySelector('svg');
-  }
-  if (!svg) return;
-  const edge = planCssHex('--text-normal', '#222222');
-  // !important: a done bar showed white in Obsidian although the plain Mermaid drawing takes the colour, most likely a
-  // theme or app rule on Mermaid's done0 class with !important; an inline !important wins over it
-  const set = (el, prop, v) => el.style.setProperty(prop, v, 'important');
-  for (const b of bars) {
-    const rect = svg.querySelector(`rect[id="${b.id}"], rect[id$="-${b.id}"]`);
-    if (!rect) continue;
-    const c = planColour(b.kind);
-    set(rect, 'fill', c);
-    set(rect, 'stroke', b.crit ? edge : c);
-    set(rect, 'stroke-width', b.crit ? '2px' : '1px');
-    if (b.mark) {
-      // a #risk / #issue / #decision task: a dashed outline in the marker's colour
-      const m = PLAN_MARKS.find(([k]) => k === b.mark);
-      set(rect, 'stroke', planCssHex(m[3], m[4]));
-      set(rect, 'stroke-width', '3px');
-      set(rect, 'stroke-dasharray', '6 3');
-    }
-    if (onBar && b.task) {
-      rect.style.cursor = 'pointer';
-      rect.addEventListener('click', (e) => onBar(e, b));
-    }
-    const label = svg.querySelector(`text[id="${b.id}-text"], text[id$="-${b.id}-text"]`);
-    if (label && !/Outside/i.test(label.getAttribute('class') || '')) set(label, 'fill', planInk(b.kind));
-    if (label && (b.mark === 'risk' || b.mark === 'issue')) set(label, 'font-weight', '700'); // risks and issues stand out
-    if (label && onBar && b.task) {
-      label.style.cursor = 'pointer';
-      label.addEventListener('click', (e) => onBar(e, b));
-    }
-  }
-}
-
 /** Every colour the charts use, as #rrggbb: the kinds, the critical path's outline (edge) and the markers (mark-risk…). */
 function planColourMap() {
   return Object.assign(
@@ -10883,6 +10940,13 @@ class PlanView extends ItemView {
     await super.setState(state, result);
     this.build();
     await this.refresh();
+  }
+  onResize() {
+    // the Gantt fits its width: redraw when the tab changes size
+    if (this.mode === 'gantt' && this.bodyEl) {
+      window.clearTimeout(this.resizeTimer);
+      this.resizeTimer = window.setTimeout(() => this.render(), 200);
+    }
   }
   async onOpen() {
     this.contentEl.addClass('nd-root', 'np-plan');
@@ -11018,7 +11082,8 @@ class PlanView extends ItemView {
     if (this.dragActive) return void (this.redrawAfterDrag = true); // a card is being dragged: redraw when it lands
     const weeks = this.weeks || !this.base;
     this.today = moment().format('YYYY-MM-DD');
-    const { text, sched, bars } = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t), phases: this.mode === 'gantt' && this.ganttPhases, due: this.due, colours: planColourMap() });
+    const g = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t), phases: this.mode === 'gantt' && this.ganttPhases, due: this.due });
+    const { text, sched, bars } = g;
     this.dated = this.datedPlan(); // real dates whatever the switch: forecast, baseline, slip
     this.ends = new Map(((this.dated && this.dated.bars) || []).filter((b) => b.task).map((b) => [b.task, b.end]));
     this.src = text;
@@ -11047,9 +11112,11 @@ class PlanView extends ItemView {
     if (this.mode === 'list') return this.renderList(sched, weeks);
     if (this.mode === 'board') return this.renderBoard();
     if (this.mode === 'graph') return this.renderGraph(sched);
-    const chart = this.bodyEl.createDiv('np-chart');
-    tip(chart, 'Click a bar for its menu: open, move, duration, milestone');
-    renderMermaid(this.app, chart, text, this).then(() => planPaint(chart, bars, (e, b) => this.taskMenu(e, b.task)));
+    // the plugin draws the Gantt itself (Obsidian's chart engine takes no per-bar colours); Copy as Mermaid gives the text
+    const chart = this.bodyEl.createDiv('np-chart np-gantt-wrap');
+    const lay = planGanttLayout(g.rows, { today: this.today, relative: g.relative, width: this.bodyEl.clientWidth || 900 });
+    if (!lay) return void emptyState(chart, 'Nothing to draw for this filter');
+    planDrawGantt(chart, lay, { colours: planColourMap(), onBar: (e, b) => this.taskMenu(e, b.task), selKey: this.selKey });
   }
   /** Colour key for the kinds in this plan; outlined bars are on the critical path. */
   renderLegend(bars) {
@@ -12041,7 +12108,8 @@ Object.assign(PlanView.prototype, {
       svg.style.height = `${Math.ceil(vb.height)}px`;
     }
     for (const { id, task } of nodes) {
-      const g = svg.querySelector(`g.node[id*="-flowchart-${id}-"], g.node[id^="flowchart-${id}-"]`);
+      // Mermaid names a box …-flowchart-n3-…; Pele (Obsidian's engine now) marks it data-id="n3"
+      const g = svg.querySelector(`[data-id="${id}"], g.node[id*="-flowchart-${id}-"], g.node[id^="flowchart-${id}-"]`);
       if (!g) continue;
       g.addClass('np-node');
       g.addEventListener('click', (e) => this.openTask(e, task));

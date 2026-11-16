@@ -95,7 +95,8 @@ Object.assign(PlanView.prototype, {
       svg.style.height = `${Math.ceil(vb.height)}px`;
     }
     for (const { id, task } of nodes) {
-      const g = svg.querySelector(`g.node[id*="-flowchart-${id}-"], g.node[id^="flowchart-${id}-"]`);
+      // Mermaid names a box …-flowchart-n3-…; Pele (Obsidian's engine now) marks it data-id="n3"
+      const g = svg.querySelector(`[data-id="${id}"], g.node[id*="-flowchart-${id}-"], g.node[id^="flowchart-${id}-"]`);
       if (!g) continue;
       g.addClass('np-node');
       g.addEventListener('click', (e) => this.openTask(e, task));

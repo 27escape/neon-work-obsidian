@@ -54,7 +54,7 @@ const PLAN_WORST = ['overdue', 'blocked', 'soon', 'doing', 'waiting', 'ready', '
  * task). due: the project's due date; with real dates the plan's forecast finish and the due date are drawn as two
  * milestones, and late says how many working days the forecast is past the due date (0: on time).
  */
-function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null, colours = null } = {}) {
+function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null } = {}) {
   const relative = weeks || !base;
   const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start
@@ -73,9 +73,11 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     groups.set(PLAN_OUTSIDE, out);
   }
   const bars = [];
+  const drawn = []; // what is drawn, in order: { section } headings and { bar, label, milestone, thin } rows
   let end = null;
   for (const [name, rows] of groups) {
     lines.push(`  section ${mermaidSafe(name)}`);
+    drawn.push({ section: name });
     const mine = [];
     for (const r of rows) {
       const t = r.task;
@@ -103,6 +105,7 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       const tags = state === 'done' ? ['done'] : [...(state === 'doing' ? ['active'] : []), ...(crit ? ['crit'] : [])];
       const when = t.milestone ? `${start}, 0d` : !relative && t.start && t.due && t.due >= t.start ? `${start}, ${ymdAdd(t.due, 1)}` : `${start}, ${days ? `${days}d` : '4h'}`; // 0 days: a thin bar
       lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), bar.id].join(', ')}, ${when}`);
+      drawn.push({ bar, label: sign + (t.external ? '↗ ' : '') + planText(t.raw), who, milestone: !!t.milestone, thin: !t.milestone && !days });
     }
     if (phases && mine.length) {
       // one bar for the phase: first start to last finish, its worst task's colour
@@ -116,6 +119,7 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       bars.push(bar);
       const label = planClip(mermaidSafe(`${marks ? `${marks} ` : ''}${name} (${done}/${mine.length} done)`), maxName + 10);
       lines.push(`  ${label} :${[...(kind === 'done' ? ['done'] : crit ? ['crit'] : []), bar.id].join(', ')}, ${first}, ${ymdAdd(last, 1)}`);
+      drawn.push({ bar, label: `${marks ? `${marks} ` : ''}${name} (${done}/${mine.length} done)`, who: '', milestone: false, thin: false });
     }
   }
   let late = 0;
@@ -123,38 +127,22 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     // the project: its forecast finish, and its due date if it has one
     late = due && end > due ? planWorkdaysBetween(due, end) : 0;
     lines.push('  section Project');
+    drawn.push({ section: 'Project' });
     const fin = { id: `np${bars.length + 1}`, task: null, kind: late ? 'overdue' : 'ready', crit: false, mark: null, start: end, end };
     bars.push(fin);
     lines.push(`  Forecast finish ${planShortDate(end)} :milestone, ${fin.id}, ${end}, 0d`);
+    drawn.push({ bar: fin, label: `Forecast finish ${planShortDate(end)}`, who: '', milestone: true, thin: false });
     if (due) {
       const d = { id: `np${bars.length + 1}`, task: null, kind: late ? 'overdue' : 'done', crit: false, mark: null, start: due, end: due };
       bars.push(d);
       lines.push(`  Due ${planShortDate(due)}${late ? ` (${late} working days late)` : ''} :milestone, ${d.id}, ${due}, 0d`);
+      drawn.push({ bar: d, label: `Due ${planShortDate(due)}${late ? ` (${late} working days late)` : ''}`, who: '', milestone: true, thin: false });
     }
   }
   const kept = lines.filter((l, i) => !(l.startsWith('  section ') && (lines[i + 1] === undefined || lines[i + 1].startsWith('  section '))));
-  if (colours) kept.unshift(planGanttStyle(bars, colours)); // the colours travel with the text (copy, SVG)
-  return { text: kept.some((l) => / :/.test(l)) ? kept.join('\n') : '', sched, bars, end, late }; // task lines hold ' :'
-}
-
-/**
- * A Mermaid init line whose themeCSS colours each bar by its kind (pure). Mermaid names a bar <svg id>-<task id>, so
- * [id$=-np3] finds it; labels inside a bar (.taskText) get a readable colour, risks and issues bold. Colouring the
- * drawing afterwards didn't hold in Obsidian (its Mermaid styles won), CSS inside the drawing does. colours: { kind:
- * '#hex', edge, 'mark-risk', … }. Values are plain #hex, so the JSON needs no escaping.
- */
-function planGanttStyle(bars, colours) {
-  const ink = (k) => (k === 'soon' || k === 'outside' || k === 'waiting' ? '#000000' : '#ffffff');
-  const css = [];
-  for (const b of bars) {
-    const c = colours[b.kind] || '#888888';
-    const mark = b.mark ? colours[`mark-${b.mark}`] : null;
-    const stroke = mark ? `stroke:${mark} !important;stroke-width:3px !important;stroke-dasharray:6 3` : b.crit ? `stroke:${colours.edge || '#222222'} !important;stroke-width:2px !important` : `stroke:${c} !important`;
-    css.push(`[id$=-${b.id}]{fill:${c} !important;${stroke}}`);
-    css.push(`.taskText[id$=-${b.id}-text]{fill:${ink(b.kind)} !important}`);
-    if (b.mark === 'risk' || b.mark === 'issue') css.push(`[id$=-${b.id}-text]{font-weight:700 !important}`);
-  }
-  return `%%{init: {"themeCSS": "${css.join(' ')}"}}%%`;
+  // headings with nothing under them (a person's filter) go, as in the text
+  const shown = drawn.filter((r, i) => !(r.section && (!drawn[i + 1] || drawn[i + 1].section)));
+  return { text: kept.some((l) => / :/.test(l)) ? kept.join('\n') : '', sched, bars, rows: shown, end, late, relative }; // task lines hold ' :'
 }
 
 /** "Wk 3" (relative) or "Mon 23 Nov" for a working-day offset from the start. */
