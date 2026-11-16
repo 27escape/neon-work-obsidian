@@ -8116,7 +8116,7 @@ Object.assign(NeonTime.prototype, {
           return next === old ? old : next;
         });
       } else {
-        await ensureFolder(this.app, this.settings.logFolder);
+        await ensureFolder(this.app, this.logFolder()); // fork: the resolved folder (empty setting = <base folder>/Time Log)
         await this.app.vault.create(path, this.dayNote(key, false));
       }
     } catch (e) {
@@ -8129,7 +8129,7 @@ Object.assign(NeonTime.prototype, {
   },
   async ensureReadme() {
     if (!this.settings.writeNotes) return;
-    const path = normalizePath(`${this.settings.logFolder}/README.md`);
+    const path = normalizePath(`${this.logFolder()}/README.md`); // fork: was the raw setting, so an empty one pointed at the vault root
     const existing = this.app.vault.getAbstractFileByPath(path);
     const target = Math.round(this.settings.dayHours * 60);
     const idle = this.settings.idleMin;
@@ -8169,7 +8169,7 @@ Object.assign(NeonTime.prototype, {
         // keep it in step with the settings, as long as it's still the generated README
         await writeNote(this.app, existing, (old) => (old.startsWith('# Time Log — format') ? text : old));
       } else if (!existing) {
-        await ensureFolder(this.app, this.settings.logFolder);
+        await ensureFolder(this.app, this.logFolder()); // fork: the resolved folder (empty setting = <base folder>/Time Log)
         await this.app.vault.create(path, text);
       }
     } catch (e) {
