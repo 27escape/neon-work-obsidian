@@ -851,7 +851,7 @@ button.nd-swatch.is-on {
   /* rows share the visible height in these proportions (height set from main.js); lists scroll
      inside their card. Below the minimums the page scrolls instead of squeezing the cards. */
   height: var(--nd-grid-h, 977px);
-  grid-template-rows: minmax(120px, 205fr) minmax(150px, 250fr) minmax(150px, 250fr) minmax(290px, 230fr);
+  grid-template-rows: minmax(150px, 250fr) minmax(150px, 250fr) minmax(290px, 230fr) minmax(140px, 205fr); /* fork: Tasks/Todo, Activity, then Vault pulse */
   gap: 14px;
 }
 .nd-area-totals { grid-area: totals; }
