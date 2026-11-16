@@ -16,7 +16,7 @@ claude: updated
 
 A quarterly look at Globex's cloud bill.
 
-- [x] #task Q3 review ➕ 2026-10-01 ✅ 2026-10-15
+- [x] #task Q3 review ➕ 2026-10-01 ✅ 2026-11-13
 - [ ] #task Q4 review ➕ 2026-11-01 📅 2027-01-20
 - [ ] #task Q1 review ➕ 2026-11-01 📅 2027-04-20
 

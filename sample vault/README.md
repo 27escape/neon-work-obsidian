@@ -37,8 +37,10 @@ This vault is made-up data for trying **Neon Work** without touching your own no
 - **Projects**: change a status from a row's menu, group by customer or status.
 - **Tasks**: tick a task, or add one to Todo; it goes to the head of [[Todo]].
 - **Research**: the Research tab has two sections, *Research* and *Customers* (every customer's Research folder).
-- **New note** (command palette, "Neon Work – Tasks: New note"): pick a customer and a kind.
-- **Quick capture**: an *Inbox note* lands in `2.Resources/Inbox`.
+- **New note** (the dashboard's *New note* button): pick a customer and a type (note, meeting, person, research, inbox or project).
+- **Inbox**: the Inbox card lists inbox notes still waiting; add one with its *Add to Inbox* box, New note's **Inbox** button or Quick capture. They land in `2.Resources/Inbox` with `tags: inbox` and `status: waiting`; set a note's status to `completed` and it leaves the card.
+- **Timelines**: the Projects tab and the Tasks tab show Gantt charts; *Copy as Mermaid* pastes one into a note.
+- **Stats** (bottom of the dashboard): time and tasks done, then the vault's notes, links and orphans.
 - The **Claude card** lists the notes whose `claude` property is `process`, `refine` or `updated`.
 
 ## Conventions

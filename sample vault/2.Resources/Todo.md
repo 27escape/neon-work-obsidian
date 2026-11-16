@@ -11,7 +11,7 @@ modified: 2026-11-13
 
 - [ ] #task renew the professional membership ➕ 2026-11-02 📅 2027-04-30
 - [ ] #task expenses for the Acme site visits ➕ 2026-11-06 ⏳ 2026-11-14 📅 2027-01-31
-- [x] #task update the laptop to the new build ➕ 2026-11-02 ✅ 2026-11-05
+- [x] #task update the laptop to the new build ➕ 2026-11-02 ✅ 2026-11-16
 
 ## Learning
 

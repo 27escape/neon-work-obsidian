@@ -2,7 +2,7 @@
 title: Idea - customer newsletter
 tags:
   - inbox
-status: created
+status: waiting
 created: 2026-11-12
 completed:
 ---
