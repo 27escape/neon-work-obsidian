@@ -7,7 +7,8 @@
     "src/shared/note-index.js",
     "src/shared/gantt.js",
     "src/shared/plan.js",
-    "src/shared/plan-scope.js"
+    "src/shared/plan-scope.js",
+    "src/shared/plan-draw.js"
   ],
   "kernel": [
     "src/kernel/mother.js",
@@ -121,7 +122,6 @@
         "src/tickets/widget.js",
         "src/tickets/plan-summary.js",
         "src/tickets/plan-gantt.js",
-        "src/tickets/plan-gantt-draw.js",
         "src/tickets/plan-export.js",
         "src/tickets/plan-view.js",
         "src/tickets/plan-edit.js",

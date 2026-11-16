@@ -54,3 +54,18 @@ test('tasks: dated only, by note, bars from a start date, overdue and in progres
   assert.match(src, /section ERP Migration\n {2}design accounts :active, t3, 2026-10-20, 2027-01-29/);
   assert.doesNotMatch(src, /no date/);
 });
+
+test('tasks timeline rows: by note, a bar from start to due, else a diamond; colours by urgency', async () => {
+  const { load } = await import('./load.mjs');
+  const TT = load('neon-tasks', ['taskTimelineRows', 'planGanttLayout']);
+  const f = (b) => ({ basename: b, path: `${b}.md` });
+  const tasks = [
+    { file: f('A'), line: 1, raw: 'x 🛫 2026-11-10 📅 2026-11-20', due: '2026-11-20', group: 'later', doing: true, display: 'x' },
+    { file: f('A'), line: 2, raw: 'y 📅 2026-11-12', due: '2026-11-12', group: 'overdue', doing: false, display: 'y' },
+    { file: f('B'), line: 3, raw: 'z 📅 2027-03-01', due: '2027-03-01', group: 'later', doing: false, display: 'z' },
+    { file: f('B'), line: 4, raw: 'w 📅 2026-11-19', due: '2026-11-19', group: 'later', doing: false, display: 'w' },
+  ];
+  const rows = TT.taskTimelineRows(tasks, null, '2026-11-16');
+  const s = (r) => (r.section ? `#${r.section}` : `${r.label}:${r.bar.kind}:${r.milestone ? 'ms' : `${r.bar.start}>${r.bar.end}`}`);
+  assert.equal(rows.map(s).join(' '), '#A y:overdue:ms x:doing:2026-11-10>2026-11-20 #B w:soon:ms z:ready:ms');
+});

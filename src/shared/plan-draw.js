@@ -1,9 +1,95 @@
-/* ---- Project plans (fork): the Gantt chart, drawn by the plugin ------------------------------------------------------
- * Obsidian now draws ```mermaid blocks with Pele, which takes no per-bar styles, so the Planning view draws its own
- * Gantt as SVG from the rows planGanttText lays out: names on the left, a day scale with weekends shaded and weeks
- * marked, bars in the kind colours, dashed outlines for risks / issues / decisions, a dark outline on the critical
- * path, diamonds for milestones, a line for today. The layout is pure (planGanttLayout, tested); planDrawGantt only
- * turns it into SVG elements (no HTML strings). Copy as Mermaid still gives the text for notes. */
+/* ---- Plans and timelines (fork): colours, the date scale and the Gantt drawing, shared by Projects and Tasks -------
+ * Obsidian draws ```mermaid blocks with Pele, which takes no per-bar styles, so the Planning view, the Projects
+ * timeline and the Tasks timeline draw their Gantt charts here as SVG: names on the left, a day scale with weekends
+ * shaded and weeks (or months) marked, bars in the kind colours, dashed outlines for markers, a dark outline on the
+ * critical path, diamonds for milestones, hollow diamonds for due dates, a line for today. The layout is pure
+ * (planGanttLayout, tested); planDrawGantt only turns it into SVG elements (no HTML strings). Colours come from
+ * Obsidian's colour variables as #rrggbb. */
+
+const PLAN_WEEK_BASE = '2026-01-05'; // a Monday, week 01 of its year: "Wk %W" then counts weeks from the start
+
+// bar kinds in the order the legend shows them: [kind, label, Obsidian colour variable, fallback]
+const PLAN_KINDS = [
+  ['ready', 'Ready to start', '--color-blue', '#3a7bd5'],
+  ['waiting', 'Waiting on earlier tasks', '--color-blue', '#9dbbe8'], // drawn paler (planColour)
+  ['blocked', 'Blocked', '--color-purple', '#8e5bd0'],
+  ['doing', 'In progress', '--color-cyan', '#1fa8b8'],
+  ['soon', 'Due within a week', '--color-orange', '#e8871e'],
+  ['overdue', 'Overdue', '--color-red', '#d93b3b'],
+  ['done', 'Done', '--color-green', '#2e9e5b'],
+  ['outside', 'Outside this project', '--text-faint', '#999999'],
+];
+
+/** "4 Dec" (pure). */
+const planShortDate = (ymd) => `${+ymd.slice(8, 10)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+ymd.slice(5, 7) - 1]}`;
+
+const planClip = (s, max) => (s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s);
+
+// markers for tasks tagged #risk, #issue or #decision: a sign before the name and a dashed outline on the bar
+const PLAN_MARKS = [
+  ['risk', '⚠', 'Risk', '--color-orange', '#e8871e'],
+  ['issue', '‼', 'Issue', '--color-red', '#d93b3b'],
+  ['decision', '⚖', 'Decision', '--color-green', '#2e9e5b'],
+];
+
+/** A task's key across re-reads of the note: its id, else its place. */
+const planKey = (t) => t.id || `${t.file.path}:${t.line}`;
+
+/** #rrggbb from #rgb, #rrggbb, rgb() or rgba() (alpha dropped), else null (pure). */
+function planToHex(c) {
+  const s = String(c || '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(s)) return s.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(s)) return ('#' + s.slice(1).replace(/./g, '$&$&')).toLowerCase();
+  const m = s.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i);
+  if (!m) return null;
+  return '#' + m.slice(1, 4).map((v) => Math.max(0, Math.min(255, Math.round(+v))).toString(16).padStart(2, '0')).join('');
+}
+
+/** A theme colour variable as #rrggbb (Mermaid's classDef can't take rgb() or hsl()); any CSS colour is resolved. */
+function planCssHex(name, fallback) {
+  const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  let hex = planToHex(v);
+  if (!hex && v) {
+    const probe = document.body.createDiv({ attr: { style: 'display:none' } });
+    probe.style.color = v;
+    hex = planToHex(getComputedStyle(probe).color);
+    probe.remove();
+  }
+  return hex || fallback;
+}
+
+/** Text colour on a filled kind colour: dark on orange and grey, white on the rest. */
+const planInk = (kind) => (kind === 'soon' || kind === 'outside' || kind === 'waiting' ? '#000000' : '#ffffff');
+
+/** Fill an element with a kind's colour, as the Gantt bars and graph boxes are. */
+function planFill(el, kind) {
+  const c = planColour(kind);
+  el.style.backgroundColor = c;
+  el.style.borderColor = c;
+  el.style.color = planInk(kind);
+}
+
+/** The colour in use for a bar kind (Obsidian's colour variables, so it follows the theme), as #rrggbb. */
+function planColour(kind) {
+  const k = PLAN_KINDS.find((x) => x[0] === kind) || PLAN_KINDS[0];
+  const c = planCssHex(k[2], k[3]);
+  return kind === 'waiting' ? planMix(c, planCssHex('--background-primary', '#ffffff'), 0.55) : c;
+}
+
+/** #rrggbb between two colours: share of b (0–1). Pure. */
+function planMix(a, b, share) {
+  const n = (h, i) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+  return '#' + [0, 1, 2].map((i) => Math.round(n(a, i) * (1 - share) + n(b, i) * share).toString(16).padStart(2, '0')).join('');
+}
+
+/** Every colour the charts use, as #rrggbb: the kinds, the critical path's outline (edge) and the markers (mark-risk…). */
+function planColourMap() {
+  return Object.assign(
+    Object.fromEntries(PLAN_KINDS.map(([k]) => [k, planColour(k)])),
+    Object.fromEntries(PLAN_MARKS.map(([k, , , v, fb]) => [`mark-${k}`, planCssHex(v, fb)])),
+    { edge: planCssHex('--text-normal', '#222222') },
+  );
+}
 
 const PLAN_DAY = 86400000;
 /** Calendar days from a to b (pure). */

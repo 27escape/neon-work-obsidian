@@ -3758,6 +3758,32 @@ body:not(.nd-themed) .nd-empty {
 .nt-types .nt-type-row input[type='text']:nth-of-type(1) {
   width: 7em;
 }
+
+/* the timeline card: drawn by the plugin (shared Gantt drawer) */
+.nt-view-timeline .nt-tl-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0;
+  font-size: 0.85em;
+  color: var(--nd-faint);
+}
+.nt-view-timeline .nt-tl-key .np-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.nt-view-timeline .nt-tl-key .np-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-s);
+}
+.nt-view-timeline .nt-tl-chart {
+  overflow-x: auto;
+}
+.nt-view-timeline .np-gantt .np-g-row.is-task {
+  cursor: pointer;
+}
 /* @src neon-time/styles.css */
 /* @css src/time/styles.css */
 /* NEON TIME — uses the --nd-* tokens from Neon Deck */

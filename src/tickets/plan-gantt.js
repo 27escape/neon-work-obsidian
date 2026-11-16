@@ -5,25 +5,8 @@
  * task sits under), in note order; tasks outside the project last. The text keeps Mermaid's own tags (done, active,
  * crit) for when it is pasted into a note; the Plan view colours each bar by its kind (planBarKind). */
 
-const PLAN_WEEK_BASE = '2026-01-05'; // a Monday, week 01 of its year: "Wk %W" then counts weeks from the start
 const PLAN_OUTSIDE = 'Outside this project';
 const PLAN_SOON_DAYS = 7; // due within this many days: "due soon"
-
-// bar kinds in the order the legend shows them: [kind, label, Obsidian colour variable, fallback]
-const PLAN_KINDS = [
-  ['ready', 'Ready to start', '--color-blue', '#3a7bd5'],
-  ['waiting', 'Waiting on earlier tasks', '--color-blue', '#9dbbe8'], // drawn paler (planColour)
-  ['blocked', 'Blocked', '--color-purple', '#8e5bd0'],
-  ['doing', 'In progress', '--color-cyan', '#1fa8b8'],
-  ['soon', 'Due within a week', '--color-orange', '#e8871e'],
-  ['overdue', 'Overdue', '--color-red', '#d93b3b'],
-  ['done', 'Done', '--color-green', '#2e9e5b'],
-  ['outside', 'Outside this project', '--text-faint', '#999999'],
-];
-
-/** "4 Dec" (pure). */
-const planShortDate = (ymd) => `${+ymd.slice(8, 10)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+ymd.slice(5, 7) - 1]}`;
-const planClip = (s, max) => (s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s);
 
 /**
  * Kind of a task's bar: outside, done, overdue (its 📅 date has passed, or work in progress was planned to finish
@@ -37,12 +20,6 @@ function planBarKind(t, state, today, finish = null) {
   return state === 'doing' || state === 'blocked' || state === 'waiting' ? state : 'ready';
 }
 
-// markers for tasks tagged #risk, #issue or #decision: a sign before the name and a dashed outline on the bar
-const PLAN_MARKS = [
-  ['risk', '⚠', 'Risk', '--color-orange', '#e8871e'],
-  ['issue', '‼', 'Issue', '--color-red', '#d93b3b'],
-  ['decision', '⚖', 'Decision', '--color-green', '#2e9e5b'],
-];
 /** The marker of a task (#risk, #issue, #decision; the first one if several), or null. */
 const planMark = (t) => PLAN_MARKS.find(([k]) => (t.marks || []).includes(k)) || null;
 // how bad a state is, for a phase's colour (its worst task)

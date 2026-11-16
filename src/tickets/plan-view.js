@@ -27,9 +27,6 @@ function planBaseDate(app, scope) {
   return m ? m[0] : null;
 }
 
-/** A task's key across re-reads of the note: its id, else its place. */
-const planKey = (t) => t.id || `${t.file.path}:${t.line}`;
-
 class PlanView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
