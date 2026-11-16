@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 
-const P = load('neon-tickets', ['planTask', 'planSetBox', 'planGraphText', 'planSchedule']);
+const P = load('neon-tickets', ['planTask', 'planSetBox', 'planGraphText', 'planSchedule', 'planToHex']);
 
 test('board moves change only the checkbox; done stamps ✅ today, reopening removes it', () => {
   const text = '# Plan\n- [ ] A [duration:: 2d] 🆔 a #task\n- [ ] B 🆔 b ⛔ a #task\n';
@@ -43,4 +43,13 @@ test('graph: groups per phase, arrows from dependency to task, thick on the crit
   assert.ok(lines.includes('  class n2,n3 blocked'));
   assert.ok(lines.includes('  class n1,n2 crit'));
   assert.equal(nodes.length, 4);
+});
+
+test('theme colours become #rrggbb for Mermaid (rgb() broke the graph: "Expecting SEMI … got PS")', () => {
+  assert.equal(P.planToHex('rgb(254, 100, 11)'), '#fe640b');
+  assert.equal(P.planToHex('rgba(8, 109, 221, 0.5)'), '#086ddd');
+  assert.equal(P.planToHex('rgb(254 100 11)'), '#fe640b');
+  assert.equal(P.planToHex('#ABC'), '#aabbcc');
+  assert.equal(P.planToHex('#3a7bd5'), '#3a7bd5');
+  assert.equal(P.planToHex('hsl(10, 50%, 50%)'), null);
 });

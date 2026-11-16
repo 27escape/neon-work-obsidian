@@ -40,10 +40,31 @@ function planExport(el, title) {
   }
 }
 
-/** The colour in use for a bar kind (Obsidian's colour variables, so it follows the theme). */
+/** #rrggbb from #rgb, #rrggbb, rgb() or rgba() (alpha dropped), else null (pure). */
+function planToHex(c) {
+  const s = String(c || '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(s)) return s.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(s)) return ('#' + s.slice(1).replace(/./g, '$&$&')).toLowerCase();
+  const m = s.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i);
+  if (!m) return null;
+  return '#' + m.slice(1, 4).map((v) => Math.max(0, Math.min(255, Math.round(+v))).toString(16).padStart(2, '0')).join('');
+}
+/** A theme colour variable as #rrggbb (Mermaid's classDef can't take rgb() or hsl()); any CSS colour is resolved. */
+function planCssHex(name, fallback) {
+  const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+  let hex = planToHex(v);
+  if (!hex && v) {
+    const probe = document.body.createDiv({ attr: { style: 'display:none' } });
+    probe.style.color = v;
+    hex = planToHex(getComputedStyle(probe).color);
+    probe.remove();
+  }
+  return hex || fallback;
+}
+/** The colour in use for a bar kind (Obsidian's colour variables, so it follows the theme), as #rrggbb. */
 function planColour(kind) {
   const k = PLAN_KINDS.find((x) => x[0] === kind) || PLAN_KINDS[0];
-  return getComputedStyle(document.body).getPropertyValue(k[2]).trim() || k[3];
+  return planCssHex(k[2], k[3]);
 }
 
 /**
@@ -57,7 +78,7 @@ async function planPaint(el, bars) {
     svg = el.querySelector('svg');
   }
   if (!svg) return;
-  const edge = getComputedStyle(document.body).getPropertyValue('--text-normal').trim() || '#222222';
+  const edge = planCssHex('--text-normal', '#222222');
   for (const b of bars) {
     const rect = svg.querySelector(`rect[id="${b.id}"], rect[id$="-${b.id}"]`);
     if (!rect) continue;

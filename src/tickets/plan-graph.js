@@ -62,7 +62,7 @@ Object.assign(PlanView.prototype, {
   /** Draw the graph and make each box open its task. */
   renderGraph(sched) {
     const colours = Object.fromEntries(PLAN_KINDS.map(([k]) => [k, planColour(k)]));
-    const edge = getComputedStyle(document.body).getPropertyValue('--text-normal').trim() || '#222222';
+    const edge = planCssHex('--text-normal', '#222222');
     const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge });
     this.src = text;
     const chart = this.bodyEl.createDiv('np-chart np-graph');
