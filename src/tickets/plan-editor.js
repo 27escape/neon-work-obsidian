@@ -152,10 +152,8 @@ class PlanTaskModal extends Modal {
     for (const [key, sign, label] of [['start', '🛫', 'Start'], ['scheduled', '⏳', 'Scheduled'], ['due', '📅', 'Due']]) {
       const w = dt.createDiv('np-ed-date');
       w.createSpan({ text: `${sign} ${label}` });
-      const i = w.createEl('input', { attr: { type: 'date' } });
-      i.value = f[key] || '';
-      i.addEventListener('change', () => ((f[key] = i.value || null), this.update()));
-      this[`${key}El`] = i;
+      // a date field with a calendar button (shared-ui.js); typing a date works too
+      this[`${key}El`] = dateField(w, { value: f[key], label: `${label.toLowerCase()} date`, onChange: (v) => ((f[key] = v), this.update()) });
     }
     this.weekendEl = dt.createDiv('np-ed-warn-line');
     if (this.planned) {

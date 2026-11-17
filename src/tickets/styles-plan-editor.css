@@ -213,3 +213,23 @@
   margin: 6px 0 10px;
   padding-left: 20px;
 }
+
+/* date fields with a calendar button (dateField in shared-ui.js); the browser's own icon is hidden, as it is hard to
+   see in dark themes, and the field follows the theme so the calendar that opens does too */
+.np-editor .nd-date-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.theme-dark .np-editor .nd-date-field input[type='date'] {
+  color-scheme: dark;
+}
+.theme-light .np-editor .nd-date-field input[type='date'] {
+  color-scheme: light;
+}
+.np-editor .nd-date-field input[type='date']::-webkit-calendar-picker-indicator {
+  display: none;
+}
+.np-editor .nd-date-pick {
+  padding: 2px 4px;
+}
