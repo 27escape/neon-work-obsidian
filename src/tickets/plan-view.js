@@ -34,7 +34,7 @@ class PlanView extends ItemView {
     this.plan = null;
     this.mode = 'gantt';
     this.weeks = false;
-    this.graph = { dir: 'TB', phases: false, fit: false }; // graph layout: Down / Across, phase groups, fit or full size
+    this.graph = { dir: 'TB', phases: false }; // graph layout: Down / Across, phase groups
     this.who = null; // one person's tasks (plan-people.js), or everyone
     this.lanes = 'phase'; // board rows: by phase or by person
     this.ganttPhases = false; // Gantt: one bar per phase (plan-forecast.js)
@@ -60,7 +60,7 @@ class PlanView extends ItemView {
     if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
     if (state && PLAN_MODES.some(([k]) => k === state.mode)) this.mode = state.mode;
     if (state && typeof state.weeks === 'boolean') this.weeks = state.weeks;
-    if (state && state.graph && typeof state.graph === 'object') Object.assign(this.graph, state.graph);
+    if (state && state.graph) this.graph = planGraphState(state.graph);
     if (state && 'who' in state) this.who = state.who || null;
     if (state && (state.lanes === 'phase' || state.lanes === 'person')) this.lanes = state.lanes;
     if (state && typeof state.ganttPhases === 'boolean') this.ganttPhases = state.ganttPhases;
@@ -126,7 +126,6 @@ class PlanView extends ItemView {
     this.dirEl = pills(tools, [['TB', 'Down'], ['LR', 'Across']], g.dir, (v) => ((g.dir = v || 'TB'), saveGraph()));
     this.phaseEl = pills(tools, [['on', 'Phases']], g.phases ? 'on' : null, (v) => ((g.phases = v === 'on'), saveGraph()), 'can-clear');
     tip(this.phaseEl.el, 'Group the boxes by phase (wider)');
-    this.fitEl = pills(tools, [['fit', 'Fit'], ['full', 'Full size']], g.fit ? 'fit' : 'full', (v) => ((g.fit = v === 'fit'), saveGraph()));
     this.issuesEl = root.createDiv('np-issues');
     this.bodyEl = root.createDiv('np-body');
   }
@@ -227,7 +226,7 @@ class PlanView extends ItemView {
     this.weeksEl.set(weeks ? 'weeks' : 'dates');
     this.weeksEl.btns.get('dates').disabled = !this.base;
     if (!this.base) tip(this.weeksEl.btns.get('dates'), 'Set the project’s started date to see dates');
-    for (const p of [this.dirEl, this.phaseEl, this.fitEl]) p.el.toggleClass('is-hidden', this.mode !== 'graph');
+    for (const p of [this.dirEl, this.phaseEl]) p.el.toggleClass('is-hidden', this.mode !== 'graph');
     this.syncPeopleTools();
     this.syncForecastTools();
     this.renderIssues(sched);

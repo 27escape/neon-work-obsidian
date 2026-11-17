@@ -247,13 +247,9 @@
   color: inherit;
   font-weight: 600;
 }
-.np-plan .np-graph:not(.is-fit) {
+.np-plan .np-graph {
   overflow: auto;
   max-height: 80vh;
-}
-.np-plan .np-graph.is-fit svg {
-  width: 100%;
-  height: auto;
 }
 
 /* the card that follows the pointer while dragging (lives on document.body, outside the view) */

@@ -75,18 +75,25 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   return { text: tasks.length ? lines.join('\n') : '', nodes: tasks.map((t) => ({ id: ids.get(t), task: t })) };
 }
 
+/** Graph layout saved with the tab: Down / Across and phase groups. Older tabs also saved `fit` (the Fit / Full size
+ * buttons, removed: Mermaid never drew wider than full size, so they barely differed); it is dropped. */
+function planGraphState(saved) {
+  const s = saved && typeof saved === 'object' ? saved : {};
+  return { dir: s.dir === 'LR' ? 'LR' : 'TB', phases: s.phases === true };
+}
+
 Object.assign(PlanView.prototype, {
   /** Draw the graph and make each box open its task. */
   renderGraph(sched) {
     const colours = planColourMap();
     const edge = colours.edge;
-    const { dir, phases, fit } = this.graph;
+    const { dir, phases } = this.graph;
     const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases, show: this.who ? (t) => this.shows(t) : null });
-    const chart = this.bodyEl.createDiv(`np-chart np-graph${fit ? ' is-fit' : ''}`);
-    renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes, fit));
+    const chart = this.bodyEl.createDiv('np-chart np-graph');
+    renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes));
   },
-  /** Boxes open their task; at full size the drawing keeps its own width (scrolls) rather than shrinking to fit. */
-  async linkNodes(chart, nodes, fit) {
+  /** Boxes open their task; the drawing keeps its own size (the pane scrolls) rather than shrinking to fit. */
+  async linkNodes(chart, nodes) {
     let svg = chart.querySelector('svg');
     for (let i = 0; !svg && i < 30 && chart.isConnected; i++) {
       await new Promise((r) => window.setTimeout(r, 100));
@@ -94,7 +101,7 @@ Object.assign(PlanView.prototype, {
     }
     if (!svg) return;
     const vb = svg.viewBox && svg.viewBox.baseVal;
-    if (!fit && vb && vb.width) {
+    if (vb && vb.width) {
       svg.style.maxWidth = 'none';
       svg.style.width = `${Math.ceil(vb.width)}px`;
       svg.style.height = `${Math.ceil(vb.height)}px`;
