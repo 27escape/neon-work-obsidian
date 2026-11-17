@@ -13,9 +13,19 @@ function planSvgText(svg) {
   copy.setAttribute('height', String(Math.ceil(box.height)));
   copy.style.maxWidth = 'none';
   copy.style.backgroundColor = css.getPropertyValue('--background-primary').trim() || '#ffffff';
-  const text = new XMLSerializer().serializeToString(copy);
-  // var(--name) or var(--name, fallback) → the value in use now
-  return text.replace(/var\((--[\w-]+)(?:\s*,\s*([^()]*))?\)/g, (m, name, fb) => css.getPropertyValue(name).trim() || (fb || '').trim() || m);
+  return planInlineVars(new XMLSerializer().serializeToString(copy), (name) => css.getPropertyValue(name));
+}
+/**
+ * var(--name) or var(--name, fallback) in serialised SVG → the value in use now. The values land inside
+ * double-quoted attributes, so their quotes become single quotes and & < > are escaped: Obsidian's font lists
+ * ("??", "??", ui-sans-serif, …) otherwise ended the style attribute early and the SVG would not open.
+ */
+function planInlineVars(text, get) {
+  const safe = (v) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, "'");
+  return text.replace(/var\((--[\w-]+)(?:\s*,\s*([^()]*))?\)/g, (m, name, fb) => {
+    const v = String(get(name) || '').trim() || (fb || '').trim();
+    return v ? safe(v) : m;
+  });
 }
 
 /** Hand a file to the system's download handling (Obsidian asks where to save it, or uses Downloads). */

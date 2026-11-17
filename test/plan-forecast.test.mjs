@@ -100,3 +100,13 @@ test('report note: front matter, summary, chart, phases, attention, markers, cri
   has('- Sam has 7 days of work');
   has('| 1. Scope | a A \\| pipe | Sam | Ready | 2 | 16 Nov | 17 Nov |  |'); // pipes in table cells escaped
 });
+
+// bug: the report's SVG would not open: a font list with double quotes was put inside style="…"
+test('SVG export: inlined theme values keep the attributes valid', () => {
+  const { planInlineVars } = load('neon-tickets', ['planInlineVars']);
+  const vars = { '--font-interface': '"??", "Inter", ui-sans-serif', '--bar': '#3366cc', '--odd': 'a<b & c>d' };
+  const svg = '<svg style="font-family: var(--font-interface); fill: var(--bar)"><rect style="fill: var(--none, #fff)"/><text style="x: var(--odd)"/></svg>';
+  const out = planInlineVars(svg, (n) => vars[n] || '');
+  assert.equal(out, `<svg style="font-family: '??', 'Inter', ui-sans-serif; fill: #3366cc"><rect style="fill: #fff"/><text style="x: a&lt;b &amp; c&gt;d"/></svg>`);
+  assert.equal(planInlineVars('<rect style="fill: var(--missing)"/>', () => ''), '<rect style="fill: var(--missing)"/>');
+});
