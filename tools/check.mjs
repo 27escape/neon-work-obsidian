@@ -368,6 +368,11 @@ if (SRC) {
   if (!(amp < 0.25)) add('pattern', 'FAIL', `Black ICE corner drift is ${amp}: at .25 or more a triangle can flip over (facets pop, edges vanish)`);
   if ((ice.match(/iceV\(/g) || []).length > 2) add('perf', 'FAIL', 'blackice() calls iceV() more than twice: compute the 16 shared corners once per pixel');
   if (!/if \(!e\.isAfter\(s\)\) e\.add\(1, 'day'\)/.test(src('time/entry-modal.js'))) add('time', 'FAIL', 'entryRange no longer rolls Until past midnight: 23:30 → 00:30 would be rejected');
+  // createSvg's cls goes through classList.add for SVG: a string with a space throws (the Planning Gantt drew nothing, 17 Nov)
+  for (const f of walk(SRC).filter((x) => x.endsWith('.js'))) {
+    const bad = [...fs.readFileSync(f, 'utf8').matchAll(/createSvg\([^)]*?cls:\s*(`[^`]*`|'[^']*'|"[^"]*")/g)].filter((m) => /\s|\$\{[^}]*' /.test(m[1].slice(1, -1)));
+    if (bad.length) add('svg', 'FAIL', `${path.relative(SRC, f)}: createSvg with a class string holding a space (${bad[0][1]}): pass a list of class names`);
+  }
   if (!/now === orig/.test(src('write/editor-helpers.js'))) add('write', 'FAIL', 'placeCards must not overwrite a cursor line that changed while the flashcard popup was open');
 }
 

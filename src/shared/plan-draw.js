@@ -242,7 +242,8 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = 
     const c = l.late ? colours.overdue || '#d93b3b' : l.crit ? colours.edge : 'var(--text-faint)';
     // ordinary links faint, so a task feeding many others doesn't drown the chart; hovering a row brings its own up
     const strong = l.crit || l.late;
-    const g = svg.createSvg('g', { cls: `np-g-link${strong ? ' is-strong' : ''}`, attr: { 'data-from': planKey(l.from), 'data-to': planKey(l.to), opacity: strong ? '0.9' : '0.4' } });
+    // classes as a list: Obsidian adds an SVG element's classes one by one, and a name with a space throws
+    const g = svg.createSvg('g', { cls: strong ? ['np-g-link', 'is-strong'] : 'np-g-link', attr: { 'data-from': planKey(l.from), 'data-to': planKey(l.to), opacity: strong ? '0.9' : '0.4' } });
     g.createSvg('path', { attr: { d: l.d, fill: 'none' } }).setAttr('style', `stroke: ${c}; stroke-width: ${l.crit || l.late ? 1.6 : 1}`);
     const { x, y, dir } = l.end;
     const head = dir === 'down' ? `${x},${y} ${x - 3.5},${y - 5} ${x + 3.5},${y - 5}` : dir === 'up' ? `${x},${y} ${x - 3.5},${y + 5} ${x + 3.5},${y + 5}` : `${x},${y} ${x - 5},${y - 3.5} ${x - 5},${y + 3.5}`;
