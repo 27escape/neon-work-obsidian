@@ -177,4 +177,12 @@ test('Holidays notes: the project folder, each folder above it, then the base fo
     '1.Customers/Acme/Projects/Holidays.md', '1.Customers/Acme/Holidays.md', '1.Customers/Holidays.md', 'Holidays.md', '2.Resources/Holidays.md',
   ]);
   assert.deepEqual(JSON.parse(JSON.stringify(H.planHolidayPaths('1.Projects/Website', 'folder', 'Time off.md', ''))), ['1.Projects/Website/Time off.md', '1.Projects/Time off.md', 'Time off.md']);
+  // PARA: a project in 1.Projects whose Area is named by a property (area: [[Work]]) also looks in the Area's folder
+  assert.deepEqual(JSON.parse(JSON.stringify(H.planHolidayPaths('1.Projects/Website.md', 'note', 'Holidays', '3.Resources', '2.Areas/Work'))), [
+    '1.Projects/Holidays.md', 'Holidays.md', '2.Areas/Work/Holidays.md', '3.Resources/Holidays.md',
+  ]);
+  // E2I: the customer folder is already on the way up, so it isn't listed twice
+  assert.deepEqual(JSON.parse(JSON.stringify(H.planHolidayPaths('1.Customers/Acme/Projects/Pilot.md', 'note', 'Holidays', '2.Resources', '1.Customers/Acme'))), [
+    '1.Customers/Acme/Projects/Holidays.md', '1.Customers/Acme/Holidays.md', '1.Customers/Holidays.md', 'Holidays.md', '2.Resources/Holidays.md',
+  ]);
 });

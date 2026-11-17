@@ -48,11 +48,21 @@ async function planReadFile(app, f) {
   return planAddSteps(lines, out); // fork: each task's steps (the checkboxes under it), and tasks inside tasks
 }
 /**
+ * The folder of a plan's group (customer, or PARA Area), whether the folder it sits in or a property (area: [[Work]])
+ * names it; '' when it has none. A project folder: the first of its notes that names one.
+ */
+function planGroupFolder(app, scope) {
+  const root = folderSetting(NEON_CATS.customersFolder);
+  if (!root || !NEON_CATS.customers) return '';
+  const key = pathCustomer(scope.path, scope.kind === 'folder') || planScopeFiles(app, scope).map((f) => fileCategory(app, f)).find((k) => k && k !== 'untracked');
+  return key ? `${root}/${CAT_LABEL[key] || key}` : '';
+}
+/**
  * A plan's Holidays notes (plan-calendar.js), nearest first: { calendar (from the nearest one with an All section),
  * people (time off from all of them), paths }.
  */
 async function planHolidays(app, scope) {
-  const files = planHolidayPaths(scope.path, scope.kind, NEON_PLAN.holidayName, NEON_BASE.folder)
+  const files = planHolidayPaths(scope.path, scope.kind, NEON_PLAN.holidayName, NEON_BASE.folder, planGroupFolder(app, scope))
     .map((p) => app.vault.getAbstractFileByPath(normalizePath(p)))
     .filter((f) => f instanceof TFile);
   const notes = [];

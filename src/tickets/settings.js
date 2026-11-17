@@ -58,7 +58,7 @@ class NeonProjectsSettingTab extends PluginSettingTab {
     const plans = () => (proj(), p.app.workspace.getLeavesOfType(VIEW_PLAN).forEach((l) => l.view && l.view.refresh && l.view.refresh()));
     new Setting(containerEl)
       .setName('Holidays notes')
-      .setDesc('Planning reads working days, holidays and time off from a note with this name: in the project’s folder or a folder above it (a customer can have its own), else in the base folder. Its All section: “public holidays: England and Wales” (or Scotland, Northern Ireland), “working days: Mon-Fri”, and dates or ranges with a name for everyone (closures, other countries’ holidays). Under it, each person ([[@Name]]) with their dates or “every Tuesday”.')
+      .setDesc('Planning reads working days, holidays and time off from a note with this name: in the project’s folder or a folder above it, its customer or Area folder (a customer or Area can have its own), else in the base folder. Its All section: “public holidays: England and Wales” (or Scotland, Northern Ireland), “working days: Mon-Fri”, and dates or ranges with a name for everyone (closures, other countries’ holidays). Under it, each person ([[@Name]]) with their dates or “every Tuesday”.')
       .addText((t) => t.setPlaceholder('Holidays').setValue(s.planHolidayName || 'Holidays').onChange((v) => ((s.planHolidayName = v.trim() || 'Holidays'), plans())));
     new Setting(containerEl)
       .setName('Underline plan problems in project notes')

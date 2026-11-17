@@ -10,8 +10,9 @@
  *       - 2026-12-24 to 2027-01-02
  *       - every Tuesday
  * Which Holidays note a plan uses (planHolidayPaths): the one in the project's folder, else in each folder above it,
- * then the one in the base folder; so a customer folder can have its own (another country) and the base folder holds
- * the shared one. The calendar comes from the nearest note with an All section; people's time off is gathered from
+ * then in its group's folder (the customer or PARA Area, also when a property names it: area: [[Work]]), then in the
+ * base folder; so a customer or Area can have its own (another country, or Work but not Home) and the base folder
+ * holds the shared one. The calendar comes from the nearest note with an All section; people's time off is gathered from
  * all of them, and from a project note's own "Holidays" section. The UK rules are worked out here without any network
  * (fixed dates, Easter, first and last Mondays, a substitute weekday for one on a weekend). A person is matched to
  * task owners by the same name (the people note, or the plain name), or by first name; a task then takes longer when
@@ -216,9 +217,10 @@ function planHolidayFile(text) {
 }
 /**
  * The Holidays notes a plan looks at, nearest first (pure): <folder>/<name>.md for the project's folder and each
- * folder above it, then the base folder's. scopePath: the project note (kind 'note') or project folder (kind 'folder').
+ * folder above it, then its group's folder (group: the customer or Area folder, or ''), then the base folder's.
+ * scopePath: the project note (kind 'note') or project folder (kind 'folder').
  */
-function planHolidayPaths(scopePath, kind, name, base = '') {
+function planHolidayPaths(scopePath, kind, name, base = '', group = '') {
   const file = `${String(name || 'Holidays').trim().replace(/\.md$/i, '')}.md`;
   const out = [];
   let dir = kind === 'folder' ? scopePath : String(scopePath || '').split('/').slice(0, -1).join('/');
@@ -227,9 +229,10 @@ function planHolidayPaths(scopePath, kind, name, base = '') {
     if (!dir) break;
     dir = dir.split('/').slice(0, -1).join('/');
   }
-  const b = String(base || '').replace(/^\/+|\/+$/g, '');
-  const shared = b ? `${b}/${file}` : file;
-  if (!out.includes(shared)) out.push(shared);
+  for (const dir of [group, base].map((x) => String(x || '').replace(/^\/+|\/+$/g, ''))) {
+    const p = dir ? `${dir}/${file}` : file;
+    if (!out.includes(p)) out.push(p);
+  }
   return out;
 }
 /** Make a plan's calendar the one planWorkdays and friends use (tasks: from planCollect). */

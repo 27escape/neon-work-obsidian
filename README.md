@@ -77,7 +77,7 @@ A lightweight planner over the tasks already in a project note (or a project fol
 ![A Planning report, ready to print](docs/screenshots/planning-report.png)
 
 - **Steps:** the checkboxes directly under a task (`- [ ]` / `- [x]`, or `- ( )` / `- (x)`) are its steps, shown as 2/4 on its bar (with a progress line), in the List and on its card; cancelled ones (`[-]`, `(-)`) and notes such as `[?]` don't count. When every step is done but the task isn't, Planning offers to tick it (it never does so by itself). A task tagged `#task` (or with a 🆔) inside another task is flagged: make it a plain checkbox or its own task.
-- **Holidays and time off:** Planning reads working days, holidays and time off from a **Holidays** note (the name is a setting in *Settings → Projects*). It looks in the project's folder, then each folder above it, then the base folder, so a customer folder can have its own (say, in another country) and the base folder holds the shared one:
+- **Holidays and time off:** Planning reads working days, holidays and time off from a **Holidays** note (the name is a setting in *Settings → Projects*). It looks in the project's folder, then each folder above it, then the project's customer or Area folder (also when a property names it, as in a PARA vault: `area: [[Work]]`), then the base folder, so a customer or Area can have its own (say, another country, or Work but not Home) and the base folder holds the shared one:
 
   ```
   ## All
