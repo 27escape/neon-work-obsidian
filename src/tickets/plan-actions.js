@@ -30,12 +30,9 @@ Object.assign(NeonProjects.prototype, {
     // fork: the task editor from a project note's right-click menu (the task under the cursor, or a new one)
     this.registerEvent(
       this.app.workspace.on('editor-menu', (menu, editor, info) => {
-        const file = info && info.file;
-        const scope = file && planScopeOf(this.app, file);
-        if (!scope) return;
-        const n = editor.getCursor().line;
-        const t = planTask(editor.getLine(n));
-        const isTask = !!t && (!!t.id || planHasTag(t.raw, NEON_PLAN.taskTag));
+        const at = this.planCursor(editor, info && info.file);
+        if (!at) return;
+        const { scope, file, n, isTask } = at;
         menu.addItem((i) =>
           i
             .setTitle(isTask ? 'Planning: edit this task' : 'Planning: new task here')
@@ -45,6 +42,29 @@ Object.assign(NeonProjects.prototype, {
         if (isTask) menu.addItem((i) => i.setTitle('Planning: new task after this').setIcon('list-plus').onClick(() => this.openTaskEditor({ scope, file, afterLine: n })));
       }),
     );
+    // fork: the same three as commands, so they can have hotkeys (none by default; set them in Settings › Hotkeys)
+    const editorCmd = (id, name, ok, run) =>
+      this.addCommand({
+        id,
+        name,
+        editorCheckCallback: (checking, editor, ctx) => {
+          const at = this.planCursor(editor, ctx && ctx.file);
+          if (!at || !ok(at)) return false;
+          if (!checking) run(at);
+          return true;
+        },
+      });
+    editorCmd('plan-edit-task', 'Planning: edit this task', (a) => a.isTask, (a) => this.openTaskEditor({ scope: a.scope, file: a.file, line: a.n, at: a.n }));
+    editorCmd('plan-new-task', 'Planning: new task here', () => true, (a) => this.openTaskEditor({ scope: a.scope, file: a.file, line: null, at: a.n }));
+    editorCmd('plan-new-task-after', 'Planning: new task after this', (a) => a.isTask, (a) => this.openTaskEditor({ scope: a.scope, file: a.file, afterLine: a.n }));
+  },
+  /** The cursor's line in a project note: { scope, file, n, isTask } (a plan task: an id or the task tag), or null. */
+  planCursor(editor, file) {
+    const scope = file && planScopeOf(this.app, file);
+    if (!scope || !editor) return null;
+    const n = editor.getCursor().line;
+    const t = planTask(editor.getLine(n));
+    return { scope, file, n, isTask: !!t && (!!t.id || planHasTag(t.raw, NEON_PLAN.taskTag)) };
   },
   /** Adds or removes the header buttons so they match each open note. */
   syncPlanButtons() {

@@ -123,3 +123,38 @@ test('durations to dates: 🛫 and 📅 set or replaced in place, others untouch
   assert.equal(r.text, '- [ ] A [duration:: 2d] 🆔 a 🛫 2026-11-16 📅 2026-11-17 #task\n- [ ] B 🆔 b ⛔ a 📅 2026-11-18 #task\n- [ ] C #task');
   assert.equal(r.missing.length, 1);
 });
+
+// Kevin: the right-click Planning items as commands, so they can have hotkeys
+test('Planning editor commands: edit this task / new task here / new task after this', () => {
+  const Q = load('neon-tickets', ['NeonProjects', 'NEON_PLAN', 'NEON_PROJECTS', 'TFile']);
+  Q.NEON_PROJECTS.tag = 'project';
+  Q.NEON_PLAN.taskTag = '#task';
+  Q.NEON_PLAN.folders = '';
+  const cmds = {};
+  const opened = [];
+  const noop = () => {};
+  const self = Object.assign(Object.create(Q.NeonProjects.prototype), {
+    app: { workspace: { on: noop, onLayoutReady: noop }, metadataCache: { on: noop, getFileCache: (f) => ({ frontmatter: f.path === 'P.md' ? { tags: ['project'] } : {} }) } },
+    registerView: noop, registerEvent: noop, register: noop,
+    addCommand: (c) => (cmds[c.id] = c),
+    openTaskEditor: (o) => opened.push(o),
+  });
+  self.hookPlans();
+  const lines = ['## Build', '- [ ] Write the code [duration:: 2d] 🆔 p-1 #task', 'Some text'];
+  const editor = (n) => ({ getCursor: () => ({ line: n }), getLine: (i) => lines[i] });
+  const project = { path: 'P.md' };
+  const other = { path: 'Other.md' };
+  const can = (id, n, file) => cmds[id].editorCheckCallback(true, editor(n), { file });
+  assert.equal(can('plan-edit-task', 1, project), true);
+  assert.equal(can('plan-edit-task', 2, project), false); // not a task line
+  assert.equal(can('plan-new-task-after', 1, project), true);
+  assert.equal(can('plan-new-task-after', 0, project), false);
+  assert.equal(can('plan-new-task', 2, project), true);
+  assert.equal(can('plan-new-task', 1, other), false); // not a project note
+  assert.equal(can('plan-edit-task', 1, other), false);
+  cmds['plan-edit-task'].editorCheckCallback(false, editor(1), { file: project });
+  cmds['plan-new-task-after'].editorCheckCallback(false, editor(1), { file: project });
+  cmds['plan-new-task'].editorCheckCallback(false, editor(2), { file: project });
+  assert.deepEqual(opened.map((o) => [o.line, o.at, o.afterLine]), [[1, 1, undefined], [undefined, undefined, 1], [null, 2, undefined]]);
+  assert.ok(Object.values(cmds).every((c) => !c.hotkeys)); // no default hotkeys (community rule)
+});

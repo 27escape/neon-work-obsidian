@@ -1641,7 +1641,7 @@ const NEON_HELP = {
  },
  "planning": {
   "title": "Planning",
-  "md": "A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.\n\n[🖼 Picture: Planning: the Gantt chart with phases, milestones and the forecast ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.0/docs/screenshots/planning-gantt.png)\n\n- **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.\n- **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.\n- **Priority** (the Tasks plugin's 🔺 ⏫ 🔼 🔽 ⏬) shows on cards, Gantt rows and in the List, highest first on the board; it doesn't change the schedule.\n- **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against the baseline (saved automatically when the project starts, provisional — following the plan — until every open task has a duration, then locked; lock it early or re-baseline from the tab's ⋯ menu), a filter for risks, issues and decisions.\n[🖼 Picture: Planning: the board, by phase ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.0/docs/screenshots/planning-board.png)\n\n[🖼 Picture: Planning: the list, with priority and slip ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.0/docs/screenshots/planning-list.png)\n\n- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.\n- **Report** saves a printable note of the plan (summary, forecast, the Gantt chart, phases, what needs attention, risks, critical path, every task) in the reports folder; print it with *Export to PDF*. **Dates…** writes the plan's dates into the tasks you tick (🛫 start, 📅 due). **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.\n[🖼 Picture: A Planning report, ready to print ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.0/docs/screenshots/planning-report.png)\n\n- **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.\n\nPlanning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.",
+  "md": "A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.\n\n[🖼 Picture: Planning: the Gantt chart with phases, milestones and the forecast ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.0/docs/screenshots/planning-gantt.png)\n\n- **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.\n- **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.\n- **Priority** (the Tasks plugin's 🔺 ⏫ 🔼 🔽 ⏬) shows on cards, Gantt rows and in the List, highest first on the board; it doesn't change the schedule.\n- **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against the baseline (saved automatically when the project starts, provisional — following the plan — until every open task has a duration, then locked; lock it early or re-baseline from the tab's ⋯ menu), a filter for risks, issues and decisions.\n[🖼 Picture: Planning: the board, by phase ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.0/docs/screenshots/planning-board.png)\n\n[🖼 Picture: Planning: the list, with priority and slip ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.0/docs/screenshots/planning-list.png)\n\n- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*; also a command, so it can have a hotkey). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.\n- **Report** saves a printable note of the plan (summary, forecast, the Gantt chart, phases, what needs attention, risks, critical path, every task) in the reports folder; print it with *Export to PDF*. **Dates…** writes the plan's dates into the tasks you tick (🛫 start, 📅 due). **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.\n[🖼 Picture: A Planning report, ready to print ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.0/docs/screenshots/planning-report.png)\n\n- **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.\n\nPlanning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.",
   "url": "https://github.com/27escape/neon-work-obsidian/blob/1.4.0/README.md#planning"
  },
  "research": {
@@ -1676,7 +1676,7 @@ const NEON_HELP = {
  },
  "install": {
   "title": "Install",
-  "md": "1. Build it (`node tools/build.mjs`) or take the three files from a release: `main.js`, `manifest.json`, `styles.css`.\n2. Put them in `<your vault>/.obsidian/plugins/neon-work/` (create the folder if needed).\n3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable **Neon Work**.\n4. On first start it asks for a **base folder** (for example `2.Resources`). Read-only stays on until you switch it off in *Overview*; commit or back up your vault first, so you can see exactly what changes.\n\n**Updating:** copy the three files over the ones in `.obsidian/plugins/neon-work/` and switch the plugin off and on. Keep the folder: it also holds your settings.\n\n**Safe mode:** if the plugin fails while starting, the next start keeps every part off; switch them back on in *Overview*.\n\n**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. *Project: open Planning* is a good one to give a key (for example Ctrl/Cmd+Shift+G). Commands are listed as \"Neon Work – Tasks: …\", \"… – Projects: …\" and so on.",
+  "md": "1. Build it (`node tools/build.mjs`) or take the three files from a release: `main.js`, `manifest.json`, `styles.css`.\n2. Put them in `<your vault>/.obsidian/plugins/neon-work/` (create the folder if needed).\n3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable **Neon Work**.\n4. On first start it asks for a **base folder** (for example `2.Resources`). Read-only stays on until you switch it off in *Overview*; commit or back up your vault first, so you can see exactly what changes.\n\n**Updating:** copy the three files over the ones in `.obsidian/plugins/neon-work/` and switch the plugin off and on. Keep the folder: it also holds your settings.\n\n**Safe mode:** if the plugin fails while starting, the next start keeps every part off; switch them back on in *Overview*.\n\n**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. *Project: open Planning* is a good one to give a key (for example Ctrl/Cmd+Shift+G), and so are the task editor's *Planning: edit this task*, *Planning: new task here* and *Planning: new task after this* (in a project note, on the line under the cursor). Commands are listed as \"Neon Work – Tasks: …\", \"… – Projects: …\" and so on.",
   "url": "https://github.com/27escape/neon-work-obsidian/blob/1.4.0/README.md#install"
  }
 };
@@ -13340,12 +13340,9 @@ Object.assign(NeonProjects.prototype, {
     // fork: the task editor from a project note's right-click menu (the task under the cursor, or a new one)
     this.registerEvent(
       this.app.workspace.on('editor-menu', (menu, editor, info) => {
-        const file = info && info.file;
-        const scope = file && planScopeOf(this.app, file);
-        if (!scope) return;
-        const n = editor.getCursor().line;
-        const t = planTask(editor.getLine(n));
-        const isTask = !!t && (!!t.id || planHasTag(t.raw, NEON_PLAN.taskTag));
+        const at = this.planCursor(editor, info && info.file);
+        if (!at) return;
+        const { scope, file, n, isTask } = at;
         menu.addItem((i) =>
           i
             .setTitle(isTask ? 'Planning: edit this task' : 'Planning: new task here')
@@ -13355,6 +13352,29 @@ Object.assign(NeonProjects.prototype, {
         if (isTask) menu.addItem((i) => i.setTitle('Planning: new task after this').setIcon('list-plus').onClick(() => this.openTaskEditor({ scope, file, afterLine: n })));
       }),
     );
+    // fork: the same three as commands, so they can have hotkeys (none by default; set them in Settings › Hotkeys)
+    const editorCmd = (id, name, ok, run) =>
+      this.addCommand({
+        id,
+        name,
+        editorCheckCallback: (checking, editor, ctx) => {
+          const at = this.planCursor(editor, ctx && ctx.file);
+          if (!at || !ok(at)) return false;
+          if (!checking) run(at);
+          return true;
+        },
+      });
+    editorCmd('plan-edit-task', 'Planning: edit this task', (a) => a.isTask, (a) => this.openTaskEditor({ scope: a.scope, file: a.file, line: a.n, at: a.n }));
+    editorCmd('plan-new-task', 'Planning: new task here', () => true, (a) => this.openTaskEditor({ scope: a.scope, file: a.file, line: null, at: a.n }));
+    editorCmd('plan-new-task-after', 'Planning: new task after this', (a) => a.isTask, (a) => this.openTaskEditor({ scope: a.scope, file: a.file, afterLine: a.n }));
+  },
+  /** The cursor's line in a project note: { scope, file, n, isTask } (a plan task: an id or the task tag), or null. */
+  planCursor(editor, file) {
+    const scope = file && planScopeOf(this.app, file);
+    if (!scope || !editor) return null;
+    const n = editor.getCursor().line;
+    const t = planTask(editor.getLine(n));
+    return { scope, file, n, isTask: !!t && (!!t.id || planHasTag(t.raw, NEON_PLAN.taskTag)) };
   },
   /** Adds or removes the header buttons so they match each open note. */
   syncPlanButtons() {

@@ -69,7 +69,7 @@ A lightweight planner over the tasks already in a project note (or a project fol
 
 ![Planning: the list, with priority and slip](docs/screenshots/planning-list.png)
 
-- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.
+- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*; also a command, so it can have a hotkey). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.
 - **Report** saves a printable note of the plan (summary, forecast, the Gantt chart, phases, what needs attention, risks, critical path, every task) in the reports folder; print it with *Export to PDF*. **Dates…** writes the plan's dates into the tasks you tick (🛫 start, 📅 due). **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.
 ![A Planning report, ready to print](docs/screenshots/planning-report.png)
 
@@ -134,7 +134,7 @@ The repo includes a **sample vault** (`sample vault/`) with made-up customers, p
 
 **Safe mode:** if the plugin fails while starting, the next start keeps every part off; switch them back on in *Overview*.
 
-**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. *Project: open Planning* is a good one to give a key (for example Ctrl/Cmd+Shift+G). Commands are listed as "Neon Work – Tasks: …", "… – Projects: …" and so on.
+**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. *Project: open Planning* is a good one to give a key (for example Ctrl/Cmd+Shift+G), and so are the task editor's *Planning: edit this task*, *Planning: new task here* and *Planning: new task after this* (in a project note, on the line under the cursor). Commands are listed as "Neon Work – Tasks: …", "… – Projects: …" and so on.
 
 ## For developers
 
