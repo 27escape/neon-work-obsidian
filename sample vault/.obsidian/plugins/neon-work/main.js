@@ -1111,8 +1111,9 @@ const planDays = (t) => (t.status === 'cancelled' || t.milestone ? 0 : t.days ==
  * dups: [id] }. Tasks in a dependency loop are reported and scheduled as if the loop's last link were absent.
  * from: the plan's first working day (date mode): an open task's 🛫 start date is then "not before" that date, so
  * moving it moves everything that waits for it (fork, 17 Nov: dragging a bar on the Gantt writes 🛫).
+ * span: (task, es, days) → the working days it spans from es, longer when its owners are off (planLeaveSpan).
  */
-function planSchedule(tasks, { notBefore = 0, from = null } = {}) {
+function planSchedule(tasks, { notBefore = 0, from = null, span = null } = {}) {
   const { byId, dups } = planIndex(tasks);
   const n = tasks.length;
   const pos = new Map(tasks.map((t, i) => [t, i]));
@@ -1127,9 +1128,10 @@ function planSchedule(tasks, { notBefore = 0, from = null } = {}) {
   for (const t of tasks) for (const d of planLinkIds(t)) if (!byId.has(d)) missing.push({ task: t, id: d });
   const cycles = new Set();
   const es = new Array(n).fill(0);
+  const len = new Array(n).fill(0); // working days each task spans (its duration, plus its owners' days off)
   const seen = new Array(n).fill(0); // 0 new, 1 on the path, 2 done
   const finish = (i) => {
-    if (seen[i] === 2) return es[i] + planDays(tasks[i]);
+    if (seen[i] === 2) return es[i] + len[i];
     if (seen[i] === 1) {
       cycles.add(i);
       return 0;
@@ -1147,53 +1149,57 @@ function planSchedule(tasks, { notBefore = 0, from = null } = {}) {
     const t0 = tasks[i];
     if (from && t0.start && !planClosed(t0)) s = Math.max(s, planWorkdaysBetween(from, t0.start));
     es[i] = s;
+    len[i] = span ? Math.max(d, span(t0, s, d)) : d;
     seen[i] = 2;
-    return s + planDays(tasks[i]);
+    return s + len[i];
   };
   let length = 0;
   for (let i = 0; i < n; i++) length = Math.max(length, finish(i));
   const lf = new Array(n).fill(null);
   const late = (i, path = new Set()) => {
-    if (lf[i] != null) return lf[i] - planDays(tasks[i]);
+    if (lf[i] != null) return lf[i] - len[i];
     if (path.has(i)) return length;
     path.add(i);
     let f = length;
-    const d = planDays(tasks[i]);
+    const d = len[i];
     for (const x of succs[i]) {
       const ls = late(x.s, path); // the latest the next task can start
       if (x.type === 'fs') f = Math.min(f, ls);
       else if (x.type === 'ss') f = Math.min(f, ls - x.lag + d);
-      else f = Math.min(f, ls + planDays(tasks[x.s]) - x.lag); // ff: its latest finish, less the lag
+      else f = Math.min(f, ls + len[x.s] - x.lag); // ff: its latest finish, less the lag
     }
     path.delete(i);
     lf[i] = f;
-    return f - planDays(tasks[i]);
+    return f - len[i];
   };
   for (let i = 0; i < n; i++) late(i);
   const rows = tasks.map((task, i) => {
-    const ef = es[i] + planDays(task);
+    const ef = es[i] + len[i];
     const slack = Math.max(0, lf[i] - ef);
     return { task, es: es[i], ef, slack, crit: slack === 0 && n > 0 };
   });
   return { rows, length, cycles: [...cycles].map((i) => tasks[i]), missing, dups: [...dups] };
 }
 
-/** The date `n` working days after a date (a weekend date first moves to the Monday). */
-function planWorkdays(ymd, n = 0) {
-  const t = new Date(`${ymd}T00:00:00Z`);
-  const weekday = () => t.getUTCDay() !== 0 && t.getUTCDay() !== 6;
-  while (!weekday()) t.setUTCDate(t.getUTCDate() + 1);
-  for (let k = n; k > 0; ) {
-    t.setUTCDate(t.getUTCDate() + 1);
-    if (weekday()) k--;
+/**
+ * The date `n` working days after a date (a day off first moves to the next working day). Working days follow the
+ * calendar in the settings (plan-calendar.js: working week, public holidays, closure days); cal overrides it.
+ */
+function planWorkdays(ymd, n = 0, cal = planCal()) {
+  let d = ymd;
+  let guard = 0;
+  while (!cal.isWorkday(d) && guard++ < 400) d = planNextDay(d);
+  for (let k = n; k > 0 && guard++ < 100000; ) {
+    d = planNextDay(d);
+    if (cal.isWorkday(d)) k--;
   }
-  return t.toISOString().slice(0, 10);
+  return d;
 }
 
 /** Working days from one date to a later one (0 when b is not after a). */
-function planWorkdaysBetween(a, b) {
+function planWorkdaysBetween(a, b, cal = planCal()) {
   let n = 0;
-  for (let d = planWorkdays(a, 0); d < b && n < 5000; d = planWorkdays(d, 1)) n++;
+  for (let d = planWorkdays(a, 0, cal); d < b && n < 5000; d = planWorkdays(d, 1, cal)) n++;
   return n;
 }
 
@@ -1253,18 +1259,20 @@ function planOwnerShort(t) {
 }
 
 /**
- * Days of work per owner per week (pure): Map key → { name, weeks: Map week → days }, from the schedule (open tasks;
- * a task with two owners counts in full for both). Weeks count from the plan's day 0 in fives.
+ * Days of work per owner per week (pure): Map key → { name, owner, weeks: Map week → days }, from the schedule (open
+ * tasks; a task with two owners counts in full for both). Weeks count from the plan's day 0 in fives, or weekOf(day)
+ * names them (the Monday's date); works(owner, day) false: a day off, not counted.
  */
-function planLoad(rows) {
+function planLoad(rows, { weekOf = (d) => Math.floor(d / 5), works = null } = {}) {
   const out = new Map();
   for (const r of rows) {
     const t = r.task;
     if (t.external || planClosed(t) || !(t.owners || []).length) continue;
     for (const o of t.owners) {
-      const me = out.get(o.key) || out.set(o.key, { name: o.name, weeks: new Map(), rows: new Map() }).get(o.key);
+      const me = out.get(o.key) || out.set(o.key, { name: o.name, owner: o, weeks: new Map(), rows: new Map() }).get(o.key);
       for (let d = r.es; d < r.ef; d++) {
-        const w = Math.floor(d / 5);
+        if (works && !works(o, d)) continue;
+        const w = weekOf(d);
         me.weeks.set(w, (me.weeks.get(w) || 0) + 1);
         const list = me.rows.get(w) || me.rows.set(w, []).get(w);
         if (!list.includes(r)) list.push(r);
@@ -1274,18 +1282,290 @@ function planLoad(rows) {
   return out;
 }
 /**
- * [{ name, week, days, lowest }] where someone has more than `cap` days of work in a week. lowest: their task that
- * week that could move most easily: the lowest priority, then the most slack, then the latest start.
+ * [{ name, week, days, cap, lowest }] where someone has more than `cap` days of work in a week (cap: a number, or
+ * (owner, week) → their working days that week). lowest: their task that week that could move most easily: the
+ * lowest priority, then the most slack, then the latest start. opts: as planLoad.
  */
-function planOverloads(rows, cap = 5) {
+function planOverloads(rows, cap = 5, opts = {}) {
   const out = [];
-  for (const { name, weeks, rows: byWeek } of planLoad(rows).values())
+  for (const { name, owner, weeks, rows: byWeek } of planLoad(rows, opts).values())
     for (const [week, days] of weeks) {
-      if (days <= cap) continue;
+      const avail = typeof cap === 'function' ? cap(owner, week) : cap;
+      if (days <= avail) continue;
       const pick = [...byWeek.get(week)].sort((a, b) => (a.task.priority ?? 2) - (b.task.priority ?? 2) || b.slack - a.slack || b.es - a.es)[0];
-      out.push({ name, week, days, lowest: pick ? pick.task : null });
+      out.push({ name, week, days, cap: avail, lowest: pick ? pick.task : null });
     }
-  return out.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
+  return out.sort((a, b) => (a.week < b.week ? -1 : a.week > b.week ? 1 : 0) || a.name.localeCompare(b.name));
+}
+/* @src src/shared/plan-calendar.js */
+/* ---- Project plans (fork): working days, public holidays and people's time off (pure) -------------------------------
+ * Planning counts working days. Which days those are comes from the Projects settings (NEON_PLAN.calendar): the
+ * working week (Monday to Friday by default), a region's public holidays, worked out here without any network
+ * (England and Wales, Scotland, Northern Ireland: fixed dates, Easter, first and last Mondays, and a substitute
+ * weekday for one that falls on a weekend), and company closure days (dates and ranges; they also cover one-off bank
+ * holidays no rule can know). People's time off comes from a shared Team holidays note (a setting) and from a
+ * project note's own "Holidays" section, as a list:
+ *   - [[@Kevin Mulholland]]
+ *       - 2026-12-24 to 2027-01-02
+ *       - every Tuesday
+ * A person is matched to task owners by the same name (the people note, or the plain name), or by first name. A task
+ * then takes longer when its owners are off: a day counts only when all of them work (planLeaveSpan). planCollect
+ * gathers the time off with the tasks (tasks.leave). Weeks mode, which has no dates, keeps plain Monday to Friday. */
+
+const PLAN_REGIONS = [
+  ['', 'None'],
+  ['england-wales', 'England and Wales'],
+  ['scotland', 'Scotland'],
+  ['northern-ireland', 'Northern Ireland'],
+];
+const PLAN_DOW_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const planDow = (ymd) => new Date(`${ymd}T00:00:00Z`).getUTCDay();
+const planYmd = (y, m, d) => new Date(Date.UTC(y, m - 1, d)).toISOString().slice(0, 10);
+const planNextDay = (ymd, n = 1) => {
+  const t = new Date(`${ymd}T00:00:00Z`);
+  t.setUTCDate(t.getUTCDate() + n);
+  return t.toISOString().slice(0, 10);
+};
+
+/** Easter Sunday in the Gregorian calendar (the anonymous algorithm). */
+function planEaster(y) {
+  const a = y % 19;
+  const b = Math.floor(y / 100);
+  const c = y % 100;
+  const h = (19 * a + b - Math.floor(b / 4) - Math.floor((b - Math.floor((b + 8) / 25) + 1) / 3) + 15) % 30;
+  const l = (32 + 2 * (b % 4) + 2 * Math.floor(c / 4) - h - (c % 4)) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const n = h + l - 7 * m + 114;
+  return planYmd(y, Math.floor(n / 31), (n % 31) + 1);
+}
+/** The nth Monday of a month; n = -1: the last one. */
+function planMonday(y, m, n) {
+  if (n > 0) {
+    const first = planYmd(y, m, 1);
+    return planNextDay(first, ((8 - planDow(first)) % 7) + 7 * (n - 1));
+  }
+  const last = planYmd(y, m + 1, 0);
+  return planNextDay(last, -((planDow(last) + 6) % 7));
+}
+
+/** A region's public holidays in a year: Map date → name (pure). Weekend ones move to the next free weekday. */
+function planPublicHolidays(region, y) {
+  const out = new Map();
+  if (!PLAN_REGIONS.some(([k]) => k && k === region)) return out;
+  const scot = region === 'scotland';
+  const ni = region === 'northern-ireland';
+  const easter = planEaster(y);
+  out.set(planNextDay(easter, -2), 'Good Friday');
+  if (!scot) out.set(planNextDay(easter, 1), 'Easter Monday');
+  out.set(planMonday(y, 5, 1), 'Early May bank holiday');
+  out.set(planMonday(y, 5, -1), 'Spring bank holiday');
+  out.set(scot ? planMonday(y, 8, 1) : planMonday(y, 8, -1), 'Summer bank holiday');
+  const fixed = [[planYmd(y, 1, 1), 'New Year’s Day']];
+  if (scot) fixed.push([planYmd(y, 1, 2), '2nd January']);
+  if (ni) fixed.push([planYmd(y, 3, 17), 'St Patrick’s Day'], [planYmd(y, 7, 12), 'Battle of the Boyne']);
+  if (scot) fixed.push([planYmd(y, 11, 30), 'St Andrew’s Day']);
+  fixed.push([planYmd(y, 12, 25), 'Christmas Day'], [planYmd(y, 12, 26), 'Boxing Day']);
+  const weekend = (d) => planDow(d) % 6 === 0;
+  for (const [d, name] of fixed) if (!weekend(d)) out.set(d, name);
+  for (const [d, name] of fixed) {
+    if (!weekend(d)) continue;
+    let s = d;
+    while (weekend(s) || out.has(s)) s = planNextDay(s);
+    out.set(s, `${name} (substitute day)`);
+  }
+  return out;
+}
+
+/** 0–6 (Sunday–Saturday) for a day name: "tue", "Tues", "Tuesday", "Tuesdays"; -1 if it isn't one. */
+function planDayIndex(word) {
+  const w = String(word || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (w.length < 3) return -1;
+  return PLAN_DOW_FULL.findIndex((f) => f.toLowerCase().startsWith(w) || w.startsWith(f.toLowerCase()));
+}
+/** The working week from "Mon, Tue, Wed, Thu, Fri" or "Mon-Fri": a Set of 0–6; empty or unreadable: Monday to Friday. */
+function planWeekdays(text) {
+  const out = new Set();
+  for (const part of String(text || '').split(/[,;/]+|\band\b/i)) {
+    const r = part.match(/([a-z]+)\s*(?:-|–|to)\s*([a-z]+)/i);
+    if (r && planDayIndex(r[1]) >= 0 && planDayIndex(r[2]) >= 0) {
+      for (let d = planDayIndex(r[1]), n = 0; n < 7; d = (d + 1) % 7, n++) {
+        out.add(d);
+        if (d === planDayIndex(r[2])) break;
+      }
+    } else for (const w of part.split(/\s+/)) if (planDayIndex(w) >= 0) out.add(planDayIndex(w));
+  }
+  return out.size ? out : new Set([1, 2, 3, 4, 5]);
+}
+/**
+ * Days in a piece of text (pure): { dates: Set, weekdays: Set }. Dates are YYYY-MM-DD; a range is two dates joined by
+ * "to", "until", a dash or ".." (both ends included); "every Tuesday" (or "every Mon and Fri") adds weekdays.
+ */
+function planParseDays(text) {
+  const dates = new Set();
+  const weekdays = new Set();
+  const s = String(text || '').replace(/(\d{4}-\d{2}-\d{2})\s*(?:to|until|till|–|—|-|\.\.|>)\s*(\d{4}-\d{2}-\d{2})/giu, (all, a, b) => {
+    for (let d = a, n = 0; d <= b && n < 400; d = planNextDay(d), n++) dates.add(d);
+    return ' ';
+  });
+  for (const m of s.matchAll(/\d{4}-\d{2}-\d{2}/g)) dates.add(m[0]);
+  for (const m of s.matchAll(/\b(?:every|nwd)\b([^\n]*)/gi)) for (const w of m[1].split(/[\s,;/&]+/)) if (planDayIndex(w) >= 0) weekdays.add(planDayIndex(w));
+  return { dates, weekdays };
+}
+
+/**
+ * The working calendar (pure): { work: Set of weekdays, off(ymd) → why it isn't a working day ('' when it is: a day
+ * name, a holiday's name or "a closure day"), isWorkday(ymd) }. region: a PLAN_REGIONS key; weekdays and closures:
+ * the settings' text.
+ */
+function planCalendar({ region = '', weekdays = '', closures = '' } = {}) {
+  const work = planWeekdays(weekdays);
+  const closed = planParseDays(closures).dates;
+  const years = new Map();
+  const off = (ymd) => {
+    const dow = planDow(ymd);
+    if (!work.has(dow)) return PLAN_DOW_FULL[dow];
+    const y = +ymd.slice(0, 4);
+    if (!years.has(y)) years.set(y, planPublicHolidays(region, y));
+    return years.get(y).get(ymd) || (closed.has(ymd) ? 'a closure day' : '');
+  };
+  return { region, work, off, isWorkday: (ymd) => !off(ymd) };
+}
+const PLAN_PLAIN_CAL = planCalendar();
+/** The calendar from the settings, else plain Monday to Friday. */
+const planCal = () => (typeof NEON_PLAN !== 'undefined' && NEON_PLAN.calendar) || PLAN_PLAIN_CAL;
+
+/** Public holidays and closure days from one date to another (inclusive) that fall in the working week: [{ date, name }]. */
+function planDaysOff(from, to, cal = planCal()) {
+  const out = [];
+  for (let d = from, n = 0; d <= to && n < 2000; d = planNextDay(d), n++) if (cal.work.has(planDow(d)) && cal.off(d)) out.push({ date: d, name: cal.off(d) });
+  return out;
+}
+
+/* ---- people's time off ---- */
+
+/** A person at the start of a list line: { key, name, rest } (rest: dates on the same line), or null. */
+function planLeavePerson(body) {
+  const link = body.match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]\s*:?\s*(.*)$/);
+  if (link) {
+    const base = link[1].split('#')[0].split('/').pop().trim();
+    return { key: base.replace(/^@/, '').toLowerCase(), name: (link[2] || base).replace(/^@/, '').trim(), rest: link[3] };
+  }
+  const cut = body.search(/\d{4}-\d{2}-\d{2}|\bevery\b|\bnwd\b/i);
+  const name = (cut >= 0 ? body.slice(0, cut) : body).replace(/[:\s]+$/, '').replace(/^@/, '').trim();
+  if (!name || cut === 0) return null;
+  return { key: name.toLowerCase(), name, rest: cut >= 0 ? body.slice(cut) : '' };
+}
+/** People's time off from a list (pure): Map key → { name, dates: Set, weekdays: Set }. See the header. */
+function planLeaveParse(text) {
+  const out = new Map();
+  let who = null;
+  let fence = false;
+  const add = (e, s) => {
+    const d = planParseDays(s);
+    for (const x of d.dates) e.dates.add(x);
+    for (const x of d.weekdays) e.weekdays.add(x);
+  };
+  for (const line of String(text || '').split('\n')) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fence = !fence;
+      continue;
+    }
+    if (fence) continue;
+    const m = line.match(/^(\s*)[-*+]\s+(?:\[.\]\s+)?(.*)$/);
+    if (!m) {
+      if (/^#/.test(line)) who = null; // a heading ends a person's list
+      continue;
+    }
+    if (!m[1].length) {
+      const p = planLeavePerson(m[2].trim());
+      who = null;
+      if (!p) continue;
+      if (!out.has(p.key)) out.set(p.key, { name: p.name, dates: new Set(), weekdays: new Set() });
+      who = out.get(p.key);
+      if (p.rest) add(who, p.rest);
+    } else if (who) add(who, m[2]);
+  }
+  return out;
+}
+/** The text of a note's "Holidays" (or "Time off", "Leave") section, to the next heading at its level or above; '' if none. */
+function planHolidaySection(text) {
+  const lines = String(text || '').split('\n');
+  let fence = false;
+  let level = 0;
+  const out = [];
+  for (const l of lines) {
+    if (/^\s*(```|~~~)/.test(l)) fence = !fence;
+    const h = !fence && l.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/);
+    if (level) {
+      if (h && h[1].length <= level) break;
+      out.push(l);
+    } else if (h && /^(holidays|time off|leave|annual leave)$/i.test(h[2])) level = h[1].length;
+  }
+  return out.join('\n');
+}
+/** Several time-off maps as one (pure). */
+function planLeaveMerge(...maps) {
+  const out = new Map();
+  for (const m of maps)
+    for (const [k, e] of m || []) {
+      if (!out.has(k)) out.set(k, { name: e.name, dates: new Set(), weekdays: new Set() });
+      const o = out.get(k);
+      for (const x of e.dates) o.dates.add(x);
+      for (const x of e.weekdays) o.weekdays.add(x);
+    }
+  return out;
+}
+/** An owner's time off: the same name, else the same first name ("@kevin" for [[@Kevin Mulholland]]); or null. */
+function planLeaveFor(leave, owner) {
+  if (!leave || !leave.size || !owner) return null;
+  if (leave.has(owner.key)) return leave.get(owner.key);
+  const first = owner.key.split(/\s+/)[0];
+  for (const [k, e] of leave) if ((!k.includes(' ') && k === first) || (!owner.key.includes(' ') && k.split(/\s+/)[0] === owner.key)) return e;
+  return null;
+}
+const planLeaveOff = (e, ymd) => !!e && (e.dates.has(ymd) || e.weekdays.has(planDow(ymd)));
+
+/**
+ * For planSchedule's span: (task, es, days) → working days the task spans once its owners' time off is left out (a
+ * day counts when all of them work). null when nobody has time off. from: the plan's first working day.
+ */
+function planLeaveSpan(leave, from, cal = planCal()) {
+  if (!leave || !leave.size || !from) return null;
+  return (t, es, days) => {
+    if (!days || planClosed(t)) return days;
+    const who = (t.owners || []).map((o) => planLeaveFor(leave, o)).filter(Boolean);
+    if (!who.length) return days;
+    let d = planWorkdays(from, es, cal);
+    let worked = 0;
+    let span = 0;
+    while (worked < days && span < 2000) {
+      if (!who.some((e) => planLeaveOff(e, d))) worked++;
+      span++;
+      d = planWorkdays(d, 1, cal);
+    }
+    return span;
+  };
+}
+/** "24 Dec to 1 Jan; every Tuesday": a person's time off on working days from one date to another (pure). */
+function planLeaveText(e, from, to, cal = planCal()) {
+  if (!e) return '';
+  const parts = [];
+  let start = null;
+  let prev = null;
+  const flush = () => start && parts.push(start === prev ? planShortDate(start) : `${planShortDate(start)} to ${planShortDate(prev)}`);
+  for (let d = planWorkdays(from, 0, cal), n = 0; d <= to && n < 2000; d = planWorkdays(d, 1, cal), n++) {
+    if (!e.dates.has(d)) continue;
+    if (start && planWorkdays(prev, 1, cal) === d) prev = d;
+    else {
+      flush();
+      start = prev = d;
+    }
+  }
+  flush();
+  const every = [...e.weekdays].filter((w) => cal.work.has(w)).sort();
+  if (every.length) parts.push(`every ${every.map((w) => PLAN_DOW_FULL[w]).join(' and ')}`);
+  return parts.join('; ');
 }
 /* @src src/shared/plan-scope.js */
 /* ---- Project plans (fork): which tasks belong to a project ---------------------------------------------------
@@ -1293,8 +1573,9 @@ function planOverloads(rows, cap = 5) {
  * section's "Project folders"), plus outside tasks linked to them by a dependency in either direction: those are
  * marked `external` and their own chains are not followed. A task is a checkbox line with a task tag or a 🆔 id. */
 
-// filled by the modules that own the settings: Tasks (task tags) and Projects (project folders)
-const NEON_PLAN = { taskTag: '#task', folders: '' };
+// filled by the modules that own the settings: Tasks (task tags) and Projects (project folders, the working calendar
+// and the Team holidays note: plan-calendar.js)
+const NEON_PLAN = { taskTag: '#task', folders: '', calendar: null, leaveNote: '', leavePath: '' };
 
 /** The project folder a path sits in (<project folders>/<folder>), or null. */
 function planFolderOf(path) {
@@ -1336,6 +1617,17 @@ async function planReadFile(app, f) {
   }
   return planAddSteps(lines, out); // fork: each task's steps (the checkboxes under it), and tasks inside tasks
 }
+/** People's time off from the Team holidays note (a Projects setting; its Holidays section if it has one, else all of it). */
+async function planTeamLeave(app) {
+  const name = String(NEON_PLAN.leaveNote || '').trim();
+  NEON_PLAN.leavePath = '';
+  if (!name) return new Map();
+  const f = app.metadataCache.getFirstLinkpathDest(name.replace(/\.md$/i, ''), '') || app.vault.getAbstractFileByPath(normalizePath(name));
+  if (!(f instanceof TFile)) return new Map();
+  NEON_PLAN.leavePath = f.path;
+  const text = await app.vault.cachedRead(f);
+  return planLeaveParse(planHolidaySection(text) || text);
+}
 /**
  * All tasks of a plan. With neighbours (the default), outside tasks that a plan task depends on, or that depend on
  * one, are added after them, marked external. Excluded folders (archive, templates) are skipped.
@@ -1343,7 +1635,12 @@ async function planReadFile(app, f) {
 async function planCollect(app, scope, { neighbours = true } = {}) {
   const files = planScopeFiles(app, scope);
   const tasks = [];
-  for (const f of files) tasks.push(...(await planReadFile(app, f)));
+  const own = []; // the notes' own "Holidays" sections
+  for (const f of files) {
+    tasks.push(...(await planReadFile(app, f)));
+    own.push(planLeaveParse(planHolidaySection(await app.vault.cachedRead(f))));
+  }
+  tasks.leave = planLeaveMerge(await planTeamLeave(app), ...own); // people's time off (plan-calendar.js)
   if (!neighbours) return tasks;
   const ids = new Set(tasks.filter((t) => t.id).map((t) => t.id));
   const wanted = new Set(tasks.flatMap(planLinkIds).filter((d) => !ids.has(d)));
@@ -1481,7 +1778,8 @@ function planGanttLayout(rows, { today = null, relative = false, width = 900, la
   for (let i = 0; i < n; i++) {
     const date = ymdAdd(from, i);
     const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
-    days.push({ x: i * dayW, date, weekend: dayW >= 6 && (wd === 0 || wd === 6) }); // too narrow: no shading
+    // days off shaded: weekends, and with real dates the settings' holidays and closure days; too narrow: no shading
+    days.push({ x: i * dayW, date, weekend: dayW >= 6 && (relative ? wd === 0 || wd === 6 : !planCal().isWorkday(date)) });
     // a line each Monday, or on the 1st of each month when weeks would crowd
     const weekly = dayW * 7 >= 46;
     if (weekly ? wd === 1 : date.endsWith('-01')) {
@@ -1882,7 +2180,7 @@ function planAddSteps(lines, tasks) {
 /** Every step ticked, the task itself still open. */
 const planStepsDone = (t) => !!t.steps && t.steps.total > 0 && t.steps.done === t.steps.total && !planClosed(t);
 /* @src README.md (tools/help.mjs) */
-const NEON_HELP = {"overview":{"title":"Overview","md":"A command centre for an Obsidian vault: a dashboard, projects, tasks, time tracking, research notes and a few writing touches, in a neon look with live background patterns, now with project planning: Gantt charts, a kanban board and reports.\nBy Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.\n\n\nNeon Work sits on top of a vault you already have:\n\n- **Read-only by default.** It reads your notes and changes nothing until you switch read-only off, and even then only when you act (tick a task, set a status, create a note).\n- **It never moves your files**, and creates nothing until a feature needs it.\n- **It reads your own conventions**: notes tagged `project`, `#task` lines, a `status` property, customer folders (`1.Customers/<customer>/…`), your templates and your daily (or weekly) note settings.\n\nEverything runs **100% locally**: no network calls, no telemetry, no remote fonts or code, no `eval`. [FORK.md](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/FORK.md) lists everything that differs from the original plugin; [docs/architecture.md](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/architecture.md) describes how it is built.\n\n[🖼 Picture: The Neon Work dashboard ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/dashboard.png)\n\nThe plugin has six parts (Planning is part of Projects). Each can be switched off in the settings, and the others keep working. A list at the top of the left sidebar (Dashboard, Cards, Inbox, Tasks, Projects, Time, Research, Graph) switches what the main pane shows; notes open in the same pane, and Back / Forward move between them. The **?** button at the top of each tab opens this guide inside Obsidian, at the part you are in, with links to the pictures here.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md"},"dashboard":{"title":"Dashboard","md":"- **Cards** on one page: Totals, Vault pulse, Recently done, Activity (a month calendar, and this week with two weeks either side), Tasks, Todo, Projects, Time today and the **Claude card** (notes whose `claude` property asks for Claude's work, and notes Claude changed for you to review).\n- **Recently done:** the last 14 days of finished work, read from your notes: tasks ticked with a ✅ date (in the editor, the Tasks plugin or these cards) and projects with a `completed` or `cancelled` date. Works in read-only mode.\n- **Ticker and pin board:** a live line of facts at the top that opens into a pin board. Drop a note, a file or some text on it to pin it; pins live in one note, one line each.\n- **Quick capture:** type a thought and send it to an **Inbox note** (a new note in your inbox folder, from your inbox template), the **Todo** note, a new **Project**, a **Time entry** or the pin board.\n- **Card explorer** (sidebar or tab): your folders and notes as cards, coloured by customer, with filter chips per customer.\n- **Note graph** (desktop): your notes as clusters of linked topics. Its **Gaps** list shows topics that ought to connect but barely do (\"What connects [[A]] with [[B]]?\"); **Bridge note** makes a note in the *Bridges* folder with that question and links to both sides, to help you think it through. Its **Structure** scale rates how your notes cluster, from *Biased* (one topic dominates) through *Focused* and *Diversified* to *Dispersed* (many loosely linked islands), from how cleanly they split into topics (modularity) and the share of the largest topic; hover over a level for its meaning.\n- **Weekly review** (*Create / open this week's review*): a note from your review template with the week in numbers and the notes you created or edited.\n- **Themes and patterns:** nine themes, each in light and dark, with a live pattern behind the dashboard; chosen in *Settings → Dashboard*.\n\n[🖼 Picture: Quick capture and the pin board ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/quick-capture.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#dashboard"},"tasks":{"title":"Tasks","md":"- **Tasks tab and card:** every open `#task` line across the vault (`[ ]` and `[/]`), grouped Overdue · Today · Later by 📅 due or ⏳ scheduled date. Tasks in project notes belong to their project's plan and stay off this list (setting *Tasks in projects*). Tick, edit or open each one in place; the date and note sit on a small line under the task text. Notes tagged `tasks` and recent daily or weekly notes count every checkbox.\n- **Todo card:** the open tasks of your Todo note in file order. New tasks go at the head of that note as `- [ ] #task … ➕ date`; ticking writes `[x] … ✅ date`, as the Tasks plugin does.\n- **Timeline:** a card on the Tasks tab draws dated tasks as a Gantt chart, one section per note: a bar from 🛫 start to 📅 due, otherwise a diamond on the due date; overdue red, due within a week orange, in progress cyan, the rest blue. A click opens the task. Zoom (3 months, 12 months, all). Can be switched off in settings.\n- **New note:** pick a customer and a kind (note, meeting, person, project, research); the note goes in `<customer>/<Meetings | People | Research>/` from that kind's template. People notes are named `@Name` with an `aliases` property.\n\n[🖼 Picture: The Tasks tab with its timeline ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/tasks-tab.png)\n\n[🖼 Picture: New note by customer and kind ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/new-note.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#tasks"},"projects":{"title":"Projects","md":"- **Projects tab and card:** notes with `project` in their tags, grouped by customer (or status, due date and more). The customer is the `customer` property, else the customer folder the note is in.\n- **Your status values** in four groups: not started (`init`), active (`inprogress`, `ongoing`), on hold (`paused`, `blocked`) and closed (`completed`, `cancelled`). Changing a status only updates properties: `status`, plus today's date in `completed` (or `cancelled`).\n- Each row shows the status, customer, `stage`, start date, `note`, a due-date bar and, for projects with a plan, how its tasks stand and the forecast finish. Postpone, set the due date or a reminder, or edit the note property from the row's menu.\n- **Timeline: all projects in one view** above the list on the Projects tab (the *Timeline* button or a setting hides it), one section per customer: a bar from `started` to the plan's forecast finish (else `due`, or `completed` once closed), a diamond on the due date, coloured late, needs attention, in progress, not started, on hold or closed, and a line for today. A click opens the project's Planning view. Zoom (3 months, 12 months, all).\n- **New project:** a name and a customer; the note goes in `<customer>/Projects/` from your project template.\n- **Reminders** appear inside Obsidian, once a day per project, when a project is overdue, due soon or past its remind date.\n\n[🖼 Picture: The Projects tab with its timeline ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/projects-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#projects"},"planning":{"title":"Planning","md":"A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.\n\n[🖼 Picture: Planning: the Gantt chart with phases, milestones and the forecast ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-gantt.png)\n\n- **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, tasks it runs alongside `[starts-with:: sdr-2]` (starts no earlier than that one starts) and `[ends-with:: sdr-3+2d]` (finishes no earlier than that one finishes, here two working days after), an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.\n- **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.\n- **Editing on the Gantt** (desktop and tablet): arrows show what waits for what (faint, strong on the critical path or when the task waited for is late; hover a task to pick out its own). Drag a bar's right end to change its length, drag the bar to start it later (writes 🛫, \"not before\": what waits for it moves too; it can't go before what it waits for), and **Alt**-drag from one bar onto another to link them by the ends you use: right end to its left end, it waits; left end to left end, it starts with it; right end to right end, it ends with it (dashed arrows). Click an arrow to remove that link. **Undo** puts the last change back.\n- **Priority** (the Tasks plugin's 🔺 ⏫ 🔼 🔽 ⏬) shows on cards, Gantt rows and in the List, highest first on the board; it doesn't change the schedule.\n- **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against the baseline (saved automatically when the project starts, provisional — following the plan — until every open task has a duration, then locked; lock it early or re-baseline from the tab's ⋯ menu), a filter for risks, issues and decisions.\n[🖼 Picture: Planning: the board, by phase ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-board.png)\n\n[🖼 Picture: Planning: the list, with priority and slip ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-list.png)\n\n- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*; also a command, so it can have a hotkey). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task. **Cancel task** marks it ❌ (it stays in the note); **Delete task…** removes it and its steps, takes its id out of the tasks that depend on it, and asks first, listing all of that.\n- **Report** saves a printable note of the plan (a summary first: forecast, the Gantt chart, phases, people, what needs attention, risks, workload; then the project note itself up to its last task, without the plan's ids and links, so research kept below the plan is left out) in the reports folder; print it with *Export to PDF*. **Write dates…** records today's planned dates in the tasks you tick (🛫 start, 📅 due): a snapshot that then holds the plan. To have the current plan show in the Tasks plugin and calendars instead, turn on **Keep ⏳ scheduled dates in step with the plan** in the tab's ⋯ menu (per project, stored as `plan-scheduled: true` in the project note): Planning then updates each open task's ⏳ whenever the plan moves it, and never touches 🛫 or 📅. **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.\n[🖼 Picture: A Planning report, ready to print ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-report.png)\n\n- **Steps:** the checkboxes directly under a task (`- [ ]` / `- [x]`, or `- ( )` / `- (x)`) are its steps, shown as 2/4 on its bar (with a progress line), in the List and on its card; cancelled ones (`[-]`, `(-)`) and notes such as `[?]` don't count. When every step is done but the task isn't, Planning offers to tick it (it never does so by itself). A task tagged `#task` (or with a 🆔) inside another task is flagged: make it a plain checkbox or its own task.\n- **Plan problems:** a ⛔ id no task has (say, after folding tasks into a holding task), an id used twice or a dependency loop is listed at the top of the Planning view, naming the task (click to open the note at that line), in the report's *Needs attention*, as a pill on the project's card and row, and underlined in the note itself while you edit it (hover for the reason; nothing is written).\n- **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.\n\nPlanning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#planning"},"research":{"title":"Research","md":"- **Research tab:** each section is a folder shown as a topic tree. A pattern such as `1.Customers/*/Research` gathers every customer's research folder into one section, labelled by customer.\n- **By status:** the section's notes grouped by their `status` property, with \"N to research · N researched\" in the header.\n- **Link suggestions:** the status bar offers to link words that match the titles of other research notes.\n- New research notes start from your research template.\n\n[🖼 Picture: The Research tab ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/research-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#research"},"time":{"title":"Time","md":"- **Automatic time** per customer while you work in a note, plus manual entries, breaks, a workday timer and overtime.\n- **Time tab** and a **Time today** card; *Wrap up the day* at the end.\n- An optional **daily time log note** with totals per customer and a table of entries, for you or an AI agent to read. Nothing is sent anywhere.\n\n[🖼 Picture: The Time tab ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/time-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#time"},"write":{"title":"Write","md":"- **Table picker** (`Insert table…`), merged table cells, styled tables, lime dividers, sub-titles and page breaks for PDF export.\n- **Locked callouts and maths blocks:** lock one so it can't be edited by accident.\n- **Lifted writing window:** the note sits on a raised card over the dashboard pattern (full width when Obsidian's *Readable line length* is off).","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#write"},"layouts":{"title":"Other vault layouts","md":"Neon Work started with a vault organised by customer, but the customer is just a group: rename it (Area, Client, Team…), choose the property it's read from and the folder whose subfolders are the groups, in *Settings → Neon Work → Projects*. For a PARA vault, for example: group name `Area`, group properties `area, parent` (names or links such as `[[Photography]]`), groups folder `2.Areas`, project tag `projects`, project folders `1.Projects` (each folder there is a project too), New note types for area notes and resources, and the **Areas card** on the dashboard (projects, tasks and recent notes per area, quietest first). Several task tags (`#task, #todo`) and ignored tags (e.g. `vault_index` folder index notes) help with vaults that have many checklists or generated notes.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#other-vault-layouts"},"mobile":{"title":"On phones and tablets","md":"Dashboard, Tasks, Projects and Research also run on mobile: one column on a phone held upright, two on a phone turned sideways or a tablet, and long press for the menus that right-click opens on the desktop. Time tracking, Write, the card explorer and the note graph are desktop-only. To preview the mobile layouts on the desktop, run `app.emulateMobile(true)` in the developer console.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#on-phones-and-tablets"},"settings":{"title":"Settings","md":"Everything is on one page, *Settings → Neon Work*, with a section per part:\n\n- **Overview:** read-only, the base folder, the switches for each part, and safe mode.\n- **Dashboard, Tasks, Projects, Research, Time, Write:** that part's options. Folder and file fields suggest matching vault paths as you type.\n\nThe **base folder** (asked on first start) is where the plugin keeps what it makes for itself when a location is left empty: Projects without a customer, Reviews, Time Log, `Todo.md`, the pin board and graph bridges.\n\n[🖼 Picture: Settings, one page with a section per part ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/settings.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#settings"},"install":{"title":"Install","md":"1. Build it (`node tools/build.mjs`) or take the three files from a release: `main.js`, `manifest.json`, `styles.css`.\n2. Put them in `<your vault>/.obsidian/plugins/neon-work/` (create the folder if needed).\n3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable **Neon Work**.\n4. On first start it asks for a **base folder** (for example `2.Resources`). Read-only stays on until you switch it off in *Overview*; commit or back up your vault first, so you can see exactly what changes.\n\n**Updating:** copy the three files over the ones in `.obsidian/plugins/neon-work/` and switch the plugin off and on. Keep the folder: it also holds your settings.\n\n**Safe mode:** if the plugin fails while starting, the next start keeps every part off; switch them back on in *Overview*.\n\n**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. *Project: open Planning* is a good one to give a key (for example Ctrl/Cmd+Shift+G), and so are the task editor's *Planning: edit this task*, *Planning: new task here* and *Planning: new task after this* (in a project note, on the line under the cursor). Commands are listed as \"Neon Work – Tasks: …\", \"… – Projects: …\" and so on.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#install"}};
+const NEON_HELP = {"overview":{"title":"Overview","md":"A command centre for an Obsidian vault: a dashboard, projects, tasks, time tracking, research notes and a few writing touches, in a neon look with live background patterns, now with project planning: Gantt charts, a kanban board and reports.\nBy Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.\n\n\nNeon Work sits on top of a vault you already have:\n\n- **Read-only by default.** It reads your notes and changes nothing until you switch read-only off, and even then only when you act (tick a task, set a status, create a note).\n- **It never moves your files**, and creates nothing until a feature needs it.\n- **It reads your own conventions**: notes tagged `project`, `#task` lines, a `status` property, customer folders (`1.Customers/<customer>/…`), your templates and your daily (or weekly) note settings.\n\nEverything runs **100% locally**: no network calls, no telemetry, no remote fonts or code, no `eval`. [FORK.md](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/FORK.md) lists everything that differs from the original plugin; [docs/architecture.md](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/architecture.md) describes how it is built.\n\n[🖼 Picture: The Neon Work dashboard ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/dashboard.png)\n\nThe plugin has six parts (Planning is part of Projects). Each can be switched off in the settings, and the others keep working. A list at the top of the left sidebar (Dashboard, Cards, Inbox, Tasks, Projects, Time, Research, Graph) switches what the main pane shows; notes open in the same pane, and Back / Forward move between them. The **?** button at the top of each tab opens this guide inside Obsidian, at the part you are in, with links to the pictures here.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md"},"dashboard":{"title":"Dashboard","md":"- **Cards** on one page: Totals, Vault pulse, Recently done, Activity (a month calendar, and this week with two weeks either side), Tasks, Todo, Projects, Time today and the **Claude card** (notes whose `claude` property asks for Claude's work, and notes Claude changed for you to review).\n- **Recently done:** the last 14 days of finished work, read from your notes: tasks ticked with a ✅ date (in the editor, the Tasks plugin or these cards) and projects with a `completed` or `cancelled` date. Works in read-only mode.\n- **Ticker and pin board:** a live line of facts at the top that opens into a pin board. Drop a note, a file or some text on it to pin it; pins live in one note, one line each.\n- **Quick capture:** type a thought and send it to an **Inbox note** (a new note in your inbox folder, from your inbox template), the **Todo** note, a new **Project**, a **Time entry** or the pin board.\n- **Card explorer** (sidebar or tab): your folders and notes as cards, coloured by customer, with filter chips per customer.\n- **Note graph** (desktop): your notes as clusters of linked topics. Its **Gaps** list shows topics that ought to connect but barely do (\"What connects [[A]] with [[B]]?\"); **Bridge note** makes a note in the *Bridges* folder with that question and links to both sides, to help you think it through. Its **Structure** scale rates how your notes cluster, from *Biased* (one topic dominates) through *Focused* and *Diversified* to *Dispersed* (many loosely linked islands), from how cleanly they split into topics (modularity) and the share of the largest topic; hover over a level for its meaning.\n- **Weekly review** (*Create / open this week's review*): a note from your review template with the week in numbers and the notes you created or edited.\n- **Themes and patterns:** nine themes, each in light and dark, with a live pattern behind the dashboard; chosen in *Settings → Dashboard*.\n\n[🖼 Picture: Quick capture and the pin board ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/quick-capture.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#dashboard"},"tasks":{"title":"Tasks","md":"- **Tasks tab and card:** every open `#task` line across the vault (`[ ]` and `[/]`), grouped Overdue · Today · Later by 📅 due or ⏳ scheduled date. Tasks in project notes belong to their project's plan and stay off this list (setting *Tasks in projects*). Tick, edit or open each one in place; the date and note sit on a small line under the task text. Notes tagged `tasks` and recent daily or weekly notes count every checkbox.\n- **Todo card:** the open tasks of your Todo note in file order. New tasks go at the head of that note as `- [ ] #task … ➕ date`; ticking writes `[x] … ✅ date`, as the Tasks plugin does.\n- **Timeline:** a card on the Tasks tab draws dated tasks as a Gantt chart, one section per note: a bar from 🛫 start to 📅 due, otherwise a diamond on the due date; overdue red, due within a week orange, in progress cyan, the rest blue. A click opens the task. Zoom (3 months, 12 months, all). Can be switched off in settings.\n- **New note:** pick a customer and a kind (note, meeting, person, project, research); the note goes in `<customer>/<Meetings | People | Research>/` from that kind's template. People notes are named `@Name` with an `aliases` property.\n\n[🖼 Picture: The Tasks tab with its timeline ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/tasks-tab.png)\n\n[🖼 Picture: New note by customer and kind ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/new-note.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#tasks"},"projects":{"title":"Projects","md":"- **Projects tab and card:** notes with `project` in their tags, grouped by customer (or status, due date and more). The customer is the `customer` property, else the customer folder the note is in.\n- **Your status values** in four groups: not started (`init`), active (`inprogress`, `ongoing`), on hold (`paused`, `blocked`) and closed (`completed`, `cancelled`). Changing a status only updates properties: `status`, plus today's date in `completed` (or `cancelled`).\n- Each row shows the status, customer, `stage`, start date, `note`, a due-date bar and, for projects with a plan, how its tasks stand and the forecast finish. Postpone, set the due date or a reminder, or edit the note property from the row's menu.\n- **Timeline: all projects in one view** above the list on the Projects tab (the *Timeline* button or a setting hides it), one section per customer: a bar from `started` to the plan's forecast finish (else `due`, or `completed` once closed), a diamond on the due date, coloured late, needs attention, in progress, not started, on hold or closed, and a line for today. A click opens the project's Planning view. Zoom (3 months, 12 months, all).\n- **New project:** a name and a customer; the note goes in `<customer>/Projects/` from your project template.\n- **Reminders** appear inside Obsidian, once a day per project, when a project is overdue, due soon or past its remind date.\n\n[🖼 Picture: The Projects tab with its timeline ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/projects-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#projects"},"planning":{"title":"Planning","md":"A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.\n\n[🖼 Picture: Planning: the Gantt chart with phases, milestones and the forecast ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-gantt.png)\n\n- **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, tasks it runs alongside `[starts-with:: sdr-2]` (starts no earlier than that one starts) and `[ends-with:: sdr-3+2d]` (finishes no earlier than that one finishes, here two working days after), an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.\n- **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.\n- **Editing on the Gantt** (desktop and tablet): arrows show what waits for what (faint, strong on the critical path or when the task waited for is late; hover a task to pick out its own). Drag a bar's right end to change its length, drag the bar to start it later (writes 🛫, \"not before\": what waits for it moves too; it can't go before what it waits for), and **Alt**-drag from one bar onto another to link them by the ends you use: right end to its left end, it waits; left end to left end, it starts with it; right end to right end, it ends with it (dashed arrows). Click an arrow to remove that link. **Undo** puts the last change back.\n- **Priority** (the Tasks plugin's 🔺 ⏫ 🔼 🔽 ⏬) shows on cards, Gantt rows and in the List, highest first on the board; it doesn't change the schedule.\n- **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against the baseline (saved automatically when the project starts, provisional — following the plan — until every open task has a duration, then locked; lock it early or re-baseline from the tab's ⋯ menu), a filter for risks, issues and decisions.\n[🖼 Picture: Planning: the board, by phase ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-board.png)\n\n[🖼 Picture: Planning: the list, with priority and slip ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-list.png)\n\n- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*; also a command, so it can have a hotkey). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task. **Cancel task** marks it ❌ (it stays in the note); **Delete task…** removes it and its steps, takes its id out of the tasks that depend on it, and asks first, listing all of that.\n- **Report** saves a printable note of the plan (a summary first: forecast, the Gantt chart, phases, people, what needs attention, risks, workload; then the project note itself up to its last task, without the plan's ids and links, so research kept below the plan is left out) in the reports folder; print it with *Export to PDF*. **Write dates…** records today's planned dates in the tasks you tick (🛫 start, 📅 due): a snapshot that then holds the plan. To have the current plan show in the Tasks plugin and calendars instead, turn on **Keep ⏳ scheduled dates in step with the plan** in the tab's ⋯ menu (per project, stored as `plan-scheduled: true` in the project note): Planning then updates each open task's ⏳ whenever the plan moves it, and never touches 🛫 or 📅. **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.\n[🖼 Picture: A Planning report, ready to print ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-report.png)\n\n- **Steps:** the checkboxes directly under a task (`- [ ]` / `- [x]`, or `- ( )` / `- (x)`) are its steps, shown as 2/4 on its bar (with a progress line), in the List and on its card; cancelled ones (`[-]`, `(-)`) and notes such as `[?]` don't count. When every step is done but the task isn't, Planning offers to tick it (it never does so by itself). A task tagged `#task` (or with a 🆔) inside another task is flagged: make it a plain checkbox or its own task.\n- **Holidays and time off:** in *Settings → Projects*, choose **Public holidays** (England and Wales, Scotland or Northern Ireland, worked out by the plugin each year, substitute days included), the **Working days** of the week, and **Closure days** when the whole team is off (dates or ranges like `2026-12-29 to 2026-12-31`; also for one-off bank holidays). Planning skips them in every date it works out and shades them on the Gantt. People's own time off goes in a **Team holidays note** (a setting, for every plan) or a project note's `## Holidays` section:\n\n  ```\n  - [[@Kevin Mulholland]]\n      - 2026-12-24 to 2027-01-02\n      - every Tuesday\n  ```\n\n  Write the person as in `[owner:: …]` (or just their first name). A task then takes longer when its owner is off (with several owners, a day counts when all of them work), the workload warning counts each person's own days available that week, and the report lists the plan's holidays and each person's time off. Dates are always YYYY-MM-DD. Weeks view has no dates, so it keeps plain Monday to Friday.\n- **Plan problems:** a ⛔ id no task has (say, after folding tasks into a holding task), an id used twice or a dependency loop is listed at the top of the Planning view, naming the task (click to open the note at that line), in the report's *Needs attention*, as a pill on the project's card and row, and underlined in the note itself while you edit it (hover for the reason; nothing is written).\n- **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.\n\nPlanning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#planning"},"research":{"title":"Research","md":"- **Research tab:** each section is a folder shown as a topic tree. A pattern such as `1.Customers/*/Research` gathers every customer's research folder into one section, labelled by customer.\n- **By status:** the section's notes grouped by their `status` property, with \"N to research · N researched\" in the header.\n- **Link suggestions:** the status bar offers to link words that match the titles of other research notes.\n- New research notes start from your research template.\n\n[🖼 Picture: The Research tab ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/research-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#research"},"time":{"title":"Time","md":"- **Automatic time** per customer while you work in a note, plus manual entries, breaks, a workday timer and overtime.\n- **Time tab** and a **Time today** card; *Wrap up the day* at the end.\n- An optional **daily time log note** with totals per customer and a table of entries, for you or an AI agent to read. Nothing is sent anywhere.\n\n[🖼 Picture: The Time tab ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/time-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#time"},"write":{"title":"Write","md":"- **Table picker** (`Insert table…`), merged table cells, styled tables, lime dividers, sub-titles and page breaks for PDF export.\n- **Locked callouts and maths blocks:** lock one so it can't be edited by accident.\n- **Lifted writing window:** the note sits on a raised card over the dashboard pattern (full width when Obsidian's *Readable line length* is off).","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#write"},"layouts":{"title":"Other vault layouts","md":"Neon Work started with a vault organised by customer, but the customer is just a group: rename it (Area, Client, Team…), choose the property it's read from and the folder whose subfolders are the groups, in *Settings → Neon Work → Projects*. For a PARA vault, for example: group name `Area`, group properties `area, parent` (names or links such as `[[Photography]]`), groups folder `2.Areas`, project tag `projects`, project folders `1.Projects` (each folder there is a project too), New note types for area notes and resources, and the **Areas card** on the dashboard (projects, tasks and recent notes per area, quietest first). Several task tags (`#task, #todo`) and ignored tags (e.g. `vault_index` folder index notes) help with vaults that have many checklists or generated notes.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#other-vault-layouts"},"mobile":{"title":"On phones and tablets","md":"Dashboard, Tasks, Projects and Research also run on mobile: one column on a phone held upright, two on a phone turned sideways or a tablet, and long press for the menus that right-click opens on the desktop. Time tracking, Write, the card explorer and the note graph are desktop-only. To preview the mobile layouts on the desktop, run `app.emulateMobile(true)` in the developer console.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#on-phones-and-tablets"},"settings":{"title":"Settings","md":"Everything is on one page, *Settings → Neon Work*, with a section per part:\n\n- **Overview:** read-only, the base folder, the switches for each part, and safe mode.\n- **Dashboard, Tasks, Projects, Research, Time, Write:** that part's options. Folder and file fields suggest matching vault paths as you type.\n\nThe **base folder** (asked on first start) is where the plugin keeps what it makes for itself when a location is left empty: Projects without a customer, Reviews, Time Log, `Todo.md`, the pin board and graph bridges.\n\n[🖼 Picture: Settings, one page with a section per part ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/settings.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#settings"},"install":{"title":"Install","md":"1. Build it (`node tools/build.mjs`) or take the three files from a release: `main.js`, `manifest.json`, `styles.css`.\n2. Put them in `<your vault>/.obsidian/plugins/neon-work/` (create the folder if needed).\n3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable **Neon Work**.\n4. On first start it asks for a **base folder** (for example `2.Resources`). Read-only stays on until you switch it off in *Overview*; commit or back up your vault first, so you can see exactly what changes.\n\n**Updating:** copy the three files over the ones in `.obsidian/plugins/neon-work/` and switch the plugin off and on. Keep the folder: it also holds your settings.\n\n**Safe mode:** if the plugin fails while starting, the next start keeps every part off; switch them back on in *Overview*.\n\n**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. *Project: open Planning* is a good one to give a key (for example Ctrl/Cmd+Shift+G), and so are the task editor's *Planning: edit this task*, *Planning: new task here* and *Planning: new task after this* (in a project note, on the line under the cursor). Commands are listed as \"Neon Work – Tasks: …\", \"… – Projects: …\" and so on.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#install"}};
 /* ==== module neon-deck ==== */
 const NeonDeckModule = (() => {
 /* @src src/deck/helpers.js */
@@ -10040,6 +10338,12 @@ const PROJECT_BUCKETS = [
 ];
 const PROJECTS_DEFAULTS = {
   planReportsFolder: '', // fork: where Planning reports go ('' = <base folder>/Reports)
+  // fork: Planning's working days (plan-calendar.js): public holidays ('' none, or a PLAN_REGIONS key), the working
+  // week, company closure days (dates and ranges) and the Team holidays note (people's time off)
+  planHolidayRegion: '',
+  planWorkdays: 'Mon, Tue, Wed, Thu, Fri',
+  planClosures: '',
+  planLeaveNote: '',
   planMarks: true, // fork: underline plan problems (unknown ids, ids used twice, loops) in project notes
   planBaselines: {}, // fork: Planning baselines per project: { path: { saved, end, tasks: { id: finish } } }
   // which notes are projects, and their status values (comma lists, in the order offered)
@@ -10509,6 +10813,27 @@ class NeonProjectsSettingTab extends PluginSettingTab {
       .setName('Planning reports folder')
       .setDesc(`Where Report (in the Planning view) saves a plan's report note and its chart. Empty: ${basePath('Reports')} (in the base folder).`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Reports')).setValue(s.planReportsFolder || '').onChange((v) => ((s.planReportsFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'));
+    // Planning's working days (plan-calendar.js): open plans are redrawn when one changes
+    const plans = () => (proj(), p.app.workspace.getLeavesOfType(VIEW_PLAN).forEach((l) => l.view && l.view.refresh && l.view.refresh()));
+    new Setting(containerEl)
+      .setName('Public holidays')
+      .setDesc('Planning skips these as well as weekends: worked out by the plugin for each year, with substitute days when one falls on a weekend.')
+      .addDropdown((d) => {
+        for (const [k, label] of PLAN_REGIONS) d.addOption(k, label);
+        d.setValue(s.planHolidayRegion || '').onChange((v) => ((s.planHolidayRegion = v), plans()));
+      });
+    new Setting(containerEl)
+      .setName('Working days')
+      .setDesc('The days of the week Planning counts, e.g. Mon, Tue, Wed, Thu, Fri or Mon-Fri.')
+      .addText((t) => t.setPlaceholder('Mon, Tue, Wed, Thu, Fri').setValue(s.planWorkdays || '').onChange((v) => ((s.planWorkdays = v), plans())));
+    new Setting(containerEl)
+      .setName('Closure days')
+      .setDesc('Days the whole team is off, one per line: a date (2026-12-29) or a range (2026-12-29 to 2026-12-31). Also for one-off bank holidays.')
+      .addTextArea((t) => t.setPlaceholder('2026-12-29 to 2026-12-31').setValue(s.planClosures || '').onChange((v) => ((s.planClosures = v), plans())));
+    new Setting(containerEl)
+      .setName('Team holidays note')
+      .setDesc('People’s time off, for every plan: a list with a person on each line ([[@Name]] as in [owner:: …]) and their dates under it: 2026-12-24 to 2027-01-02, or every Tuesday. A project note can add its own in a Holidays section.')
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder('Team holidays').setValue(s.planLeaveNote || '').onChange((v) => ((s.planLeaveNote = v.trim()), plans())), 'file'));
     new Setting(containerEl)
       .setName('Underline plan problems in project notes')
       .setDesc('While you edit a project note: a ⛔ id no task has, a 🆔 used twice, and the links of a dependency loop get a wavy underline, with the reason on hover. Only the display changes, nothing is written.')
@@ -10797,6 +11122,9 @@ Object.assign(NeonProjects.prototype, {
   applyProjectSettings() {
     Object.assign(NEON_PROJECTS, projectConfig(this.settings));
     NEON_PLAN.folders = this.settings.projectFolders || ''; // fork: project folders are plans too
+    // fork: Planning's working days and people's time off (plan-calendar.js)
+    NEON_PLAN.calendar = planCalendar({ region: this.settings.planHolidayRegion, weekdays: this.settings.planWorkdays, closures: this.settings.planClosures });
+    NEON_PLAN.leaveNote = this.settings.planLeaveNote || '';
     NEON_CATS.label = this.settings.groupLabel || 'Customer'; // fork
     NEON_CATS.prop = (this.settings.groupProperty || 'customer').trim() || 'customer';
     NEON_CATS.skip = String(this.settings.groupSkip || '').split(',').map((x) => x.trim()).filter(Boolean); // fork
@@ -11292,12 +11620,16 @@ const PLAN_WORST = ['overdue', 'blocked', 'soon', 'doing', 'waiting', 'ready', '
  * project's start date or null. phases: one bar per phase (its first start to its last finish, coloured by its worst
  * task). due: the project's due date; with real dates the plan's forecast finish and the due date are drawn as two
  * milestones, and late says how many working days the forecast is past the due date (0: on time).
+ * With real dates, working days follow the settings' calendar and a task stretches over its owners' time off (leave:
+ * the time off planCollect gathered); counted in weeks, plain Monday to Friday.
  */
-function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null } = {}) {
+function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null, leave = tasks.leave } = {}) {
   const relative = weeks || !base;
-  const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
+  const cal = relative ? PLAN_PLAIN_CAL : planCal();
+  const W = (d, n) => planWorkdays(d, n, cal);
+  const from = relative ? PLAN_WEEK_BASE : W(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start
-  const sched = planSchedule(tasks, { notBefore: !relative && today ? planWorkdaysBetween(from, today) : 0, from: relative ? null : from });
+  const sched = planSchedule(tasks, { notBefore: !relative && today ? planWorkdaysBetween(from, today, cal) : 0, from: relative ? null : from, span: relative ? null : planLeaveSpan(leave, from, cal) });
   const { byId } = planIndex(tasks);
   const lines = ['gantt', '  dateFormat YYYY-MM-DD', `  axisFormat ${relative ? 'Wk %W' : '%d %b'}`, '  tickInterval 1week', '  weekday monday', '  excludes weekends', `  todayMarker ${!relative && today ? 'on' : 'off'}`];
   const groups = new Map();
@@ -11325,12 +11657,14 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       const days = planDays(t);
       let start;
       let last; // the bar's last day (inclusive)
-      if (t.milestone) start = last = !relative && (t.due || t.start) ? t.due || t.start : planWorkdays(from, r.es);
+      if (t.milestone) start = last = !relative && (t.due || t.start) ? t.due || t.start : W(from, r.es);
       else if (!relative && t.start && t.due && t.due >= t.start) [start, last] = [t.start, t.due];
       else {
         // done: where it really started; open: the schedule, which keeps a 🛫 date as "not before"
-        start = !relative && t.start && planClosed(t) ? t.start : planWorkdays(from, r.es);
-        last = planWorkdays(start, Math.max(0, days - 1));
+        // the bar's end: from the schedule, so it takes in the owners' time off
+        const done = !relative && t.start && planClosed(t);
+        start = done ? t.start : W(from, r.es);
+        last = done ? W(start, Math.max(0, days - 1)) : W(from, Math.max(r.es, r.ef - 1));
       }
       const mark = planMark(t);
       const bar = { id: `np${bars.length + 1}`, task: t, kind: planBarKind(t, state, today, relative ? null : last), crit, mark: mark ? mark[0] : null, start, end: last };
@@ -11366,7 +11700,7 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
   let late = 0;
   if (!relative && end) {
     // the project: its forecast finish, and its due date if it has one
-    late = due && end > due ? planWorkdaysBetween(due, end) : 0;
+    late = due && end > due ? planWorkdaysBetween(due, end, cal) : 0;
     lines.push('  section Project');
     drawn.push({ section: 'Project' });
     const fin = { id: `np${bars.length + 1}`, task: null, kind: late ? 'overdue' : 'ready', crit: false, mark: null, start: end, end };
@@ -11513,7 +11847,7 @@ class PlanView extends ItemView {
   /** Is this note part of the plan (or one of its outside neighbours)? */
   touches(path) {
     if (!this.plan) return false;
-    if (this.paths.has(path)) return true;
+    if (this.paths.has(path) || (NEON_PLAN.leavePath && path === NEON_PLAN.leavePath)) return true; // the Team holidays note too
     return this.plan.kind === 'note' ? path === this.plan.path : path.startsWith(this.plan.path + '/');
   }
   build() {
@@ -11709,7 +12043,7 @@ class PlanView extends ItemView {
     for (const t of this.tasks.filter((x) => !x.external && planStepsDone(x)))
       lines.push({ text: `${planProblemName(t)}: all ${t.steps.total} step${t.steps.total === 1 ? ' is' : 's are'} done. Mark it done?`, act: () => this.moveTask(t, 'x'), title: 'Tick the task (with today’s ✅ date)' });
     lines.push(...this.loadLines(sched).map((text) => ({ text })));
-    for (const w of planWeekendDates(this.tasks)) lines.push({ text: `${w.task.id || planClip(planText(w.task.raw), 30)}: ${w.sign} ${planShortDate(w.date)} is a ${w.day}`, task: w.task });
+    for (const w of planWeekendDates(this.tasks)) lines.push({ text: `${w.task.id || planClip(planText(w.task.raw), 30)}: ${w.sign} ${planShortDate(w.date)} is not a working day (${w.day})`, task: w.task });
     // schedule warnings: a handful here, the rest counted (the List shows them on each task)
     const warn = planWarnings(this.tasks, this.ends, this.today);
     lines.push(...warn.slice(0, 5).map((w) => ({ text: w.text, task: w.task })));
@@ -12283,7 +12617,7 @@ function planPlannedDates(tasks, base, today) {
   const out = new Map();
   if (!base) return out;
   const from = planWorkdays(base, 0);
-  const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today) : 0, from });
+  const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today) : 0, from, span: planLeaveSpan(tasks.leave, from) });
   for (const r of sched.rows) out.set(r.task, { start: planWorkdays(from, r.es), due: planWorkdays(from, Math.max(r.es, r.ef - 1)) });
   return out;
 }
@@ -12293,13 +12627,12 @@ function planFillPrefix(text, prefix) {
   return text.replace(/\{\{\s*prefix\s*\}\}/g, prefix);
 }
 const PLAN_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-/** "Saturday" / "Sunday" for a weekend date, else '' (pure). */
+/** Why a date isn't a working day: "Saturday", "Christmas Day", "a closure day"…; '' for a working day (the settings' calendar). */
 function planWeekend(ymd) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd || '')) return '';
-  const d = new Date(`${ymd}T00:00:00Z`).getUTCDay();
-  return d === 0 || d === 6 ? PLAN_DAY_NAMES[d] : '';
+  return planCal().off(ymd);
 }
-/** Open tasks with a 🛫 ⏳ 📅 date on a weekend: [{ task, sign, date, day }]. */
+/** Open tasks with a 🛫 ⏳ 📅 date on a day off (weekend, holiday, closure): [{ task, sign, date, day }]. */
 function planWeekendDates(tasks) {
   const out = [];
   for (const t of tasks)
@@ -12639,7 +12972,7 @@ class PlanTaskModal extends Modal {
     this.drawOwners();
     const f0 = this.form;
     const weekend = PLAN_DATE_SIGNS.map(([k, sign]) => (planWeekend(f0[k]) ? `${sign} ${planWeekend(f0[k])}` : '')).filter(Boolean);
-    if (this.weekendEl) this.weekendEl.setText(weekend.length ? `⚠ On a weekend: ${weekend.join(', ')}. Working days skip weekends; move it to a weekday?` : '');
+    if (this.weekendEl) this.weekendEl.setText(weekend.length ? `⚠ Not a working day: ${weekend.join(', ')}. Working days skip weekends and holidays; move it to a working day?` : '');
     const bad = this.forbidden();
     this.picker(this.depsEl, {
       chosen: this.deps.map((d) => ({ task: d.task, label: d.task ? `${d.task.id || 'new id'} · ${planClip(planText(d.task.raw), 30)}${d.task.external ? ' ↗' : ''}` : `${d.id} (not found)`, d })),
@@ -13017,7 +13350,7 @@ Object.assign(PlanView.prototype, {
 /* ---- Project plans (fork): owners in the Planning view -------------------------------------------------------------
  * Owners come from [owner:: [[@Sam Taylor]], Alex] (people notes or plain names). The view can show one person's
  * tasks (the Gantt, board and list leave the others out; the graph greys them), group the board by person, and
- * warns when someone has more than five days of work in a week. */
+ * warns when someone has more than their working days in a week (five, fewer with holidays or time off). */
 
 const PLAN_NOBODY = '\u0000nobody'; // the filter value for tasks without an owner
 
@@ -13064,12 +13397,24 @@ Object.assign(PlanView.prototype, {
     return this.who === PLAN_NOBODY ? !owners.length : owners.some((o) => o.key === this.who);
   },
   /** "Marcus Hale has 7 days of work in the week of Mon 23 Nov (5 available)". */
-  loadLines(sched) {
-    const weeks = this.weeks || !this.base;
-    return planOverloads(sched.rows).map(({ name, week, days, lowest }) => {
-      const when = weeks ? `Wk ${week + 1}` : `the week of ${planDayLabel(week * 5, this.base, false)}`;
+  loadLines(sched, dated = !(this.weeks || !this.base)) {
+    let cap = 5;
+    let opts = {};
+    if (dated && this.base) {
+      // calendar weeks, each person's own working days in them (holidays and their time off left out)
+      const from = planWorkdays(this.base, 0);
+      const leave = this.tasks.leave;
+      const days = new Map();
+      const dayOf = (d) => days.get(d) || days.set(d, planWorkdays(from, d)).get(d);
+      const monday = (ymd) => ymdAdd(ymd, -((planDow(ymd) + 6) % 7));
+      const free = (o, ymd) => !planLeaveOff(planLeaveFor(leave, o), ymd);
+      opts = { weekOf: (d) => monday(dayOf(d)), works: (o, d) => free(o, dayOf(d)) };
+      cap = (o, week) => [0, 1, 2, 3, 4, 5, 6].map((i) => ymdAdd(week, i)).filter((d) => planCal().isWorkday(d) && free(o, d)).length;
+    }
+    return planOverloads(sched.rows, cap, opts).map(({ name, week, days, cap: avail, lowest }) => {
+      const when = typeof week === 'string' ? `the week of ${moment(week, 'YYYY-MM-DD').format('ddd D MMM')}` : `Wk ${week + 1}`;
       const move = lowest ? `; the easiest to move: ${lowest.id || planClip(planText(lowest.raw), 30)}${lowest.priority !== 2 ? ` (${PLAN_PRIORITIES.find((p) => p[0] === lowest.priority)[2].toLowerCase()} priority)` : ''}` : '';
-      return `${name} has ${days} days of work in ${when} (5 available)${move}`;
+      return `${name} has ${days} days of work in ${when} (${avail} available)${move}`;
     });
   },
   /** "👤 Marcus, Sofia" for a card or row, or ''. */
@@ -13478,12 +13823,12 @@ Object.assign(NeonProjects.prototype, {
  * through the usual queue (editTask); Undo puts the last change back. Off on phones (dragging would fight the
  * scrolling). Kevin, 17 Nov: Alt for links, 🛫 for moving. */
 
-/** The working day a dragged date lands on: a Saturday or Sunday moves to the Monday (pure). */
+/** The working day a dragged date lands on: a day off moves to the next working day. */
 const planDropDay = (ymd) => planWorkdays(ymd, 0);
-/** The working day before a date (pure). */
+/** The working day before a date (the settings' calendar). */
 function planWorkdaysBack(ymd) {
   let d = ymdAdd(ymd, -1);
-  while ([0, 6].includes(new Date(`${d}T00:00:00Z`).getUTCDay())) d = ymdAdd(d, -1);
+  for (let n = 0; !planCal().isWorkday(d) && n < 400; n++) d = ymdAdd(d, -1);
   return d;
 }
 /** Length in working days of a bar from start to last (inclusive), at least 1 (pure). */
@@ -14088,13 +14433,13 @@ class PlanDatesModal extends Modal {
  * [duration:: …], 🛫 …) and the task tags, and their boxes become ☐ / ☑ so the copy never counts as tasks twice in
  * Tasks or Dataview queries. Both pure (tested). */
 
-/** [{ name, open, done, days, phases }] for each task owner, in the order they first appear. */
+/** [{ key, name, open, done, days, phases }] for each task owner, in the order they first appear. */
 function planReportPeople(tasks) {
   const by = new Map();
   for (const t of tasks) {
     if (t.external) continue;
     for (const o of t.owners || []) {
-      if (!by.has(o.key)) by.set(o.key, { name: o.name, open: 0, done: 0, days: 0, phases: [] });
+      if (!by.has(o.key)) by.set(o.key, { key: o.key, name: o.name, open: 0, done: 0, days: 0, phases: [] });
       const p = by.get(o.key);
       if (planClosed(t)) p.done++;
       else (p.open++, (p.days += planDays(t)));
@@ -14224,6 +14569,7 @@ function planReportText(r) {
   if (r.forecast) L.push(`- **Forecast:** ${r.forecast}${r.baseline ? ` ${r.baseline}` : ''}`);
   if (r.summary) L.push(`- **Tasks:** ${r.summary}`);
   if (r.crit.length) L.push(`- **Critical path:** ${r.crit.length} tasks, ${d(r.crit[0].start)} to ${d(r.crit[r.crit.length - 1].end)}`);
+  if (r.holidays) L.push(`- **Holidays:** ${r.holidays}`);
   L.push('');
   if (r.svg) L.push('## Timeline', '', `![[${r.svg}]]`, '', '*Arrows: what waits for what (dashed: starts with / ends with). 2/4: steps done. Outlined bars: the critical path.*', '');
   if (r.phases.length) {
@@ -14232,8 +14578,9 @@ function planReportText(r) {
     L.push('');
   }
   if ((r.people || []).length) {
-    L.push('## People', '', '| Person | Open tasks | Done | Days of open work | Phases |', '|---|---|---|---|---|');
-    for (const p of r.people) L.push(`| ${planCell(p.name)} | ${p.open} | ${p.done} | ${p.days} | ${planCell(p.phases.join(', '))} |`);
+    const off = r.people.some((p) => p.off); // a Time off column only when someone has time off in the plan
+    L.push('## People', '', `| Person | Open tasks | Done | Days of open work | Phases |${off ? ' Time off |' : ''}`, `|---|---|---|---|---|${off ? '---|' : ''}`);
+    for (const p of r.people) L.push(`| ${planCell(p.name)} | ${p.open} | ${p.done} | ${p.days} | ${planCell(p.phases.join(', '))} |${off ? ` ${planCell(p.off)} |` : ''}`);
     L.push('', '*People named as a task owner ([owner:: …]).*', '');
   }
   L.push('## Needs attention', '');
@@ -14303,8 +14650,10 @@ Object.assign(PlanView.prototype, {
       attention,
       marks,
       crit,
-      load: this.loadLines(plan.sched),
-      people: planReportPeople(own),
+      load: this.loadLines(plan.sched, !!this.dated),
+      // people and the plan's days off, from its first day to its forecast finish (real dates only)
+      people: planReportPeople(own).map((p) => ({ ...p, off: this.dated ? planLeaveText(planLeaveFor(this.tasks.leave, p), planWorkdays(this.base, 0), this.dated.end || this.today) : '' })),
+      holidays: this.dated ? planDaysOff(planWorkdays(this.base, 0), this.dated.end || this.today).map((h) => `${planShortDate(h.date)} ${h.name}`).join(', ') : '',
       details: noteText ? planReportDetails(noteText, { note: (this.scopeFile() || {}).basename || '', lastLine: own.filter((t) => t.file === this.scopeFile()).reduce((m, t) => (t.line > m ? t.line : m), -1), taskTags: NEON_PLAN.taskTag }) : '',
     };
   },
