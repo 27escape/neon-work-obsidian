@@ -333,6 +333,8 @@ class PlanTaskModal extends Modal {
     const lines = res.text.split('\n');
     this.previewEl.setText(res.line >= 0 ? lines[res.line].replace(/\r$/, '') : '(this task has changed in the note: close and open it again)');
     this.alsoEl.empty();
+    const st = this.ctx.task && this.ctx.task.steps;
+    if (st) this.alsoEl.createDiv({ text: `Steps: ${st.done} of ${st.total} done${st.done === st.total ? ': tick Done above to close the task' : ''}` });
     for (const n of notes) this.alsoEl.createDiv({ text: `Also ${n}` });
     const where = this.phase ? `under “${this.phase}”` : 'at the end of the note';
     const here = this.phase === this.phase0;

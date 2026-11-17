@@ -72,6 +72,7 @@ Object.assign(PlanView.prototype, {
     const meta = c.createDiv('np-card-meta');
     if (planPrioritySign(t.priority ?? 2)) tip(meta.createSpan({ cls: 'np-pri', text: planPrioritySign(t.priority) }), `${PLAN_PRIORITIES.find((p) => p[0] === t.priority)[2]} priority`);
     if (t.id) meta.createSpan({ cls: 'np-id', text: t.id });
+    if (t.steps) tip(meta.createSpan({ cls: planStepsDone(t) ? 'np-steps is-all' : 'np-steps', text: `☑ ${t.steps.done}/${t.steps.total}` }), planStepsDone(t) ? 'Every step is done: move the card to Done' : 'Steps done (the checkboxes under the task)');
     meta.createSpan({ text: t.milestone ? '◆ milestone' : `${planDays(t)}d` });
     if (this.ownerText(t)) meta.createSpan({ text: this.ownerText(t) });
     for (const [k, sign, label] of PLAN_MARKS) if ((t.marks || []).includes(k)) c.createDiv({ cls: `np-mark is-${k}`, text: `${sign} ${label}` });

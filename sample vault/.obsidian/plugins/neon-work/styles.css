@@ -5630,6 +5630,15 @@ svg.np-gantt .np-g-link.is-hot path {
 svg.np-gantt .np-g-link.is-hot polygon {
   fill: var(--interactive-accent) !important;
 }
+/* steps: the checkboxes under a task (plan-steps.js) */
+.np-plan .np-steps.is-all {
+  color: var(--color-green);
+  font-weight: 600;
+  cursor: pointer;
+}
+.np-plan .np-issue.is-offer {
+  color: var(--color-green);
+}
 /* @src neon-research/styles.css */
 /* @css src/research/styles.css */
 /* RESEARCH — uses the Dashboard's --nd-* tokens */

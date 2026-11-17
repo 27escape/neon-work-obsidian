@@ -263,7 +263,9 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = 
     const g = svg.createSvg('g', { cls: 'np-g-row', attr: key ? { 'data-key': key } : {} });
     const hit = g.createSvg('rect', { cls: 'np-g-hit', attr: { x: 0, y: it.y, width: lay.width, height: rowH } });
     hit.setAttr('style', `fill: transparent${key && key === selKey ? '; stroke: var(--interactive-accent); stroke-width: 2' : ''}`);
-    const name = `${r.label}${r.who ? ` · ${r.who}` : ''}`;
+    // steps (the checkboxes under the task): "2/4", and ✓ when all are done but the task isn't ticked yet
+    const steps = r.steps ? ` · ${r.steps.done}/${r.steps.total}${r.stepsDone ? ' ✓' : ''}` : '';
+    const name = `${r.label}${r.who ? ` · ${r.who}` : ''}${steps}`;
     const strong = b.mark === 'risk' || b.mark === 'issue';
     const label = g.createSvg('text', { attr: { x: 18, y: mid, 'dominant-baseline': 'middle' } });
     label.setAttr('style', `fill: var(--text-normal)${strong ? '; font-weight: 700' : ''}${b.kind === 'done' ? '; fill: var(--text-muted)' : ''}`);
@@ -277,7 +279,14 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = 
       const cx = labelW + it.x + dayW / 2;
       const s = Math.min(rowH / 2 - 3, 9);
       g.createSvg('polygon', { attr: { points: `${cx},${mid - s} ${cx + s},${mid} ${cx},${mid + s} ${cx - s},${mid}` } }).setAttr('style', `fill: ${fill}; ${outline}`);
-    } else g.createSvg('rect', { cls: 'np-g-bar', attr: { x: labelW + it.x + 1, y: it.y + 5, width: Math.max(2, it.w - 2), height: rowH - 10, rx: 3 } }).setAttr('style', `fill: ${fill}; ${outline}`);
+    } else {
+      g.createSvg('rect', { cls: 'np-g-bar', attr: { x: labelW + it.x + 1, y: it.y + 5, width: Math.max(2, it.w - 2), height: rowH - 10, rx: 3 } }).setAttr('style', `fill: ${fill}; ${outline}`);
+      // how far through its steps: the left part of the bar, darker
+      if (r.steps && r.steps.done && b.kind !== 'done' && /^#[0-9a-f]{6}$/i.test(fill)) {
+        const pw = Math.max(2, ((it.w - 2) * r.steps.done) / r.steps.total);
+        g.createSvg('rect', { cls: 'np-g-progress', attr: { x: labelW + it.x + 1, y: it.y + rowH / 2 - 2, width: pw, height: 4, rx: 2 } }).setAttr('style', `fill: ${planMix(fill, '#000000', 0.45)}; pointer-events: none`);
+      }
+    }
     if (it.dueX != null) {
       // a project's due date: a hollow diamond
       const s = Math.min(rowH / 2 - 4, 7);

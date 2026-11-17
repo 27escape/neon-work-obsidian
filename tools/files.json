@@ -12,7 +12,8 @@
     "src/shared/plan.js",
     "src/shared/plan-scope.js",
     "src/shared/plan-draw.js",
-    "src/shared/plan-problems.js"
+    "src/shared/plan-problems.js",
+    "src/shared/plan-steps.js"
   ],
   "kernel": [
     "src/kernel/mother.js",

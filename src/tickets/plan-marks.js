@@ -30,6 +30,14 @@ function planLineMarks(line, problems) {
       const id = line.match(PLAN_ID_RE);
       if (id) out.push({ from: id.index + id[0].length - id[1].length, to: id.index + id[0].length, text: p.text });
     } else if (p.kind === 'loop' && dep) out.push({ from: depAt, to: depAt + dep[1].length, text: p.text });
+    else if (p.kind === 'nested') {
+      // what makes the line a task: its task tag, else its id
+      const tags = String(NEON_PLAN.taskTag || '#task').split(/[,\s]+/).filter(Boolean).map((x) => (x.startsWith('#') ? x : `#${x}`));
+      const tag = tags.map((x) => line.indexOf(x)).find((i) => i >= 0);
+      const id = line.match(PLAN_ID_RE);
+      if (tag != null) out.push({ from: tag, to: tag + tags.find((x) => line.indexOf(x) === tag).length, text: p.text });
+      else if (id) out.push({ from: id.index, to: id.index + id[0].length, text: p.text });
+    }
   }
   return out.sort((a, b) => a.from - b.from);
 }
@@ -41,7 +49,7 @@ function planTextTasks(lines, file) {
     const t = planTask(text, { file, line: n });
     if (t && (t.id || planHasTag(t.raw, NEON_PLAN.taskTag))) out.push(t);
   });
-  return out;
+  return planAddSteps(lines, out);
 }
 
 Object.assign(NeonProjects.prototype, {
@@ -79,7 +87,7 @@ Object.assign(NeonProjects.prototype, {
             if (!own.length) return;
             const byTask = new Map();
             for (const p of planProblems([...own, ...outside])) {
-              const hit = p.kind === 'missing' ? [p.task] : own.filter((t) => (p.kind === 'dup' ? t.id === p.ids[0] : p.kind === 'loop' && t.id && p.ids.includes(t.id)));
+              const hit = p.kind === 'missing' || p.kind === 'nested' ? [p.task] : own.filter((t) => (p.kind === 'dup' ? t.id === p.ids[0] : p.kind === 'loop' && t.id && p.ids.includes(t.id)));
               for (const t of hit) if (own.includes(t)) byTask.set(t, [...(byTask.get(t) || []), p]);
             }
             const ranges = [];

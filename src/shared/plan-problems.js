@@ -30,6 +30,12 @@ function planProblems(tasks, sched) {
     const task = same.find((t) => !t.external && t !== same[0]) || same.find((t) => !t.external);
     out.push({ kind: 'dup', task, ids: [id], text: `${id} is the id of ${same.length} tasks: ${planAnd(same.map((t) => `“${planClip(planText(t.raw), 30)}”`))}` });
   }
+  // tasks inside tasks: too much; the inner one should be a plain checkbox (a step) or a task of its own
+  for (const t of tasks)
+    if (!t.external && t.nestedIn != null) {
+      const outer = tasks.find((x) => x.file === t.file && x.line === t.nestedIn);
+      out.push({ kind: 'nested', task: t, ids: [], text: `${planProblemName(t)} is a task inside ${outer ? `“${planClip(planText(outer.raw), 30)}”` : 'another task'}: make it a plain checkbox (a step), or move it out to its own line` });
+    }
   for (const loop of planLoops(tasks)) {
     if (loop.every((t) => t.external)) continue;
     const names = loop.map(planProblemName);

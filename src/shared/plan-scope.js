@@ -44,7 +44,7 @@ async function planReadFile(app, f) {
     const t = planTask(lines[n], { file: f, line: n, phase: h ? h.text : '' });
     if (t && (t.id || planHasTag(t.raw, NEON_PLAN.taskTag))) out.push(t);
   }
-  return out;
+  return planAddSteps(lines, out); // fork: each task's steps (the checkboxes under it), and tasks inside tasks
 }
 /**
  * All tasks of a plan. With neighbours (the default), outside tasks that a plan task depends on, or that depend on

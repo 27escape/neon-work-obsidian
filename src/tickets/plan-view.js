@@ -283,6 +283,9 @@ class PlanView extends ItemView {
     el.empty();
     // each line: its text, and the task to open in its note when clicked (the line to fix)
     const lines = planProblems(this.tasks, sched).map((p) => ({ text: p.text, task: p.task }));
+    // every step ticked but the task isn't: offer to tick it (never done by itself)
+    for (const t of this.tasks.filter((x) => !x.external && planStepsDone(x)))
+      lines.push({ text: `${planProblemName(t)}: all ${t.steps.total} step${t.steps.total === 1 ? ' is' : 's are'} done. Mark it done?`, act: () => this.moveTask(t, 'x'), title: 'Tick the task (with today’s ✅ date)' });
     lines.push(...this.loadLines(sched).map((text) => ({ text })));
     for (const w of planWeekendDates(this.tasks)) lines.push({ text: `${w.task.id || planClip(planText(w.task.raw), 30)}: ${w.sign} ${planShortDate(w.date)} is a ${w.day}`, task: w.task });
     // schedule warnings: a handful here, the rest counted (the List shows them on each task)
@@ -292,7 +295,13 @@ class PlanView extends ItemView {
     this.warnings = new Map();
     for (const w of warn) this.warnings.set(w.task, [...(this.warnings.get(w.task) || []), w.text]);
     for (const l of lines) {
-      const d = el.createDiv({ cls: 'np-issue', text: `⚠ ${l.text}` });
+      const d = el.createDiv({ cls: `np-issue${l.act ? ' is-offer' : ''}`, text: `${l.act ? '✓' : '⚠'} ${l.text}` });
+      if (l.act) {
+        d.addClass('is-link');
+        tip(d, l.title);
+        d.addEventListener('click', l.act);
+        continue;
+      }
       const t = l.task;
       if (!t || !t.file) continue;
       d.addClass('is-link');
@@ -324,7 +333,7 @@ class PlanView extends ItemView {
     const table = this.bodyEl.createEl('table', { cls: 'np-table' });
     const hr = table.createEl('thead').createEl('tr');
     const slips = !!this.baseline();
-    for (const h of ['', 'Task', 'Owner', 'Priority', 'State', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack', ...(slips ? ['Slip'] : [])]) hr.createEl('th', { text: h });
+    for (const h of ['', 'Task', 'Owner', 'Priority', 'State', 'Steps', 'Id', 'Depends on', 'Days', 'Start', 'Finish', 'Slack', ...(slips ? ['Slip'] : [])]) hr.createEl('th', { text: h });
     const body = table.createEl('tbody');
     let phase = null;
     // by priority: highest first within each phase (phases keep their order)
@@ -342,7 +351,7 @@ class PlanView extends ItemView {
       const ph = t.external ? PLAN_OUTSIDE : t.phase || 'Tasks';
       if (ph !== phase) {
         phase = ph;
-        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: slips ? '12' : '11' } });
+        body.createEl('tr', { cls: 'np-phase' }).createEl('td', { text: ph, attr: { colspan: slips ? '13' : '12' } });
       }
       const st = planState(t, byId, this.today);
       const tr = body.createEl('tr', { cls: `np-row is-${st}${r.crit && st !== 'done' && !t.external ? ' is-crit' : ''}${t.external ? ' is-external' : ''}`, attr: { 'data-key': planKey(t) } });
@@ -368,6 +377,12 @@ class PlanView extends ItemView {
       const why = planBlockedText(t, byId, this.today);
       if (why) tip(chip, why);
       if (kind === 'overdue' || kind === 'soon') tip(chip, PLAN_KINDS.find(([k]) => k === kind)[1]);
+      // the checkboxes under the task: 2/4; all done but the task open: ✓, click to tick it
+      const stepsTd = tr.createEl('td', { cls: `np-num np-steps${planStepsDone(t) ? ' is-all' : ''}`, text: t.steps ? `${t.steps.done}/${t.steps.total}${planStepsDone(t) ? ' ✓' : ''}` : '' });
+      if (planStepsDone(t)) {
+        tip(stepsTd, 'Every step is done: click to mark the task done');
+        stepsTd.addEventListener('click', () => this.moveTask(t, 'x'));
+      }
       tr.createEl('td', { cls: 'np-id', text: t.id || '' });
       tr.createEl('td', { cls: 'np-id', text: t.deps.join(', ') });
       this.daysCell(tr.createEl('td', { cls: 'np-num np-days' }), t);

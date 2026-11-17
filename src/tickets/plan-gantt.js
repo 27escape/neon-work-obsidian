@@ -84,7 +84,7 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       const when = t.milestone ? `${start}, 0d` : !relative && t.start && t.due && t.due >= t.start ? `${start}, ${ymdAdd(t.due, 1)}` : `${start}, ${days ? `${days}d` : '4h'}`; // 0 days: a thin bar
       lines.push(`  ${label} :${[...tags, ...(t.milestone ? ['milestone'] : []), bar.id].join(', ')}, ${when}`);
       const pri = planPrioritySign(t.priority ?? 2);
-      drawn.push({ bar, label: (pri ? `${pri} ` : '') + sign + (t.external ? '↗ ' : '') + planText(t.raw), who, milestone: !!t.milestone, thin: !t.milestone && !days });
+      drawn.push({ bar, label: (pri ? `${pri} ` : '') + sign + (t.external ? '↗ ' : '') + planText(t.raw), who, steps: t.steps || null, stepsDone: planStepsDone(t), milestone: !!t.milestone, thin: !t.milestone && !days });
     }
     if (phases && mine.length) {
       // one bar for the phase: first start to last finish, its worst task's colour
