@@ -156,8 +156,65 @@ function planGanttLayout(rows, { today = null, relative = false, width = 900, la
   return { width: labelW + n * dayW + 8, height: y + 6, labelW, dayW, rowH, headH, days, ticks, today: t, items };
 }
 
-/** Draw a layout into `el` as SVG. colours: planColourMap(); onBar(e, bar) for task rows; selKey: the selected task. */
-function planDrawGantt(el, lay, { colours, onBar = null, selKey = null }) {
+/** Where a bar starts and ends on the drawn chart (x from the left of the SVG): a milestone is a diamond. */
+function planBarEnds(lay, it) {
+  const mid = it.y + lay.rowH / 2;
+  if (it.row.milestone) {
+    const cx = lay.labelW + it.x + lay.dayW / 2;
+    const s = Math.min(lay.rowH / 2 - 3, 9);
+    return { x0: cx - s, x1: cx + s, y: mid };
+  }
+  return { x0: lay.labelW + it.x + 1, x1: lay.labelW + it.x + Math.max(2, it.w - 1), y: mid };
+}
+/**
+ * The dependency arrows between drawn task bars (pure): [{ from, to, d, crit, late }], from the end of the task
+ * waited for to the start of the task that waits. d: an SVG path with right angles (around the bars when the next one
+ * starts before this one ends); crit: both on the critical path; late: the task waited for is overdue.
+ */
+function planGanttLinks(lay) {
+  const byId = new Map();
+  for (const it of lay.items) if (it.type === 'bar' && it.row.bar.task && it.row.bar.task.id) byId.set(it.row.bar.task.id, it);
+  const out = [];
+  for (const it of lay.items) {
+    const t = it.type === 'bar' && it.row.bar.task;
+    if (!t) continue;
+    for (const id of t.deps || []) {
+      const p = byId.get(id);
+      if (!p || p === it) continue;
+      const a = planBarEnds(lay, p);
+      const b = planBarEnds(lay, it);
+      const gap = 6;
+      const half = it.row.milestone ? Math.min(lay.rowH / 2 - 3, 9) : (lay.rowH - 10) / 2; // half the bar's height
+      const down = b.y > a.y;
+      let d;
+      let end;
+      if (b.x0 - a.x1 >= gap * 2) {
+        // room between them: along, down, and into the start of the bar
+        d = `M${a.x1},${a.y} H${a.x1 + gap} V${b.y} H${b.x0}`;
+        end = { x: b.x0, y: b.y, dir: 'right' };
+      } else if (b.x0 >= a.x1 - 2) {
+        // the next starts as this one ends: along a little, then down (or up) into the top of the bar
+        const x = Math.max(a.x1 + gap, b.x0 + gap);
+        const y = down ? b.y - half : b.y + half;
+        d = `M${a.x1},${a.y} H${x} V${y}`;
+        end = { x, y, dir: down ? 'down' : 'up' };
+      } else {
+        // the next bar starts before this one ends: down between the rows, back, then into the bar
+        const between = down ? b.y - lay.rowH / 2 : b.y + lay.rowH / 2;
+        d = `M${a.x1},${a.y} H${a.x1 + gap} V${between} H${b.x0 - gap * 1.5} V${b.y} H${b.x0}`;
+        end = { x: b.x0, y: b.y, dir: 'right' };
+      }
+      out.push({ from: p.row.bar.task, to: t, d, end, crit: !!(p.row.bar.crit && it.row.bar.crit), late: p.row.bar.kind === 'overdue' });
+    }
+  }
+  return out;
+}
+
+/**
+ * Draw a layout into `el` as SVG. colours: planColourMap(); onBar(e, bar) for task rows; selKey: the selected task;
+ * links: draw the dependency arrows (planGanttLinks); onLink(e, link) when one is clicked.
+ */
+function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = false, onLink = null }) {
   const { labelW, dayW, rowH, headH } = lay;
   const svg = el.createSvg('svg', { cls: 'np-gantt', attr: { width: lay.width, height: lay.height, viewBox: `0 0 ${lay.width} ${lay.height}`, xmlns: 'http://www.w3.org/2000/svg' } });
   svg.style.fontFamily = 'var(--font-interface)';
@@ -179,6 +236,18 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null }) {
     if (t.text) text(labelW + t.x + 3, headH / 2, t.text, 'fill: var(--text-muted); font-size: 11px');
   }
   add('line', { x1: labelW, y1: headH, x2: lay.width, y2: headH }, 'stroke: var(--background-modifier-border)');
+  // dependency arrows, under the bars; red when the task waited for is late, bold along the critical path
+  const arrows = links ? planGanttLinks(lay) : [];
+  for (const l of arrows) {
+    const c = l.late ? colours.overdue || '#d93b3b' : l.crit ? colours.edge : 'var(--text-faint)';
+    // ordinary links faint, so a task feeding many others doesn't drown the chart; hovering a row brings its own up
+    const strong = l.crit || l.late;
+    const g = svg.createSvg('g', { cls: `np-g-link${strong ? ' is-strong' : ''}`, attr: { 'data-from': planKey(l.from), 'data-to': planKey(l.to), opacity: strong ? '0.9' : '0.4' } });
+    g.createSvg('path', { attr: { d: l.d, fill: 'none' } }).setAttr('style', `stroke: ${c}; stroke-width: ${l.crit || l.late ? 1.6 : 1}`);
+    const { x, y, dir } = l.end;
+    const head = dir === 'down' ? `${x},${y} ${x - 3.5},${y - 5} ${x + 3.5},${y - 5}` : dir === 'up' ? `${x},${y} ${x - 3.5},${y + 5} ${x + 3.5},${y + 5}` : `${x},${y} ${x - 5},${y - 3.5} ${x - 5},${y + 3.5}`;
+    g.createSvg('polygon', { attr: { points: head } }).setAttr('style', `fill: ${c}`);
+  }
   const maxChars = Math.floor((labelW - 18) / 6.4);
   for (const it of lay.items) {
     const mid = it.y + rowH / 2;
@@ -207,18 +276,35 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null }) {
       const cx = labelW + it.x + dayW / 2;
       const s = Math.min(rowH / 2 - 3, 9);
       g.createSvg('polygon', { attr: { points: `${cx},${mid - s} ${cx + s},${mid} ${cx},${mid + s} ${cx - s},${mid}` } }).setAttr('style', `fill: ${fill}; ${outline}`);
-    } else g.createSvg('rect', { attr: { x: labelW + it.x + 1, y: it.y + 5, width: Math.max(2, it.w - 2), height: rowH - 10, rx: 3 } }).setAttr('style', `fill: ${fill}; ${outline}`);
+    } else g.createSvg('rect', { cls: 'np-g-bar', attr: { x: labelW + it.x + 1, y: it.y + 5, width: Math.max(2, it.w - 2), height: rowH - 10, rx: 3 } }).setAttr('style', `fill: ${fill}; ${outline}`);
     if (it.dueX != null) {
       // a project's due date: a hollow diamond
       const s = Math.min(rowH / 2 - 4, 7);
       const c = b.kind === 'overdue' ? colours.overdue : 'var(--text-muted)';
       g.createSvg('polygon', { attr: { points: `${labelW + it.dueX},${mid - s} ${labelW + it.dueX + s},${mid} ${labelW + it.dueX},${mid + s} ${labelW + it.dueX - s},${mid}` } }).setAttr('style', `fill: var(--background-primary); stroke: ${c}; stroke-width: 2`);
     }
+    if (arrows.length && b.task) {
+      // hovering a task: its own arrows (in and out) stand out
+      const mine = () => svg.querySelectorAll(`.np-g-link[data-from="${CSS.escape(key)}"], .np-g-link[data-to="${CSS.escape(key)}"]`);
+      g.addEventListener('pointerenter', () => mine().forEach((x) => x.addClass('is-hot')));
+      g.addEventListener('pointerleave', () => mine().forEach((x) => x.removeClass('is-hot')));
+    }
     if ((b.task || b.project) && onBar) {
       g.addClass('is-task');
       g.addEventListener('click', (e) => onBar(e, b));
     }
   }
+  // the arrows' click areas, above the rows (whose own click area spans the whole width): wide and see-through
+  if (onLink)
+    for (const l of arrows) {
+      const hit = svg.createSvg('path', { cls: 'np-g-link-hit', attr: { d: l.d, fill: 'none' } });
+      hit.setAttr('style', 'stroke: transparent; stroke-width: 9; cursor: pointer');
+      hit.createSvg('title').textContent = `${l.to.id || planText(l.to.raw)} waits for ${l.from.id}: click to remove the link`;
+      hit.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onLink(e, l);
+      });
+    }
   if (lay.today != null) add('line', { x1: labelW + lay.today, y1: headH - 4, x2: labelW + lay.today, y2: lay.height }, `stroke: ${colours.overdue || '#d93b3b'}; stroke-width: 2`);
   return svg;
 }

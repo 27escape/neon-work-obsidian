@@ -173,3 +173,35 @@
   text-decoration-skip-ink: none;
   text-underline-offset: 3px;
 }
+/* editing on the Gantt (plan-gantt-drag.js) */
+.np-plan .np-links-btn.is-on {
+  color: var(--interactive-accent);
+}
+.np-plan svg.np-gantt.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.np-plan svg.np-gantt .np-g-drag-link {
+  stroke: var(--interactive-accent);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+.np-plan svg.np-gantt .np-g-drag-tip {
+  fill: var(--text-normal);
+  font-size: 12px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--background-primary);
+  stroke-width: 3px;
+}
+/* a hovered task's own dependency arrows */
+svg.np-gantt .np-g-link.is-hot {
+  opacity: 1;
+}
+svg.np-gantt .np-g-link.is-hot path {
+  stroke: var(--interactive-accent) !important;
+  stroke-width: 2 !important;
+}
+svg.np-gantt .np-g-link.is-hot polygon {
+  fill: var(--interactive-accent) !important;
+}

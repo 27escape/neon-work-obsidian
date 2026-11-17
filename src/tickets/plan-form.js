@@ -269,7 +269,7 @@ function planPlannedDates(tasks, base, today) {
   const out = new Map();
   if (!base) return out;
   const from = planWorkdays(base, 0);
-  const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today) : 0 });
+  const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today) : 0, from });
   for (const r of sched.rows) out.set(r.task, { start: planWorkdays(from, r.es), due: planWorkdays(from, Math.max(r.es, r.ef - 1)) });
   return out;
 }

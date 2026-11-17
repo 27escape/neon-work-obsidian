@@ -35,7 +35,7 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
   const relative = weeks || !base;
   const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start
-  const sched = planSchedule(tasks, { notBefore: !relative && today ? planWorkdaysBetween(from, today) : 0 });
+  const sched = planSchedule(tasks, { notBefore: !relative && today ? planWorkdaysBetween(from, today) : 0, from: relative ? null : from });
   const { byId } = planIndex(tasks);
   const lines = ['gantt', '  dateFormat YYYY-MM-DD', `  axisFormat ${relative ? 'Wk %W' : '%d %b'}`, '  tickInterval 1week', '  weekday monday', '  excludes weekends', `  todayMarker ${!relative && today ? 'on' : 'off'}`];
   const groups = new Map();
@@ -66,7 +66,8 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       if (t.milestone) start = last = !relative && (t.due || t.start) ? t.due || t.start : planWorkdays(from, r.es);
       else if (!relative && t.start && t.due && t.due >= t.start) [start, last] = [t.start, t.due];
       else {
-        start = !relative && t.start ? t.start : planWorkdays(from, r.es);
+        // done: where it really started; open: the schedule, which keeps a 🛫 date as "not before"
+        start = !relative && t.start && planClosed(t) ? t.start : planWorkdays(from, r.es);
         last = planWorkdays(start, Math.max(0, days - 1));
       }
       const mark = planMark(t);

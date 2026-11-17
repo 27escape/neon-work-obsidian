@@ -55,12 +55,13 @@ class PlanView extends ItemView {
     return 'calendar-range';
   }
   getState() {
-    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph, who: this.who, lanes: this.lanes, ganttPhases: this.ganttPhases } : {});
+    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph, who: this.who, lanes: this.lanes, ganttPhases: this.ganttPhases, links: this.links } : {});
   }
   async setState(state, result) {
     if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
     if (state && PLAN_MODES.some(([k]) => k === state.mode)) this.mode = state.mode;
     if (state && typeof state.weeks === 'boolean') this.weeks = state.weeks;
+    if (state && typeof state.links === 'boolean') this.links = state.links;
     if (state && state.graph && typeof state.graph === 'object') Object.assign(this.graph, state.graph);
     if (state && 'who' in state) this.who = state.who || null;
     if (state && (state.lanes === 'phase' || state.lanes === 'person')) this.lanes = state.lanes;
@@ -249,7 +250,15 @@ class PlanView extends ItemView {
     const chart = this.bodyEl.createDiv('np-chart np-gantt-wrap');
     const lay = planGanttLayout(g.rows, { today: this.today, relative: g.relative, width: this.bodyEl.clientWidth || 900 });
     if (!lay) return void emptyState(chart, 'Nothing to draw for this filter');
-    planDrawGantt(chart, lay, { colours: planColourMap(), onBar: (e, b) => this.taskMenu(e, b.task), selKey: this.selKey });
+    const tasksDrawn = !this.ganttPhases;
+    const svg = planDrawGantt(chart, lay, {
+      colours: planColourMap(),
+      onBar: (e, b) => !this.justDragged && this.taskMenu(e, b.task), // the click ending a drag isn't a click on the bar
+      selKey: this.selKey,
+      links: tasksDrawn && this.links !== false,
+      onLink: (e, l) => this.linkMenu(e, l),
+    });
+    if (tasksDrawn) this.attachGanttDrag(svg, lay, g.bars); // drag to change dates and lengths, Alt-drag to link (plan-gantt-drag.js)
   }
   /** Colour key for the kinds in this plan; outlined bars are on the critical path. */
   renderLegend(bars) {

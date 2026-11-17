@@ -1160,8 +1160,10 @@ const planDays = (t) => (t.status === 'cancelled' || t.milestone ? 0 : t.days ==
  * so only a 📅 date that has passed (or work in progress running late) makes a task overdue.
  * Returns { rows: [{ task, es, ef, slack, crit }] in the tasks' order, length, cycles: [task], missing: [{ task, id }],
  * dups: [id] }. Tasks in a dependency loop are reported and scheduled as if the loop's last link were absent.
+ * from: the plan's first working day (date mode): an open task's 🛫 start date is then "not before" that date, so
+ * moving it moves everything that waits for it (fork, 17 Nov: dragging a bar on the Gantt writes 🛫).
  */
-function planSchedule(tasks, { notBefore = 0 } = {}) {
+function planSchedule(tasks, { notBefore = 0, from = null } = {}) {
   const { byId, dups } = planIndex(tasks);
   const n = tasks.length;
   const pos = new Map(tasks.map((t, i) => [t, i]));
@@ -1183,6 +1185,8 @@ function planSchedule(tasks, { notBefore = 0 } = {}) {
     let s = 0;
     for (const p of preds[i]) s = Math.max(s, finish(p));
     if (tasks[i].status === 'todo') s = Math.max(s, notBefore);
+    const t0 = tasks[i];
+    if (from && t0.start && !planClosed(t0)) s = Math.max(s, planWorkdaysBetween(from, t0.start));
     es[i] = s;
     seen[i] = 2;
     return s + planDays(tasks[i]);
@@ -1551,8 +1555,65 @@ function planGanttLayout(rows, { today = null, relative = false, width = 900, la
   return { width: labelW + n * dayW + 8, height: y + 6, labelW, dayW, rowH, headH, days, ticks, today: t, items };
 }
 
-/** Draw a layout into `el` as SVG. colours: planColourMap(); onBar(e, bar) for task rows; selKey: the selected task. */
-function planDrawGantt(el, lay, { colours, onBar = null, selKey = null }) {
+/** Where a bar starts and ends on the drawn chart (x from the left of the SVG): a milestone is a diamond. */
+function planBarEnds(lay, it) {
+  const mid = it.y + lay.rowH / 2;
+  if (it.row.milestone) {
+    const cx = lay.labelW + it.x + lay.dayW / 2;
+    const s = Math.min(lay.rowH / 2 - 3, 9);
+    return { x0: cx - s, x1: cx + s, y: mid };
+  }
+  return { x0: lay.labelW + it.x + 1, x1: lay.labelW + it.x + Math.max(2, it.w - 1), y: mid };
+}
+/**
+ * The dependency arrows between drawn task bars (pure): [{ from, to, d, crit, late }], from the end of the task
+ * waited for to the start of the task that waits. d: an SVG path with right angles (around the bars when the next one
+ * starts before this one ends); crit: both on the critical path; late: the task waited for is overdue.
+ */
+function planGanttLinks(lay) {
+  const byId = new Map();
+  for (const it of lay.items) if (it.type === 'bar' && it.row.bar.task && it.row.bar.task.id) byId.set(it.row.bar.task.id, it);
+  const out = [];
+  for (const it of lay.items) {
+    const t = it.type === 'bar' && it.row.bar.task;
+    if (!t) continue;
+    for (const id of t.deps || []) {
+      const p = byId.get(id);
+      if (!p || p === it) continue;
+      const a = planBarEnds(lay, p);
+      const b = planBarEnds(lay, it);
+      const gap = 6;
+      const half = it.row.milestone ? Math.min(lay.rowH / 2 - 3, 9) : (lay.rowH - 10) / 2; // half the bar's height
+      const down = b.y > a.y;
+      let d;
+      let end;
+      if (b.x0 - a.x1 >= gap * 2) {
+        // room between them: along, down, and into the start of the bar
+        d = `M${a.x1},${a.y} H${a.x1 + gap} V${b.y} H${b.x0}`;
+        end = { x: b.x0, y: b.y, dir: 'right' };
+      } else if (b.x0 >= a.x1 - 2) {
+        // the next starts as this one ends: along a little, then down (or up) into the top of the bar
+        const x = Math.max(a.x1 + gap, b.x0 + gap);
+        const y = down ? b.y - half : b.y + half;
+        d = `M${a.x1},${a.y} H${x} V${y}`;
+        end = { x, y, dir: down ? 'down' : 'up' };
+      } else {
+        // the next bar starts before this one ends: down between the rows, back, then into the bar
+        const between = down ? b.y - lay.rowH / 2 : b.y + lay.rowH / 2;
+        d = `M${a.x1},${a.y} H${a.x1 + gap} V${between} H${b.x0 - gap * 1.5} V${b.y} H${b.x0}`;
+        end = { x: b.x0, y: b.y, dir: 'right' };
+      }
+      out.push({ from: p.row.bar.task, to: t, d, end, crit: !!(p.row.bar.crit && it.row.bar.crit), late: p.row.bar.kind === 'overdue' });
+    }
+  }
+  return out;
+}
+
+/**
+ * Draw a layout into `el` as SVG. colours: planColourMap(); onBar(e, bar) for task rows; selKey: the selected task;
+ * links: draw the dependency arrows (planGanttLinks); onLink(e, link) when one is clicked.
+ */
+function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = false, onLink = null }) {
   const { labelW, dayW, rowH, headH } = lay;
   const svg = el.createSvg('svg', { cls: 'np-gantt', attr: { width: lay.width, height: lay.height, viewBox: `0 0 ${lay.width} ${lay.height}`, xmlns: 'http://www.w3.org/2000/svg' } });
   svg.style.fontFamily = 'var(--font-interface)';
@@ -1574,6 +1635,18 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null }) {
     if (t.text) text(labelW + t.x + 3, headH / 2, t.text, 'fill: var(--text-muted); font-size: 11px');
   }
   add('line', { x1: labelW, y1: headH, x2: lay.width, y2: headH }, 'stroke: var(--background-modifier-border)');
+  // dependency arrows, under the bars; red when the task waited for is late, bold along the critical path
+  const arrows = links ? planGanttLinks(lay) : [];
+  for (const l of arrows) {
+    const c = l.late ? colours.overdue || '#d93b3b' : l.crit ? colours.edge : 'var(--text-faint)';
+    // ordinary links faint, so a task feeding many others doesn't drown the chart; hovering a row brings its own up
+    const strong = l.crit || l.late;
+    const g = svg.createSvg('g', { cls: `np-g-link${strong ? ' is-strong' : ''}`, attr: { 'data-from': planKey(l.from), 'data-to': planKey(l.to), opacity: strong ? '0.9' : '0.4' } });
+    g.createSvg('path', { attr: { d: l.d, fill: 'none' } }).setAttr('style', `stroke: ${c}; stroke-width: ${l.crit || l.late ? 1.6 : 1}`);
+    const { x, y, dir } = l.end;
+    const head = dir === 'down' ? `${x},${y} ${x - 3.5},${y - 5} ${x + 3.5},${y - 5}` : dir === 'up' ? `${x},${y} ${x - 3.5},${y + 5} ${x + 3.5},${y + 5}` : `${x},${y} ${x - 5},${y - 3.5} ${x - 5},${y + 3.5}`;
+    g.createSvg('polygon', { attr: { points: head } }).setAttr('style', `fill: ${c}`);
+  }
   const maxChars = Math.floor((labelW - 18) / 6.4);
   for (const it of lay.items) {
     const mid = it.y + rowH / 2;
@@ -1602,18 +1675,35 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null }) {
       const cx = labelW + it.x + dayW / 2;
       const s = Math.min(rowH / 2 - 3, 9);
       g.createSvg('polygon', { attr: { points: `${cx},${mid - s} ${cx + s},${mid} ${cx},${mid + s} ${cx - s},${mid}` } }).setAttr('style', `fill: ${fill}; ${outline}`);
-    } else g.createSvg('rect', { attr: { x: labelW + it.x + 1, y: it.y + 5, width: Math.max(2, it.w - 2), height: rowH - 10, rx: 3 } }).setAttr('style', `fill: ${fill}; ${outline}`);
+    } else g.createSvg('rect', { cls: 'np-g-bar', attr: { x: labelW + it.x + 1, y: it.y + 5, width: Math.max(2, it.w - 2), height: rowH - 10, rx: 3 } }).setAttr('style', `fill: ${fill}; ${outline}`);
     if (it.dueX != null) {
       // a project's due date: a hollow diamond
       const s = Math.min(rowH / 2 - 4, 7);
       const c = b.kind === 'overdue' ? colours.overdue : 'var(--text-muted)';
       g.createSvg('polygon', { attr: { points: `${labelW + it.dueX},${mid - s} ${labelW + it.dueX + s},${mid} ${labelW + it.dueX},${mid + s} ${labelW + it.dueX - s},${mid}` } }).setAttr('style', `fill: var(--background-primary); stroke: ${c}; stroke-width: 2`);
     }
+    if (arrows.length && b.task) {
+      // hovering a task: its own arrows (in and out) stand out
+      const mine = () => svg.querySelectorAll(`.np-g-link[data-from="${CSS.escape(key)}"], .np-g-link[data-to="${CSS.escape(key)}"]`);
+      g.addEventListener('pointerenter', () => mine().forEach((x) => x.addClass('is-hot')));
+      g.addEventListener('pointerleave', () => mine().forEach((x) => x.removeClass('is-hot')));
+    }
     if ((b.task || b.project) && onBar) {
       g.addClass('is-task');
       g.addEventListener('click', (e) => onBar(e, b));
     }
   }
+  // the arrows' click areas, above the rows (whose own click area spans the whole width): wide and see-through
+  if (onLink)
+    for (const l of arrows) {
+      const hit = svg.createSvg('path', { cls: 'np-g-link-hit', attr: { d: l.d, fill: 'none' } });
+      hit.setAttr('style', 'stroke: transparent; stroke-width: 9; cursor: pointer');
+      hit.createSvg('title').textContent = `${l.to.id || planText(l.to.raw)} waits for ${l.from.id}: click to remove the link`;
+      hit.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onLink(e, l);
+      });
+    }
   if (lay.today != null) add('line', { x1: labelW + lay.today, y1: headH - 4, x2: labelW + lay.today, y2: lay.height }, `stroke: ${colours.overdue || '#d93b3b'}; stroke-width: 2`);
   return svg;
 }
@@ -1729,7 +1819,7 @@ const NEON_HELP = {
  },
  "planning": {
   "title": "Planning",
-  "md": "A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.\n\n[🖼 Picture: Planning: the Gantt chart with phases, milestones and the forecast ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-gantt.png)\n\n- **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.\n- **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.\n- **Priority** (the Tasks plugin's 🔺 ⏫ 🔼 🔽 ⏬) shows on cards, Gantt rows and in the List, highest first on the board; it doesn't change the schedule.\n- **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against the baseline (saved automatically when the project starts, provisional — following the plan — until every open task has a duration, then locked; lock it early or re-baseline from the tab's ⋯ menu), a filter for risks, issues and decisions.\n[🖼 Picture: Planning: the board, by phase ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-board.png)\n\n[🖼 Picture: Planning: the list, with priority and slip ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-list.png)\n\n- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*; also a command, so it can have a hotkey). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.\n- **Report** saves a printable note of the plan (summary, forecast, the Gantt chart, phases, what needs attention, risks, critical path, every task) in the reports folder; print it with *Export to PDF*. **Dates…** writes the plan's dates into the tasks you tick (🛫 start, 📅 due). **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.\n[🖼 Picture: A Planning report, ready to print ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-report.png)\n\n- **Plan problems:** a ⛔ id no task has (say, after folding tasks into a holding task), an id used twice or a dependency loop is listed at the top of the Planning view, naming the task (click to open the note at that line), in the report's *Needs attention*, as a pill on the project's card and row, and underlined in the note itself while you edit it (hover for the reason; nothing is written).\n- **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.\n\nPlanning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.",
+  "md": "A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.\n\n[🖼 Picture: Planning: the Gantt chart with phases, milestones and the forecast ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-gantt.png)\n\n- **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.\n- **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.\n- **Editing on the Gantt** (desktop and tablet): arrows show what waits for what (faint, strong on the critical path or when the task waited for is late; hover a task to pick out its own; **Links** turns them off). Drag a bar's right end to change its length, drag the bar to start it later (writes 🛫, \"not before\": what waits for it moves too; it can't go before what it waits for), and **Alt**-drag from one bar onto another to make the second wait for the first. Click an arrow to remove that link. **Undo** puts the last change back.\n- **Priority** (the Tasks plugin's 🔺 ⏫ 🔼 🔽 ⏬) shows on cards, Gantt rows and in the List, highest first on the board; it doesn't change the schedule.\n- **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against the baseline (saved automatically when the project starts, provisional — following the plan — until every open task has a duration, then locked; lock it early or re-baseline from the tab's ⋯ menu), a filter for risks, issues and decisions.\n[🖼 Picture: Planning: the board, by phase ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-board.png)\n\n[🖼 Picture: Planning: the list, with priority and slip ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-list.png)\n\n- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*; also a command, so it can have a hotkey). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.\n- **Report** saves a printable note of the plan (summary, forecast, the Gantt chart, phases, what needs attention, risks, critical path, every task) in the reports folder; print it with *Export to PDF*. **Dates…** writes the plan's dates into the tasks you tick (🛫 start, 📅 due). **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.\n[🖼 Picture: A Planning report, ready to print ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-report.png)\n\n- **Plan problems:** a ⛔ id no task has (say, after folding tasks into a holding task), an id used twice or a dependency loop is listed at the top of the Planning view, naming the task (click to open the note at that line), in the report's *Needs attention*, as a pill on the project's card and row, and underlined in the note itself while you edit it (hover for the reason; nothing is written).\n- **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.\n\nPlanning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.",
   "url": "https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#planning"
  },
  "research": {
@@ -11228,7 +11318,7 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
   const relative = weeks || !base;
   const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start
-  const sched = planSchedule(tasks, { notBefore: !relative && today ? planWorkdaysBetween(from, today) : 0 });
+  const sched = planSchedule(tasks, { notBefore: !relative && today ? planWorkdaysBetween(from, today) : 0, from: relative ? null : from });
   const { byId } = planIndex(tasks);
   const lines = ['gantt', '  dateFormat YYYY-MM-DD', `  axisFormat ${relative ? 'Wk %W' : '%d %b'}`, '  tickInterval 1week', '  weekday monday', '  excludes weekends', `  todayMarker ${!relative && today ? 'on' : 'off'}`];
   const groups = new Map();
@@ -11259,7 +11349,8 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       if (t.milestone) start = last = !relative && (t.due || t.start) ? t.due || t.start : planWorkdays(from, r.es);
       else if (!relative && t.start && t.due && t.due >= t.start) [start, last] = [t.start, t.due];
       else {
-        start = !relative && t.start ? t.start : planWorkdays(from, r.es);
+        // done: where it really started; open: the schedule, which keeps a 🛫 date as "not before"
+        start = !relative && t.start && planClosed(t) ? t.start : planWorkdays(from, r.es);
         last = planWorkdays(start, Math.max(0, days - 1));
       }
       const mark = planMark(t);
@@ -11433,12 +11524,13 @@ class PlanView extends ItemView {
     return 'calendar-range';
   }
   getState() {
-    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph, who: this.who, lanes: this.lanes, ganttPhases: this.ganttPhases } : {});
+    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph, who: this.who, lanes: this.lanes, ganttPhases: this.ganttPhases, links: this.links } : {});
   }
   async setState(state, result) {
     if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
     if (state && PLAN_MODES.some(([k]) => k === state.mode)) this.mode = state.mode;
     if (state && typeof state.weeks === 'boolean') this.weeks = state.weeks;
+    if (state && typeof state.links === 'boolean') this.links = state.links;
     if (state && state.graph && typeof state.graph === 'object') Object.assign(this.graph, state.graph);
     if (state && 'who' in state) this.who = state.who || null;
     if (state && (state.lanes === 'phase' || state.lanes === 'person')) this.lanes = state.lanes;
@@ -11627,7 +11719,15 @@ class PlanView extends ItemView {
     const chart = this.bodyEl.createDiv('np-chart np-gantt-wrap');
     const lay = planGanttLayout(g.rows, { today: this.today, relative: g.relative, width: this.bodyEl.clientWidth || 900 });
     if (!lay) return void emptyState(chart, 'Nothing to draw for this filter');
-    planDrawGantt(chart, lay, { colours: planColourMap(), onBar: (e, b) => this.taskMenu(e, b.task), selKey: this.selKey });
+    const tasksDrawn = !this.ganttPhases;
+    const svg = planDrawGantt(chart, lay, {
+      colours: planColourMap(),
+      onBar: (e, b) => !this.justDragged && this.taskMenu(e, b.task), // the click ending a drag isn't a click on the bar
+      selKey: this.selKey,
+      links: tasksDrawn && this.links !== false,
+      onLink: (e, l) => this.linkMenu(e, l),
+    });
+    if (tasksDrawn) this.attachGanttDrag(svg, lay, g.bars); // drag to change dates and lengths, Alt-drag to link (plan-gantt-drag.js)
   }
   /** Colour key for the kinds in this plan; outlined bars are on the critical path. */
   renderLegend(bars) {
@@ -12193,7 +12293,7 @@ function planPlannedDates(tasks, base, today) {
   const out = new Map();
   if (!base) return out;
   const from = planWorkdays(base, 0);
-  const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today) : 0 });
+  const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today) : 0, from });
   for (const r of sched.rows) out.set(r.task, { start: planWorkdays(from, r.es), due: planWorkdays(from, Math.max(r.es, r.ef - 1)) });
   return out;
 }
@@ -13001,11 +13101,21 @@ Object.assign(PlanView.prototype, {
       this.render();
     });
     tip(this.phasesOnlyEl.el, 'One bar per phase, or every task');
+    // fork: the dependency arrows on the Gantt, on or off; Undo for the last change made by dragging
+    this.linksBtn = button(tools, { icon: 'git-commit-horizontal', text: 'Links', cls: 'np-links-btn', title: 'Show the dependency arrows (click one to remove that link; Alt-drag from a bar to another to add one)', onClick: () => {
+      this.links = this.links === false;
+      this.app.workspace.requestSaveLayout();
+      this.syncForecastTools();
+      this.render();
+    } });
+    this.undoBtn = button(tools, { icon: 'undo-2', text: 'Undo', cls: 'np-undo-btn is-hidden', title: 'Undo the last change made on the chart', onClick: () => this.undoChange() });
     this.reportBtn = button(tools, { icon: 'file-output', text: 'Report', cls: 'np-report-btn', title: 'Save a printable report of this plan (a note with the chart) in the reports folder', onClick: () => this.writeReport() });
     this.datesBtn = button(tools, { icon: 'calendar-check', text: 'Dates…', cls: 'np-dates-btn', title: 'Write the planned dates into the tasks (🛫 start, 📅 due), choosing which', onClick: () => new PlanDatesModal(this.app, this).open() });
   },
   syncForecastTools() {
     this.phasesOnlyEl.el.toggleClass('is-hidden', this.mode !== 'gantt');
+    this.linksBtn.toggleClass('is-hidden', this.mode !== 'gantt' || this.ganttPhases);
+    this.linksBtn.toggleClass('is-on', this.links !== false);
     this.datesBtn.toggleClass('is-hidden', !this.base);
   },
   /** The plan with real dates (whatever the Dates / Weeks switch): forecast, baseline and slip use it. */
@@ -13300,6 +13410,211 @@ Object.assign(NeonProjects.prototype, {
   planMarksRefresh() {
     this.markGen++;
     this.app.workspace.updateOptions();
+  },
+});
+/* @src src/tickets/plan-gantt-drag.js */
+/* ---- Project plans (fork): editing on the Gantt chart -------------------------------------------------------
+ * Drag a bar's right end to change its length ([duration:: Nd], or the 📅 date of a task fixed by 🛫 and 📅), the
+ * bar itself to start it later (🛫 start, "not before": what waits for it moves too; it can't go before what it
+ * waits for), and Alt-drag from one bar onto another to make the second wait for the first (⛔; the first gets an
+ * id if it has none; no loops). Click an arrow to remove that link. Each change edits only the task lines involved,
+ * through the usual queue (editTask); Undo puts the last change back. Off on phones (dragging would fight the
+ * scrolling). Kevin, 17 Nov: Alt for links, 🛫 for moving. */
+
+/** The working day a dragged date lands on: a Saturday or Sunday moves to the Monday (pure). */
+const planDropDay = (ymd) => planWorkdays(ymd, 0);
+/** Length in working days of a bar from start to last (inclusive), at least 1 (pure). */
+const planBarDays = (start, last) => Math.max(1, planWorkdaysBetween(start, planDropDay(last)) + 1);
+/**
+ * The earliest a task may start (pure): the working day after the last task it waits for ends, and not before
+ * today if it hasn't started. bars: the dated plan's bars.
+ */
+function planEarliest(t, bars, today) {
+  let at = null;
+  for (const id of t.deps || []) {
+    const b = bars.find((x) => x.task && x.task.id === id);
+    if (b) {
+      const next = planWorkdays(b.end, 1);
+      if (!at || next > at) at = next;
+    }
+  }
+  if (t.status === 'todo' && today && (!at || today > at)) at = planDropDay(today);
+  return at;
+}
+
+Object.assign(PlanView.prototype, {
+  /** Make the drawn Gantt editable. svg: planDrawGantt's result (redrawn often: its own listeners go with it). */
+  attachGanttDrag(svg, lay, bars) {
+    if (!svg || NEON_MOBILE.phone) return;
+    const dated = !!this.base && !this.weeks;
+    const items = lay.items.filter((it) => it.type === 'bar' && it.row.bar.task && !it.row.bar.task.external);
+    const scale = () => svg.getBoundingClientRect().width / lay.width || 1;
+    const at = (e) => {
+      const r = svg.getBoundingClientRect();
+      const k = scale();
+      return { x: (e.clientX - r.left) / k, y: (e.clientY - r.top) / k };
+    };
+    const rowAt = (y) => lay.items.find((it) => it.type === 'bar' && y >= it.y && y < it.y + lay.rowH);
+    const zone = (p) => {
+      const it = rowAt(p.y);
+      if (!it || !items.includes(it)) return null;
+      const e = planBarEnds(lay, it);
+      if (p.x < e.x0 - 4 || p.x > e.x1 + 4) return null;
+      return { it, ends: e, end: !it.row.milestone && p.x >= e.x1 - 6 };
+    };
+    // the pointer shows what a drag would do
+    svg.addEventListener('pointermove', (e) => {
+      if (this.drag) return;
+      const z = zone(at(e));
+      svg.style.cursor = !z ? '' : e.altKey ? 'crosshair' : z.end ? 'ew-resize' : dated ? 'grab' : '';
+    });
+    svg.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const p = at(e);
+      const z = zone(p);
+      if (!z) return;
+      const mode = e.altKey ? 'link' : z.end ? 'end' : dated ? 'move' : null;
+      if (!mode) return;
+      e.preventDefault();
+      svg.setPointerCapture(e.pointerId);
+      const row = svg.querySelector(`.np-g-row[data-key="${CSS.escape(planKey(z.it.row.bar.task))}"]`);
+      const shape = row && row.querySelector('.np-g-bar, polygon');
+      this.drag = { mode, it: z.it, ends: z.ends, x0: p.x, moved: false, row, shape, w0: shape && shape.getAttr('width') };
+    });
+    svg.addEventListener('pointermove', (e) => {
+      const d = this.drag;
+      if (!d) return;
+      const p = at(e);
+      const dx = p.x - d.x0;
+      if (!d.moved && Math.abs(dx) < 4 && d.mode !== 'link') return; // a click, not a drag yet
+      if (!d.moved) {
+        d.moved = true;
+        this.dragActive = true; // no redraws until it lands
+        svg.addClass('is-dragging');
+      }
+      const days = Math.round(dx / lay.dayW);
+      const b = d.it.row.bar;
+      if (d.mode === 'end' && d.shape) {
+        d.shape.setAttr('width', String(Math.max(lay.dayW - 2, Number(d.w0) + days * lay.dayW)));
+        this.dragTip(svg, p, `${planBarDays(b.start, ymdAdd(b.end, days))} working day${planBarDays(b.start, ymdAdd(b.end, days)) === 1 ? '' : 's'}`);
+      } else if (d.mode === 'move' && d.row) {
+        for (const el of d.row.querySelectorAll('.np-g-bar, polygon')) el.setAttr('transform', `translate(${days * lay.dayW} 0)`);
+        this.dragTip(svg, p, `Starts ${planShortDate(planDropDay(ymdAdd(b.start, days)))}`);
+      } else if (d.mode === 'link') {
+        if (!d.line) d.line = svg.createSvg('line', { cls: 'np-g-drag-link' });
+        d.line.setAttrs({ x1: d.ends.x1, y1: d.ends.y, x2: p.x, y2: p.y });
+        const target = rowAt(p.y);
+        const ok = target && items.includes(target) && target !== d.it;
+        this.dragTip(svg, p, ok ? `${planClip(planText(target.row.bar.task.raw), 30)} waits for this` : 'Drop on the task that waits for this one');
+      }
+    });
+    const end = (e, cancel) => {
+      const d = this.drag;
+      if (!d) return;
+      this.drag = null;
+      this.dragActive = false;
+      svg.removeClass('is-dragging');
+      if (!d.moved) return;
+      this.justDragged = true; // the click that follows the drag isn't a click on the bar
+      window.setTimeout(() => (this.justDragged = false), 300);
+      if (cancel) return this.render();
+      const p = at(e);
+      const days = Math.round((p.x - d.x0) / lay.dayW);
+      if (d.mode === 'link') {
+        const target = rowAt(p.y);
+        if (target && items.includes(target) && target !== d.it) return void this.dropLink(d.it.row.bar.task, target.row.bar.task);
+        return this.render();
+      }
+      if (!days) return this.render();
+      if (d.mode === 'end') return void this.dropEnd(d.it.row.bar, days);
+      this.dropMove(d.it.row.bar, days, bars);
+    };
+    svg.addEventListener('pointerup', (e) => end(e, false));
+    svg.addEventListener('pointercancel', (e) => end(e, true));
+  },
+  /** A small label by the pointer while dragging. */
+  dragTip(svg, p, text) {
+    let tip = svg.querySelector('.np-g-drag-tip');
+    if (!tip) tip = svg.createSvg('text', { cls: 'np-g-drag-tip' });
+    tip.setAttrs({ x: p.x + 12, y: p.y - 10 });
+    tip.textContent = text;
+  },
+  /** The right end dropped: a new length, or a new 📅 for a task fixed by its 🛫 and 📅 dates. */
+  dropEnd(bar, days) {
+    const t = bar.task;
+    const last = planDropDay(ymdAdd(bar.end, days));
+    const fixed = this.base && !this.weeks && t.start && t.due && t.due >= t.start;
+    if (fixed) return this.changeTasks(`end of “${planClip(planText(t.raw), 30)}”`, [[t, (rest) => planSetSign(rest, '📅', last < t.start ? t.start : last)]]);
+    const n = planBarDays(bar.start, last);
+    this.changeTasks(`length of “${planClip(planText(t.raw), 30)}”`, [[t, (rest) => planDurRest(rest, n)]]);
+  },
+  /** The bar dropped somewhere else: 🛫 start ("not before"), never before what it waits for. */
+  dropMove(bar, days, bars) {
+    const t = bar.task;
+    const start = planDropDay(ymdAdd(bar.start, days));
+    const earliest = planEarliest(t, bars, this.today);
+    if (earliest && start < earliest) {
+      const why = (t.deps || []).map((id) => bars.find((b) => b.task && b.task.id === id)).filter(Boolean).sort((a, b) => (a.end < b.end ? 1 : -1))[0];
+      new Notice(why && planWorkdays(why.end, 1) === earliest ? `It can’t start before ${planShortDate(earliest)}: it waits for ${why.task.id}, which ends ${planShortDate(why.end)}` : `It can’t start before ${planShortDate(earliest)} (not started yet, so not before today)`);
+      return this.render();
+    }
+    const name = `start of “${planClip(planText(t.raw), 30)}”`;
+    if (t.milestone) return this.changeTasks(name, [[t, (rest) => planSetSign(rest, t.due ? '📅' : '🛫', start)]]);
+    if (t.start && t.due && t.due >= t.start) {
+      // fixed dates: both move, keeping its length in working days
+      const due = planWorkdays(start, planWorkdaysBetween(t.start, t.due));
+      return this.changeTasks(name, [[t, (rest) => planSetSign(planSetSign(rest, '🛫', start), '📅', due)]]);
+    }
+    // back to the earliest it can start anyway: no 🛫 needed
+    this.changeTasks(name, [[t, (rest) => planSetSign(rest, '🛫', earliest && start === earliest ? null : start)]]);
+  },
+  /** Alt-drag from one bar onto another: `to` waits for `from` (it gets an id first if it has none). */
+  dropLink(from, to) {
+    if (from.id && to.deps.includes(from.id)) {
+      new Notice(`${to.id || planClip(planText(to.raw), 30)} already waits for ${from.id}`);
+      return this.render();
+    }
+    if (planDownstream(this.tasks, to).has(from)) {
+      new Notice('That would make a loop: the first task already waits, in the end, for the second');
+      return this.render();
+    }
+    const edits = [];
+    let id = from.id;
+    if (!id) {
+      const fm = (this.app.metadataCache.getFileCache(from.file) || {}).frontmatter || {};
+      id = planNextId(this.tasks.map((x) => x.id).filter(Boolean), planPrefix(fm, planScopeTitle(this.plan)));
+      edits.push([from, (rest) => planSetSign(rest, '🆔', id)]);
+    }
+    edits.push([to, (rest) => planDepsRest(rest, [id], [])]);
+    this.changeTasks(`link ${id} → ${to.id || planClip(planText(to.raw), 20)}`, edits);
+  },
+  /** An arrow clicked: remove that link (or open either task). */
+  linkMenu(e, l) {
+    const m = new Menu();
+    m.addItem((i) => i.setTitle(`Remove the link: ${l.to.id || planClip(planText(l.to.raw), 30)} no longer waits for ${l.from.id}`).setIcon('unlink').onClick(() => this.changeTasks(`link ${l.from.id} → ${l.to.id || ''}`, [[l.to, (rest) => planDepsRest(rest, [], [l.from.id])]])));
+    m.addItem((i) => i.setTitle(`Open ${l.from.id}`).setIcon('file-text').onClick(() => openFile(this.app, l.from.file, null, l.from.line)));
+    m.showAtMouseEvent(e);
+  },
+  /** Change task lines in order ([task, rest => rest]), remembering them for Undo. */
+  async changeTasks(label, edits) {
+    const before = edits.map(([t]) => ({ t, raw: t.raw, box: t.box }));
+    for (const [t, fn] of edits) await this.editTask(t, (text) => planEditLine(text, t, (rest, box) => ({ rest: fn(rest).replace(/\s{2,}/g, ' ').trim(), box })));
+    this.lastChange = { label, before };
+    this.syncUndo();
+  },
+  /** Undo: put the last change's task lines back as they were. */
+  async undoChange() {
+    const c = this.lastChange;
+    if (!c) return;
+    this.lastChange = null;
+    this.syncUndo();
+    for (const b of [...c.before].reverse()) await this.editTask(b.t, (text) => planEditLine(text, b.t, () => ({ rest: b.raw, box: b.box })));
+    new Notice(`Undone: ${c.label}`);
+  },
+  syncUndo() {
+    if (!this.undoBtn) return;
+    this.undoBtn.toggleClass('is-hidden', !this.lastChange);
+    if (this.lastChange) this.undoBtn.setAttr('aria-label', `Undo: ${this.lastChange.label}`);
   },
 });
 /* @src src/tickets/plan-dates.js */

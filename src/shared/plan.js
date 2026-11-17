@@ -123,8 +123,10 @@ const planDays = (t) => (t.status === 'cancelled' || t.milestone ? 0 : t.days ==
  * so only a 📅 date that has passed (or work in progress running late) makes a task overdue.
  * Returns { rows: [{ task, es, ef, slack, crit }] in the tasks' order, length, cycles: [task], missing: [{ task, id }],
  * dups: [id] }. Tasks in a dependency loop are reported and scheduled as if the loop's last link were absent.
+ * from: the plan's first working day (date mode): an open task's 🛫 start date is then "not before" that date, so
+ * moving it moves everything that waits for it (fork, 17 Nov: dragging a bar on the Gantt writes 🛫).
  */
-function planSchedule(tasks, { notBefore = 0 } = {}) {
+function planSchedule(tasks, { notBefore = 0, from = null } = {}) {
   const { byId, dups } = planIndex(tasks);
   const n = tasks.length;
   const pos = new Map(tasks.map((t, i) => [t, i]));
@@ -146,6 +148,8 @@ function planSchedule(tasks, { notBefore = 0 } = {}) {
     let s = 0;
     for (const p of preds[i]) s = Math.max(s, finish(p));
     if (tasks[i].status === 'todo') s = Math.max(s, notBefore);
+    const t0 = tasks[i];
+    if (from && t0.start && !planClosed(t0)) s = Math.max(s, planWorkdaysBetween(from, t0.start));
     es[i] = s;
     seen[i] = 2;
     return s + planDays(tasks[i]);

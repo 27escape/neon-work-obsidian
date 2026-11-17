@@ -38,7 +38,7 @@ test('gantt: with a start date, dates on the axis and a task’s own dates win',
   const { text } = P.planGanttText(tasks, { base: '2026-11-14', today: '2026-11-16' });
   assert.ok(text.includes('axisFormat %d %b'));
   assert.ok(text.includes('todayMarker on'));
-  assert.ok(text.includes('  A :crit, np1, 2026-11-16, 2d'));
+  assert.ok(text.includes('  A :np1, 2026-11-16, 2d')); // not critical: B can't start before its 🛫 date anyway
   assert.ok(text.includes('  B :crit, np2, 2026-12-01, 2026-12-04'));
   assert.equal(P.planGanttText([], {}).text, '');
 });
@@ -147,4 +147,17 @@ test('scale labels never crowd: months when weeks would, the year on the first a
     assert.match(shown[0].text, / \d\d$/); // the first label has the year
     assert.ok(shown.some((t) => / 27$/.test(t.text)), `the year 2027 shows at width ${width}`);
   }
+});
+
+// 17 Nov: a 🛫 date is "not before" for an open task: dependants move with it (dragging a bar writes 🛫)
+test('schedule: an open task’s 🛫 start holds it and its dependants back; a done one keeps its real start', () => {
+  const tasks = [T('- [ ] A [duration:: 2d] 🆔 a 🛫 2026-11-25'), T('- [ ] B [duration:: 1d] 🆔 b ⛔ a'), T('- [x] C [duration:: 1d] 🆔 c 🛫 2026-11-10 ✅ 2026-11-10')];
+  const g = P.planGanttText(tasks, { base: '2026-11-16', today: '2026-11-16' });
+  const bar = (id) => g.bars.find((b) => b.task && b.task.id === id);
+  assert.equal(bar('a').start, '2026-11-25');
+  assert.equal(bar('b').start, '2026-11-27'); // after A's two days
+  assert.equal(bar('c').start, '2026-11-10');
+  // in weeks (no dates) the 🛫 date is ignored
+  const w = P.planGanttText(tasks, { base: '2026-11-16', weeks: true });
+  assert.equal(w.bars.find((b) => b.task && b.task.id === 'b').start, P.planGanttText([T('- [ ] A [duration:: 2d] 🆔 a'), T('- [ ] B [duration:: 1d] 🆔 b ⛔ a')], { weeks: true }).bars[1].start);
 });

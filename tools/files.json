@@ -145,6 +145,7 @@
         "src/tickets/plan-forecast.js",
         "src/tickets/plan-baseline.js",
         "src/tickets/plan-marks.js",
+        "src/tickets/plan-gantt-drag.js",
         "src/tickets/plan-dates.js",
         "src/tickets/plan-report.js",
         "src/tickets/plan-actions.js"
