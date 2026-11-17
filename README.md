@@ -5,6 +5,8 @@ By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obs
 
 > [!NOTE]
 > **New in 1.4.0: Planning**, a lightweight project planner over the tasks in your project notes: Gantt, board, dependency graph, task list, a task editor, forecasts and all projects on one timeline. See [the release notes](docs/release-notes/1.4.0.md).
+>
+> **1.4.1:** the task editor's *edit this task*, *new task here* and *new task after this* can now have hotkeys. See [the release notes](docs/release-notes/1.4.1.md).
 
 Neon Work sits on top of a vault you already have:
 
