@@ -165,6 +165,9 @@ Object.assign(PlanView.prototype, {
       m.addItem((i) => i.setTitle(`Duration: ${planDaysText({ days: d })}`).setChecked(!t.milestone && t.days === d).onClick(() => this.setDuration(t, d)));
     m.addItem((i) => i.setTitle('Duration…').setIcon('timer').onClick(() => this.askDuration(t)));
     m.addItem((i) => i.setTitle('Milestone').setIcon('diamond').setChecked(!!t.milestone).onClick(() => this.setMilestone(t, !t.milestone)));
+    m.addSeparator();
+    if (t.status !== 'cancelled') m.addItem((i) => i.setTitle('Cancel task').setIcon('x-circle').onClick(() => this.plugin.cancelPlanTask(t, this)));
+    m.addItem((i) => i.setTitle('Delete task…').setIcon('trash-2').setWarning(true).onClick(() => this.plugin.confirmDeleteTask(t, this.tasks, this)));
     m.showAtMouseEvent(e);
   },
 });

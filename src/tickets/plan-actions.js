@@ -125,6 +125,8 @@ Object.assign(NeonProjects.prototype, {
       anchor: line == null && at != null && !after && !view ? { line: at, text: (lines[at] || '').replace(/\r$/, '') } : null,
       base: planBaseDate(this.app, scope),
       onSaved: (id) => view && view.selectSaved(id),
+      plugin: this, // for Delete task / Cancel task
+      view,
     }).open();
   },
   /** Opens the plan in a tab: the one already showing this plan, else a new tab. */

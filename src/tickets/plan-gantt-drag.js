@@ -229,13 +229,15 @@ Object.assign(PlanView.prototype, {
     this.lastChange = { label, before };
     this.syncUndo();
   },
-  /** Undo: put the last change's task lines back as they were. */
+  /** Undo: put the last change back (task lines as they were, or a deleted task's lines and links). */
   async undoChange() {
     const c = this.lastChange;
     if (!c) return;
     this.lastChange = null;
     this.syncUndo();
-    for (const b of [...c.before].reverse()) await this.editTask(b.t, (text) => planEditLine(text, b.t, () => ({ rest: b.raw, box: b.box })));
+    if (c.restore) await c.restore(); // a deleted task: its lines and links back
+    else for (const b of [...c.before].reverse()) await this.editTask(b.t, (text) => planEditLine(text, b.t, () => ({ rest: b.raw, box: b.box })));
+    if (c.restore) this.refresh();
     new Notice(`Undone: ${c.label}`);
   },
   syncUndo() {

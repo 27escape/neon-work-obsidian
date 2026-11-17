@@ -202,3 +202,14 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+/* Delete task and Cancel task on the left, Close and Save on the right */
+.np-editor .np-ed-buttons .np-ed-gap {
+  flex: 1;
+}
+.np-delete-modal .np-del-name {
+  font-weight: 600;
+}
+.np-delete-modal ul {
+  margin: 6px 0 10px;
+  padding-left: 20px;
+}

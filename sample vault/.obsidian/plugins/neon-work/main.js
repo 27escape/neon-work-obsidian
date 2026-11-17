@@ -1602,9 +1602,9 @@ function planGanttLinks(lay) {
 
 /**
  * Draw a layout into `el` as SVG. colours: planColourMap(); onBar(e, bar) for task rows; selKey: the selected task;
- * links: draw the dependency arrows (planGanttLinks); onLink(e, link) when one is clicked.
+ * links: draw the dependency arrows (planGanttLinks); onLink(e, link) when one is clicked; onMenu(e, bar): right-click.
  */
-function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = false, onLink = null }) {
+function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = false, onLink = null, onMenu = null }) {
   const { labelW, dayW, rowH, headH } = lay;
   const svg = el.createSvg('svg', { cls: 'np-gantt', attr: { width: lay.width, height: lay.height, viewBox: `0 0 ${lay.width} ${lay.height}`, xmlns: 'http://www.w3.org/2000/svg' } });
   svg.style.fontFamily = 'var(--font-interface)';
@@ -1694,6 +1694,11 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = 
     if ((b.task || b.project) && onBar) {
       g.addClass('is-task');
       g.addEventListener('click', (e) => onBar(e, b));
+      if (onMenu)
+        g.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          onMenu(e, b);
+        });
     }
   }
   // the arrows' click areas, above the rows (whose own click area spans the whole width): wide and see-through
@@ -1877,7 +1882,7 @@ function planAddSteps(lines, tasks) {
 /** Every step ticked, the task itself still open. */
 const planStepsDone = (t) => !!t.steps && t.steps.total > 0 && t.steps.done === t.steps.total && !planClosed(t);
 /* @src README.md (tools/help.mjs) */
-const NEON_HELP = {"overview":{"title":"Overview","md":"A command centre for an Obsidian vault: a dashboard, projects, tasks, time tracking, research notes and a few writing touches, in a neon look with live background patterns, now with project planning: Gantt charts, a kanban board and reports.\nBy Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.\n\n\nNeon Work sits on top of a vault you already have:\n\n- **Read-only by default.** It reads your notes and changes nothing until you switch read-only off, and even then only when you act (tick a task, set a status, create a note).\n- **It never moves your files**, and creates nothing until a feature needs it.\n- **It reads your own conventions**: notes tagged `project`, `#task` lines, a `status` property, customer folders (`1.Customers/<customer>/…`), your templates and your daily (or weekly) note settings.\n\nEverything runs **100% locally**: no network calls, no telemetry, no remote fonts or code, no `eval`. [FORK.md](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/FORK.md) lists everything that differs from the original plugin; [docs/architecture.md](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/architecture.md) describes how it is built.\n\n[🖼 Picture: The Neon Work dashboard ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/dashboard.png)\n\nThe plugin has six parts (Planning is part of Projects). Each can be switched off in the settings, and the others keep working. A list at the top of the left sidebar (Dashboard, Cards, Inbox, Tasks, Projects, Time, Research, Graph) switches what the main pane shows; notes open in the same pane, and Back / Forward move between them. The **?** button at the top of each tab opens this guide inside Obsidian, at the part you are in, with links to the pictures here.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md"},"dashboard":{"title":"Dashboard","md":"- **Cards** on one page: Totals, Vault pulse, Recently done, Activity (a month calendar, and this week with two weeks either side), Tasks, Todo, Projects, Time today and the **Claude card** (notes whose `claude` property asks for Claude's work, and notes Claude changed for you to review).\n- **Recently done:** the last 14 days of finished work, read from your notes: tasks ticked with a ✅ date (in the editor, the Tasks plugin or these cards) and projects with a `completed` or `cancelled` date. Works in read-only mode.\n- **Ticker and pin board:** a live line of facts at the top that opens into a pin board. Drop a note, a file or some text on it to pin it; pins live in one note, one line each.\n- **Quick capture:** type a thought and send it to an **Inbox note** (a new note in your inbox folder, from your inbox template), the **Todo** note, a new **Project**, a **Time entry** or the pin board.\n- **Card explorer** (sidebar or tab): your folders and notes as cards, coloured by customer, with filter chips per customer.\n- **Note graph** (desktop): your notes as clusters of linked topics. Its **Gaps** list shows topics that ought to connect but barely do (\"What connects [[A]] with [[B]]?\"); **Bridge note** makes a note in the *Bridges* folder with that question and links to both sides, to help you think it through. Its **Structure** scale rates how your notes cluster, from *Biased* (one topic dominates) through *Focused* and *Diversified* to *Dispersed* (many loosely linked islands), from how cleanly they split into topics (modularity) and the share of the largest topic; hover over a level for its meaning.\n- **Weekly review** (*Create / open this week's review*): a note from your review template with the week in numbers and the notes you created or edited.\n- **Themes and patterns:** nine themes, each in light and dark, with a live pattern behind the dashboard; chosen in *Settings → Dashboard*.\n\n[🖼 Picture: Quick capture and the pin board ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/quick-capture.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#dashboard"},"tasks":{"title":"Tasks","md":"- **Tasks tab and card:** every open `#task` line across the vault (`[ ]` and `[/]`), grouped Overdue · Today · Later by 📅 due or ⏳ scheduled date. Tasks in project notes belong to their project's plan and stay off this list (setting *Tasks in projects*). Tick, edit or open each one in place; the date and note sit on a small line under the task text. Notes tagged `tasks` and recent daily or weekly notes count every checkbox.\n- **Todo card:** the open tasks of your Todo note in file order. New tasks go at the head of that note as `- [ ] #task … ➕ date`; ticking writes `[x] … ✅ date`, as the Tasks plugin does.\n- **Timeline:** a card on the Tasks tab draws dated tasks as a Gantt chart, one section per note: a bar from 🛫 start to 📅 due, otherwise a diamond on the due date; overdue red, due within a week orange, in progress cyan, the rest blue. A click opens the task. Zoom (3 months, 12 months, all). Can be switched off in settings.\n- **New note:** pick a customer and a kind (note, meeting, person, project, research); the note goes in `<customer>/<Meetings | People | Research>/` from that kind's template. People notes are named `@Name` with an `aliases` property.\n\n[🖼 Picture: The Tasks tab with its timeline ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/tasks-tab.png)\n\n[🖼 Picture: New note by customer and kind ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/new-note.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#tasks"},"projects":{"title":"Projects","md":"- **Projects tab and card:** notes with `project` in their tags, grouped by customer (or status, due date and more). The customer is the `customer` property, else the customer folder the note is in.\n- **Your status values** in four groups: not started (`init`), active (`inprogress`, `ongoing`), on hold (`paused`, `blocked`) and closed (`completed`, `cancelled`). Changing a status only updates properties: `status`, plus today's date in `completed` (or `cancelled`).\n- Each row shows the status, customer, `stage`, start date, `note`, a due-date bar and, for projects with a plan, how its tasks stand and the forecast finish. Postpone, set the due date or a reminder, or edit the note property from the row's menu.\n- **Timeline: all projects in one view** above the list on the Projects tab (the *Timeline* button or a setting hides it), one section per customer: a bar from `started` to the plan's forecast finish (else `due`, or `completed` once closed), a diamond on the due date, coloured late, needs attention, in progress, not started, on hold or closed, and a line for today. A click opens the project's Planning view. Zoom (3 months, 12 months, all).\n- **New project:** a name and a customer; the note goes in `<customer>/Projects/` from your project template.\n- **Reminders** appear inside Obsidian, once a day per project, when a project is overdue, due soon or past its remind date.\n\n[🖼 Picture: The Projects tab with its timeline ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/projects-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#projects"},"planning":{"title":"Planning","md":"A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.\n\n[🖼 Picture: Planning: the Gantt chart with phases, milestones and the forecast ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-gantt.png)\n\n- **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, tasks it runs alongside `[starts-with:: sdr-2]` (starts no earlier than that one starts) and `[ends-with:: sdr-3+2d]` (finishes no earlier than that one finishes, here two working days after), an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.\n- **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.\n- **Editing on the Gantt** (desktop and tablet): arrows show what waits for what (faint, strong on the critical path or when the task waited for is late; hover a task to pick out its own). Drag a bar's right end to change its length, drag the bar to start it later (writes 🛫, \"not before\": what waits for it moves too; it can't go before what it waits for), and **Alt**-drag from one bar onto another to link them by the ends you use: right end to its left end, it waits; left end to left end, it starts with it; right end to right end, it ends with it (dashed arrows). Click an arrow to remove that link. **Undo** puts the last change back.\n- **Priority** (the Tasks plugin's 🔺 ⏫ 🔼 🔽 ⏬) shows on cards, Gantt rows and in the List, highest first on the board; it doesn't change the schedule.\n- **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against the baseline (saved automatically when the project starts, provisional — following the plan — until every open task has a duration, then locked; lock it early or re-baseline from the tab's ⋯ menu), a filter for risks, issues and decisions.\n[🖼 Picture: Planning: the board, by phase ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-board.png)\n\n[🖼 Picture: Planning: the list, with priority and slip ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-list.png)\n\n- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*; also a command, so it can have a hotkey). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.\n- **Report** saves a printable note of the plan (summary, forecast, the Gantt chart, phases, what needs attention, risks, critical path, every task) in the reports folder; print it with *Export to PDF*. **Dates…** writes the plan's dates into the tasks you tick (🛫 start, 📅 due). **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.\n[🖼 Picture: A Planning report, ready to print ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-report.png)\n\n- **Steps:** the checkboxes directly under a task (`- [ ]` / `- [x]`, or `- ( )` / `- (x)`) are its steps, shown as 2/4 on its bar (with a progress line), in the List and on its card; cancelled ones (`[-]`, `(-)`) and notes such as `[?]` don't count. When every step is done but the task isn't, Planning offers to tick it (it never does so by itself). A task tagged `#task` (or with a 🆔) inside another task is flagged: make it a plain checkbox or its own task.\n- **Plan problems:** a ⛔ id no task has (say, after folding tasks into a holding task), an id used twice or a dependency loop is listed at the top of the Planning view, naming the task (click to open the note at that line), in the report's *Needs attention*, as a pill on the project's card and row, and underlined in the note itself while you edit it (hover for the reason; nothing is written).\n- **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.\n\nPlanning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#planning"},"research":{"title":"Research","md":"- **Research tab:** each section is a folder shown as a topic tree. A pattern such as `1.Customers/*/Research` gathers every customer's research folder into one section, labelled by customer.\n- **By status:** the section's notes grouped by their `status` property, with \"N to research · N researched\" in the header.\n- **Link suggestions:** the status bar offers to link words that match the titles of other research notes.\n- New research notes start from your research template.\n\n[🖼 Picture: The Research tab ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/research-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#research"},"time":{"title":"Time","md":"- **Automatic time** per customer while you work in a note, plus manual entries, breaks, a workday timer and overtime.\n- **Time tab** and a **Time today** card; *Wrap up the day* at the end.\n- An optional **daily time log note** with totals per customer and a table of entries, for you or an AI agent to read. Nothing is sent anywhere.\n\n[🖼 Picture: The Time tab ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/time-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#time"},"write":{"title":"Write","md":"- **Table picker** (`Insert table…`), merged table cells, styled tables, lime dividers, sub-titles and page breaks for PDF export.\n- **Locked callouts and maths blocks:** lock one so it can't be edited by accident.\n- **Lifted writing window:** the note sits on a raised card over the dashboard pattern (full width when Obsidian's *Readable line length* is off).","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#write"},"layouts":{"title":"Other vault layouts","md":"Neon Work started with a vault organised by customer, but the customer is just a group: rename it (Area, Client, Team…), choose the property it's read from and the folder whose subfolders are the groups, in *Settings → Neon Work → Projects*. For a PARA vault, for example: group name `Area`, group properties `area, parent` (names or links such as `[[Photography]]`), groups folder `2.Areas`, project tag `projects`, project folders `1.Projects` (each folder there is a project too), New note types for area notes and resources, and the **Areas card** on the dashboard (projects, tasks and recent notes per area, quietest first). Several task tags (`#task, #todo`) and ignored tags (e.g. `vault_index` folder index notes) help with vaults that have many checklists or generated notes.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#other-vault-layouts"},"mobile":{"title":"On phones and tablets","md":"Dashboard, Tasks, Projects and Research also run on mobile: one column on a phone held upright, two on a phone turned sideways or a tablet, and long press for the menus that right-click opens on the desktop. Time tracking, Write, the card explorer and the note graph are desktop-only. To preview the mobile layouts on the desktop, run `app.emulateMobile(true)` in the developer console.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#on-phones-and-tablets"},"settings":{"title":"Settings","md":"Everything is on one page, *Settings → Neon Work*, with a section per part:\n\n- **Overview:** read-only, the base folder, the switches for each part, and safe mode.\n- **Dashboard, Tasks, Projects, Research, Time, Write:** that part's options. Folder and file fields suggest matching vault paths as you type.\n\nThe **base folder** (asked on first start) is where the plugin keeps what it makes for itself when a location is left empty: Projects without a customer, Reviews, Time Log, `Todo.md`, the pin board and graph bridges.\n\n[🖼 Picture: Settings, one page with a section per part ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/settings.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#settings"},"install":{"title":"Install","md":"1. Build it (`node tools/build.mjs`) or take the three files from a release: `main.js`, `manifest.json`, `styles.css`.\n2. Put them in `<your vault>/.obsidian/plugins/neon-work/` (create the folder if needed).\n3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable **Neon Work**.\n4. On first start it asks for a **base folder** (for example `2.Resources`). Read-only stays on until you switch it off in *Overview*; commit or back up your vault first, so you can see exactly what changes.\n\n**Updating:** copy the three files over the ones in `.obsidian/plugins/neon-work/` and switch the plugin off and on. Keep the folder: it also holds your settings.\n\n**Safe mode:** if the plugin fails while starting, the next start keeps every part off; switch them back on in *Overview*.\n\n**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. *Project: open Planning* is a good one to give a key (for example Ctrl/Cmd+Shift+G), and so are the task editor's *Planning: edit this task*, *Planning: new task here* and *Planning: new task after this* (in a project note, on the line under the cursor). Commands are listed as \"Neon Work – Tasks: …\", \"… – Projects: …\" and so on.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#install"}};
+const NEON_HELP = {"overview":{"title":"Overview","md":"A command centre for an Obsidian vault: a dashboard, projects, tasks, time tracking, research notes and a few writing touches, in a neon look with live background patterns, now with project planning: Gantt charts, a kanban board and reports.\nBy Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.\n\n\nNeon Work sits on top of a vault you already have:\n\n- **Read-only by default.** It reads your notes and changes nothing until you switch read-only off, and even then only when you act (tick a task, set a status, create a note).\n- **It never moves your files**, and creates nothing until a feature needs it.\n- **It reads your own conventions**: notes tagged `project`, `#task` lines, a `status` property, customer folders (`1.Customers/<customer>/…`), your templates and your daily (or weekly) note settings.\n\nEverything runs **100% locally**: no network calls, no telemetry, no remote fonts or code, no `eval`. [FORK.md](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/FORK.md) lists everything that differs from the original plugin; [docs/architecture.md](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/architecture.md) describes how it is built.\n\n[🖼 Picture: The Neon Work dashboard ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/dashboard.png)\n\nThe plugin has six parts (Planning is part of Projects). Each can be switched off in the settings, and the others keep working. A list at the top of the left sidebar (Dashboard, Cards, Inbox, Tasks, Projects, Time, Research, Graph) switches what the main pane shows; notes open in the same pane, and Back / Forward move between them. The **?** button at the top of each tab opens this guide inside Obsidian, at the part you are in, with links to the pictures here.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md"},"dashboard":{"title":"Dashboard","md":"- **Cards** on one page: Totals, Vault pulse, Recently done, Activity (a month calendar, and this week with two weeks either side), Tasks, Todo, Projects, Time today and the **Claude card** (notes whose `claude` property asks for Claude's work, and notes Claude changed for you to review).\n- **Recently done:** the last 14 days of finished work, read from your notes: tasks ticked with a ✅ date (in the editor, the Tasks plugin or these cards) and projects with a `completed` or `cancelled` date. Works in read-only mode.\n- **Ticker and pin board:** a live line of facts at the top that opens into a pin board. Drop a note, a file or some text on it to pin it; pins live in one note, one line each.\n- **Quick capture:** type a thought and send it to an **Inbox note** (a new note in your inbox folder, from your inbox template), the **Todo** note, a new **Project**, a **Time entry** or the pin board.\n- **Card explorer** (sidebar or tab): your folders and notes as cards, coloured by customer, with filter chips per customer.\n- **Note graph** (desktop): your notes as clusters of linked topics. Its **Gaps** list shows topics that ought to connect but barely do (\"What connects [[A]] with [[B]]?\"); **Bridge note** makes a note in the *Bridges* folder with that question and links to both sides, to help you think it through. Its **Structure** scale rates how your notes cluster, from *Biased* (one topic dominates) through *Focused* and *Diversified* to *Dispersed* (many loosely linked islands), from how cleanly they split into topics (modularity) and the share of the largest topic; hover over a level for its meaning.\n- **Weekly review** (*Create / open this week's review*): a note from your review template with the week in numbers and the notes you created or edited.\n- **Themes and patterns:** nine themes, each in light and dark, with a live pattern behind the dashboard; chosen in *Settings → Dashboard*.\n\n[🖼 Picture: Quick capture and the pin board ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/quick-capture.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#dashboard"},"tasks":{"title":"Tasks","md":"- **Tasks tab and card:** every open `#task` line across the vault (`[ ]` and `[/]`), grouped Overdue · Today · Later by 📅 due or ⏳ scheduled date. Tasks in project notes belong to their project's plan and stay off this list (setting *Tasks in projects*). Tick, edit or open each one in place; the date and note sit on a small line under the task text. Notes tagged `tasks` and recent daily or weekly notes count every checkbox.\n- **Todo card:** the open tasks of your Todo note in file order. New tasks go at the head of that note as `- [ ] #task … ➕ date`; ticking writes `[x] … ✅ date`, as the Tasks plugin does.\n- **Timeline:** a card on the Tasks tab draws dated tasks as a Gantt chart, one section per note: a bar from 🛫 start to 📅 due, otherwise a diamond on the due date; overdue red, due within a week orange, in progress cyan, the rest blue. A click opens the task. Zoom (3 months, 12 months, all). Can be switched off in settings.\n- **New note:** pick a customer and a kind (note, meeting, person, project, research); the note goes in `<customer>/<Meetings | People | Research>/` from that kind's template. People notes are named `@Name` with an `aliases` property.\n\n[🖼 Picture: The Tasks tab with its timeline ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/tasks-tab.png)\n\n[🖼 Picture: New note by customer and kind ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/new-note.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#tasks"},"projects":{"title":"Projects","md":"- **Projects tab and card:** notes with `project` in their tags, grouped by customer (or status, due date and more). The customer is the `customer` property, else the customer folder the note is in.\n- **Your status values** in four groups: not started (`init`), active (`inprogress`, `ongoing`), on hold (`paused`, `blocked`) and closed (`completed`, `cancelled`). Changing a status only updates properties: `status`, plus today's date in `completed` (or `cancelled`).\n- Each row shows the status, customer, `stage`, start date, `note`, a due-date bar and, for projects with a plan, how its tasks stand and the forecast finish. Postpone, set the due date or a reminder, or edit the note property from the row's menu.\n- **Timeline: all projects in one view** above the list on the Projects tab (the *Timeline* button or a setting hides it), one section per customer: a bar from `started` to the plan's forecast finish (else `due`, or `completed` once closed), a diamond on the due date, coloured late, needs attention, in progress, not started, on hold or closed, and a line for today. A click opens the project's Planning view. Zoom (3 months, 12 months, all).\n- **New project:** a name and a customer; the note goes in `<customer>/Projects/` from your project template.\n- **Reminders** appear inside Obsidian, once a day per project, when a project is overdue, due soon or past its remind date.\n\n[🖼 Picture: The Projects tab with its timeline ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/projects-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#projects"},"planning":{"title":"Planning","md":"A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.\n\n[🖼 Picture: Planning: the Gantt chart with phases, milestones and the forecast ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-gantt.png)\n\n- **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, tasks it runs alongside `[starts-with:: sdr-2]` (starts no earlier than that one starts) and `[ends-with:: sdr-3+2d]` (finishes no earlier than that one finishes, here two working days after), an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.\n- **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.\n- **Editing on the Gantt** (desktop and tablet): arrows show what waits for what (faint, strong on the critical path or when the task waited for is late; hover a task to pick out its own). Drag a bar's right end to change its length, drag the bar to start it later (writes 🛫, \"not before\": what waits for it moves too; it can't go before what it waits for), and **Alt**-drag from one bar onto another to link them by the ends you use: right end to its left end, it waits; left end to left end, it starts with it; right end to right end, it ends with it (dashed arrows). Click an arrow to remove that link. **Undo** puts the last change back.\n- **Priority** (the Tasks plugin's 🔺 ⏫ 🔼 🔽 ⏬) shows on cards, Gantt rows and in the List, highest first on the board; it doesn't change the schedule.\n- **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against the baseline (saved automatically when the project starts, provisional — following the plan — until every open task has a duration, then locked; lock it early or re-baseline from the tab's ⋯ menu), a filter for risks, issues and decisions.\n[🖼 Picture: Planning: the board, by phase ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-board.png)\n\n[🖼 Picture: Planning: the list, with priority and slip ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-list.png)\n\n- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*; also a command, so it can have a hotkey). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task. **Cancel task** marks it ❌ (it stays in the note); **Delete task…** removes it and its steps, takes its id out of the tasks that depend on it, and asks first, listing all of that.\n- **Report** saves a printable note of the plan (summary, forecast, the Gantt chart, phases, what needs attention, risks, critical path, every task) in the reports folder; print it with *Export to PDF*. **Dates…** writes the plan's dates into the tasks you tick (🛫 start, 📅 due). **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.\n[🖼 Picture: A Planning report, ready to print ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-report.png)\n\n- **Steps:** the checkboxes directly under a task (`- [ ]` / `- [x]`, or `- ( )` / `- (x)`) are its steps, shown as 2/4 on its bar (with a progress line), in the List and on its card; cancelled ones (`[-]`, `(-)`) and notes such as `[?]` don't count. When every step is done but the task isn't, Planning offers to tick it (it never does so by itself). A task tagged `#task` (or with a 🆔) inside another task is flagged: make it a plain checkbox or its own task.\n- **Plan problems:** a ⛔ id no task has (say, after folding tasks into a holding task), an id used twice or a dependency loop is listed at the top of the Planning view, naming the task (click to open the note at that line), in the report's *Needs attention*, as a pill on the project's card and row, and underlined in the note itself while you edit it (hover for the reason; nothing is written).\n- **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.\n\nPlanning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#planning"},"research":{"title":"Research","md":"- **Research tab:** each section is a folder shown as a topic tree. A pattern such as `1.Customers/*/Research` gathers every customer's research folder into one section, labelled by customer.\n- **By status:** the section's notes grouped by their `status` property, with \"N to research · N researched\" in the header.\n- **Link suggestions:** the status bar offers to link words that match the titles of other research notes.\n- New research notes start from your research template.\n\n[🖼 Picture: The Research tab ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/research-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#research"},"time":{"title":"Time","md":"- **Automatic time** per customer while you work in a note, plus manual entries, breaks, a workday timer and overtime.\n- **Time tab** and a **Time today** card; *Wrap up the day* at the end.\n- An optional **daily time log note** with totals per customer and a table of entries, for you or an AI agent to read. Nothing is sent anywhere.\n\n[🖼 Picture: The Time tab ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/time-tab.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#time"},"write":{"title":"Write","md":"- **Table picker** (`Insert table…`), merged table cells, styled tables, lime dividers, sub-titles and page breaks for PDF export.\n- **Locked callouts and maths blocks:** lock one so it can't be edited by accident.\n- **Lifted writing window:** the note sits on a raised card over the dashboard pattern (full width when Obsidian's *Readable line length* is off).","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#write"},"layouts":{"title":"Other vault layouts","md":"Neon Work started with a vault organised by customer, but the customer is just a group: rename it (Area, Client, Team…), choose the property it's read from and the folder whose subfolders are the groups, in *Settings → Neon Work → Projects*. For a PARA vault, for example: group name `Area`, group properties `area, parent` (names or links such as `[[Photography]]`), groups folder `2.Areas`, project tag `projects`, project folders `1.Projects` (each folder there is a project too), New note types for area notes and resources, and the **Areas card** on the dashboard (projects, tasks and recent notes per area, quietest first). Several task tags (`#task, #todo`) and ignored tags (e.g. `vault_index` folder index notes) help with vaults that have many checklists or generated notes.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#other-vault-layouts"},"mobile":{"title":"On phones and tablets","md":"Dashboard, Tasks, Projects and Research also run on mobile: one column on a phone held upright, two on a phone turned sideways or a tablet, and long press for the menus that right-click opens on the desktop. Time tracking, Write, the card explorer and the note graph are desktop-only. To preview the mobile layouts on the desktop, run `app.emulateMobile(true)` in the developer console.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#on-phones-and-tablets"},"settings":{"title":"Settings","md":"Everything is on one page, *Settings → Neon Work*, with a section per part:\n\n- **Overview:** read-only, the base folder, the switches for each part, and safe mode.\n- **Dashboard, Tasks, Projects, Research, Time, Write:** that part's options. Folder and file fields suggest matching vault paths as you type.\n\nThe **base folder** (asked on first start) is where the plugin keeps what it makes for itself when a location is left empty: Projects without a customer, Reviews, Time Log, `Todo.md`, the pin board and graph bridges.\n\n[🖼 Picture: Settings, one page with a section per part ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/settings.png)","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#settings"},"install":{"title":"Install","md":"1. Build it (`node tools/build.mjs`) or take the three files from a release: `main.js`, `manifest.json`, `styles.css`.\n2. Put them in `<your vault>/.obsidian/plugins/neon-work/` (create the folder if needed).\n3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, and enable **Neon Work**.\n4. On first start it asks for a **base folder** (for example `2.Resources`). Read-only stays on until you switch it off in *Overview*; commit or back up your vault first, so you can see exactly what changes.\n\n**Updating:** copy the three files over the ones in `.obsidian/plugins/neon-work/` and switch the plugin off and on. Keep the folder: it also holds your settings.\n\n**Safe mode:** if the plugin fails while starting, the next start keeps every part off; switch them back on in *Overview*.\n\n**Hotkeys:** none by default (community plugin rule); set them in *Settings → Hotkeys*. *Project: open Planning* is a good one to give a key (for example Ctrl/Cmd+Shift+G), and so are the task editor's *Planning: edit this task*, *Planning: new task here* and *Planning: new task after this* (in a project note, on the line under the cursor). Commands are listed as \"Neon Work – Tasks: …\", \"… – Projects: …\" and so on.","url":"https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#install"}};
 /* ==== module neon-deck ==== */
 const NeonDeckModule = (() => {
 /* @src src/deck/helpers.js */
@@ -11666,7 +11671,9 @@ class PlanView extends ItemView {
     const tasksDrawn = !this.ganttPhases;
     const svg = planDrawGantt(chart, lay, {
       colours: planColourMap(),
-      onBar: (e, b) => !this.justDragged && this.taskMenu(e, b.task), // the click ending a drag isn't a click on the bar
+      // a click opens the task editor, as in the other views (the click ending a drag isn't one); right-click: the menu
+      onBar: (e, b) => !this.justDragged && this.openTask(e, b.task),
+      onMenu: (e, b) => this.taskMenu(e, b.task),
       selKey: this.selKey,
       links: tasksDrawn, // always: the arrows are part of the plan (Kevin, 17 Nov)
       onLink: (e, l) => this.linkMenu(e, l),
@@ -11977,6 +11984,9 @@ Object.assign(PlanView.prototype, {
       m.addItem((i) => i.setTitle(`Duration: ${planDaysText({ days: d })}`).setChecked(!t.milestone && t.days === d).onClick(() => this.setDuration(t, d)));
     m.addItem((i) => i.setTitle('Duration…').setIcon('timer').onClick(() => this.askDuration(t)));
     m.addItem((i) => i.setTitle('Milestone').setIcon('diamond').setChecked(!!t.milestone).onClick(() => this.setMilestone(t, !t.milestone)));
+    m.addSeparator();
+    if (t.status !== 'cancelled') m.addItem((i) => i.setTitle('Cancel task').setIcon('x-circle').onClick(() => this.plugin.cancelPlanTask(t, this)));
+    m.addItem((i) => i.setTitle('Delete task…').setIcon('trash-2').setWarning(true).onClick(() => this.plugin.confirmDeleteTask(t, this.tasks, this)));
     m.showAtMouseEvent(e);
   },
 });
@@ -12476,9 +12486,16 @@ class PlanTaskModal extends Modal {
     this.alsoEl = pv.createDiv('np-ed-also');
     // buttons
     const bar = el.createDiv('np-ed-buttons');
+    // an existing task: delete it (red, asks first) or cancel it, apart on the left
+    if (this.ctx.task && this.ctx.plugin) {
+      const t = this.ctx.task;
+      bar.createEl('button', { cls: 'mod-warning np-ed-delete', text: 'Delete task…' }).addEventListener('click', () => this.ctx.plugin.confirmDeleteTask(t, this.ctx.tasks, this.ctx.view, () => this.close()));
+      if (t.status !== 'cancelled') bar.createEl('button', { cls: 'np-ed-cancel-task', text: 'Cancel task' }).addEventListener('click', async () => (await this.ctx.plugin.cancelPlanTask(t, this.ctx.view)) && this.close());
+      bar.createDiv('np-ed-gap');
+    }
+    bar.createEl('button', { text: 'Close' }).addEventListener('click', () => this.close());
     const save = bar.createEl('button', { cls: 'mod-cta', text: 'Save' });
     save.addEventListener('click', () => this.save());
-    bar.createEl('button', { text: 'Cancel' }).addEventListener('click', () => this.close());
     this.scope.register(['Mod'], 'Enter', () => (this.save(), false));
     this.update();
   }
@@ -13671,19 +13688,176 @@ Object.assign(PlanView.prototype, {
     this.lastChange = { label, before };
     this.syncUndo();
   },
-  /** Undo: put the last change's task lines back as they were. */
+  /** Undo: put the last change back (task lines as they were, or a deleted task's lines and links). */
   async undoChange() {
     const c = this.lastChange;
     if (!c) return;
     this.lastChange = null;
     this.syncUndo();
-    for (const b of [...c.before].reverse()) await this.editTask(b.t, (text) => planEditLine(text, b.t, () => ({ rest: b.raw, box: b.box })));
+    if (c.restore) await c.restore(); // a deleted task: its lines and links back
+    else for (const b of [...c.before].reverse()) await this.editTask(b.t, (text) => planEditLine(text, b.t, () => ({ rest: b.raw, box: b.box })));
+    if (c.restore) this.refresh();
     new Notice(`Undone: ${c.label}`);
   },
   syncUndo() {
     if (!this.undoBtn) return;
     this.undoBtn.toggleClass('is-hidden', !this.lastChange);
     if (this.lastChange) this.undoBtn.setAttr('aria-label', `Undo: ${this.lastChange.label}`);
+  },
+});
+/* @src src/tickets/plan-delete.js */
+/* ---- Project plans (fork): cancel or delete a task -----------------------------------------------------------
+ * From the task editor (and the task menu). Cancel marks it [-] with today's ❌ date: the line, its steps and its
+ * history stay, and a cancelled task takes no time, so nothing has to change elsewhere. Delete removes the line and
+ * the steps under it, and takes its id out of the ⛔ / starts-with / ends-with links of the tasks that depend on it
+ * (in any note of the plan), after a confirmation that lists all of that. Both go through writeNote (read-only
+ * blocks them; Ctrl+Z in an open note brings them back), and the Planning view's Undo puts the last one back. */
+
+/** The text without a task's line and the lines under it (its steps, notes): { text, removed, at } or null (pure). */
+function planDeleteText(text, t) {
+  const lines = text.split('\n');
+  const n = planFindLine(lines, t);
+  if (n < 0) return null;
+  const end = planBelow(lines, n);
+  const removed = lines.splice(n, end - n);
+  return { text: lines.join('\n'), removed, at: n };
+}
+/** A task's line with one id taken out of all its links (⛔, starts-with, ends-with) (pure). */
+const planUnlinkRest = (rest, id) => planLinkRest(planLinkRest(planDepsRest(rest, [], [id]), 'ss', [], [id]), 'ff', [], [id]);
+/** A task's line marked cancelled today: ❌, and no ✅ (pure). */
+const planCancelRest = (rest, today) => `${planSetSign(planSetSign(rest, '✅', null), '❌', null).trim()} ❌ ${today}`;
+
+/** What deleting a task would touch: the tasks linked to it, and its steps. */
+function planDeleteImpact(t, tasks) {
+  const dependants = t.id ? tasks.filter((x) => x !== t && planLinkIds(x).includes(t.id)) : [];
+  return { dependants, steps: t.steps || null };
+}
+
+/** The delete confirmation: what goes, what changes, and a way to cancel the task instead. */
+class PlanDeleteModal extends Modal {
+  constructor(app, { task, impact, onDelete, onCancelTask }) {
+    super(app);
+    Object.assign(this, { task, impact, onDelete, onCancelTask });
+  }
+  onOpen() {
+    const t = this.task;
+    const { dependants, steps } = this.impact;
+    this.modalEl.addClass('nd-modal', 'np-delete-modal');
+    this.titleEl.setText('Delete this task?');
+    this.contentEl.createEl('p', { cls: 'np-del-name', text: `${t.id ? `${t.id} · ` : ''}${planText(t.raw)}` });
+    const ul = this.contentEl.createEl('ul');
+    ul.createEl('li', { text: 'Its line is removed from the note.' });
+    if (steps) ul.createEl('li', { text: `Its ${steps.total} step${steps.total === 1 ? '' : 's'} (${steps.done} done) and anything else under it go too.` });
+    if (dependants.length) ul.createEl('li', { text: `${dependants.length} task${dependants.length === 1 ? ' depends' : 's depend'} on it: ${planAnd(dependants.map(planProblemName))}. Their links to it are removed.` });
+    if (t.milestone) ul.createEl('li', { text: 'It is a milestone: check nothing outside the plan refers to it.' });
+    const mark = planMark(t);
+    if (mark) ul.createEl('li', { text: `It is marked as ${mark[2].toLowerCase()} (${mark[1]}): the report and the List won't show it any more.` });
+    this.contentEl.createEl('p', { cls: 'setting-item-description', text: 'Cancelling keeps the line (and its history) marked ❌ instead; a cancelled task takes no time in the plan.' });
+    const row = this.contentEl.createDiv('nd-modal-row');
+    button(row, { text: 'Keep it', onClick: () => this.close() });
+    if (t.status !== 'cancelled')
+      button(row, { text: 'Cancel the task instead', cls: 'mod-cta', onClick: () => (this.close(), this.onCancelTask()) });
+    button(row, { text: 'Delete', cls: 'mod-warning', onClick: () => (this.close(), this.onDelete()) });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+Object.assign(NeonProjects.prototype, {
+  /** Cancel a task: [-] and ❌ today. view: the Planning view (for Undo). */
+  async cancelPlanTask(t, view = null) {
+    const before = { t, raw: t.raw, box: t.box };
+    const today = moment().format('YYYY-MM-DD');
+    let res = null;
+    try {
+      await writeNote(this.app, t.file, (text) => {
+        res = planEditLine(text, t, (rest) => ({ rest: planCancelRest(rest, today), box: '-' }));
+        return res ? res.text : text;
+      });
+    } catch (e) {
+      if (!(e && e.neonReadOnly)) {
+        console.error('Planning: could not cancel the task', e);
+        new Notice('Could not cancel the task. Details in the console.');
+      }
+      return false;
+    }
+    if (!res) {
+      new Notice('That task changed in the note: open it again');
+      return false;
+    }
+    Object.assign(t, planTask(`- [-] ${res.raw}`, { file: t.file, line: res.line, phase: t.phase }) || {});
+    new Notice(`Cancelled: ${planClip(planText(t.raw), 50)}`);
+    if (view) {
+      view.lastChange = { label: `cancel “${planClip(planText(t.raw), 30)}”`, before: [before] };
+      view.syncUndo();
+      view.render();
+    }
+    return true;
+  },
+  /** Ask, then delete a task (its line and steps) and its id from the tasks linked to it. */
+  confirmDeleteTask(t, tasks, view = null, after = null) {
+    new PlanDeleteModal(this.app, {
+      task: t,
+      impact: planDeleteImpact(t, tasks),
+      onCancelTask: async () => (await this.cancelPlanTask(t, view)) && after && after(),
+      onDelete: async () => (await this.deletePlanTask(t, tasks, view)) && after && after(),
+    }).open();
+  },
+  async deletePlanTask(t, tasks, view = null) {
+    const { dependants } = planDeleteImpact(t, tasks);
+    const undo = { lines: null, at: -1, next: null, links: [] };
+    try {
+      // the links first, note by note (the task's own note last: its line goes at the end)
+      for (const d of dependants) {
+        const raw = d.raw;
+        let res = null;
+        await writeNote(this.app, d.file, (text) => {
+          res = planEditLine(text, d, (rest, box) => ({ rest: planUnlinkRest(rest, t.id).replace(/\s{2,}/g, ' ').trim(), box }));
+          return res ? res.text : text;
+        });
+        if (res) undo.links.push({ file: d.file, now: res.raw, box: res.box, raw });
+      }
+      let gone = null;
+      await writeNote(this.app, t.file, (text) => {
+        gone = planDeleteText(text, t);
+        if (gone) {
+          const lines = text.split('\n');
+          undo.next = lines[gone.at + gone.removed.length] ?? null; // the line after it, to find the place again
+        }
+        return gone ? gone.text : text;
+      });
+      if (!gone) return void new Notice('That task changed in the note: nothing deleted. Open it again.');
+      Object.assign(undo, { lines: gone.removed, at: gone.at, file: t.file });
+    } catch (e) {
+      if (!(e && e.neonReadOnly)) {
+        console.error('Planning: could not delete the task', e);
+        new Notice('Could not delete the task. Details in the console.');
+      }
+      return false;
+    }
+    new Notice(`Deleted: ${planClip(planText(t.raw), 50)}${dependants.length ? ` (and its links from ${dependants.length} task${dependants.length === 1 ? '' : 's'})` : ''}`);
+    if (view) {
+      view.lastChange = { label: `delete “${planClip(planText(t.raw), 30)}”`, restore: () => this.undoDelete(undo) };
+      view.syncUndo();
+      view.refresh();
+    }
+    return true;
+  },
+  /** Put a deleted task back: its lines where they were (found by the line that followed them), then its links. */
+  async undoDelete(u) {
+    await writeNote(this.app, u.file, (text) => {
+      const lines = text.split('\n');
+      let at = u.next == null ? lines.length : lines.indexOf(u.next, Math.max(0, u.at - 5));
+      if (at < 0) at = Math.min(u.at, lines.length);
+      lines.splice(at, 0, ...u.lines);
+      return lines.join('\n');
+    });
+    for (const l of u.links)
+      await writeNote(this.app, l.file, (text) => {
+        const res = planEditLine(text, { raw: l.now, id: null }, () => ({ rest: l.raw, box: l.box }));
+        return res ? res.text : text;
+      });
   },
 });
 /* @src src/tickets/plan-dates.js */
@@ -14092,6 +14266,8 @@ Object.assign(NeonProjects.prototype, {
       anchor: line == null && at != null && !after && !view ? { line: at, text: (lines[at] || '').replace(/\r$/, '') } : null,
       base: planBaseDate(this.app, scope),
       onSaved: (id) => view && view.selectSaved(id),
+      plugin: this, // for Delete task / Cancel task
+      view,
     }).open();
   },
   /** Opens the plan in a tab: the one already showing this plan, else a new tab. */

@@ -247,7 +247,9 @@ class PlanView extends ItemView {
     const tasksDrawn = !this.ganttPhases;
     const svg = planDrawGantt(chart, lay, {
       colours: planColourMap(),
-      onBar: (e, b) => !this.justDragged && this.taskMenu(e, b.task), // the click ending a drag isn't a click on the bar
+      // a click opens the task editor, as in the other views (the click ending a drag isn't one); right-click: the menu
+      onBar: (e, b) => !this.justDragged && this.openTask(e, b.task),
+      onMenu: (e, b) => this.taskMenu(e, b.task),
       selKey: this.selKey,
       links: tasksDrawn, // always: the arrows are part of the plan (Kevin, 17 Nov)
       onLink: (e, l) => this.linkMenu(e, l),

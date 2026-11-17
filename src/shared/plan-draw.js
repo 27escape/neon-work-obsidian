@@ -238,9 +238,9 @@ function planGanttLinks(lay) {
 
 /**
  * Draw a layout into `el` as SVG. colours: planColourMap(); onBar(e, bar) for task rows; selKey: the selected task;
- * links: draw the dependency arrows (planGanttLinks); onLink(e, link) when one is clicked.
+ * links: draw the dependency arrows (planGanttLinks); onLink(e, link) when one is clicked; onMenu(e, bar): right-click.
  */
-function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = false, onLink = null }) {
+function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = false, onLink = null, onMenu = null }) {
   const { labelW, dayW, rowH, headH } = lay;
   const svg = el.createSvg('svg', { cls: 'np-gantt', attr: { width: lay.width, height: lay.height, viewBox: `0 0 ${lay.width} ${lay.height}`, xmlns: 'http://www.w3.org/2000/svg' } });
   svg.style.fontFamily = 'var(--font-interface)';
@@ -330,6 +330,11 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = 
     if ((b.task || b.project) && onBar) {
       g.addClass('is-task');
       g.addEventListener('click', (e) => onBar(e, b));
+      if (onMenu)
+        g.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          onMenu(e, b);
+        });
     }
   }
   // the arrows' click areas, above the rows (whose own click area spans the whole width): wide and see-through

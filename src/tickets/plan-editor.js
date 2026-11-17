@@ -175,9 +175,16 @@ class PlanTaskModal extends Modal {
     this.alsoEl = pv.createDiv('np-ed-also');
     // buttons
     const bar = el.createDiv('np-ed-buttons');
+    // an existing task: delete it (red, asks first) or cancel it, apart on the left
+    if (this.ctx.task && this.ctx.plugin) {
+      const t = this.ctx.task;
+      bar.createEl('button', { cls: 'mod-warning np-ed-delete', text: 'Delete task…' }).addEventListener('click', () => this.ctx.plugin.confirmDeleteTask(t, this.ctx.tasks, this.ctx.view, () => this.close()));
+      if (t.status !== 'cancelled') bar.createEl('button', { cls: 'np-ed-cancel-task', text: 'Cancel task' }).addEventListener('click', async () => (await this.ctx.plugin.cancelPlanTask(t, this.ctx.view)) && this.close());
+      bar.createDiv('np-ed-gap');
+    }
+    bar.createEl('button', { text: 'Close' }).addEventListener('click', () => this.close());
     const save = bar.createEl('button', { cls: 'mod-cta', text: 'Save' });
     save.addEventListener('click', () => this.save());
-    bar.createEl('button', { text: 'Cancel' }).addEventListener('click', () => this.close());
     this.scope.register(['Mod'], 'Enter', () => (this.save(), false));
     this.update();
   }
