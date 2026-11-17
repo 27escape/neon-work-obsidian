@@ -115,7 +115,7 @@ test('baselines: made from the dated plan, follow renames, dropped when the proj
   const B = load('neon-tickets', ['planBaselineOf', 'planBaselineMove', 'planBaselinePrune', 'planIsStarted']);
   const t1 = { id: 'a-1' }, t2 = { id: 'a-2', external: true }, t3 = {};
   const b = B.planBaselineOf({ end: '2026-12-04', bars: [{ task: t1, end: '2026-11-20' }, { task: t2, end: '2026-11-25' }, { task: t3, end: '2026-11-26' }, { phase: 'x', end: '2026-12-04' }] }, '2026-11-17');
-  assert.equal(JSON.stringify(b), JSON.stringify({ saved: '2026-11-17', end: '2026-12-04', tasks: { 'a-1': '2026-11-20' } }));
+  assert.equal(JSON.stringify(b), JSON.stringify({ saved: '2026-11-17', end: '2026-12-04', tasks: { 'a-1': '2026-11-20' }, provisional: false }));
   const all = { 'P/Alpha.md': b, 'Folders/Beta': { tasks: {} }, 'Folders/Beta2': { tasks: {} } };
   assert.equal(B.planBaselineMove(all, 'P/Alpha.md', 'P/Alpha renamed.md'), true);
   assert.equal(B.planBaselineMove(all, 'Folders', 'Projects'), true); // a moved parent folder takes its projects along
@@ -127,4 +127,21 @@ test('baselines: made from the dated plan, follow renames, dropped when the proj
   assert.equal(B.planIsStarted({ status: 'waiting' }), true);
   assert.equal(B.planIsStarted({ status: 'open' }), false);
   assert.equal(B.planIsStarted({ status: 'done' }), false);
+});
+
+test('baselines: provisional while an open task has no duration, locked once all have one', () => {
+  const B = load('neon-tickets', ['planIncomplete', 'planBaselineOf', 'planBaselineSame', 'planTask']);
+  const task = (line) => B.planTask(line);
+  const plan = [task('- [ ] Scope [duration:: 2d] 🆔 a-1 #task'), task('- [ ] Agreed 🆔 a-2 #task #milestone'), task('- [x] Kick-off 🆔 a-3 #task'), task('- [-] Dropped 🆔 a-4 #task')];
+  assert.equal(B.planIncomplete(plan), false); // milestones, done and cancelled tasks need no duration
+  assert.equal(B.planIncomplete([...plan, task('- [ ] Build 🆔 a-5 #task')]), true);
+  assert.equal(B.planIncomplete([...plan, { ...task('- [ ] Theirs 🆔 b-1 #task'), external: true }]), false); // another project's task
+  const dated = { end: '2026-12-04', bars: [{ task: { id: 'a-1' }, end: '2026-11-20' }] };
+  const p1 = B.planBaselineOf(dated, '2026-11-17', true);
+  assert.equal(p1.provisional, true);
+  assert.equal(B.planBaselineSame(p1, B.planBaselineOf(dated, '2026-11-18', true)), true); // only the day differs: not saved again
+  assert.equal(B.planBaselineSame(p1, B.planBaselineOf(dated, '2026-11-18', false)), false); // locking is a change
+  assert.equal(B.planBaselineSame(p1, B.planBaselineOf({ ...dated, end: '2026-12-08' }, '2026-11-18', true)), false);
+  assert.equal(B.planBaselineSame(null, p1), false);
+  assert.equal(B.planBaselineOf(dated, '2026-11-17').provisional, false); // by hand: locked
 });

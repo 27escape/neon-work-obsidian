@@ -12754,7 +12754,8 @@ Object.assign(PlanView.prototype, {
     ItemView.prototype.onPaneMenu.call(this, menu, source);
     if (!this.plan || !this.base) return;
     const b = this.baseline();
-    menu.addItem((i) => i.setSection('action').setTitle(b ? `Re-baseline (replaces the one from ${planShortDate(b.saved)})` : 'Save a baseline now').setIcon('flag').onClick(() => this.saveBaseline()));
+    const title = !b ? 'Save a baseline now' : b.provisional ? 'Lock the baseline now (it follows the plan until every task has a duration)' : `Re-baseline (replaces the one from ${planShortDate(b.saved)})`;
+    menu.addItem((i) => i.setSection('action').setTitle(title).setIcon('flag').onClick(() => this.saveBaseline()));
     if (b) menu.addItem((i) => i.setSection('action').setTitle('Remove the baseline').setIcon('trash-2').onClick(() => this.saveBaseline(true)));
   },
   async saveBaseline(remove = false) {
@@ -12764,17 +12765,18 @@ Object.assign(PlanView.prototype, {
     else {
       const dated = this.datedPlan();
       if (!dated) return new Notice('Set the project’s started date first');
-      s.planBaselines[this.plan.path] = planBaselineOf(dated, this.today);
+      s.planBaselines[this.plan.path] = planBaselineOf(dated, this.today); // chosen by hand: locked
     }
     await this.plugin.saveSettings(); // the plugin's own data, not the note
-    new Notice(remove ? 'Baseline removed' : 'Baseline saved');
+    new Notice(remove ? 'Baseline removed' : 'Baseline saved and locked');
     this.render();
   },
   /** Working days a task has slipped since the baseline (negative: ahead), or null. */
   slip(t) {
     const b = this.baseline();
     const now = this.ends && this.ends.get(t);
-    const then = b && t.id && b.tasks[t.id];
+    if (!b || b.provisional) return null; // a provisional baseline follows the plan: no slip yet
+    const then = t.id && b.tasks[t.id];
     return then && now ? planSlipDays(then, now) : null;
   },
   /** The summary line's forecast part. */
@@ -12785,7 +12787,8 @@ Object.assign(PlanView.prototype, {
     const b = this.baseline();
     if (b && b.end) {
       const d = planSlipDays(b.end, dated.end);
-      s += d ? ` (${d > 0 ? '+' : ''}${d} since the baseline of ${planShortDate(b.saved)})` : ` (as the baseline of ${planShortDate(b.saved)})`;
+      if (b.provisional) s += ' (provisional baseline: it follows the plan until every task has a duration)';
+      else s += d ? ` (${d > 0 ? '+' : ''}${d} since the baseline of ${planShortDate(b.saved)})` : ` (as the baseline of ${planShortDate(b.saved)})`;
     }
     return s;
   },
@@ -12794,16 +12797,26 @@ Object.assign(PlanView.prototype, {
 /* ---- Project plans (fork): automatic baselines -------------------------------------------------------------
  * A baseline is today's planned finish of every task, kept so the Planning view can show later how far tasks have
  * slipped (the List's Slip column, "+N since the baseline" after the forecast). It is saved automatically the first
- * time a project is seen started (its status is in progress or on hold) with a started date and plan tasks; the
- * Planning view's ⋯ menu re-baselines it (a new plan agreed) or removes it. Baselines live in the plugin's own
+ * time a project is seen started (its status is in progress or on hold) with a started date and plan tasks. While
+ * an open task still has no duration the baseline is provisional: it follows every change to the plan, and locks
+ * once every open task has a duration (Kevin's choice, 17 Nov). The Planning view's ⋯ menu locks it early,
+ * re-baselines it (a new plan agreed: locked) or removes it. Baselines live in the plugin's own
  * settings, one per project path (no files in the vault): they follow a renamed or moved project, and those of
  * projects that no longer exist are dropped on start. */
 
-/** The baseline of a dated plan (planGanttText with a base date): { saved, end, tasks: { id: finish } }. */
-function planBaselineOf(dated, today) {
+/** Is the plan still missing durations (an open task of its own, not a milestone, with none)? */
+function planIncomplete(tasks) {
+  return tasks.some((t) => !t.external && !t.milestone && t.days == null && t.status !== 'done' && t.status !== 'cancelled');
+}
+/** The baseline of a dated plan (planGanttText with a base date): { saved, end, tasks: { id: finish }, provisional }. */
+function planBaselineOf(dated, today, provisional = false) {
   const tasks = {};
   for (const b of dated.bars || []) if (b.task && b.task.id && !b.task.external) tasks[b.task.id] = b.end;
-  return { saved: today, end: dated.end || null, tasks };
+  return { saved: today, end: dated.end || null, tasks, provisional: !!provisional };
+}
+/** Same plan (end and every task's finish)? Then a provisional baseline needn't be saved again. */
+function planBaselineSame(a, b) {
+  return !!a && !!b && a.end === b.end && !!a.provisional === !!b.provisional && JSON.stringify(a.tasks) === JSON.stringify(b.tasks);
 }
 /** Baselines after a rename: the note's own key, or every key inside a renamed folder. Returns true when changed. */
 function planBaselineMove(all, from, to) {
@@ -12852,7 +12865,8 @@ Object.assign(NeonProjects.prototype, {
     this.registerEvent(ref);
     this.autoBaselinesSoon = debounce(() => this.autoBaselines(), 5000, true);
   },
-  /** Save a baseline for every started project with a started date and plan tasks that has none yet. */
+  /** Save a baseline for every started project with a started date and plan tasks that has none yet, and follow
+   *  the plan with the provisional ones (locking them once every open task has a duration). */
   async autoBaselines() {
     if (this.baselining) return;
     this.baselining = true;
@@ -12863,12 +12877,15 @@ Object.assign(NeonProjects.prototype, {
       for (const t of this.collectProjects()) {
         if (!planIsStarted(t) || !t.startedOn) continue;
         const scope = this.planScope(t);
-        if (all[scope.path]) continue;
+        const old = all[scope.path];
+        if (old && !old.provisional) continue; // locked, or removed ({ removed })
         const tasks = await planCollect(this.app, scope);
         if (!tasks.some((x) => x.id && !x.external)) continue;
         const base = planBaseDate(this.app, scope);
         if (!base) continue;
-        all[scope.path] = planBaselineOf(planGanttText(tasks, { base, today, due: planDueDate(this.app, scope) }), today);
+        const next = planBaselineOf(planGanttText(tasks, { base, today, due: planDueDate(this.app, scope) }), today, planIncomplete(tasks));
+        if (planBaselineSame(old, next)) continue;
+        all[scope.path] = next;
         saved++;
       }
       if (saved) {

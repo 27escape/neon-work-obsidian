@@ -90,7 +90,8 @@ Object.assign(PlanView.prototype, {
     ItemView.prototype.onPaneMenu.call(this, menu, source);
     if (!this.plan || !this.base) return;
     const b = this.baseline();
-    menu.addItem((i) => i.setSection('action').setTitle(b ? `Re-baseline (replaces the one from ${planShortDate(b.saved)})` : 'Save a baseline now').setIcon('flag').onClick(() => this.saveBaseline()));
+    const title = !b ? 'Save a baseline now' : b.provisional ? 'Lock the baseline now (it follows the plan until every task has a duration)' : `Re-baseline (replaces the one from ${planShortDate(b.saved)})`;
+    menu.addItem((i) => i.setSection('action').setTitle(title).setIcon('flag').onClick(() => this.saveBaseline()));
     if (b) menu.addItem((i) => i.setSection('action').setTitle('Remove the baseline').setIcon('trash-2').onClick(() => this.saveBaseline(true)));
   },
   async saveBaseline(remove = false) {
@@ -100,17 +101,18 @@ Object.assign(PlanView.prototype, {
     else {
       const dated = this.datedPlan();
       if (!dated) return new Notice('Set the project’s started date first');
-      s.planBaselines[this.plan.path] = planBaselineOf(dated, this.today);
+      s.planBaselines[this.plan.path] = planBaselineOf(dated, this.today); // chosen by hand: locked
     }
     await this.plugin.saveSettings(); // the plugin's own data, not the note
-    new Notice(remove ? 'Baseline removed' : 'Baseline saved');
+    new Notice(remove ? 'Baseline removed' : 'Baseline saved and locked');
     this.render();
   },
   /** Working days a task has slipped since the baseline (negative: ahead), or null. */
   slip(t) {
     const b = this.baseline();
     const now = this.ends && this.ends.get(t);
-    const then = b && t.id && b.tasks[t.id];
+    if (!b || b.provisional) return null; // a provisional baseline follows the plan: no slip yet
+    const then = t.id && b.tasks[t.id];
     return then && now ? planSlipDays(then, now) : null;
   },
   /** The summary line's forecast part. */
@@ -121,7 +123,8 @@ Object.assign(PlanView.prototype, {
     const b = this.baseline();
     if (b && b.end) {
       const d = planSlipDays(b.end, dated.end);
-      s += d ? ` (${d > 0 ? '+' : ''}${d} since the baseline of ${planShortDate(b.saved)})` : ` (as the baseline of ${planShortDate(b.saved)})`;
+      if (b.provisional) s += ' (provisional baseline: it follows the plan until every task has a duration)';
+      else s += d ? ` (${d > 0 ? '+' : ''}${d} since the baseline of ${planShortDate(b.saved)})` : ` (as the baseline of ${planShortDate(b.saved)})`;
     }
     return s;
   },
