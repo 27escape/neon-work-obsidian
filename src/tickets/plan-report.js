@@ -1,7 +1,7 @@
 /* ---- Project plans (fork): the printable Report note ------------------------------------------------------------------
  * Report (Planning view) writes a snapshot of the plan into the reports folder (setting; empty: <base folder>/Reports):
- * a note with the summary, forecast, phases, what needs attention, risks / issues / decisions, the critical path,
- * workload and every task, plus the Gantt chart as an SVG file the note embeds, in the plan's colours. Print it with
+ * a note with the summary (incl. the critical path's length), forecast, phases, what needs attention, risks / issues /
+ * decisions, workload and every task (with its steps done, 2/4), plus the Gantt chart as an SVG file the note embeds, in the plan's colours. Print it with
  * Obsidian's Export to PDF. Written only when you press Report, and refused while read-only is on; a second report on
  * the same day replaces that day's files. planReportText is pure (tested). */
 
@@ -10,7 +10,7 @@ const planCell = (s) => String(s == null ? '' : s).replace(/\|/g, '\\|').replace
 /**
  * The report's Markdown (pure). r: { title, note (the project note's name), today, summary, forecast, baseline, svg
  * (file name), phases: [{ name, total, done, start, end, state }], attention: [text], marks: [{ sign, label, text, owner,
- * state }], crit: [{ id, text, start, end }], load: [text], tasks: [{ phase, id, text, owner, state, days, start, end, deps }] }
+ * state }], crit: [{ id, text, start, end }], load: [text], tasks: [{ phase, text, owner, state, days, start, end, steps: { done, total } | null }] }
  */
 function planReportText(r) {
   const L = [];
@@ -38,18 +38,14 @@ function planReportText(r) {
     for (const m of r.marks) L.push(`- ${m.sign} **${m.label}:** ${m.text}${m.owner ? ` (${m.owner})` : ''} · ${m.state}`);
     L.push('');
   }
-  if (r.crit.length) {
-    L.push('## Critical path', '', 'The chain of tasks that sets the finish date: a day lost on any of them is a day lost on the project.', '');
-    r.crit.forEach((c, i) => L.push(`${i + 1}. ${c.id ? `\`${c.id}\` ` : ''}${c.text} (${d(c.start)} to ${d(c.end)})`));
-    L.push('');
-  }
   if (r.load.length) {
     L.push('## Workload', '');
     for (const l of r.load) L.push(`- ${l}`);
     L.push('');
   }
-  L.push('## All tasks', '', '| Phase | Task | Owner | State | Days | Start | Finish | Waits for |', '|---|---|---|---|---|---|---|---|');
-  for (const t of r.tasks) L.push(`| ${planCell(t.phase)} | ${planCell((t.id ? `${t.id} ` : '') + t.text)} | ${planCell(t.owner)} | ${planCell(t.state)} | ${t.days} | ${d(t.start)} | ${d(t.end)} | ${planCell(t.deps)} |`);
+  // Completed: the task's steps (the checkboxes under it) ticked, e.g. 0/4; empty for a task without steps
+  L.push('## All tasks', '', '| Phase | Task | Owner | State | Completed | Days | Start | Finish |', '|---|---|---|---|---|---|---|---|');
+  for (const t of r.tasks) L.push(`| ${planCell(t.phase)} | ${planCell(t.text)} | ${planCell(t.owner)} | ${planCell(t.state)} | ${t.steps && t.steps.total ? `${t.steps.done}/${t.steps.total}` : ''} | ${t.days} | ${d(t.start)} | ${d(t.end)} |`);
   L.push('');
   return L.join('\n');
 }
@@ -106,7 +102,7 @@ Object.assign(PlanView.prototype, {
       load: this.loadLines(plan.sched),
       tasks: own.map((t) => {
         const b = bars.get(t) || {};
-        return { phase: t.phase || 'Tasks', id: t.id, text: planText(t.raw), owner: (t.owners || []).map((o) => o.name).join(', '), state: label(planState(t, byId, today)), days: t.milestone ? 'milestone' : planDays(t), start: b.start, end: b.end, deps: t.deps.join(', ') };
+        return { phase: t.phase || 'Tasks', text: planText(t.raw), owner: (t.owners || []).map((o) => o.name).join(', '), state: label(planState(t, byId, today)), steps: t.steps || null, days: t.milestone ? 'milestone' : planDays(t), start: b.start, end: b.end };
       }),
     };
   },
