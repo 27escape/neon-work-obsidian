@@ -1,7 +1,7 @@
 'use strict';
 /*
- * Neon Deck 2 — dashboard, tasks, time, tickets, research and writing tools in one plugin.
- * Made by yobzz + Claude. Built from src/ by tools/build.mjs; each part starts with a "@src" line.
+ * Neon Work — dashboard, tasks, projects, time, research and writing tools in one plugin.
+ * Forked from Neon Deck 2.2.0, made by yobzz + Claude. Built from src/ by tools/build.mjs; each part starts with a "@src" line.
  * Neon Work: changes by Kevin Mulholland + Claude, https://github.com/27escape/neon-work-obsidian — see FORK.md.
  *
  * Everything runs locally: no network requests, no telemetry, no eval, no shell access,
@@ -261,7 +261,7 @@ function fmTags(fm) {
 }
 /**
  * fork: projects (upstream had "tickets"). A project is a note with the project tag in its tags property
- * (default `project`, a Neon Projects setting). Status values and their groups come from the same settings.
+ * (default `project`, a Projects setting). Status values and their groups come from the same settings.
  */
 const NEON_PROJECTS = {
   tag: 'project',
@@ -371,7 +371,7 @@ async function activateView(app, type, where = 'tab') {
 
 /* ---- daily notes ------------------------------------------------------ */
 // fork: the folder, file name format and template come from Obsidian's core Daily notes plugin
-// (<configDir>/daily-notes.json) while that plugin is on. When it is off (core-plugins.json), Neon Deck's
+// (<configDir>/daily-notes.json) while that plugin is on. When it is off (core-plugins.json), the plugin's
 // own Daily notes settings are used instead (NEON_DAILY_FALLBACK, set by the Deck module).
 // Each call refreshes the copies in the background.
 let dailyCache = {};
@@ -473,18 +473,18 @@ function writeNote(app, file, fn) {
 }
 
 /* ---- cross-plugin glue ------------------------------------------------ */
-/** The Neon Deck core API, or null when the core plugin is off. */
+/** The Dashboard module's API, or null when it is off. */
 let neonMother = null; // set by the kernel while it runs (one bundle, so no plugin registry lookup)
 function deckApi(app) {
   return (neonMother && neonMother.api) || null;
 }
-/** Another Neon module (a child of the neon-deck plugin), or null. */
+/** Another module (a child plugin of the kernel; its id keeps the upstream neon-* name), or null. */
 function neonPlugin(app, id) {
   return (neonMother && neonMother.modules.get(id)) || null;
 }
 /** A small "made with Claude" line for settings tabs. */
 /** fork: the plugin's display name (from its manifest, set by the kernel), used wherever the UI names it. */
-const NEON_APP = { name: 'Neon Deck', app: null }; // fork: app is set by the kernel (link lookups in shared helpers)
+const NEON_APP = { name: 'Neon Work', app: null }; // fork: app is set by the kernel (link lookups in shared helpers)
 const appName = () => NEON_APP.name;
 function madeWith(el, name) {
   const d = el.createDiv('nd-madewith');
@@ -506,7 +506,7 @@ function numSetting(setting, obj, key, min, max, save) {
   });
 }
 /* ---- base folder (fork) ------------------------------------------------
- * Where Neon Deck keeps what it makes for itself (reviews, time log, pin board, projects without a
+ * Where the plugin keeps what it makes for itself (reviews, time log, pin board, projects without a
  * customer…). Asked once on first start; '' = the vault root. Each location can still be set on its own;
  * an empty location setting means "<base folder>/<default name>". */
 const NEON_BASE = { folder: '' };
@@ -711,10 +711,10 @@ function installLongPress(plugin) {
 }
 /* @src src/shared/guard.js */
 /* ---- read-only guard ----------------------------------------------------
- * Fork addition (27escape). While read-only is on (the default), nothing in Neon Deck can
+ * Fork addition (27escape). While read-only is on (the default), nothing in the plugin can
  * create, change, move, rename or delete anything in the vault. Every module gets a guarded
  * `app` (see guardApp) instead of Obsidian's own: its vault, fileManager and vault.adapter
- * refuse writes. The only writes still allowed are Neon Deck's own settings files inside its
+ * refuse writes. The only writes still allowed are the plugin's own settings files inside its
  * plugin folder (.obsidian/plugins/<plugin id>/...). writeNote checks the guard as well, because
  * it can edit an open note through the editor rather than the vault.
  * Obsidian's real `app` is never changed, so other plugins and Obsidian itself are unaffected. */
@@ -727,7 +727,7 @@ const NEON_GUARD = {
    * clicked or typed. Background writes (startup jobs, timers) are refused quietly. */
   block(op, path) {
     const what = `${op}${path ? ` “${path}”` : ''}`;
-    console.info(`Neon Deck (read-only): blocked ${what}`);
+    console.info(`${appName()} (read-only): blocked ${what}`);
     if (Date.now() - this.lastGesture < 2000 && Date.now() - this.lastNotice > 5000) {
       this.lastNotice = Date.now();
       new Notice(`${appName()} is read-only, so it did not ${what}. Turn off “Read-only” in the plugin’s settings (Protect my notes) to allow changes to your notes.`, 6000);
@@ -736,7 +736,7 @@ const NEON_GUARD = {
     e.neonReadOnly = true;
     return e;
   },
-  /** True when a path is inside Neon Deck's own plugin folder. */
+  /** True when a path is inside the plugin's own folder. */
   ownPath(path) {
     const p = normalizePath(String(path || ''));
     return !!this.allowDir && (p === this.allowDir || p.startsWith(this.allowDir + '/'));
@@ -1583,7 +1583,7 @@ function actDays(p, d, month, week) {
     try {
       items = fn() || [];
     } catch (e) {
-      console.error(`Neon Deck activity ${id}`, e);
+      console.error(`${appName()} – Dashboard: activity ${id}`, e);
     }
     for (const x of items) if (x && inRange(x.t)) day(x.t)[x.kind === 'ticket' ? 'tickets' : 'tasks'].push({ ...x, kind: x.kind === 'ticket' ? 'ticket' : 'task', extra: x.status || x.src });
   }
@@ -1681,7 +1681,7 @@ function createdOf(app, f) {
 
 /* @src src/deck/constants.js */
 /* ------------------------------------------------------------------ */
-/* Neon Deck core: constants                                           */
+/* Dashboard: constants                                                */
 /* ------------------------------------------------------------------ */
 const VIEW_DASH = 'neon-deck-dashboard';
 const VIEW_CARDS = 'neon-deck-cards';
@@ -1772,7 +1772,7 @@ const DEFAULT_SETTINGS = {
   graphWindow: 4,
   extraStopwords: '',
 };
-/** 1.2 keys that moved to Neon Tickets / were removed; dropped after migration. */
+/** Upstream 1.2 keys that moved to the Tickets module (now Projects) or were removed; dropped after migration. */
 const OLD_KEYS = ['glass', 'intensity', 'styleVersion', 'stampDone'];
 
 const pal = (i) => `var(--nd-c${i + 1}, ${PALETTE[i]})`;
@@ -2557,7 +2557,7 @@ class PatternLayer {
       gl.shaderSource(s, src);
       gl.compileShader(s);
       if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-        console.warn('Neon Deck pattern shader', gl.getShaderInfoLog(s));
+        console.warn(`${appName()} – Dashboard: pattern shader`, gl.getShaderInfoLog(s));
         return null;
       }
       return s;
@@ -2857,7 +2857,7 @@ class QuickCaptureModal extends Modal {
       try {
         await t.run(v);
       } catch (e) {
-        console.error('Neon Deck capture', e);
+        console.error(`${appName()} – Dashboard: capture`, e);
         new Notice('Capture failed — see console');
       }
     };
@@ -3086,7 +3086,7 @@ class DashboardView extends ItemView {
     try {
       if (inst.handle && inst.handle.destroy) inst.handle.destroy();
     } catch (e) {
-      console.error('Neon Deck widget', e);
+      console.error(`${appName()} – Dashboard: widget`, e);
     }
     inst.card.w.remove();
   }
@@ -3112,7 +3112,7 @@ class DashboardView extends ItemView {
       try {
         handle = def.mount(card, this) || null;
       } catch (e) {
-        console.error(`Neon Deck widget ${def.id}`, e);
+        console.error(`${appName()} – Dashboard: widget ${def.id}`, e);
         emptyState(card.body, 'This widget failed to load — see console');
       }
       this.slotCards.set(def.id, { def, card, handle });
@@ -3194,7 +3194,7 @@ class DashboardView extends ItemView {
     this.capInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        // Ctrl+Enter sends to the first target (Task when Neon Tasks is on)
+        // Ctrl+Enter sends to the first target (Task when the Tasks module is on)
         this.sendCapture(this.plugin.captureTargets()[0]);
       }
     });
@@ -3221,7 +3221,7 @@ class DashboardView extends ItemView {
     try {
       await t.run(v);
     } catch (e) {
-      console.error('Neon Deck capture', e);
+      console.error(`${appName()} – Dashboard: capture`, e);
       new Notice('Capture failed — see console');
       return;
     }
@@ -3299,7 +3299,7 @@ Object.assign(DashboardView.prototype, {
       try {
         items.push(...(fn() || []));
       } catch (e) {
-        console.error('Neon Deck facts', e);
+        console.error(`${appName()} – Dashboard: facts`, e);
       }
     }
     items.push({ v: d.md.length, l: 'notes' }, { v: d.editedToday.length, l: 'edited today' });
@@ -3351,7 +3351,7 @@ Object.assign(DashboardView.prototype, {
     });
   },
 
-  /** Totals card: live counts from Neon Time, Tickets, Tasks and the vault. The first tile spans the card. */
+  /** Totals card: live counts from Time, Projects, Tasks and the vault. The first tile spans the card. */
   renderTotals(d) {
     if (!this.totals) return;
     d = d || this.lastData || this.plugin.collectVaultData();
@@ -3379,7 +3379,7 @@ Object.assign(DashboardView.prototype, {
     const thisMonth = (ms) => ms >= monthStart.valueOf();
     const month = now.format('MMM');
 
-    // time worked (Neon Time)
+    // time worked (Time)
     const tm = neonPlugin(this.app, 'neon-time');
     if (tm && tm.days) {
       const todayKey = now.format('YYYY-MM-DD');
@@ -3404,7 +3404,7 @@ Object.assign(DashboardView.prototype, {
       try {
         if (tm.balance) bal = tm.balance(moment(0), now).balance;
       } catch (e) {
-        console.error('Neon Deck totals', e);
+        console.error(`${appName()} – Dashboard: totals`, e);
       }
       tile([Math.round(total), (x) => fmtMin(Math.round(x))], 'time worked', 'var(--nd-accent)', `${fmtMin(Math.round(monthMin))} in ${month}${bal ? ` · ${bal > 0 ? '+' : ''}${fmtMin(bal)} balance` : ''}`, 'All time tracked, automatic and manual');
       tile(worked, worked === 1 ? 'day worked' : 'days worked', 'var(--nd-info)', null, 'Days with tracked time');
@@ -3415,7 +3415,7 @@ Object.assign(DashboardView.prototype, {
       if (done) tile(done.length, 'tasks done', 'var(--nd-go)', `${done.filter((x) => thisMonth(moment(x.date, 'YYYY-MM-DD').valueOf())).length} in ${month}`, 'Tasks ticked in the last 6 weeks, by their ✅ date');
     }
 
-    // projects (Neon Projects)
+    // projects (Projects)
     const tk = neonPlugin(this.app, 'neon-tickets');
     if (tk && tk.collectProjects) {
       const all = tk.collectProjects();
@@ -3437,7 +3437,7 @@ Object.assign(DashboardView.prototype, {
       try {
         for (const x of fn() || []) if (x && x.t >= cut) items.push(x);
       } catch (e) {
-        console.error(`Neon Deck activity ${id}`, e);
+        console.error(`${appName()} – Dashboard: activity ${id}`, e);
       }
     }
     items.sort((a, b2) => b2.t - a.t);
@@ -5531,7 +5531,7 @@ class NeonDeck extends Plugin {
     ];
     const desktopOnly = new Set(['open-cards', 'open-cards-sidebar', 'open-graph', 'graph-active-note']); // fork: not on mobile
     for (const [id, name, callback] of cmds) if (!(NEON_MOBILE.on && desktopOnly.has(id))) this.addCommand({ id, name, callback });
-    // hidden while Neon Tasks is on: it brings its own New note command
+    // hidden while the Tasks module is on: it brings its own New note command
     this.addCommand({
       id: 'new-note',
       name: 'New note',
@@ -5650,7 +5650,7 @@ class NeonDeck extends Plugin {
     this._saveSoon();
   }
 
-  /* API for Neon Tasks / Tickets / Time ------------------------------------ */
+  /* API for the Tasks, Projects and Time modules --------------------------- */
   buildApi() {
     const p = this;
     const changed = (ev) => p.app.workspace.trigger(ev);
@@ -5706,7 +5706,7 @@ class NeonDeck extends Plugin {
       unregisterExcluded(id) {
         p.excludes.delete(id);
       },
-      /** named services, e.g. 'newNote' from Neon Tasks, 'newTicket' from Neon Tickets */
+      /** named services, e.g. 'newNote' from Tasks, 'newTicket' from Projects */
       provide(name, fn) {
         p.services.set(name, fn);
       },
@@ -6031,7 +6031,7 @@ Object.assign(NeonDeck.prototype, {
         new Notice(`✦ Added ${f.basename} to the inbox`);
       } catch (err) {
         if (!(err && err.neonReadOnly)) {
-          console.error('Neon Deck: inbox', err);
+          console.error(`${appName()} – Dashboard: inbox`, err);
           new Notice('Could not add to the inbox');
         }
         input.value = v;
@@ -6084,7 +6084,7 @@ Object.assign(NeonDeck.prototype, {
       new Notice(`✦ Saved to ${f.path}`);
     } catch (e) {
       if (!(e && e.neonReadOnly)) {
-        console.error('Neon Deck: inbox capture', e);
+        console.error(`${appName()} – Dashboard: inbox capture`, e);
         new Notice('Could not save the inbox note');
       }
     }
@@ -6125,7 +6125,7 @@ class InboxView extends ItemView {
 Object.assign(NeonDeck.prototype, {
   async onReady() {
     const ws = this.app.workspace;
-    // fork: the automatic “tidy into Core” move was removed; Neon Deck never moves your files
+    // fork: the automatic “tidy into Core” move was removed; the plugin never moves your files
     this.lastFile = ws.getActiveFile();
     this.registerClaudeCard(); // fork
     this.registerInboxCapture(); // fork
@@ -6186,7 +6186,7 @@ Object.assign(NeonDeck.prototype, {
       try {
         parts.push(...(fn(start, end) || []));
       } catch (e) {
-        console.error('Neon Deck week line', e);
+        console.error(`${appName()} – Dashboard: week line`, e);
       }
     }
     const md = this.includedNotes();
@@ -6339,7 +6339,7 @@ Object.assign(NeonDeck.prototype, {
         try {
           ex.push(...(fn() || []).map(normalizePath));
         } catch (e) {
-          console.error('Neon Deck exclude', e);
+          console.error(`${appName()} – Dashboard: exclude`, e);
         }
       }
       this._ex = ex;
@@ -6486,13 +6486,13 @@ Object.assign(NeonDeck.prototype, {
     const addFile = async (f, dir, inFolder) => {
       try {
         const np = await free(dir, f.name);
-        // files of a dropped folder stay where they are: Neon Write's image mover skips these paths
+        // files of a dropped folder stay where they are: Write's image mover skips these paths
         if (inFolder) (this.placed || (this.placed = new Set())).add(np);
         const tf = await this.app.vault.createBinary(np, await f.arrayBuffer());
         if (!inFolder) made.push(tf);
         n++;
       } catch (err) {
-        console.error('Neon Deck: could not add', f.name, err);
+        console.error(`${appName()} – Dashboard: could not add`, f.name, err);
         new Notice(`Could not add “${f.name}”`);
       }
     };
@@ -6516,7 +6516,7 @@ Object.assign(NeonDeck.prototype, {
         if (entries[i] && entries[i].isDirectory) await addDir(entries[i], dir);
         else await addFile(f, dir);
       } catch (err) {
-        console.error('Neon Deck: could not add', f.name, err);
+        console.error(`${appName()} – Dashboard: could not add`, f.name, err);
         new Notice(`Could not add “${f.name}”`);
       }
     }
@@ -6841,7 +6841,7 @@ Object.assign(NeonDeck.prototype, {
       try {
         await t.run(v);
       } catch (err) {
-        console.error('Neon Deck capture', err);
+        console.error(`${appName()} – Dashboard: capture`, err);
         new Notice('Capture failed — see console');
       }
     }
@@ -6877,7 +6877,7 @@ Object.assign(NeonDeck.prototype, {
       else if (items.length) await this.pinFiles(items.filter((f) => f instanceof TFile));
       else if (text.trim()) await this.pinText(text);
     } catch (err) {
-      console.error('Neon Deck: pin drop', err);
+      console.error(`${appName()} – Dashboard: pin drop`, err);
       new Notice('Could not pin that — see console');
     }
     if (this.island.byDrag) this.foldSoon(1200);
@@ -6976,7 +6976,7 @@ class TasksView extends ItemView {
     this.unmountPattern();
     this.contentEl.empty();
   }
-  /** The dashboard's pattern behind the cards, when Neon Deck is on. */
+  /** The dashboard's pattern behind the cards, when the Dashboard module is on. */
   mountPattern() {
     this.unmountPattern();
     const api = deckApi(this.app);
@@ -7086,7 +7086,7 @@ Object.assign(TasksView.prototype, {
 /* @src src/tasks/helpers.js */
 
 /* ------------------------------------------------------------------ */
-/* Neon Tasks                                                          */
+/* Tasks                                                               */
 /* ------------------------------------------------------------------ */
 
 const TASKS_DEFAULTS = {
@@ -7438,7 +7438,7 @@ class NeonTasksSettingTab extends PluginSettingTab {
       .addToggle((t) => t.setValue(s.askOnCreate).onChange((v) => ((s.askOnCreate = v), save())));
     new Setting(containerEl)
       .setName('“No category yet” reminder')
-      .setDesc('A small bar on new notes without a category. Only notes created since the plugin was installed.')
+      .setDesc('A small bar on new notes without a category. Only notes created since the plugin was installed, and never with customer folders (the folder is the customer).')
       .addToggle((t) => t.setValue(s.showNoCategoryBar).onChange((v) => ((s.showNoCategoryBar = v), save(), p.updateBar())));
     madeWith(containerEl);
   }
@@ -7454,6 +7454,11 @@ class NeonTasks extends Plugin {
     if (!Array.isArray(s.doneLog)) s.doneLog = [];
     if (!Array.isArray(s.noteTypes) || !s.noteTypes.length) s.noteTypes = noteTypesFrom(s); // fork: older per-kind settings → the types list
     if (!s.installedAt) s.installedAt = Date.now();
+    // fork: the "No category yet" bar is off by default now; vaults that saved the old default (on) get it off once
+    if (!s.noCatBarOff) {
+      s.showNoCategoryBar = false;
+      s.noCatBarOff = true;
+    }
     NEON_PLAN.taskTag = s.taskTag; // fork: project plans read the same task tags
     dropOldDefaults(this.app, s, { quickTasksPath: 'Todo.md' }); // fork: the Todo note follows the base folder unless set
     this.freshData = !raw;
@@ -7749,7 +7754,7 @@ class CustomerNoteModal extends Modal {
       await reusableLeaf(this.app).openFile(target, { active: true, state: { mode: 'source' } });
     } catch (e) {
       if (!(e && e.neonReadOnly)) {
-        console.error('Neon Tasks: could not create the note', e);
+        console.error(`${appName()} – Tasks: could not create the note`, e);
         new Notice('Could not create the note');
       }
     }
@@ -7803,6 +7808,8 @@ Object.assign(NeonTasks.prototype, {
   },
   needsCategory(f) {
     if (!(f instanceof TFile) || f.extension !== 'md') return false;
+    // fork: with customer folders, a note's customer comes from its folder, and notes elsewhere don't need one
+    if (NEON_CATS.customers) return false;
     if (f.stat.ctime < this.settings.installedAt || this.isSystemPath(f.path) || dailyDateOf(this.app, f)) return false;
     if (f.path === this.quickPath()) return false; // fork: the Global tasks backup note (backupPath) is gone
     return noteCategory(this.app.metadataCache.getFileCache(f), f.path) === null;
@@ -7864,7 +7871,7 @@ Object.assign(NeonTasks.prototype, {
   async addGlobal(text) {
     await this.addQuickTask(text);
   },
-  /** Global tasks saved by upstream Neon Tasks (plugin data): offer once to move them into the Todo note. */
+  /** Global tasks saved by upstream Neon Deck's Tasks module (plugin data): offer once to move them into the Todo note. */
   offerGlobalMove() {
     const items = this.settings.globalTasks || [];
     if (!items.length || this.settings.globalMoveAsked) return;
@@ -7878,7 +7885,7 @@ Object.assign(NeonTasks.prototype, {
           for (const t of items.slice().reverse()) await this.writeQuickTask(t.text);
           this.settings.globalTasks = [];
         } catch (e) {
-          if (!(e && e.neonReadOnly)) console.error('Neon Tasks: could not move Global tasks', e);
+          if (!(e && e.neonReadOnly)) console.error(`${appName()} – Tasks: could not move Global tasks`, e);
           return;
         }
         this.settings.globalMoveAsked = true;
@@ -8062,7 +8069,7 @@ Object.assign(NeonTasks.prototype, {
       try {
         if ((await this.completeTask(row._t)) === false) (row.removeClass('is-done'), this.emit());
       } catch (e) {
-        console.error('Neon Tasks: could not tick task', e);
+        console.error(`${appName()} – Tasks: could not tick task`, e);
         new Notice('Could not tick the task');
         row.removeClass('is-done');
       }
@@ -8085,7 +8092,7 @@ Object.assign(NeonTasks.prototype, {
           try {
             if (!(await this.editTask(row._t, v))) txt.setText(row._t.display || row._t.raw);
           } catch (e) {
-            console.error('Neon Tasks: could not edit task', e);
+            console.error(`${appName()} – Tasks: could not edit task`, e);
             new Notice('Could not save the task');
             txt.setText(row._t.display || row._t.raw);
           }
@@ -8222,7 +8229,7 @@ Object.assign(NeonTasks.prototype, {
       await this.writeQuickTask(text);
     } catch (e) {
       if (!(e && e.neonReadOnly)) {
-        console.error('Neon Tasks: could not add task', e);
+        console.error(`${appName()} – Tasks: could not add task`, e);
         new Notice('Could not add the task');
       }
       this.pendingQuick = this.pendingQuick.filter((x) => x !== pend);
@@ -8343,7 +8350,7 @@ const NeonTimeModule = (() => {
 /* @src src/time/constants.js */
 
 /* =========================================================================
- * NEON TIME — active time per category, manual entries, overtime and one
+ * TIME — active time per category, manual entries, overtime and one
  * log note per day for your AI agent. Never talks to Jira or the network.
  * ========================================================================= */
 const VIEW_TIME = 'neon-time';
@@ -8593,7 +8600,7 @@ class TimeView extends ItemView {
     this.unmountPattern();
     this.contentEl.empty();
   }
-  /** The dashboard's dot pattern behind the cards, when Neon Deck is on. */
+  /** The dashboard's dot pattern behind the cards, when the Dashboard module is on. */
   mountPattern() {
     this.unmountPattern();
     const api = deckApi(this.app);
@@ -8788,7 +8795,7 @@ class NeonTime extends Plugin {
     for (const d of Object.values(this.days || {})) for (const e of d.entries || []) e.cat = normCat(e.cat);
 
     this.registerView(VIEW_TIME, (leaf) => new TimeView(leaf, this));
-    this.addRibbonIcon('clock', 'Neon Time', () => this.openTab());
+    this.addRibbonIcon('clock', `${appName()} – Time`, () => this.openTab());
     this.addCommand({ id: 'open-time', name: 'Open Time tab', callback: () => this.openTab() });
     this.addCommand({ id: 'add-time', name: 'Add time by hand', callback: () => this.newEntry({}) });
     this.addCommand({ id: 'wrap-up', name: 'Wrap up the day', callback: () => new WrapUpModal(this).open() });
@@ -9243,7 +9250,7 @@ Object.assign(NeonTime.prototype, {
         await this.app.vault.create(path, this.dayNote(key, false));
       }
     } catch (e) {
-      console.error('Neon Time: could not write log note', e);
+      console.error(`${appName()} – Time: could not write log note`, e);
     }
   },
   readmeSoon() {
@@ -9296,7 +9303,7 @@ Object.assign(NeonTime.prototype, {
         await this.app.vault.create(path, text);
       }
     } catch (e) {
-      console.error('Neon Time: README', e);
+      console.error(`${appName()} – Time: README`, e);
     }
   },
 
@@ -9705,7 +9712,7 @@ return NeonTime;
 const NeonProjectsModule = (() => {
 /* @src src/tickets/constants.js */
 /* ------------------------------------------------------------------ */
-/* Neon Projects (fork; upstream's Neon Tickets module, rewritten)     */
+/* Projects (fork; upstream Neon Deck's Tickets module, rewritten)    */
 /* ------------------------------------------------------------------ */
 // The module keeps upstream's id (neon-tickets) and view type, so its data folder and saved layouts carry on.
 
@@ -10294,10 +10301,12 @@ class NeonProjects extends Plugin {
     this.buildStatus();
 
     // only project notes invalidate the list: typing in other notes costs nothing
+    this.hookBaselines(); // fork: automatic Planning baselines (src/tickets/plan-baseline.js)
     const dirty = () => {
       this.cache = null;
       this.planCache = null; // fork: plan counts on the rows
       this.emitSoon();
+      this.autoBaselinesSoon(); // a project that has just started gets its baseline
       const api = deckApi(this.app);
       if (api && api.activityChanged) api.activityChanged(); // Recently done reads the closed dates
     };
@@ -10593,7 +10602,7 @@ class NewProjectModal extends Modal {
         await p.createProject(t, sel.value);
       } catch (e) {
         if (!(e && e.neonReadOnly)) {
-          console.error('Neon Projects: could not create the project', e);
+          console.error(`${appName()} – Projects: could not create the project`, e);
           new Notice('Could not create the project');
         }
       }
@@ -12715,7 +12724,7 @@ function planWarnings(tasks, ends, today) {
 }
 
 Object.assign(PlanView.prototype, {
-  /** Gantt: Tasks / Phases; Save baseline. */
+  /** Gantt: Tasks / Phases; Report; Dates… (the baseline is automatic: see plan-baseline.js and the ⋯ menu). */
   buildForecastTools(tools) {
     this.phasesOnlyEl = pills(tools, [['tasks', 'Tasks'], ['phases', 'Phases']], this.ganttPhases ? 'phases' : 'tasks', (v) => {
       this.ganttPhases = v === 'phases';
@@ -12725,13 +12734,10 @@ Object.assign(PlanView.prototype, {
     tip(this.phasesOnlyEl.el, 'One bar per phase, or every task');
     this.reportBtn = button(tools, { icon: 'file-output', text: 'Report', cls: 'np-report-btn', title: 'Save a printable report of this plan (a note with the chart) in the reports folder', onClick: () => this.writeReport() });
     this.datesBtn = button(tools, { icon: 'calendar-check', text: 'Dates…', cls: 'np-dates-btn', title: 'Write the planned dates into the tasks (🛫 start, 📅 due), choosing which', onClick: () => new PlanDatesModal(this.app, this).open() });
-    this.baselineBtn = button(tools, { icon: 'flag', text: 'Baseline', cls: 'np-baseline', title: 'Save today’s plan as the baseline, to see later how far tasks slip', onClick: (e) => this.baselineMenu(e) });
   },
   syncForecastTools() {
     this.phasesOnlyEl.el.toggleClass('is-hidden', this.mode !== 'gantt');
-    this.baselineBtn.toggleClass('is-hidden', !this.base);
     this.datesBtn.toggleClass('is-hidden', !this.base);
-    this.baselineBtn.toggleClass('is-on', !!this.baseline());
   },
   /** The plan with real dates (whatever the Dates / Weeks switch): forecast, baseline and slip use it. */
   datedPlan() {
@@ -12740,25 +12746,25 @@ Object.assign(PlanView.prototype, {
   },
   baseline() {
     const all = this.plugin.settings.planBaselines || {};
-    return (this.plan && all[this.plan.path]) || null;
+    const b = this.plan && all[this.plan.path];
+    return b && b.tasks ? b : null; // { removed } only stops the automatic one coming back
   },
-  baselineMenu(e) {
-    const m = new Menu();
+  /** The ⋯ menu: re-baseline (a new plan agreed) or remove the baseline; only with real dates. */
+  onPaneMenu(menu, source) {
+    ItemView.prototype.onPaneMenu.call(this, menu, source);
+    if (!this.plan || !this.base) return;
     const b = this.baseline();
-    m.addItem((i) => i.setTitle(b ? `Save a new baseline (the one from ${planShortDate(b.saved)} is replaced)` : 'Save the plan as the baseline').setIcon('flag').onClick(() => this.saveBaseline()));
-    if (b) m.addItem((i) => i.setTitle('Remove the baseline').setIcon('trash-2').onClick(() => this.saveBaseline(true)));
-    m.showAtMouseEvent(e);
+    menu.addItem((i) => i.setSection('action').setTitle(b ? `Re-baseline (replaces the one from ${planShortDate(b.saved)})` : 'Save a baseline now').setIcon('flag').onClick(() => this.saveBaseline()));
+    if (b) menu.addItem((i) => i.setSection('action').setTitle('Remove the baseline').setIcon('trash-2').onClick(() => this.saveBaseline(true)));
   },
   async saveBaseline(remove = false) {
     const s = this.plugin.settings;
     s.planBaselines = s.planBaselines || {};
-    if (remove) delete s.planBaselines[this.plan.path];
+    if (remove) s.planBaselines[this.plan.path] = { removed: this.today }; // not saved again automatically
     else {
       const dated = this.datedPlan();
       if (!dated) return new Notice('Set the project’s started date first');
-      const tasks = {};
-      for (const b of dated.bars) if (b.task && b.task.id && !b.task.external) tasks[b.task.id] = b.end;
-      s.planBaselines[this.plan.path] = { saved: this.today, end: dated.end, tasks };
+      s.planBaselines[this.plan.path] = planBaselineOf(dated, this.today);
     }
     await this.plugin.saveSettings(); // the plugin's own data, not the note
     new Notice(remove ? 'Baseline removed' : 'Baseline saved');
@@ -12782,6 +12788,98 @@ Object.assign(PlanView.prototype, {
       s += d ? ` (${d > 0 ? '+' : ''}${d} since the baseline of ${planShortDate(b.saved)})` : ` (as the baseline of ${planShortDate(b.saved)})`;
     }
     return s;
+  },
+});
+/* @src src/tickets/plan-baseline.js */
+/* ---- Project plans (fork): automatic baselines -------------------------------------------------------------
+ * A baseline is today's planned finish of every task, kept so the Planning view can show later how far tasks have
+ * slipped (the List's Slip column, "+N since the baseline" after the forecast). It is saved automatically the first
+ * time a project is seen started (its status is in progress or on hold) with a started date and plan tasks; the
+ * Planning view's ⋯ menu re-baselines it (a new plan agreed) or removes it. Baselines live in the plugin's own
+ * settings, one per project path (no files in the vault): they follow a renamed or moved project, and those of
+ * projects that no longer exist are dropped on start. */
+
+/** The baseline of a dated plan (planGanttText with a base date): { saved, end, tasks: { id: finish } }. */
+function planBaselineOf(dated, today) {
+  const tasks = {};
+  for (const b of dated.bars || []) if (b.task && b.task.id && !b.task.external) tasks[b.task.id] = b.end;
+  return { saved: today, end: dated.end || null, tasks };
+}
+/** Baselines after a rename: the note's own key, or every key inside a renamed folder. Returns true when changed. */
+function planBaselineMove(all, from, to) {
+  let changed = false;
+  for (const key of Object.keys(all || {})) {
+    let next = null;
+    if (key === from) next = to;
+    else if (key.startsWith(from + '/')) next = to + key.slice(from.length);
+    if (next && next !== key) {
+      all[next] = all[key];
+      delete all[key];
+      changed = true;
+    }
+  }
+  return changed;
+}
+/** Drop the baselines whose project no longer exists. Returns true when any were dropped. */
+function planBaselinePrune(all, exists) {
+  let changed = false;
+  for (const key of Object.keys(all || {}))
+    if (!exists(key)) {
+      delete all[key];
+      changed = true;
+    }
+  return changed;
+}
+/** Is the project under way (so its plan is agreed)? Not before it starts, and not once it is done. */
+function planIsStarted(t) {
+  return !!t && (t.status === 'in-progress' || t.status === 'waiting');
+}
+
+Object.assign(NeonProjects.prototype, {
+  /** Keep baselines with their projects: follow renames, drop the gone ones once the vault is indexed. */
+  hookBaselines() {
+    const s = this.settings;
+    this.registerEvent(
+      this.app.vault.on('rename', (f, old) => {
+        if (planBaselineMove(s.planBaselines, old, f.path)) this.saveSettings();
+      }),
+    );
+    const ref = this.app.metadataCache.on('resolved', () => {
+      this.app.metadataCache.offref(ref);
+      if (planBaselinePrune(s.planBaselines, (p) => !!this.app.vault.getAbstractFileByPath(p))) this.saveSettings();
+      this.autoBaselines();
+    });
+    this.registerEvent(ref);
+    this.autoBaselinesSoon = debounce(() => this.autoBaselines(), 5000, true);
+  },
+  /** Save a baseline for every started project with a started date and plan tasks that has none yet. */
+  async autoBaselines() {
+    if (this.baselining) return;
+    this.baselining = true;
+    try {
+      const all = (this.settings.planBaselines = this.settings.planBaselines || {});
+      const today = moment().format('YYYY-MM-DD');
+      let saved = 0;
+      for (const t of this.collectProjects()) {
+        if (!planIsStarted(t) || !t.startedOn) continue;
+        const scope = this.planScope(t);
+        if (all[scope.path]) continue;
+        const tasks = await planCollect(this.app, scope);
+        if (!tasks.some((x) => x.id && !x.external)) continue;
+        const base = planBaseDate(this.app, scope);
+        if (!base) continue;
+        all[scope.path] = planBaselineOf(planGanttText(tasks, { base, today, due: planDueDate(this.app, scope) }), today);
+        saved++;
+      }
+      if (saved) {
+        await this.saveSettings(); // the plugin's own data, not the notes
+        this.app.workspace.getLeavesOfType(VIEW_PLAN).forEach((l) => l.view && l.view.render && l.view.render());
+      }
+    } catch (e) {
+      console.error(`${appName()} – Projects: automatic baseline`, e);
+    } finally {
+      this.baselining = false;
+    }
   },
 });
 /* @src src/tickets/plan-dates.js */
@@ -13184,7 +13282,7 @@ const NeonResearchModule = (() => {
 /* @src src/research/constants.js */
 
 /* =========================================================================
- * NEON RESEARCH — one tree per section: topics (folders) → subtopics (folders) → notes,
+ * RESEARCH — one tree per section: topics (folders) → subtopics (folders) → notes,
  * inside each section folder. Its own Research tab (view type neon-research).
  * ========================================================================= */
 const VIEW_RESEARCH = 'neon-research';
@@ -13193,7 +13291,7 @@ const NR_DEFAULTS = {
   root: '', // first section's path, kept for older versions
   roots: null, // [{ name, path }]: each is its own tree (filled on load)
   activeRoot: 0, // index of the section shown in the tab
-  countAsWork: true, // false: new notes get `untracked: true`, so Neon Time never counts them as work
+  countAsWork: true, // false: new notes get `untracked: true`, so Time never counts them as work
   linkSuggest: true,
   open: [], // folder paths expanded in the tree
   researchTopics: [], // unused since the fork (status now comes from the notes); kept so older data loads
@@ -13952,7 +14050,7 @@ Object.assign(NeonResearch.prototype, {
       try {
         if (tf instanceof TFile) return applyTemplate(await this.app.vault.read(tf), now, title);
       } catch (e) {
-        console.error('Neon Research: could not read the template', e);
+        console.error(`${appName()} – Research: could not read the template`, e);
       }
       new Notice(`Research template “${s.noteTemplate}” not found: using the standard properties`);
     }
@@ -14137,7 +14235,7 @@ const NeonWriteModule = (() => {
 /* @src src/write/constants.js */
 
 /* =========================================================================
- * NEON WRITE — nicer note writing: a rows × columns table picker, styled tables,
+ * WRITE — nicer note writing: a rows × columns table picker, styled tables,
  * dividers, locked callouts and a barely-there pattern behind the note.
  * ========================================================================= */
 const { MarkdownView, EditorSuggest } = obsidian;
@@ -14374,7 +14472,7 @@ try {
   cmState = require('@codemirror/state'); // provided by Obsidian at runtime
   cmView = require('@codemirror/view');
 } catch (e) {
-  console.error('Neon Write: callout lock needs @codemirror/state', e);
+  console.error(`${appName()} – Write: callout lock needs @codemirror/state`, e);
 }
 const lockAnno = cmState ? cmState.Annotation.define() : null; // marks our own lock/unlock edits
 const CALLOUT_HEAD_RE = /^(\s*>\s*\[!)([^\]|]+)(\|[^\]]*)?(\][+-]?)(.*)$/;
@@ -14830,7 +14928,7 @@ class NeonWrite extends Plugin {
     try {
       if (p.layer) p.layer.destroy();
     } catch (e) {
-      console.error('Neon Write pattern', e);
+      console.error(`${appName()} – Write: pattern`, e);
     }
     p.host.removeClass('nw-pattern-host', 'nd-has-pattern');
   }
@@ -14849,7 +14947,7 @@ const NEON_MODULES = [
   { id: 'neon-write', name: 'Write', old: 'Neon Write', desc: 'Table picker, styled tables, dividers, locked callouts, the pattern behind notes', cls: NeonWriteModule },
 ];
 /* @src src/kernel/mother.js */
-/* ---- Neon Deck 2: one plugin; each module is a child Plugin ------------------------
+/* ---- the kernel: one plugin; each module is a child Plugin ------------------------
  * The former six plugins run unchanged as children (same command ids, view types and data).
  * Obsidian's own Plugin/Component lifecycle removes everything a child registered when it
  * stops, so a module can be switched off at runtime without leaks. NEON_MODULES is filled
@@ -14925,11 +15023,11 @@ class NeonMother extends Plugin {
     this.app.workspace.onLayoutReady(() => {
       this.step('workspace ready, opening views');
       this.doneTimer = window.setTimeout(() => this.startDone(), 3000);
-      // fork: first start — ask where Neon Deck may keep what it makes for itself
+      // fork: first start — ask where the plugin may keep what it makes for itself
       if (this.state.baseFolder === undefined) new BaseFolderModal(this).open();
     });
   }
-  /** fork: the base folder for everything Neon Deck makes for itself ('' = vault root). */
+  /** fork: the base folder for everything the plugin makes for itself ('' = vault root). */
   async setBaseFolder(path) {
     const v = String(path || '').trim().replace(/^\/+|\/+$/g, '');
     this.state.baseFolder = v ? normalizePath(v) : '';
@@ -14981,7 +15079,7 @@ class NeonMother extends Plugin {
   noteError(where, e) {
     this.setLocal('error', `${where}: ${String((e && e.message) || e).slice(0, 300)} (${moment().format('D MMM HH:mm')})`);
   }
-  /** Core API for the modules (same object Neon Deck 1.x exposed). */
+  /** Core API for the modules (the same object as upstream Neon Deck 1.x). */
   get api() {
     const deck = this.modules.get('neon-deck');
     return (deck && deck.api) || null;
@@ -15008,6 +15106,8 @@ class NeonMother extends Plugin {
         this.moduleTabs.set(m.id, tab);
         child.register(() => this.moduleTabs.get(m.id) === tab && this.moduleTabs.delete(m.id));
       };
+      const types = new Set(); // fork: its view types, to reopen tabs left as placeholders (src/kernel/views.js)
+      this.hookViews(child, types);
       // a failing start stops only this module
       const load = child.onload;
       child.onload = async () => {
@@ -15017,9 +15117,10 @@ class NeonMother extends Plugin {
           this.step(`${label} starting`);
           await load.call(child);
           this.step(`${label} started`);
+          this.app.workspace.onLayoutReady(() => this.reviveViews(types));
           this.timing.push(`${label} ${Date.now() - t} ms`);
         } catch (e) {
-          console.error(`Neon Deck: ${m.name} failed to start`, e);
+          console.error(`${appName()}: ${m.name} failed to start`, e);
           this.failed.set(m.id, String((e && e.message) || e));
           this.noteError(m.name, e);
           new Notice(`${appName()}: ${m.name} failed to start and was stopped. Details in the console.`);
@@ -15030,7 +15131,7 @@ class NeonMother extends Plugin {
       this.failed.delete(m.id);
       this.addChild(child); // runs child.load() -> onload()
     } catch (e) {
-      console.error(`Neon Deck: ${m.name} failed to start`, e);
+      console.error(`${appName()}: ${m.name} failed to start`, e);
       this.failed.set(m.id, String((e && e.message) || e));
       this.noteError(m.name, e);
     }
@@ -15084,6 +15185,39 @@ class NeonMother extends Plugin {
     await this.app.vault.adapter.write(`${this.manifest.dir}/${KERNEL_FILE}`, JSON.stringify(keep, null, 2));
   }
 }
+/* @src src/kernel/views.js */
+/* ---- module views after a restart (fork) -------------------------------------------------------------------
+ * Switching the plugin (or a module) off and on again left its open tabs as Obsidian's placeholder for a view
+ * nobody provides: titled with the internal view type (e.g. "neon-deck-cards") and a ghost icon, and Obsidian
+ * saves that title. The kernel notes the view types each module registers, marks the views they build, and once a
+ * module has started rebuilds any loaded tab of one of its types still showing a placeholder. Background tabs that
+ * Obsidian hasn't loaded yet (deferred) are left alone: they load with the registered view when opened. */
+Object.assign(NeonMother.prototype, {
+  /** Wrap a module's registerView: remember the type, mark the views it builds. */
+  hookViews(child, types) {
+    const register = child.registerView;
+    child.registerView = (type, make) => {
+      types.add(type);
+      return register.call(child, type, (leaf) => {
+        const view = make(leaf);
+        if (view) view.neonView = true;
+        return view;
+      });
+    };
+  },
+  /** Rebuild loaded tabs of these view types that still show Obsidian's placeholder. Returns how many. */
+  reviveViews(types) {
+    if (!types || !types.size) return 0;
+    const stale = [];
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.isDeferred || !leaf.view || leaf.view.neonView) return;
+      const state = leaf.getViewState();
+      if (state && types.has(state.type)) stale.push(leaf);
+    });
+    for (const leaf of stale) leaf.rebuildView().catch((e) => console.error(`${appName()}: could not reopen a ${leaf.getViewState().type} tab`, e));
+    return stale.length;
+  },
+});
 /* @src src/kernel/settings-page.js */
 /* ---- fork: one settings page ----------------------------------------------------
  * The plugin has a single page in Settings, with a section per module (Overview, Dashboard, Tasks,
@@ -15130,7 +15264,7 @@ class NeonModulesTab extends PluginSettingTab {
     try {
       tab.display();
     } catch (e) {
-      console.error(`Neon Deck: ${cur} settings`, e);
+      console.error(`${appName()}: ${cur} settings`, e);
       box.createEl('p', { text: 'These settings could not be shown. Details in the console.' });
     }
   }
@@ -15190,7 +15324,7 @@ class NeonModulesTab extends PluginSettingTab {
   }
 }
 
-/** First start: where may Neon Deck keep what it makes for itself? */
+/** First start: where may the plugin keep what it makes for itself? */
 class BaseFolderModal extends Modal {
   constructor(plugin) {
     super(plugin.app);

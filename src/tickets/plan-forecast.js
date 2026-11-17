@@ -60,7 +60,7 @@ function planWarnings(tasks, ends, today) {
 }
 
 Object.assign(PlanView.prototype, {
-  /** Gantt: Tasks / Phases; Save baseline. */
+  /** Gantt: Tasks / Phases; Report; Dates… (the baseline is automatic: see plan-baseline.js and the ⋯ menu). */
   buildForecastTools(tools) {
     this.phasesOnlyEl = pills(tools, [['tasks', 'Tasks'], ['phases', 'Phases']], this.ganttPhases ? 'phases' : 'tasks', (v) => {
       this.ganttPhases = v === 'phases';
@@ -70,13 +70,10 @@ Object.assign(PlanView.prototype, {
     tip(this.phasesOnlyEl.el, 'One bar per phase, or every task');
     this.reportBtn = button(tools, { icon: 'file-output', text: 'Report', cls: 'np-report-btn', title: 'Save a printable report of this plan (a note with the chart) in the reports folder', onClick: () => this.writeReport() });
     this.datesBtn = button(tools, { icon: 'calendar-check', text: 'Dates…', cls: 'np-dates-btn', title: 'Write the planned dates into the tasks (🛫 start, 📅 due), choosing which', onClick: () => new PlanDatesModal(this.app, this).open() });
-    this.baselineBtn = button(tools, { icon: 'flag', text: 'Baseline', cls: 'np-baseline', title: 'Save today’s plan as the baseline, to see later how far tasks slip', onClick: (e) => this.baselineMenu(e) });
   },
   syncForecastTools() {
     this.phasesOnlyEl.el.toggleClass('is-hidden', this.mode !== 'gantt');
-    this.baselineBtn.toggleClass('is-hidden', !this.base);
     this.datesBtn.toggleClass('is-hidden', !this.base);
-    this.baselineBtn.toggleClass('is-on', !!this.baseline());
   },
   /** The plan with real dates (whatever the Dates / Weeks switch): forecast, baseline and slip use it. */
   datedPlan() {
@@ -85,25 +82,25 @@ Object.assign(PlanView.prototype, {
   },
   baseline() {
     const all = this.plugin.settings.planBaselines || {};
-    return (this.plan && all[this.plan.path]) || null;
+    const b = this.plan && all[this.plan.path];
+    return b && b.tasks ? b : null; // { removed } only stops the automatic one coming back
   },
-  baselineMenu(e) {
-    const m = new Menu();
+  /** The ⋯ menu: re-baseline (a new plan agreed) or remove the baseline; only with real dates. */
+  onPaneMenu(menu, source) {
+    ItemView.prototype.onPaneMenu.call(this, menu, source);
+    if (!this.plan || !this.base) return;
     const b = this.baseline();
-    m.addItem((i) => i.setTitle(b ? `Save a new baseline (the one from ${planShortDate(b.saved)} is replaced)` : 'Save the plan as the baseline').setIcon('flag').onClick(() => this.saveBaseline()));
-    if (b) m.addItem((i) => i.setTitle('Remove the baseline').setIcon('trash-2').onClick(() => this.saveBaseline(true)));
-    m.showAtMouseEvent(e);
+    menu.addItem((i) => i.setSection('action').setTitle(b ? `Re-baseline (replaces the one from ${planShortDate(b.saved)})` : 'Save a baseline now').setIcon('flag').onClick(() => this.saveBaseline()));
+    if (b) menu.addItem((i) => i.setSection('action').setTitle('Remove the baseline').setIcon('trash-2').onClick(() => this.saveBaseline(true)));
   },
   async saveBaseline(remove = false) {
     const s = this.plugin.settings;
     s.planBaselines = s.planBaselines || {};
-    if (remove) delete s.planBaselines[this.plan.path];
+    if (remove) s.planBaselines[this.plan.path] = { removed: this.today }; // not saved again automatically
     else {
       const dated = this.datedPlan();
       if (!dated) return new Notice('Set the project’s started date first');
-      const tasks = {};
-      for (const b of dated.bars) if (b.task && b.task.id && !b.task.external) tasks[b.task.id] = b.end;
-      s.planBaselines[this.plan.path] = { saved: this.today, end: dated.end, tasks };
+      s.planBaselines[this.plan.path] = planBaselineOf(dated, this.today);
     }
     await this.plugin.saveSettings(); // the plugin's own data, not the note
     new Notice(remove ? 'Baseline removed' : 'Baseline saved');

@@ -110,3 +110,21 @@ test('SVG export: inlined theme values keep the attributes valid', () => {
   assert.equal(out, `<svg style="font-family: '??', 'Inter', ui-sans-serif; fill: #3366cc"><rect style="fill: #fff"/><text style="x: a&lt;b &amp; c&gt;d"/></svg>`);
   assert.equal(planInlineVars('<rect style="fill: var(--missing)"/>', () => ''), '<rect style="fill: var(--missing)"/>');
 });
+
+test('baselines: made from the dated plan, follow renames, dropped when the project is gone', () => {
+  const B = load('neon-tickets', ['planBaselineOf', 'planBaselineMove', 'planBaselinePrune', 'planIsStarted']);
+  const t1 = { id: 'a-1' }, t2 = { id: 'a-2', external: true }, t3 = {};
+  const b = B.planBaselineOf({ end: '2026-12-04', bars: [{ task: t1, end: '2026-11-20' }, { task: t2, end: '2026-11-25' }, { task: t3, end: '2026-11-26' }, { phase: 'x', end: '2026-12-04' }] }, '2026-11-17');
+  assert.equal(JSON.stringify(b), JSON.stringify({ saved: '2026-11-17', end: '2026-12-04', tasks: { 'a-1': '2026-11-20' } }));
+  const all = { 'P/Alpha.md': b, 'Folders/Beta': { tasks: {} }, 'Folders/Beta2': { tasks: {} } };
+  assert.equal(B.planBaselineMove(all, 'P/Alpha.md', 'P/Alpha renamed.md'), true);
+  assert.equal(B.planBaselineMove(all, 'Folders', 'Projects'), true); // a moved parent folder takes its projects along
+  assert.deepEqual(Object.keys(all).sort(), ['P/Alpha renamed.md', 'Projects/Beta', 'Projects/Beta2']);
+  assert.equal(B.planBaselineMove(all, 'Other.md', 'Else.md'), false);
+  assert.equal(B.planBaselinePrune(all, (p) => p !== 'Projects/Beta2'), true);
+  assert.deepEqual(Object.keys(all).sort(), ['P/Alpha renamed.md', 'Projects/Beta']);
+  assert.equal(B.planIsStarted({ status: 'in-progress' }), true);
+  assert.equal(B.planIsStarted({ status: 'waiting' }), true);
+  assert.equal(B.planIsStarted({ status: 'open' }), false);
+  assert.equal(B.planIsStarted({ status: 'done' }), false);
+});

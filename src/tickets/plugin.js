@@ -41,10 +41,12 @@ class NeonProjects extends Plugin {
     this.buildStatus();
 
     // only project notes invalidate the list: typing in other notes costs nothing
+    this.hookBaselines(); // fork: automatic Planning baselines (src/tickets/plan-baseline.js)
     const dirty = () => {
       this.cache = null;
       this.planCache = null; // fork: plan counts on the rows
       this.emitSoon();
+      this.autoBaselinesSoon(); // a project that has just started gets its baseline
       const api = deckApi(this.app);
       if (api && api.activityChanged) api.activityChanged(); // Recently done reads the closed dates
     };

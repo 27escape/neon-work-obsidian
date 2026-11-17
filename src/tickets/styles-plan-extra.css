@@ -2,9 +2,6 @@
 .np-plan .np-sum.is-late {
   color: var(--color-red);
 }
-.np-plan .np-baseline.is-on {
-  color: var(--nd-accent);
-}
 .np-plan .np-num.is-late {
   color: var(--color-red);
   font-weight: 600;

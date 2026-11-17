@@ -104,7 +104,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 /* @src neon-deck/styles.css */
 /* @css src/deck/styles-tokens.css */
 /* ==========================================================================
-   NEON DECK 1.3.0 — core styles
+   NEON WORK — core styles (from Neon Deck 1.3.0)
    1. Theme tokens (one block per theme, dark + light)
    2. Obsidian variables, mapped from the tokens
    3. Shared controls (buttons, pills, inputs, modals)
@@ -3203,7 +3203,7 @@ body.theme-light .nd-ticker {
 }
 /* @src neon-tasks/styles.css */
 /* @css src/tasks/styles.css */
-/* NEON TASKS — uses the --nd-* tokens from Neon Deck (fallbacks for running alone) */
+/* TASKS — uses the Dashboard's --nd-* tokens (fallbacks when it is off) */
 .nt-list {
   display: flex;
   flex-direction: column;
@@ -3471,8 +3471,8 @@ body.theme-light .nd-ticker {
   color: var(--nd-warn, var(--text-muted));
 }
 /* @css src/tasks/styles-extras.css */
-/* NEON TASKS (continued): fallback tokens, motion, the Tasks tab, settings table, timeline */
-/* Fallback when the Neon Deck core plugin is off: map the --nd-* tokens to
+/* TASKS (continued): fallback tokens, motion, the Tasks tab, settings table, timeline */
+/* Fallback when the Dashboard module is off: map the --nd-* tokens to
    Obsidian's own colours and give the shared controls a plain look. Inert
    while the core is on (it puts .nd-themed on body). */
 body:not(.nd-themed) {
@@ -3723,7 +3723,7 @@ body:not(.nd-themed) .nd-empty {
 }
 /* @src neon-time/styles.css */
 /* @css src/time/styles.css */
-/* NEON TIME — uses the --nd-* tokens from Neon Deck */
+/* TIME — uses the Dashboard's --nd-* tokens */
 .tm-view *,
 .tm-modal *,
 .tm-wrap * {
@@ -3909,7 +3909,7 @@ body:not(.nd-themed) .nd-empty {
   }
 }
 /* Time tab */
-/* same look as the dashboard: Neon Deck's cards, hero bar and dot pattern */
+/* same look as the dashboard: the Dashboard's cards, hero bar and dot pattern */
 .tm-view.view-content {
   background: var(--nd-bg);
 }
@@ -4111,7 +4111,7 @@ body:not(.nd-themed) .nd-empty {
   text-align: right;
 }
 /* @css src/time/styles-extras.css */
-/* NEON TIME (continued): motion on open, widget hover, modals, fallback tokens, motion, narrow tabs */
+/* TIME (continued): motion on open, widget hover, modals, fallback tokens, motion, narrow tabs */
 /* cards fade in on first open, like the dashboard */
 .tm-inner.is-entering > .nd-card,
 .tm-inner.is-entering > .tm-top > .nd-card {
@@ -4240,7 +4240,7 @@ body:not(.nd-themed) .nd-empty {
   color: var(--nd-go);
 }
 
-/* Fallback when the Neon Deck core plugin is off: map the --nd-* tokens to
+/* Fallback when the Dashboard module is off: map the --nd-* tokens to
    Obsidian's own colours and give the shared controls a plain look. Inert
    while the core is on (it puts .nd-themed on body). */
 body:not(.nd-themed) {
@@ -4310,7 +4310,7 @@ body:not(.nd-themed) .nd-empty {
   color: var(--nd-faint);
   text-align: center;
 }
-/* ---- motion (all of it switches off with reduced motion, see Neon Deck's styles) ---- */
+/* ---- motion (all of it switches off with reduced motion, see the Dashboard's styles) ---- */
 /* ring: segments draw in one after another, the ring turns into place */
 .tm-donut.is-intro svg {
   animation: tm-ring-in 0.45s var(--nd-ease, ease) backwards;
@@ -5420,9 +5420,6 @@ body:not(.nd-themed) .nd-empty {
 .np-plan .np-sum.is-late {
   color: var(--color-red);
 }
-.np-plan .np-baseline.is-on {
-  color: var(--nd-accent);
-}
 .np-plan .np-num.is-late {
   color: var(--color-red);
   font-weight: 600;
@@ -5585,7 +5582,7 @@ body:not(.nd-themed) .nd-empty {
 }
 /* @src neon-research/styles.css */
 /* @css src/research/styles.css */
-/* NEON RESEARCH — uses the --nd-* tokens from Neon Deck */
+/* RESEARCH — uses the Dashboard's --nd-* tokens */
 .nr-view.view-content {
   position: relative;
   padding: 0;
@@ -5891,7 +5888,7 @@ body:not(.nd-themed) .nd-empty {
 }
 /* @src neon-write/styles.css */
 /* @css src/write/styles.css */
-/* NEON WRITE — uses the --nd-* tokens from Neon Deck, with Obsidian fallbacks when it's off */
+/* WRITE — uses the Dashboard's --nd-* tokens, with Obsidian fallbacks when it's off */
 .nw-table-picker {
   --nw-bg: var(--nd-surface, var(--background-secondary));
   --nw-line: var(--nd-line, var(--background-modifier-border));
@@ -6213,7 +6210,7 @@ body.nw-fonts.nd-themed .print {
   print-color-adjust: exact;
 }
 /* @css src/write/styles-locks.css */
-/* NEON WRITE (continued): lockable callouts, merged table cells, lockable math blocks */
+/* WRITE (continued): lockable callouts, merged table cells, lockable math blocks */
 /* ---- lockable callouts (item 31): a small lock at the right of the title ---- */
 .callout-title .nw-lock {
   margin-left: auto;

@@ -24,7 +24,7 @@ What it shows:
 - priorities as the Tasks plugin writes them (⏫ high, 🔽 low): shown on cards, bars and in the List, highest first on the board;
 - owners (`[owner:: [[@Sofia Reyes]]]`): filter the view by person, group the board by person, and see a warning when someone has more than five days of work in a week;
 - markers: an issue (service levels), a decision (choosing the tool) and a risk (the mailbox), tagged `#issue`, `#decision`, `#risk`;
-- a forecast finish against the `due` property, and **Baseline** in the Planning view to see slippage later;
+- a forecast finish against the `due` property, and a baseline saved automatically once the project is in progress, to see slippage later (re-baseline from the Planning tab's ⋯ menu);
 - a dependency on a task outside the project (the licence quote in [[2026-11-10 Portal Discovery Workshop]]) and an outside task that depends on this plan (in the weekly note [[2026-47]]).
 
 ### 1. Discovery
