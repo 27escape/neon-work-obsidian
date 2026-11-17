@@ -75,6 +75,7 @@ A lightweight planner over the tasks already in a project note (or a project fol
 - **Report** saves a printable note of the plan (summary, forecast, the Gantt chart, phases, what needs attention, risks, critical path, every task) in the reports folder; print it with *Export to PDF*. **Dates…** writes the plan's dates into the tasks you tick (🛫 start, 📅 due). **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.
 ![A Planning report, ready to print](docs/screenshots/planning-report.png)
 
+- **Plan problems:** a ⛔ id no task has (say, after folding tasks into a holding task), an id used twice or a dependency loop is listed at the top of the Planning view, naming the task (click to open the note at that line), in the report's *Needs attention*, as a pill on the project's card and row, and underlined in the note itself while you edit it (hover for the reason; nothing is written).
 - **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.
 
 Planning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.

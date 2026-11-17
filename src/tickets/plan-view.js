@@ -272,19 +272,24 @@ class PlanView extends ItemView {
   renderIssues(sched) {
     const el = this.issuesEl;
     el.empty();
-    const lines = [];
-    if (sched.cycles.length) lines.push(`Dependency loop around: ${sched.cycles.map((t) => t.id || planText(t.raw)).join(', ')}`);
-    if (sched.missing.length) lines.push(`Unknown ids: ${[...new Set(sched.missing.map((m) => m.id))].join(', ')}`);
-    if (sched.dups.length) lines.push(`Ids used more than once: ${sched.dups.join(', ')}`);
-    lines.push(...this.loadLines(sched));
-    for (const w of planWeekendDates(this.tasks)) lines.push(`${w.task.id || planClip(planText(w.task.raw), 30)}: ${w.sign} ${planShortDate(w.date)} is a ${w.day}`);
+    // each line: its text, and the task to open in its note when clicked (the line to fix)
+    const lines = planProblems(this.tasks, sched).map((p) => ({ text: p.text, task: p.task }));
+    lines.push(...this.loadLines(sched).map((text) => ({ text })));
+    for (const w of planWeekendDates(this.tasks)) lines.push({ text: `${w.task.id || planClip(planText(w.task.raw), 30)}: ${w.sign} ${planShortDate(w.date)} is a ${w.day}`, task: w.task });
     // schedule warnings: a handful here, the rest counted (the List shows them on each task)
     const warn = planWarnings(this.tasks, this.ends, this.today);
-    lines.push(...warn.slice(0, 5).map((w) => w.text));
-    if (warn.length > 5) lines.push(`${warn.length - 5} more schedule warnings: see the List`);
+    lines.push(...warn.slice(0, 5).map((w) => ({ text: w.text, task: w.task })));
+    if (warn.length > 5) lines.push({ text: `${warn.length - 5} more schedule warnings: see the List` });
     this.warnings = new Map();
     for (const w of warn) this.warnings.set(w.task, [...(this.warnings.get(w.task) || []), w.text]);
-    for (const l of lines) el.createDiv({ cls: 'np-issue', text: `⚠ ${l}` });
+    for (const l of lines) {
+      const d = el.createDiv({ cls: 'np-issue', text: `⚠ ${l.text}` });
+      const t = l.task;
+      if (!t || !t.file) continue;
+      d.addClass('is-link');
+      tip(d, `Open ${t.file.basename} at this task`);
+      d.addEventListener('click', (e) => openFile(this.app, t.file, e, t.line));
+    }
     if (this.tasks.some((t) => !t.external && /\{\{\s*prefix\s*\}\}/.test(t.raw))) {
       // made from the plan template outside New project: its ids still read {{prefix}}-1
       const d = el.createDiv({ cls: 'np-issue', text: '⚠ This plan’s ids still read {{prefix}}: ' });

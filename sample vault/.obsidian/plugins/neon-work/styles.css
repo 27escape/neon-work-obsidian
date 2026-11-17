@@ -5229,6 +5229,13 @@ body:not(.nd-themed) .nd-empty {
   color: var(--nd-faint);
 }
 
+/* a problem that names a task: click to open the note at that line */
+.np-plan .np-issue.is-link {
+  cursor: pointer;
+}
+.np-plan .np-issue.is-link:hover {
+  text-decoration: underline;
+}
 /* @css src/tickets/styles-plan-editor.css */
 /* the task editor */
 .np-editor {
@@ -5571,6 +5578,11 @@ body:not(.nd-themed) .nd-empty {
 .tk-pill.is-overdue {
   color: var(--color-red);
 }
+/* broken links in the plan (ids no task has, an id used twice, a loop): dashed, so it reads as "fix the plan" */
+.tk-pill.is-problem {
+  color: var(--color-red);
+  border-style: dashed;
+}
 .tk-pill.is-soon {
   color: var(--color-orange);
 }
@@ -5579,6 +5591,12 @@ body:not(.nd-themed) .nd-empty {
 }
 .np-plan .np-warn-sign {
   color: var(--color-orange);
+}
+/* plan problems in a project note (plan-marks.js): a wavy underline, the reason on hover */
+.markdown-source-view .np-bad-ref {
+  text-decoration: underline wavy var(--color-red);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
 }
 /* @src neon-research/styles.css */
 /* @css src/research/styles.css */

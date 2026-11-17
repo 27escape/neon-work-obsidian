@@ -18,6 +18,7 @@ const PROJECT_BUCKETS = [
 ];
 const PROJECTS_DEFAULTS = {
   planReportsFolder: '', // fork: where Planning reports go ('' = <base folder>/Reports)
+  planMarks: true, // fork: underline plan problems (unknown ids, ids used twice, loops) in project notes
   planBaselines: {}, // fork: Planning baselines per project: { path: { saved, end, tasks: { id: finish } } }
   // which notes are projects, and their status values (comma lists, in the order offered)
   projectTag: 'project',

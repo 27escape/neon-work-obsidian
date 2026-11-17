@@ -54,6 +54,10 @@ class NeonProjectsSettingTab extends PluginSettingTab {
       .setName('Planning reports folder')
       .setDesc(`Where Report (in the Planning view) saves a plan's report note and its chart. Empty: ${basePath('Reports')} (in the base folder).`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Reports')).setValue(s.planReportsFolder || '').onChange((v) => ((s.planReportsFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'));
+    new Setting(containerEl)
+      .setName('Underline plan problems in project notes')
+      .setDesc('While you edit a project note: a ⛔ id no task has, a 🆔 used twice, and the links of a dependency loop get a wavy underline, with the reason on hover. Only the display changes, nothing is written.')
+      .addToggle((t) => t.setValue(s.planMarks !== false).onChange((v) => ((s.planMarks = v), save(), p.planMarksRefresh && p.planMarksRefresh())));
 
     new Setting(containerEl).setName('Status values').setHeading();
     containerEl.createEl('p', { cls: 'setting-item-description', text: 'Comma-separated, in the order they are offered. The group decides how a project is counted and coloured; unknown values count as not started. Changing a status only updates properties.' });

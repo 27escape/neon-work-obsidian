@@ -1617,6 +1617,94 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null }) {
   if (lay.today != null) add('line', { x1: labelW + lay.today, y1: headH - 4, x2: labelW + lay.today, y2: lay.height }, `stroke: ${colours.overdue || '#d93b3b'}; stroke-width: 2`);
   return svg;
 }
+/* @src src/shared/plan-problems.js */
+/* ---- Project plans (fork): what is wrong with a plan's links -------------------------------------------------
+ * Waiting for an id no task has (often a task folded into a holding task, or a typo), one id on several tasks,
+ * and dependency loops. Each problem names the task to fix, so the Planning view can open the note at its line;
+ * the Report and the project cards list them too, and the editor underlines them as you type
+ * (src/tickets/plan-marks.js). Read only: nothing is written. */
+
+/** A task's short name: its id, else the start of its text. */
+const planProblemName = (t) => t.id || planClip(planText(t.raw), 40);
+/** "1 plan problem", "3 plan problems". */
+const planProblemCount = (n) => `${n} plan problem${n === 1 ? '' : 's'}`;
+const planAnd = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+
+/**
+ * [{ kind: 'missing' | 'dup' | 'loop', task, ids, text }]: the plan's own tasks only (another project's tasks,
+ * marked external, are shown but their links aren't followed, so theirs aren't checked). sched: planSchedule's
+ * result when already made.
+ */
+function planProblems(tasks, sched) {
+  const s = sched || planSchedule(tasks);
+  const out = [];
+  const missing = new Map(); // task -> [ids]
+  for (const m of s.missing) if (!m.task.external) missing.set(m.task, [...(missing.get(m.task) || []), m.id]);
+  for (const [task, ids] of missing) {
+    const uniq = [...new Set(ids)];
+    out.push({ kind: 'missing', task, ids: uniq, text: `${planProblemName(task)} waits for ${planAnd(uniq)}, but no task has ${uniq.length === 1 ? 'that id' : 'those ids'}` });
+  }
+  for (const id of s.dups) {
+    const same = tasks.filter((t) => t.id === id);
+    if (same.every((t) => t.external)) continue;
+    const task = same.find((t) => !t.external && t !== same[0]) || same.find((t) => !t.external);
+    out.push({ kind: 'dup', task, ids: [id], text: `${id} is the id of ${same.length} tasks: ${planAnd(same.map((t) => `“${planClip(planText(t.raw), 30)}”`))}` });
+  }
+  for (const loop of planLoops(tasks)) {
+    if (loop.every((t) => t.external)) continue;
+    const names = loop.map(planProblemName);
+    out.push({ kind: 'loop', task: loop.find((t) => !t.external), ids: loop.map((t) => t.id).filter(Boolean), text: `Dependency loop: ${names.join(' → ')} → ${names[0]}` });
+  }
+  return out;
+}
+/** The dependency loops: each a list of tasks in waiting order (strongly connected parts of the graph, Tarjan). */
+function planLoops(tasks) {
+  const { byId } = planIndex(tasks);
+  const next = (t) => t.deps.map((d) => byId.get(d)).filter(Boolean); // what t waits for
+  const index = new Map();
+  const low = new Map();
+  const stack = [];
+  const on = new Set();
+  const loops = [];
+  let n = 0;
+  const visit = (t) => {
+    index.set(t, n);
+    low.set(t, n++);
+    stack.push(t);
+    on.add(t);
+    for (const u of next(t)) {
+      if (!index.has(u)) {
+        visit(u);
+        low.set(t, Math.min(low.get(t), low.get(u)));
+      } else if (on.has(u)) low.set(t, Math.min(low.get(t), index.get(u)));
+    }
+    if (low.get(t) !== index.get(t)) return;
+    const part = [];
+    let u;
+    do {
+      u = stack.pop();
+      on.delete(u);
+      part.push(u);
+    } while (u !== t);
+    if (part.length > 1 || next(t).includes(t)) loops.push(planLoopOrder(part, next));
+  };
+  for (const t of tasks) if (!index.has(t)) visit(t);
+  return loops;
+}
+/** A loop's tasks from its first one in the note, each followed by one it waits for. */
+function planLoopOrder(part, next) {
+  const inPart = new Set(part);
+  const start = part.reduce((a, b) => (part.indexOf(a) > part.indexOf(b) ? a : b)); // Tarjan pops the first-visited last
+  const order = [start];
+  let cur = start;
+  for (;;) {
+    const u = next(cur).find((x) => inPart.has(x) && !order.includes(x));
+    if (!u) break;
+    order.push(u);
+    cur = u;
+  }
+  return order.length === part.length ? order : part.slice().reverse();
+}
 /* @src README.md (tools/help.mjs) */
 const NEON_HELP = {
  "overview": {
@@ -1641,7 +1729,7 @@ const NEON_HELP = {
  },
  "planning": {
   "title": "Planning",
-  "md": "A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.\n\n[🖼 Picture: Planning: the Gantt chart with phases, milestones and the forecast ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-gantt.png)\n\n- **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.\n- **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.\n- **Priority** (the Tasks plugin's 🔺 ⏫ 🔼 🔽 ⏬) shows on cards, Gantt rows and in the List, highest first on the board; it doesn't change the schedule.\n- **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against the baseline (saved automatically when the project starts, provisional — following the plan — until every open task has a duration, then locked; lock it early or re-baseline from the tab's ⋯ menu), a filter for risks, issues and decisions.\n[🖼 Picture: Planning: the board, by phase ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-board.png)\n\n[🖼 Picture: Planning: the list, with priority and slip ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-list.png)\n\n- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*; also a command, so it can have a hotkey). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.\n- **Report** saves a printable note of the plan (summary, forecast, the Gantt chart, phases, what needs attention, risks, critical path, every task) in the reports folder; print it with *Export to PDF*. **Dates…** writes the plan's dates into the tasks you tick (🛫 start, 📅 due). **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.\n[🖼 Picture: A Planning report, ready to print ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-report.png)\n\n- **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.\n\nPlanning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.",
+  "md": "A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.\n\n[🖼 Picture: Planning: the Gantt chart with phases, milestones and the forecast ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-gantt.png)\n\n- **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.\n- **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.\n- **Priority** (the Tasks plugin's 🔺 ⏫ 🔼 🔽 ⏬) shows on cards, Gantt rows and in the List, highest first on the board; it doesn't change the schedule.\n- **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against the baseline (saved automatically when the project starts, provisional — following the plan — until every open task has a duration, then locked; lock it early or re-baseline from the tab's ⋯ menu), a filter for risks, issues and decisions.\n[🖼 Picture: Planning: the board, by phase ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-board.png)\n\n[🖼 Picture: Planning: the list, with priority and slip ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-list.png)\n\n- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*; also a command, so it can have a hotkey). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.\n- **Report** saves a printable note of the plan (summary, forecast, the Gantt chart, phases, what needs attention, risks, critical path, every task) in the reports folder; print it with *Export to PDF*. **Dates…** writes the plan's dates into the tasks you tick (🛫 start, 📅 due). **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.\n[🖼 Picture: A Planning report, ready to print ↗](https://github.com/27escape/neon-work-obsidian/blob/1.4.1/docs/screenshots/planning-report.png)\n\n- **Plan problems:** a ⛔ id no task has (say, after folding tasks into a holding task), an id used twice or a dependency loop is listed at the top of the Planning view, naming the task (click to open the note at that line), in the report's *Needs attention*, as a pill on the project's card and row, and underlined in the note itself while you edit it (hover for the reason; nothing is written).\n- **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.\n\nPlanning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.",
   "url": "https://github.com/27escape/neon-work-obsidian/blob/1.4.1/README.md#planning"
  },
  "research": {
@@ -9860,6 +9948,7 @@ const PROJECT_BUCKETS = [
 ];
 const PROJECTS_DEFAULTS = {
   planReportsFolder: '', // fork: where Planning reports go ('' = <base folder>/Reports)
+  planMarks: true, // fork: underline plan problems (unknown ids, ids used twice, loops) in project notes
   planBaselines: {}, // fork: Planning baselines per project: { path: { saved, end, tasks: { id: finish } } }
   // which notes are projects, and their status values (comma lists, in the order offered)
   projectTag: 'project',
@@ -10351,6 +10440,10 @@ class NeonProjectsSettingTab extends PluginSettingTab {
       .setName('Planning reports folder')
       .setDesc(`Where Report (in the Planning view) saves a plan's report note and its chart. Empty: ${basePath('Reports')} (in the base folder).`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Reports')).setValue(s.planReportsFolder || '').onChange((v) => ((s.planReportsFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'));
+    new Setting(containerEl)
+      .setName('Underline plan problems in project notes')
+      .setDesc('While you edit a project note: a ⛔ id no task has, a 🆔 used twice, and the links of a dependency loop get a wavy underline, with the reason on hover. Only the display changes, nothing is written.')
+      .addToggle((t) => t.setValue(s.planMarks !== false).onChange((v) => ((s.planMarks = v), save(), p.planMarksRefresh && p.planMarksRefresh())));
 
     new Setting(containerEl).setName('Status values').setHeading();
     containerEl.createEl('p', { cls: 'setting-item-description', text: 'Comma-separated, in the order they are offered. The group decides how a project is counted and coloured; unknown values count as not started. Changing a status only updates properties.' });
@@ -10403,6 +10496,7 @@ class NeonProjects extends Plugin {
 
     this.registerView(VIEW_TICKETS, (leaf) => new ProjectsView(leaf, this));
     this.hookPlans(); // fork: Plan view and the buttons on project notes
+    this.hookPlanMarks(); // fork: plan problems underlined in project notes (plan-marks.js)
     this.addRibbonIcon('briefcase', 'Projects', () => this.openTracker());
     this.addCommand({ id: 'open-tickets', name: 'Open the Projects tab', callback: () => this.openTracker() });
     this.addCommand({ id: 'new-ticket', name: 'New project', callback: () => this.newProject() });
@@ -11051,8 +11145,11 @@ Object.assign(NeonProjects.prototype, {
       const today = moment().format('YYYY-MM-DD');
       const ymd = (m) => (m && m.format ? m.format('YYYY-MM-DD') : null);
       const job = planCollect(this.app, scope, { neighbours: false })
+        // fork: a link to an id outside the project may be another project's task: look further only then
+        .then((tasks) => (planProblems(tasks).some((p) => p.kind === 'missing') ? planCollect(this.app, scope) : tasks))
         .then((tasks) => {
-          const c = planCounts(tasks, today);
+          const c = planCounts(tasks.filter((x) => !x.external), today);
+          c.problems = planProblems(tasks).map((p) => p.text); // missing ids, ids used twice, loops
           // the forecast finish against the due date, when the project has a started date
           const base = ymd(t.startedOn);
           const g = base && c.total ? planGanttText(tasks, { base, today, due: ymd(t.due) }) : null;
@@ -11066,7 +11163,7 @@ Object.assign(NeonProjects.prototype, {
     }
     return this.planCache.get(key);
   },
-  /** Adds the counts to a row once read; short: only overdue and due this week. */
+  /** Adds the counts to a row once read; short: only overdue and due this week. Plan problems are always shown. */
   renderPlanSummary(el, t, short = false) {
     this.planSummary(t).then((c) => {
       if (!c || !el.isConnected) return;
@@ -11075,6 +11172,7 @@ Object.assign(NeonProjects.prototype, {
       if (!text) return;
       const s = el.createSpan({ cls: `tk-age tk-plan${c.overdue || c.late ? ' is-overdue' : ''}${short ? ' is-short' : ''}`, text: short ? ` · ${text}` : text });
       tip(s, 'This project’s tasks (ready: nothing it depends on is still open)');
+      if (c.problems && c.problems.length) tip(el.createSpan({ cls: 'tk-age tk-plan is-overdue tk-plan-problems', text: ` · ${planProblemCount(c.problems.length)}` }), c.problems.join('\n'));
     });
   },
   /** The dashboard card's pills: late, overdue, due soon, blocked (only what needs action). */
@@ -11086,6 +11184,7 @@ Object.assign(NeonProjects.prototype, {
         [c.overdue, `${c.overdue} overdue`, 'is-overdue', 'Tasks past their 📅 date'],
         [c.week, `${c.week} due soon`, 'is-soon', 'Tasks due within a week'],
         [c.blocked, `${c.blocked} blocked`, 'is-blocked', 'Tasks held up by an overdue or #blocked task'],
+        [(c.problems || []).length, planProblemCount((c.problems || []).length), 'is-problem', `Open Planning to fix:\n${(c.problems || []).join('\n')}`],
       ];
       for (const [n, text, cls, title] of pills) if (n) tip(el.createSpan({ cls: `tk-pill ${cls}`, text }), title);
     });
@@ -11551,19 +11650,24 @@ class PlanView extends ItemView {
   renderIssues(sched) {
     const el = this.issuesEl;
     el.empty();
-    const lines = [];
-    if (sched.cycles.length) lines.push(`Dependency loop around: ${sched.cycles.map((t) => t.id || planText(t.raw)).join(', ')}`);
-    if (sched.missing.length) lines.push(`Unknown ids: ${[...new Set(sched.missing.map((m) => m.id))].join(', ')}`);
-    if (sched.dups.length) lines.push(`Ids used more than once: ${sched.dups.join(', ')}`);
-    lines.push(...this.loadLines(sched));
-    for (const w of planWeekendDates(this.tasks)) lines.push(`${w.task.id || planClip(planText(w.task.raw), 30)}: ${w.sign} ${planShortDate(w.date)} is a ${w.day}`);
+    // each line: its text, and the task to open in its note when clicked (the line to fix)
+    const lines = planProblems(this.tasks, sched).map((p) => ({ text: p.text, task: p.task }));
+    lines.push(...this.loadLines(sched).map((text) => ({ text })));
+    for (const w of planWeekendDates(this.tasks)) lines.push({ text: `${w.task.id || planClip(planText(w.task.raw), 30)}: ${w.sign} ${planShortDate(w.date)} is a ${w.day}`, task: w.task });
     // schedule warnings: a handful here, the rest counted (the List shows them on each task)
     const warn = planWarnings(this.tasks, this.ends, this.today);
-    lines.push(...warn.slice(0, 5).map((w) => w.text));
-    if (warn.length > 5) lines.push(`${warn.length - 5} more schedule warnings: see the List`);
+    lines.push(...warn.slice(0, 5).map((w) => ({ text: w.text, task: w.task })));
+    if (warn.length > 5) lines.push({ text: `${warn.length - 5} more schedule warnings: see the List` });
     this.warnings = new Map();
     for (const w of warn) this.warnings.set(w.task, [...(this.warnings.get(w.task) || []), w.text]);
-    for (const l of lines) el.createDiv({ cls: 'np-issue', text: `⚠ ${l}` });
+    for (const l of lines) {
+      const d = el.createDiv({ cls: 'np-issue', text: `⚠ ${l.text}` });
+      const t = l.task;
+      if (!t || !t.file) continue;
+      d.addClass('is-link');
+      tip(d, `Open ${t.file.basename} at this task`);
+      d.addEventListener('click', (e) => openFile(this.app, t.file, e, t.line));
+    }
     if (this.tasks.some((t) => !t.external && /\{\{\s*prefix\s*\}\}/.test(t.raw))) {
       // made from the plan template outside New project: its ids still read {{prefix}}-1
       const d = el.createDiv({ cls: 'np-issue', text: '⚠ This plan’s ids still read {{prefix}}: ' });
@@ -13031,6 +13135,140 @@ Object.assign(NeonProjects.prototype, {
     }
   },
 });
+/* @src src/tickets/plan-marks.js */
+/* ---- Project plans (fork): plan problems underlined in the note while you edit it -----------------------------
+ * In a project note, a ⛔ id no task has, a 🆔 used by two tasks and the links of a dependency loop get a wavy
+ * underline, with the reason on hover (planProblems, the same check as the Planning view). The note's own tasks
+ * are read live from the editor as you type; the rest of the plan (the project folder's other notes, and other
+ * projects' tasks linked to it) from the saved notes, refreshed when they change. Only the display changes:
+ * nothing is written, so it works with read-only on. Setting: "Underline plan problems in project notes". */
+let planCmView = null;
+try {
+  planCmView = require('@codemirror/view'); // provided by Obsidian at runtime
+} catch (e) {
+  planCmView = null; // no editor marks; the Planning view still lists the problems
+}
+const PLAN_DEP_RE = /⛔️?\s*([\w-]+(?:\s*,\s*[\w-]+)*)/u;
+const PLAN_ID_RE = /🆔\s*([\w-]+)/u;
+
+/**
+ * Where to underline in one line: [{ from, to, text }] (offsets in the line). problems: planProblems for this task.
+ * A missing id is underlined in the ⛔ list; an id used twice at its 🆔; a loop's ⛔ list as a whole.
+ */
+function planLineMarks(line, problems) {
+  const out = [];
+  const dep = line.match(PLAN_DEP_RE);
+  const depAt = dep ? dep.index + dep[0].length - dep[1].length : -1;
+  for (const p of problems) {
+    if (p.kind === 'missing' && dep) {
+      const re = /[\w-]+/g;
+      let m;
+      while ((m = re.exec(dep[1]))) if (p.ids.includes(m[0])) out.push({ from: depAt + m.index, to: depAt + m.index + m[0].length, text: p.text });
+    } else if (p.kind === 'dup') {
+      const id = line.match(PLAN_ID_RE);
+      if (id) out.push({ from: id.index + id[0].length - id[1].length, to: id.index + id[0].length, text: p.text });
+    } else if (p.kind === 'loop' && dep) out.push({ from: depAt, to: depAt + dep[1].length, text: p.text });
+  }
+  return out.sort((a, b) => a.from - b.from);
+}
+/** The plan tasks in a note's text (a checkbox with a task tag or a 🆔 id), with their 0-based line numbers. */
+function planTextTasks(lines, file) {
+  const out = [];
+  lines.forEach((text, n) => {
+    if (!text.includes('[')) return;
+    const t = planTask(text, { file, line: n });
+    if (t && (t.id || planHasTag(t.raw, NEON_PLAN.taskTag))) out.push(t);
+  });
+  return out;
+}
+
+Object.assign(NeonProjects.prototype, {
+  hookPlanMarks() {
+    if (!planCmView || !this.registerEditorExtension) return;
+    this.markOutside = new Map(); // note path -> { tasks } (null while loading): the plan's tasks from other notes
+    this.markGen = 0;
+    const plugin = this;
+    const { ViewPlugin, Decoration } = planCmView;
+    const ext = ViewPlugin.fromClass(
+      class {
+        constructor(view) {
+          this.gen = -1;
+          this.decorations = Decoration.none;
+          this.build(view);
+        }
+        update(u) {
+          if (u.docChanged || this.gen !== plugin.markGen) this.build(u.view);
+        }
+        build(view) {
+          this.gen = plugin.markGen;
+          this.decorations = Decoration.none;
+          try {
+            const info = obsidian.editorInfoField ? view.state.field(obsidian.editorInfoField, false) : null;
+            const file = info && info.file;
+            if (!file || plugin.settings.planMarks === false) return;
+            const scope = planScopeOf(plugin.app, file);
+            if (!scope) return;
+            const outside = plugin.planMarkOutside(file, scope);
+            if (!outside) return; // still reading the rest of the plan: no marks rather than wrong ones
+            const doc = view.state.doc;
+            const lines = [];
+            for (let i = 1; i <= doc.lines; i++) lines.push(doc.line(i).text);
+            const own = planTextTasks(lines, file);
+            if (!own.length) return;
+            const byTask = new Map();
+            for (const p of planProblems([...own, ...outside])) {
+              const hit = p.kind === 'missing' ? [p.task] : own.filter((t) => (p.kind === 'dup' ? t.id === p.ids[0] : p.kind === 'loop' && t.id && p.ids.includes(t.id)));
+              for (const t of hit) if (own.includes(t)) byTask.set(t, [...(byTask.get(t) || []), p]);
+            }
+            const ranges = [];
+            for (const [t, ps] of byTask) {
+              const line = doc.line(t.line + 1);
+              for (const m of planLineMarks(line.text, ps)) ranges.push(Decoration.mark({ class: 'np-bad-ref', attributes: { title: `Planning: ${m.text}` } }).range(line.from + m.from, line.from + m.to));
+            }
+            this.decorations = Decoration.set(ranges, true);
+          } catch (e) {
+            console.error(`${appName()} – Projects: plan marks`, e);
+          }
+        }
+      },
+      { decorations: (v) => v.decorations },
+    );
+    this.registerEditorExtension(ext);
+    // the rest of the plan is read again when a note of the plan is saved (debounced), or the note is reopened
+    const redo = debounce(() => this.planMarksRefresh(), 1500, true);
+    this.registerEvent(
+      this.app.metadataCache.on('changed', (f) => {
+        if (!this.markOutside.size) return;
+        const scope = planScopeOf(this.app, f);
+        let gone = false;
+        for (const key of [...this.markOutside.keys()])
+          if (key === f.path || (scope && scope.kind === 'folder' && key.startsWith(scope.path + '/'))) gone = this.markOutside.delete(key) || gone;
+        if (gone) redo();
+      }),
+    );
+    this.registerEvent(this.app.workspace.on('file-open', (f) => f && this.markOutside.delete(f.path)));
+  },
+  /** The plan's tasks outside this note (cached), or null while they are being read (then the marks redraw). */
+  planMarkOutside(file, scope) {
+    const had = this.markOutside.get(file.path);
+    if (had) return had.tasks;
+    const entry = { tasks: null };
+    this.markOutside.set(file.path, entry);
+    planCollect(this.app, scope)
+      .then((tasks) => (entry.tasks = tasks.filter((t) => t.file.path !== file.path)))
+      .catch((e) => {
+        console.error(`${appName()} – Projects: plan marks`, e);
+        entry.tasks = [];
+      })
+      .then(() => this.planMarksRefresh());
+    return null;
+  },
+  /** Redraw the marks in every open editor. */
+  planMarksRefresh() {
+    this.markGen++;
+    this.app.workspace.updateOptions();
+  },
+});
 /* @src src/tickets/plan-dates.js */
 /* ---- Project plans (fork): Durations to dates ---------------------------------------------------------------------
  * The plan works out every task's dates from durations and dependencies; this writes them into the tasks as 🛫 start
@@ -13242,6 +13480,7 @@ Object.assign(PlanView.prototype, {
       else if (st === 'blocked') attention.push(`**Blocked:** ${name}, ${planBlockedText(t, byId, today)}`);
     }
     for (const w of planWarnings(this.tasks, this.ends, today)) attention.push(`**Schedule:** ${w.text}`);
+    for (const p of planProblems(this.tasks, plan.sched)) attention.unshift(`**Plan:** ${p.text}`); // broken links first: they make the dates unreliable
     if (this.dated && this.dated.late) attention.unshift(`**Late:** ${planForecastText(this.dated.end, this.due, this.dated.late)}`);
     const marks = [];
     for (const t of own)

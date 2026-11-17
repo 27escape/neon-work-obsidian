@@ -315,3 +315,10 @@
   color: var(--nd-faint);
 }
 
+/* a problem that names a task: click to open the note at that line */
+.np-plan .np-issue.is-link {
+  cursor: pointer;
+}
+.np-plan .np-issue.is-link:hover {
+  text-decoration: underline;
+}

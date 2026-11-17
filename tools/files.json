@@ -11,7 +11,8 @@
     "src/shared/gantt.js",
     "src/shared/plan.js",
     "src/shared/plan-scope.js",
-    "src/shared/plan-draw.js"
+    "src/shared/plan-draw.js",
+    "src/shared/plan-problems.js"
   ],
   "kernel": [
     "src/kernel/mother.js",
@@ -143,6 +144,7 @@
         "src/tickets/plan-people.js",
         "src/tickets/plan-forecast.js",
         "src/tickets/plan-baseline.js",
+        "src/tickets/plan-marks.js",
         "src/tickets/plan-dates.js",
         "src/tickets/plan-report.js",
         "src/tickets/plan-actions.js"

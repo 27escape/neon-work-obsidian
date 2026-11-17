@@ -153,6 +153,11 @@
 .tk-pill.is-overdue {
   color: var(--color-red);
 }
+/* broken links in the plan (ids no task has, an id used twice, a loop): dashed, so it reads as "fix the plan" */
+.tk-pill.is-problem {
+  color: var(--color-red);
+  border-style: dashed;
+}
 .tk-pill.is-soon {
   color: var(--color-orange);
 }
@@ -161,4 +166,10 @@
 }
 .np-plan .np-warn-sign {
   color: var(--color-orange);
+}
+/* plan problems in a project note (plan-marks.js): a wavy underline, the reason on hover */
+.markdown-source-view .np-bad-ref {
+  text-decoration: underline wavy var(--color-red);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
 }
