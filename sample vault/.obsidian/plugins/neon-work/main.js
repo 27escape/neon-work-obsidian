@@ -11458,7 +11458,7 @@ class PlanView extends ItemView {
     this.plan = null;
     this.mode = 'gantt';
     this.weeks = false;
-    this.graph = { dir: 'TB', phases: false, fit: false }; // graph layout: Down / Across, phase groups, fit or full size
+    this.graph = { dir: 'TB', phases: false }; // graph layout: Down / Across, phase groups
     this.who = null; // one person's tasks (plan-people.js), or everyone
     this.lanes = 'phase'; // board rows: by phase or by person
     this.ganttPhases = false; // Gantt: one bar per phase (plan-forecast.js)
@@ -11484,7 +11484,7 @@ class PlanView extends ItemView {
     if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
     if (state && PLAN_MODES.some(([k]) => k === state.mode)) this.mode = state.mode;
     if (state && typeof state.weeks === 'boolean') this.weeks = state.weeks;
-    if (state && state.graph && typeof state.graph === 'object') Object.assign(this.graph, state.graph);
+    if (state && state.graph) this.graph = planGraphState(state.graph);
     if (state && 'who' in state) this.who = state.who || null;
     if (state && (state.lanes === 'phase' || state.lanes === 'person')) this.lanes = state.lanes;
     if (state && typeof state.ganttPhases === 'boolean') this.ganttPhases = state.ganttPhases;
@@ -11550,7 +11550,6 @@ class PlanView extends ItemView {
     this.dirEl = pills(tools, [['TB', 'Down'], ['LR', 'Across']], g.dir, (v) => ((g.dir = v || 'TB'), saveGraph()));
     this.phaseEl = pills(tools, [['on', 'Phases']], g.phases ? 'on' : null, (v) => ((g.phases = v === 'on'), saveGraph()), 'can-clear');
     tip(this.phaseEl.el, 'Group the boxes by phase (wider)');
-    this.fitEl = pills(tools, [['fit', 'Fit'], ['full', 'Full size']], g.fit ? 'fit' : 'full', (v) => ((g.fit = v === 'fit'), saveGraph()));
     this.issuesEl = root.createDiv('np-issues');
     this.bodyEl = root.createDiv('np-body');
   }
@@ -11651,7 +11650,7 @@ class PlanView extends ItemView {
     this.weeksEl.set(weeks ? 'weeks' : 'dates');
     this.weeksEl.btns.get('dates').disabled = !this.base;
     if (!this.base) tip(this.weeksEl.btns.get('dates'), 'Set the project’s started date to see dates');
-    for (const p of [this.dirEl, this.phaseEl, this.fitEl]) p.el.toggleClass('is-hidden', this.mode !== 'graph');
+    for (const p of [this.dirEl, this.phaseEl]) p.el.toggleClass('is-hidden', this.mode !== 'graph');
     this.syncPeopleTools();
     this.syncForecastTools();
     this.renderIssues(sched);
@@ -12811,18 +12810,25 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
   return { text: tasks.length ? lines.join('\n') : '', nodes: tasks.map((t) => ({ id: ids.get(t), task: t })) };
 }
 
+/** Graph layout saved with the tab: Down / Across and phase groups. Older tabs also saved `fit` (the Fit / Full size
+ * buttons, removed: Mermaid never drew wider than full size, so they barely differed); it is dropped. */
+function planGraphState(saved) {
+  const s = saved && typeof saved === 'object' ? saved : {};
+  return { dir: s.dir === 'LR' ? 'LR' : 'TB', phases: s.phases === true };
+}
+
 Object.assign(PlanView.prototype, {
   /** Draw the graph and make each box open its task. */
   renderGraph(sched) {
     const colours = planColourMap();
     const edge = colours.edge;
-    const { dir, phases, fit } = this.graph;
+    const { dir, phases } = this.graph;
     const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases, show: this.who ? (t) => this.shows(t) : null });
-    const chart = this.bodyEl.createDiv(`np-chart np-graph${fit ? ' is-fit' : ''}`);
-    renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes, fit));
+    const chart = this.bodyEl.createDiv('np-chart np-graph');
+    renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes));
   },
-  /** Boxes open their task; at full size the drawing keeps its own width (scrolls) rather than shrinking to fit. */
-  async linkNodes(chart, nodes, fit) {
+  /** Boxes open their task; the drawing keeps its own size (the pane scrolls) rather than shrinking to fit. */
+  async linkNodes(chart, nodes) {
     let svg = chart.querySelector('svg');
     for (let i = 0; !svg && i < 30 && chart.isConnected; i++) {
       await new Promise((r) => window.setTimeout(r, 100));
@@ -12830,7 +12836,7 @@ Object.assign(PlanView.prototype, {
     }
     if (!svg) return;
     const vb = svg.viewBox && svg.viewBox.baseVal;
-    if (!fit && vb && vb.width) {
+    if (vb && vb.width) {
       svg.style.maxWidth = 'none';
       svg.style.width = `${Math.ceil(vb.width)}px`;
       svg.style.height = `${Math.ceil(vb.height)}px`;
@@ -14075,8 +14081,8 @@ class PlanDatesModal extends Modal {
 /* @src src/tickets/plan-report.js */
 /* ---- Project plans (fork): the printable Report note ------------------------------------------------------------------
  * Report (Planning view) writes a snapshot of the plan into the reports folder (setting; empty: <base folder>/Reports):
- * a note with the summary, forecast, phases, what needs attention, risks / issues / decisions, the critical path,
- * workload and every task, plus the Gantt chart as an SVG file the note embeds, in the plan's colours. Print it with
+ * a note with the summary (incl. the critical path's length), forecast, phases, what needs attention, risks / issues /
+ * decisions, workload and every task (with its steps done, 2/4), plus the Gantt chart as an SVG file the note embeds, in the plan's colours. Print it with
  * Obsidian's Export to PDF. Written only when you press Report, and refused while read-only is on; a second report on
  * the same day replaces that day's files. planReportText is pure (tested). */
 
@@ -14085,7 +14091,7 @@ const planCell = (s) => String(s == null ? '' : s).replace(/\|/g, '\\|').replace
 /**
  * The report's Markdown (pure). r: { title, note (the project note's name), today, summary, forecast, baseline, svg
  * (file name), phases: [{ name, total, done, start, end, state }], attention: [text], marks: [{ sign, label, text, owner,
- * state }], crit: [{ id, text, start, end }], load: [text], tasks: [{ phase, id, text, owner, state, days, start, end, deps }] }
+ * state }], crit: [{ id, text, start, end }], load: [text], tasks: [{ phase, text, owner, state, days, start, end, steps: { done, total } | null }] }
  */
 function planReportText(r) {
   const L = [];
@@ -14113,18 +14119,14 @@ function planReportText(r) {
     for (const m of r.marks) L.push(`- ${m.sign} **${m.label}:** ${m.text}${m.owner ? ` (${m.owner})` : ''} · ${m.state}`);
     L.push('');
   }
-  if (r.crit.length) {
-    L.push('## Critical path', '', 'The chain of tasks that sets the finish date: a day lost on any of them is a day lost on the project.', '');
-    r.crit.forEach((c, i) => L.push(`${i + 1}. ${c.id ? `\`${c.id}\` ` : ''}${c.text} (${d(c.start)} to ${d(c.end)})`));
-    L.push('');
-  }
   if (r.load.length) {
     L.push('## Workload', '');
     for (const l of r.load) L.push(`- ${l}`);
     L.push('');
   }
-  L.push('## All tasks', '', '| Phase | Task | Owner | State | Days | Start | Finish | Waits for |', '|---|---|---|---|---|---|---|---|');
-  for (const t of r.tasks) L.push(`| ${planCell(t.phase)} | ${planCell((t.id ? `${t.id} ` : '') + t.text)} | ${planCell(t.owner)} | ${planCell(t.state)} | ${t.days} | ${d(t.start)} | ${d(t.end)} | ${planCell(t.deps)} |`);
+  // Completed: the task's steps (the checkboxes under it) ticked, e.g. 0/4; empty for a task without steps
+  L.push('## All tasks', '', '| Phase | Task | Owner | State | Completed | Days | Start | Finish |', '|---|---|---|---|---|---|---|---|');
+  for (const t of r.tasks) L.push(`| ${planCell(t.phase)} | ${planCell(t.text)} | ${planCell(t.owner)} | ${planCell(t.state)} | ${t.steps && t.steps.total ? `${t.steps.done}/${t.steps.total}` : ''} | ${t.days} | ${d(t.start)} | ${d(t.end)} |`);
   L.push('');
   return L.join('\n');
 }
@@ -14181,7 +14183,7 @@ Object.assign(PlanView.prototype, {
       load: this.loadLines(plan.sched),
       tasks: own.map((t) => {
         const b = bars.get(t) || {};
-        return { phase: t.phase || 'Tasks', id: t.id, text: planText(t.raw), owner: (t.owners || []).map((o) => o.name).join(', '), state: label(planState(t, byId, today)), days: t.milestone ? 'milestone' : planDays(t), start: b.start, end: b.end, deps: t.deps.join(', ') };
+        return { phase: t.phase || 'Tasks', text: planText(t.raw), owner: (t.owners || []).map((o) => o.name).join(', '), state: label(planState(t, byId, today)), steps: t.steps || null, days: t.milestone ? 'milestone' : planDays(t), start: b.start, end: b.end };
       }),
     };
   },
