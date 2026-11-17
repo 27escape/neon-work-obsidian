@@ -157,6 +157,8 @@ class NeonMother extends Plugin {
         this.moduleTabs.set(m.id, tab);
         child.register(() => this.moduleTabs.get(m.id) === tab && this.moduleTabs.delete(m.id));
       };
+      const types = new Set(); // fork: its view types, to reopen tabs left as placeholders (src/kernel/views.js)
+      this.hookViews(child, types);
       // a failing start stops only this module
       const load = child.onload;
       child.onload = async () => {
@@ -166,6 +168,7 @@ class NeonMother extends Plugin {
           this.step(`${label} starting`);
           await load.call(child);
           this.step(`${label} started`);
+          this.app.workspace.onLayoutReady(() => this.reviveViews(types));
           this.timing.push(`${label} ${Date.now() - t} ms`);
         } catch (e) {
           console.error(`Neon Deck: ${m.name} failed to start`, e);

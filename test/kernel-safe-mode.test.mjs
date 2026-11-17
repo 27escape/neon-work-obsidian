@@ -89,3 +89,22 @@ test('one unfinished start is forgiven; two in a row turn on safe mode on this d
   assert.equal(third.safeMode(), false);
   assert.equal(phone.local.get('neon-work-unfinished-starts'), 0);
 });
+
+// bug: after switching the plugin off and on, tabs stayed as Obsidian's placeholder ("neon-deck-cards", ghost icon)
+test('views: placeholder tabs of a module are rebuilt once it has started; deferred and live ones are left', () => {
+  const p = Object.create(NeonMother.prototype);
+  const registered = [];
+  const child = { registerView(type, make) { registered.push([type, make]); } };
+  const types = new Set();
+  p.hookViews(child, types);
+  child.registerView('neon-deck-cards', () => ({ kind: 'cards' }));
+  assert.deepEqual([...types], ['neon-deck-cards']);
+  assert.equal(registered[0][1]({}).neonView, true); // views it builds are marked
+  const rebuilt = [];
+  const leaf = (type, view, deferred) => ({ isDeferred: deferred, view, getViewState: () => ({ type }), rebuildView: async () => rebuilt.push(type + (deferred ? ' (deferred)' : '')) });
+  const leaves = [leaf('neon-deck-cards', { placeholder: true }), leaf('neon-deck-cards', { neonView: true }), leaf('neon-deck-cards', {}, true), leaf('markdown', {})];
+  p.app = { workspace: { iterateAllLeaves: (f) => leaves.forEach(f) } };
+  assert.equal(p.reviveViews(types), 1);
+  assert.deepEqual(rebuilt, ['neon-deck-cards']);
+  assert.equal(p.reviveViews(new Set()), 0);
+});
