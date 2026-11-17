@@ -95,8 +95,9 @@ class PlanView extends ItemView {
     root.empty();
     const bar = root.createDiv('np-bar');
     const head = bar.createDiv('np-head');
-    head.createDiv({ cls: 'tk-k', text: 'Planning' });
-    this.titleEl = head.createDiv({ cls: 'np-title', text: this.plan ? planScopeTitle(this.plan) : '' });
+    // the tab and view header already say "Planning: <project>": only the project's name here. Not this.titleEl:
+    // that is Obsidian's own view-header title, which then stayed at "Planning"
+    this.planTitleEl = head.createDiv({ cls: 'np-title', text: this.plan ? planScopeTitle(this.plan) : '' });
     this.sumEl = head.createDiv('np-sum');
     const tools = bar.createDiv('np-tools');
     pills(tools, PLAN_MODES, this.mode, (v) => {
@@ -203,7 +204,7 @@ class PlanView extends ItemView {
     this.paths = new Set(this.tasks.map((t) => t.file.path));
     this.base = planBaseDate(this.app, this.plan);
     this.due = planDueDate(this.app, this.plan);
-    this.titleEl.setText(planScopeTitle(this.plan));
+    this.planTitleEl.setText(planScopeTitle(this.plan));
     this.leaf.updateHeader && this.leaf.updateHeader();
     this.render();
   }

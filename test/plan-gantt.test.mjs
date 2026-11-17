@@ -70,6 +70,12 @@ test('the Plan view keeps its plan off View.scope (Obsidian keeps the key scope 
   assert.equal(v.plan, null);
 });
 
+test('the Plan view leaves View.titleEl alone (the view header title stayed at "Planning")', async () => {
+  const fs = await import('node:fs');
+  const src = ['plan-view', 'plan-forecast', 'plan-edit', 'plan-board', 'plan-graph', 'plan-people', 'plan-report'].map((f) => fs.readFileSync(new URL(`../src/tickets/${f}.js`, import.meta.url), 'utf8')).join('\n');
+  assert.equal(/this\.(titleEl|scope|containerEl|contentEl|leaf|app|icon|navigation)\s*=[^=]/.test(src), false);
+});
+
 test('milestones are tagged #milestone; a 0-day task is a thin bar', () => {
   const tasks = [T('- [ ] A [duration:: 2d] 🆔 a'), T('- [ ] Announce [duration:: 0d] 🆔 b ⛔ a'), T('- [ ] Go live 🆔 c ⛔ a #milestone'), T('- [ ] Plain 🆔 d ⛔ a')];
   const { text, sched } = P.planGanttText(tasks, {});

@@ -1,10 +1,12 @@
 # ✦ Neon Work
 
-A command centre for an Obsidian vault: a dashboard, projects, tasks, time tracking, research notes and a few writing touches, in a neon look with live background patterns. By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.
+A command centre for an Obsidian vault: a dashboard, projects, tasks, time tracking, research notes and a few writing touches, in a neon look with live background patterns, now with project planning: Gantt charts, a kanban board and reports.
+By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.
 
-> 1.4.0: **Planning**, a lightweight project planner over the tasks in your project notes: Gantt, board, dependency graph, task list, a task editor, forecasts and all projects on one timeline. See [the release notes](docs/release-notes/1.4.0.md).
+> [!NOTE]
+> **New in 1.4.0: Planning**, a lightweight project planner over the tasks in your project notes: Gantt, board, dependency graph, task list, a task editor, forecasts and all projects on one timeline. See [the release notes](docs/release-notes/1.4.0.md).
 
-The fork sits on top of a vault you already have:
+Neon Work sits on top of a vault you already have:
 
 - **Read-only by default.** It reads your notes and changes nothing until you switch read-only off, and even then only when you act (tick a task, set a status, create a note).
 - **It never moves your files**, and creates nothing until a feature needs it.
@@ -57,12 +59,20 @@ The plugin has six parts (Planning is part of Projects). Each can be switched of
 
 A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.
 
+![Planning: the Gantt chart with phases, milestones and the forecast](docs/screenshots/planning-gantt.png)
+
 - **In the task line**, next to what the Tasks plugin uses: an id `🆔 sdr-4`, what it waits for `⛔ sdr-2,sdr-3`, an estimate in working days `[duration:: 3d]` (or `1w`), owners `[owner:: [[@Sam Taylor]]]`, and the tags `#milestone`, `#blocked`, `#risk`, `#issue`, `#decision`. The phase is the heading the task sits under.
 - **Gantt, Board, Graph and List** in one tab, in the same colours: ready, waiting (earlier tasks open but on time), blocked (something upstream is overdue or `#blocked`), in progress, due soon, overdue, done. The critical path is outlined; risks and issues are bold with a dashed outline.
 - **Priority** (the Tasks plugin's 🔺 ⏫ 🔼 🔽 ⏬) shows on cards, Gantt rows and in the List, highest first on the board; it doesn't change the schedule.
 - **Board:** drag a card to change its checkbox; rows by phase or by person. **List:** − / + to change a duration, slip against the baseline (saved automatically when the project starts, provisional — following the plan — until every open task has a duration, then locked; lock it early or re-baseline from the tab's ⋯ menu), a filter for risks, issues and decisions.
-- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*). Description, status, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.
+![Planning: the board, by phase](docs/screenshots/planning-board.png)
+
+![Planning: the list, with priority and slip](docs/screenshots/planning-list.png)
+
+- **Task editor:** click any task (or right-click in the note: *Planning: edit this task*). Description, status, priority, phase, owners, duration or milestone, markers, depends on / blocks (loops can't be made), dates, and an id given automatically; a preview shows exactly what will be written. **New task** follows the selected task.
 - **Report** saves a printable note of the plan (summary, forecast, the Gantt chart, phases, what needs attention, risks, critical path, every task) in the reports folder; print it with *Export to PDF*. **Dates…** writes the plan's dates into the tasks you tick (🛫 start, 📅 due). **Forecast finish** against the project's `due` date, a **baseline** to see slip, a person filter with a warning when someone has more than five days of work in a week, and weekend dates flagged.
+![A Planning report, ready to print](docs/screenshots/planning-report.png)
+
 - **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.
 
 Planning writes only when you act (a drag, a save, a menu choice), only the task lines involved, and never with read-only on. The Tasks plugin's `is blocked` means what Planning calls *waiting*.
