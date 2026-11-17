@@ -35,7 +35,7 @@ const PLAN_WORST = ['overdue', 'blocked', 'soon', 'doing', 'waiting', 'ready', '
  */
 function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null, leave = tasks.leave } = {}) {
   const relative = weeks || !base;
-  const cal = relative ? PLAN_PLAIN_CAL : planCal();
+  const cal = relative ? PLAN_PLAIN_CAL : tasks.calendar || planCal();
   const W = (d, n) => planWorkdays(d, n, cal);
   const from = relative ? PLAN_WEEK_BASE : W(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start

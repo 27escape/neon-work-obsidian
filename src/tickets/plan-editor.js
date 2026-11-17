@@ -52,6 +52,7 @@ class PlanTaskModal extends Modal {
     const fm = (app.metadataCache.getFileCache(ctx.file) || {}).frontmatter || {};
     this.prefix = planPrefix(fm, planScopeTitle(ctx.scope));
     this.planned = t ? planPlannedDates(ctx.tasks, ctx.base, this.today).get(t) : null;
+    planUseCalendar(ctx.tasks); // "not a working day" warnings: this plan's calendar
   }
 
   onOpen() {

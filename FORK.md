@@ -63,8 +63,9 @@ Copy the three files from `dist/neon-work/` into `<vault>/.obsidian/plugins/neon
 | Tasks | Folder for notes without a customer | `2.Resources` |
 | Tasks | Note / Meeting / Person / Research template | `2.Resources/templates/note_template.md` / `meeting_template.md` / `person_template.md` / `research_template.md` |
 | Projects | Project template | `2.Resources/templates/project_template.md` |
-| Projects | Public holidays | England and Wales |
 | Research | Sections | `2.Resources/Research` and `1.Customers/*/Research` |
 | Research | Template note | `2.Resources/templates/research_template.md` |
+
+Working days and holidays: `2.Resources/Holidays.md` (the shared Holidays note), with `- public holidays: England and Wales` in its `## All` section; a customer in another country gets its own `1.Customers/<customer>/Holidays.md`.
 
 With the base folder set to `2.Resources`, the Todo note is `2.Resources/Todo.md` without further settings. The project tag, status values, customers folder, `#task` and the daily-notes settings already match by default.

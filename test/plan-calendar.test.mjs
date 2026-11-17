@@ -45,7 +45,7 @@ test('working week and days in text', () => {
 
 test('calendar: working days skip public holidays and closure days', () => {
   const cal = C.planCalendar({ region: 'england-wales', closures: '2026-12-29 to 2026-12-31' });
-  assert.equal(cal.off('2026-12-25'), 'Christmas Day');
+  assert.equal(cal.off('2026-12-28'), 'Boxing Day (substitute day)');
   assert.equal(cal.off('2026-12-26'), 'Saturday');
   assert.equal(cal.off('2026-12-30'), 'a closure day');
   assert.equal(cal.off('2027-01-04'), '');
@@ -132,10 +132,10 @@ test('workload: a person’s week has fewer days available when they are off', (
   assert.equal(over[0].week, '2026-11-23');
 });
 
-test('Public holidays note: dates and ranges with names, used by the calendar; a warning past its last year', () => {
+test('dated days off: dates and ranges with names, used by the calendar; a warning past the last year listed', () => {
   const H = load('neon-tickets', ['planHolidayList', 'planCalendar', 'planHolidayGap', 'planWorkdays']);
   const list = H.planHolidayList(['# US holidays 2027', '', '- 2027-01-01 New Year’s Day', '- 2027-11-25 to 2027-11-26: Thanksgiving', '* 2027-07-05', 'Some notes, no date here', '```', '- 2027-03-01 in a code block', '```'].join('\n'));
-  assert.deepEqual(JSON.parse(JSON.stringify([...list])), [['2027-01-01', 'New Year’s Day'], ['2027-11-25', 'Thanksgiving'], ['2027-11-26', 'Thanksgiving'], ['2027-07-05', 'public holiday']]);
+  assert.deepEqual(JSON.parse(JSON.stringify([...list])), [['2027-01-01', 'New Year’s Day'], ['2027-11-25', 'Thanksgiving'], ['2027-11-26', 'Thanksgiving'], ['2027-07-05', 'a day off']]);
   const cal = H.planCalendar();
   cal.extra = list;
   assert.equal(cal.off('2027-11-25'), 'Thanksgiving');
@@ -143,4 +143,38 @@ test('Public holidays note: dates and ranges with names, used by the calendar; a
   assert.equal(H.planHolidayGap('2027-12-20', cal), '');
   assert.match(H.planHolidayGap('2028-02-01', cal), /no dates after 2027, but the plan runs into 2028/);
   assert.equal(H.planHolidayGap('2028-02-01', H.planCalendar()), ''); // no note: no warning
+});
+
+test('Holidays note: an All section (region, working days, dated days) and people', () => {
+  const H = load('neon-tickets', ['planHolidayFile', 'planHolidayGap', 'planCalendar']);
+  const note = H.planHolidayFile(['# Holidays', '', '## All', '- public holidays: England and Wales', '- working days: Mon-Thu', '- 2026-12-29 to 2026-12-31 Office closed', '', '## People', '- [[@Kevin Mulholland]]', '    - 2026-12-24 to 2027-01-02', '- @kieran: every Friday'].join('\n'));
+  assert.equal(note.all, true);
+  assert.equal(note.region, 'england-wales');
+  assert.equal(note.weekdays, 'Mon-Thu');
+  assert.deepEqual(JSON.parse(JSON.stringify([...note.days.keys()])), ['2026-12-29', '2026-12-30', '2026-12-31']);
+  assert.equal(note.days.get('2026-12-30'), 'Office closed');
+  assert.deepEqual(JSON.parse(JSON.stringify([...note.people.keys()])), ['kevin mulholland', 'kieran']);
+  // a calendar from it
+  const cal = H.planCalendar({ region: note.region, weekdays: note.weekdays });
+  cal.extra = note.days;
+  assert.equal(cal.off('2026-12-28'), 'Boxing Day (substitute day)');
+  assert.equal(cal.off('2026-12-24'), ''); // a Thursday
+  assert.equal(cal.off('2026-12-18'), 'Friday'); // not in the working week
+  assert.equal(cal.off('2026-12-30'), 'Office closed');
+  assert.equal(H.planHolidayGap('2028-03-01', cal), ''); // built-in public holidays: no yearly list to run out
+  // people only (no All section)
+  const p = H.planHolidayFile('- Sam\n    - 2027-01-04');
+  assert.equal(p.all, false);
+  assert.equal(p.people.size, 1);
+  // other regions and countries
+  assert.equal(H.planHolidayFile('### Everyone\n- Bank holidays: Scotland').region, 'scotland');
+  assert.equal(H.planHolidayFile('## All\n- public holidays: none\n- 2027-07-05 Independence Day (observed)').region, '');
+});
+
+test('Holidays notes: the project folder, each folder above it, then the base folder', () => {
+  const H = load('neon-tickets', ['planHolidayPaths']);
+  assert.deepEqual(JSON.parse(JSON.stringify(H.planHolidayPaths('1.Customers/Acme/Projects/Pilot.md', 'note', 'Holidays', '2.Resources'))), [
+    '1.Customers/Acme/Projects/Holidays.md', '1.Customers/Acme/Holidays.md', '1.Customers/Holidays.md', 'Holidays.md', '2.Resources/Holidays.md',
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(H.planHolidayPaths('1.Projects/Website', 'folder', 'Time off.md', ''))), ['1.Projects/Website/Time off.md', '1.Projects/Time off.md', 'Time off.md']);
 });

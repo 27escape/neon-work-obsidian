@@ -128,6 +128,7 @@ Object.assign(PlanView.prototype, {
   },
   /** Write the report note and its chart into the reports folder, then open it. */
   async writeReport() {
+    planUseCalendar(this.tasks);
     const folder = locPath(this.plugin.settings.planReportsFolder, 'Reports');
     const base = `${safeName(planScopeTitle(this.plan))} – plan ${this.today}`;
     const svgName = `${base}.svg`;

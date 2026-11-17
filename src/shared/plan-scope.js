@@ -3,9 +3,9 @@
  * section's "Project folders"), plus outside tasks linked to them by a dependency in either direction: those are
  * marked `external` and their own chains are not followed. A task is a checkbox line with a task tag or a 🆔 id. */
 
-// filled by the modules that own the settings: Tasks (task tags) and Projects (project folders, the working calendar
-// and the Team holidays note: plan-calendar.js)
-const NEON_PLAN = { taskTag: '#task', folders: '', calendar: null, leaveNote: '', leavePath: '', holidayNote: '', holidayPath: '' };
+// filled by the modules that own the settings: Tasks (task tags) and Projects (project folders, the Holidays notes'
+// name: plan-calendar.js). calendar: the working calendar of the plan being drawn (planUseCalendar)
+const NEON_PLAN = { taskTag: '#task', folders: '', holidayName: 'Holidays', calendar: null };
 
 /** The project folder a path sits in (<project folders>/<folder>), or null. */
 function planFolderOf(path) {
@@ -47,26 +47,20 @@ async function planReadFile(app, f) {
   }
   return planAddSteps(lines, out); // fork: each task's steps (the checkboxes under it), and tasks inside tasks
 }
-/** A note named in the settings (a name or a path), or null. */
-function planSettingNote(app, name) {
-  name = String(name || '').trim();
-  if (!name) return null;
-  const f = app.metadataCache.getFirstLinkpathDest(name.replace(/\.md$/i, ''), '') || app.vault.getAbstractFileByPath(normalizePath(name));
-  return f instanceof TFile ? f : null;
-}
-/** The Public holidays note's days into the working calendar (NEON_PLAN.calendar.extra). */
-async function planLoadHolidays(app) {
-  const f = planSettingNote(app, NEON_PLAN.holidayNote);
-  NEON_PLAN.holidayPath = f ? f.path : '';
-  if (NEON_PLAN.calendar) NEON_PLAN.calendar.extra = f ? planHolidayList(await app.vault.cachedRead(f)) : new Map();
-}
-/** People's time off from the Team holidays note (a Projects setting; its Holidays section if it has one, else all of it). */
-async function planTeamLeave(app) {
-  const f = planSettingNote(app, NEON_PLAN.leaveNote);
-  NEON_PLAN.leavePath = f ? f.path : '';
-  if (!f) return new Map();
-  const text = await app.vault.cachedRead(f);
-  return planLeaveParse(planHolidaySection(text) || text);
+/**
+ * A plan's Holidays notes (plan-calendar.js), nearest first: { calendar (from the nearest one with an All section),
+ * people (time off from all of them), paths }.
+ */
+async function planHolidays(app, scope) {
+  const files = planHolidayPaths(scope.path, scope.kind, NEON_PLAN.holidayName, NEON_BASE.folder)
+    .map((p) => app.vault.getAbstractFileByPath(normalizePath(p)))
+    .filter((f) => f instanceof TFile);
+  const notes = [];
+  for (const f of files) notes.push(planHolidayFile(await app.vault.cachedRead(f)));
+  const i = notes.findIndex((n) => n.all);
+  const cal = planCalendar(i >= 0 ? { region: notes[i].region, weekdays: notes[i].weekdays } : {});
+  if (i >= 0) Object.assign(cal, { extra: notes[i].days, source: files[i].path });
+  return { calendar: cal, people: planLeaveMerge(...notes.map((n) => n.people)), paths: files.map((f) => f.path) };
 }
 /**
  * All tasks of a plan. With neighbours (the default), outside tasks that a plan task depends on, or that depend on
@@ -80,8 +74,10 @@ async function planCollect(app, scope, { neighbours = true } = {}) {
     tasks.push(...(await planReadFile(app, f)));
     own.push(planLeaveParse(planHolidaySection(await app.vault.cachedRead(f))));
   }
-  tasks.leave = planLeaveMerge(await planTeamLeave(app), ...own); // people's time off (plan-calendar.js)
-  await planLoadHolidays(app); // the Public holidays note, into the calendar
+  // the plan's working calendar and people's time off, from its Holidays notes (plan-calendar.js)
+  const hol = await planHolidays(app, scope);
+  tasks.calendar = hol.calendar;
+  tasks.leave = planLeaveMerge(hol.people, ...own);
   if (!neighbours) return tasks;
   const ids = new Set(tasks.filter((t) => t.id).map((t) => t.id));
   const wanted = new Set(tasks.flatMap(planLinkIds).filter((d) => !ids.has(d)));

@@ -89,7 +89,7 @@ class PlanView extends ItemView {
   /** Is this note part of the plan (or one of its outside neighbours)? */
   touches(path) {
     if (!this.plan) return false;
-    if (this.paths.has(path) || (path && (path === NEON_PLAN.leavePath || path === NEON_PLAN.holidayPath))) return true; // the holiday notes too
+    if (this.paths.has(path) || (path && path.split('/').pop() === `${String(NEON_PLAN.holidayName).replace(/\.md$/i, '')}.md`)) return true; // or a Holidays note
     return this.plan.kind === 'note' ? path === this.plan.path : path.startsWith(this.plan.path + '/');
   }
   build() {
@@ -212,6 +212,7 @@ class PlanView extends ItemView {
     if (!this.bodyEl) return;
     if (this.dragActive) return void (this.redrawAfterDrag = true); // a card is being dragged: redraw when it lands
     const weeks = this.weeks || !this.base;
+    planUseCalendar(this.tasks); // this plan's working days (another plan's view may have drawn since)
     this.today = moment().format('YYYY-MM-DD');
     const g = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t), phases: this.mode === 'gantt' && this.ganttPhases, due: this.due });
     const { sched, bars } = g;

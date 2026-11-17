@@ -287,9 +287,10 @@ function planUpstream(byId, t) {
 function planPlannedDates(tasks, base, today) {
   const out = new Map();
   if (!base) return out;
-  const from = planWorkdays(base, 0);
-  const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today) : 0, from, span: planLeaveSpan(tasks.leave, from) });
-  for (const r of sched.rows) out.set(r.task, { start: planWorkdays(from, r.es), due: planWorkdays(from, Math.max(r.es, r.ef - 1)) });
+  const cal = tasks.calendar || planCal();
+  const from = planWorkdays(base, 0, cal);
+  const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today, cal) : 0, from, span: planLeaveSpan(tasks.leave, from, cal) });
+  for (const r of sched.rows) out.set(r.task, { start: planWorkdays(from, r.es, cal), due: planWorkdays(from, Math.max(r.es, r.ef - 1), cal) });
   return out;
 }
 
