@@ -80,6 +80,8 @@ class PlanView extends ItemView {
     this.contentEl.addClass('nd-root', 'np-plan');
     const soon = debounce(() => this.refresh(), 600, true);
     this.registerEvent(this.app.metadataCache.on('changed', (f) => this.touches(f.path) && soon()));
+    // ⏳ dates held back while you typed in the note: write them once you leave it
+    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.scheduledPending && ((this.scheduledPending = false), this.syncScheduled())));
     this.registerEvent(this.app.vault.on('rename', () => soon()));
     this.build();
     await this.refresh();
@@ -205,6 +207,7 @@ class PlanView extends ItemView {
     this.planTitleEl.setText(planScopeTitle(this.plan));
     this.leaf.updateHeader && this.leaf.updateHeader();
     this.render();
+    this.syncScheduled(); // fork: ⏳ in step with the plan, when the project asks for it (plan-scheduled.js)
   }
   render() {
     if (!this.bodyEl) return;

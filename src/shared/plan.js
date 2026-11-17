@@ -246,9 +246,9 @@ function planCounts(tasks, today) {
     const s = planState(t, byId, today);
     c[s]++;
     if (s === 'done') continue;
-    const d = t.due || t.scheduled;
-    if (d && d < today) c.overdue++;
-    else if (d && d <= week) c.week++;
+    // overdue: only a 📅 that has passed (⏳ is when it is planned, which Planning may keep in step); due this week: 📅 or ⏳
+    if (t.due && t.due < today) c.overdue++;
+    else if ((t.due || t.scheduled) && (t.due || t.scheduled) >= today && (t.due || t.scheduled) <= week) c.week++;
   }
   return c;
 }

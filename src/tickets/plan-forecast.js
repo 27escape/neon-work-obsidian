@@ -60,7 +60,7 @@ function planWarnings(tasks, ends, today) {
 }
 
 Object.assign(PlanView.prototype, {
-  /** Gantt: Tasks / Phases; Report; Dates… (the baseline is automatic: see plan-baseline.js and the ⋯ menu). */
+  /** Gantt: Tasks / Phases; Report; Write dates… (the baseline is automatic: see plan-baseline.js and the ⋯ menu). */
   buildForecastTools(tools) {
     this.phasesOnlyEl = pills(tools, [['tasks', 'Tasks'], ['phases', 'Phases']], this.ganttPhases ? 'phases' : 'tasks', (v) => {
       this.ganttPhases = v === 'phases';
@@ -71,7 +71,7 @@ Object.assign(PlanView.prototype, {
     // fork: Undo for the last change made by dragging on the Gantt
     this.undoBtn = button(tools, { icon: 'undo-2', text: 'Undo', cls: 'np-undo-btn is-hidden', title: 'Undo the last change made on the chart', onClick: () => this.undoChange() });
     this.reportBtn = button(tools, { icon: 'file-output', text: 'Report', cls: 'np-report-btn', title: 'Save a printable report of this plan (a note with the chart) in the reports folder', onClick: () => this.writeReport() });
-    this.datesBtn = button(tools, { icon: 'calendar-check', text: 'Dates…', cls: 'np-dates-btn', title: 'Write the planned dates into the tasks (🛫 start, 📅 due), choosing which', onClick: () => new PlanDatesModal(this.app, this).open() });
+    this.datesBtn = button(tools, { icon: 'calendar-check', text: 'Write dates…', cls: 'np-dates-btn', title: 'Record today’s planned dates in the tasks as 🛫 start and 📅 due, choosing which (a snapshot: they don’t follow the plan afterwards)', onClick: () => new PlanDatesModal(this.app, this).open() });
   },
   syncForecastTools() {
     this.phasesOnlyEl.el.toggleClass('is-hidden', this.mode !== 'gantt');
@@ -95,6 +95,8 @@ Object.assign(PlanView.prototype, {
     const title = !b ? 'Save a baseline now' : b.provisional ? 'Lock the baseline now (it follows the plan until every task has a duration)' : `Re-baseline (replaces the one from ${planShortDate(b.saved)})`;
     menu.addItem((i) => i.setSection('action').setTitle(title).setIcon('flag').onClick(() => this.saveBaseline()));
     if (b) menu.addItem((i) => i.setSection('action').setTitle('Remove the baseline').setIcon('trash-2').onClick(() => this.saveBaseline(true)));
+    // fork: keep ⏳ scheduled dates in step with the plan (plan-scheduled.js)
+    menu.addItem((i) => i.setSection('action').setTitle('Keep ⏳ scheduled dates in step with the plan').setIcon('calendar-sync').setChecked(this.keepsScheduled()).onClick(() => this.toggleScheduled()));
   },
   async saveBaseline(remove = false) {
     const s = this.plugin.settings;

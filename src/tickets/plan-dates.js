@@ -41,8 +41,9 @@ class PlanDatesModal extends Modal {
   onOpen() {
     const { contentEl: el, modalEl } = this;
     modalEl.addClass('nd-modal', 'np-dates');
-    this.titleEl.setText('Write the planned dates into the tasks');
-    el.createEl('p', { cls: 'setting-item-description', text: 'The dates the plan works out from durations and dependencies, from the project’s start date and today. Tasks that already have dates are not ticked: tick them to replace their dates. Nothing else in the tasks changes.' });
+    this.titleEl.setText('Write today’s planned dates into the tasks');
+    el.createEl('p', { cls: 'setting-item-description', text: 'The dates the plan works out today from durations and links, written as 🛫 start and 📅 due. This is a snapshot: the dates don’t follow the plan afterwards, and they then hold it (🛫 means “not before”, 📅 is a deadline), so use it when you want dates fixed. Tasks that already have dates are not ticked: tick them to replace their dates. Nothing else in the tasks changes.' });
+    el.createEl('p', { cls: 'setting-item-description', text: 'To have the current plan show in the Tasks plugin and calendars all the time, use “Keep ⏳ scheduled dates in step with the plan” in the tab’s ⋯ menu instead.' });
     if (NEON_GUARD.readOnly) el.createDiv({ cls: 'np-ed-warn', text: 'Read-only is on, so writing is blocked. Turn it off in the plugin’s settings to change notes.' });
     const opts = el.createDiv('np-dates-opts');
     const check = (label, key) => {
