@@ -1,4 +1,4 @@
-/* ---- Neon Deck 2: one plugin; each module is a child Plugin ------------------------
+/* ---- the kernel: one plugin; each module is a child Plugin ------------------------
  * The former six plugins run unchanged as children (same command ids, view types and data).
  * Obsidian's own Plugin/Component lifecycle removes everything a child registered when it
  * stops, so a module can be switched off at runtime without leaks. NEON_MODULES is filled
@@ -74,11 +74,11 @@ class NeonMother extends Plugin {
     this.app.workspace.onLayoutReady(() => {
       this.step('workspace ready, opening views');
       this.doneTimer = window.setTimeout(() => this.startDone(), 3000);
-      // fork: first start — ask where Neon Deck may keep what it makes for itself
+      // fork: first start — ask where the plugin may keep what it makes for itself
       if (this.state.baseFolder === undefined) new BaseFolderModal(this).open();
     });
   }
-  /** fork: the base folder for everything Neon Deck makes for itself ('' = vault root). */
+  /** fork: the base folder for everything the plugin makes for itself ('' = vault root). */
   async setBaseFolder(path) {
     const v = String(path || '').trim().replace(/^\/+|\/+$/g, '');
     this.state.baseFolder = v ? normalizePath(v) : '';
@@ -130,7 +130,7 @@ class NeonMother extends Plugin {
   noteError(where, e) {
     this.setLocal('error', `${where}: ${String((e && e.message) || e).slice(0, 300)} (${moment().format('D MMM HH:mm')})`);
   }
-  /** Core API for the modules (same object Neon Deck 1.x exposed). */
+  /** Core API for the modules (the same object as upstream Neon Deck 1.x). */
   get api() {
     const deck = this.modules.get('neon-deck');
     return (deck && deck.api) || null;
@@ -171,7 +171,7 @@ class NeonMother extends Plugin {
           this.app.workspace.onLayoutReady(() => this.reviveViews(types));
           this.timing.push(`${label} ${Date.now() - t} ms`);
         } catch (e) {
-          console.error(`Neon Deck: ${m.name} failed to start`, e);
+          console.error(`${appName()}: ${m.name} failed to start`, e);
           this.failed.set(m.id, String((e && e.message) || e));
           this.noteError(m.name, e);
           new Notice(`${appName()}: ${m.name} failed to start and was stopped. Details in the console.`);
@@ -182,7 +182,7 @@ class NeonMother extends Plugin {
       this.failed.delete(m.id);
       this.addChild(child); // runs child.load() -> onload()
     } catch (e) {
-      console.error(`Neon Deck: ${m.name} failed to start`, e);
+      console.error(`${appName()}: ${m.name} failed to start`, e);
       this.failed.set(m.id, String((e && e.message) || e));
       this.noteError(m.name, e);
     }

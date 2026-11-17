@@ -80,7 +80,7 @@ Object.assign(NeonTime.prototype, {
         await this.app.vault.create(path, this.dayNote(key, false));
       }
     } catch (e) {
-      console.error('Neon Time: could not write log note', e);
+      console.error(`${appName()} – Time: could not write log note`, e);
     }
   },
   readmeSoon() {
@@ -133,7 +133,7 @@ Object.assign(NeonTime.prototype, {
         await this.app.vault.create(path, text);
       }
     } catch (e) {
-      console.error('Neon Time: README', e);
+      console.error(`${appName()} – Time: README`, e);
     }
   },
 

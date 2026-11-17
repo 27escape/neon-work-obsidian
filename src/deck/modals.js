@@ -123,7 +123,7 @@ class QuickCaptureModal extends Modal {
       try {
         await t.run(v);
       } catch (e) {
-        console.error('Neon Deck capture', e);
+        console.error(`${appName()} – Dashboard: capture`, e);
         new Notice('Capture failed — see console');
       }
     };

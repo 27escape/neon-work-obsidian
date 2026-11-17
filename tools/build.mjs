@@ -1,4 +1,4 @@
-// Build Neon Deck: join src/ files (order in tools/files.json) into dist/<manifest id>/{main.js,styles.css,manifest.json}.
+// Build Neon Work: join src/ files (order in tools/files.json) into dist/<manifest id>/{main.js,styles.css,manifest.json}.
 // No dependencies. node tools/build.mjs
 // Each module is wrapped in its own function scope (its top-level names can't clash with another
 // module's); a "/* @src <path> */" line before every file leads from a main.js line back to its file.

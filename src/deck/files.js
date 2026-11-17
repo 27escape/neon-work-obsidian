@@ -52,7 +52,7 @@ Object.assign(NeonDeck.prototype, {
         try {
           ex.push(...(fn() || []).map(normalizePath));
         } catch (e) {
-          console.error('Neon Deck exclude', e);
+          console.error(`${appName()} – Dashboard: exclude`, e);
         }
       }
       this._ex = ex;
@@ -199,13 +199,13 @@ Object.assign(NeonDeck.prototype, {
     const addFile = async (f, dir, inFolder) => {
       try {
         const np = await free(dir, f.name);
-        // files of a dropped folder stay where they are: Neon Write's image mover skips these paths
+        // files of a dropped folder stay where they are: Write's image mover skips these paths
         if (inFolder) (this.placed || (this.placed = new Set())).add(np);
         const tf = await this.app.vault.createBinary(np, await f.arrayBuffer());
         if (!inFolder) made.push(tf);
         n++;
       } catch (err) {
-        console.error('Neon Deck: could not add', f.name, err);
+        console.error(`${appName()} – Dashboard: could not add`, f.name, err);
         new Notice(`Could not add “${f.name}”`);
       }
     };
@@ -229,7 +229,7 @@ Object.assign(NeonDeck.prototype, {
         if (entries[i] && entries[i].isDirectory) await addDir(entries[i], dir);
         else await addFile(f, dir);
       } catch (err) {
-        console.error('Neon Deck: could not add', f.name, err);
+        console.error(`${appName()} – Dashboard: could not add`, f.name, err);
         new Notice(`Could not add “${f.name}”`);
       }
     }

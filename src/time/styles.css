@@ -1,4 +1,4 @@
-/* NEON TIME — uses the --nd-* tokens from Neon Deck */
+/* TIME — uses the Dashboard's --nd-* tokens */
 .tm-view *,
 .tm-modal *,
 .tm-wrap * {
@@ -184,7 +184,7 @@
   }
 }
 /* Time tab */
-/* same look as the dashboard: Neon Deck's cards, hero bar and dot pattern */
+/* same look as the dashboard: the Dashboard's cards, hero bar and dot pattern */
 .tm-view.view-content {
   background: var(--nd-bg);
 }

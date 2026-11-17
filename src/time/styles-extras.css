@@ -1,4 +1,4 @@
-/* NEON TIME (continued): motion on open, widget hover, modals, fallback tokens, motion, narrow tabs */
+/* TIME (continued): motion on open, widget hover, modals, fallback tokens, motion, narrow tabs */
 /* cards fade in on first open, like the dashboard */
 .tm-inner.is-entering > .nd-card,
 .tm-inner.is-entering > .tm-top > .nd-card {
@@ -127,7 +127,7 @@
   color: var(--nd-go);
 }
 
-/* Fallback when the Neon Deck core plugin is off: map the --nd-* tokens to
+/* Fallback when the Dashboard module is off: map the --nd-* tokens to
    Obsidian's own colours and give the shared controls a plain look. Inert
    while the core is on (it puts .nd-themed on body). */
 body:not(.nd-themed) {
@@ -197,7 +197,7 @@ body:not(.nd-themed) .nd-empty {
   color: var(--nd-faint);
   text-align: center;
 }
-/* ---- motion (all of it switches off with reduced motion, see Neon Deck's styles) ---- */
+/* ---- motion (all of it switches off with reduced motion, see the Dashboard's styles) ---- */
 /* ring: segments draw in one after another, the ring turns into place */
 .tm-donut.is-intro svg {
   animation: tm-ring-in 0.45s var(--nd-ease, ease) backwards;

@@ -1,6 +1,6 @@
 
 /* =========================================================================
- * NEON WRITE — nicer note writing: a rows × columns table picker, styled tables,
+ * WRITE — nicer note writing: a rows × columns table picker, styled tables,
  * dividers, locked callouts and a barely-there pattern behind the note.
  * ========================================================================= */
 const { MarkdownView, EditorSuggest } = obsidian;

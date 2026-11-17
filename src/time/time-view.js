@@ -32,7 +32,7 @@ class TimeView extends ItemView {
     this.unmountPattern();
     this.contentEl.empty();
   }
-  /** The dashboard's dot pattern behind the cards, when Neon Deck is on. */
+  /** The dashboard's dot pattern behind the cards, when the Dashboard module is on. */
   mountPattern() {
     this.unmountPattern();
     const api = deckApi(this.app);

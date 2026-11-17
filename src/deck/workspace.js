@@ -1,7 +1,7 @@
 Object.assign(NeonDeck.prototype, {
   async onReady() {
     const ws = this.app.workspace;
-    // fork: the automatic “tidy into Core” move was removed; Neon Deck never moves your files
+    // fork: the automatic “tidy into Core” move was removed; the plugin never moves your files
     this.lastFile = ws.getActiveFile();
     this.registerClaudeCard(); // fork
     this.registerInboxCapture(); // fork
@@ -62,7 +62,7 @@ Object.assign(NeonDeck.prototype, {
       try {
         parts.push(...(fn(start, end) || []));
       } catch (e) {
-        console.error('Neon Deck week line', e);
+        console.error(`${appName()} – Dashboard: week line`, e);
       }
     }
     const md = this.includedNotes();

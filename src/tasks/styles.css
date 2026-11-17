@@ -1,4 +1,4 @@
-/* NEON TASKS — uses the --nd-* tokens from Neon Deck (fallbacks for running alone) */
+/* TASKS — uses the Dashboard's --nd-* tokens (fallbacks when it is off) */
 .nt-list {
   display: flex;
   flex-direction: column;

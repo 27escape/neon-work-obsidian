@@ -90,7 +90,7 @@ Object.assign(NeonResearch.prototype, {
       try {
         if (tf instanceof TFile) return applyTemplate(await this.app.vault.read(tf), now, title);
       } catch (e) {
-        console.error('Neon Research: could not read the template', e);
+        console.error(`${appName()} – Research: could not read the template`, e);
       }
       new Notice(`Research template “${s.noteTemplate}” not found: using the standard properties`);
     }

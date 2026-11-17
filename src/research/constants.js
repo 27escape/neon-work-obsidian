@@ -1,6 +1,6 @@
 
 /* =========================================================================
- * NEON RESEARCH — one tree per section: topics (folders) → subtopics (folders) → notes,
+ * RESEARCH — one tree per section: topics (folders) → subtopics (folders) → notes,
  * inside each section folder. Its own Research tab (view type neon-research).
  * ========================================================================= */
 const VIEW_RESEARCH = 'neon-research';
@@ -9,7 +9,7 @@ const NR_DEFAULTS = {
   root: '', // first section's path, kept for older versions
   roots: null, // [{ name, path }]: each is its own tree (filled on load)
   activeRoot: 0, // index of the section shown in the tab
-  countAsWork: true, // false: new notes get `untracked: true`, so Neon Time never counts them as work
+  countAsWork: true, // false: new notes get `untracked: true`, so Time never counts them as work
   linkSuggest: true,
   open: [], // folder paths expanded in the tree
   researchTopics: [], // unused since the fork (status now comes from the notes); kept so older data loads

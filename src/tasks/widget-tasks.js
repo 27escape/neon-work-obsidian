@@ -95,7 +95,7 @@ Object.assign(NeonTasks.prototype, {
       try {
         if ((await this.completeTask(row._t)) === false) (row.removeClass('is-done'), this.emit());
       } catch (e) {
-        console.error('Neon Tasks: could not tick task', e);
+        console.error(`${appName()} – Tasks: could not tick task`, e);
         new Notice('Could not tick the task');
         row.removeClass('is-done');
       }
@@ -118,7 +118,7 @@ Object.assign(NeonTasks.prototype, {
           try {
             if (!(await this.editTask(row._t, v))) txt.setText(row._t.display || row._t.raw);
           } catch (e) {
-            console.error('Neon Tasks: could not edit task', e);
+            console.error(`${appName()} – Tasks: could not edit task`, e);
             new Notice('Could not save the task');
             txt.setText(row._t.display || row._t.raw);
           }

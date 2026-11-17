@@ -152,7 +152,7 @@ class CustomerNoteModal extends Modal {
       await reusableLeaf(this.app).openFile(target, { active: true, state: { mode: 'source' } });
     } catch (e) {
       if (!(e && e.neonReadOnly)) {
-        console.error('Neon Tasks: could not create the note', e);
+        console.error(`${appName()} – Tasks: could not create the note`, e);
         new Notice('Could not create the note');
       }
     }

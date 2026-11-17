@@ -236,7 +236,7 @@ Object.assign(NeonDeck.prototype, {
       try {
         await t.run(v);
       } catch (err) {
-        console.error('Neon Deck capture', err);
+        console.error(`${appName()} – Dashboard: capture`, err);
         new Notice('Capture failed — see console');
       }
     }
@@ -272,7 +272,7 @@ Object.assign(NeonDeck.prototype, {
       else if (items.length) await this.pinFiles(items.filter((f) => f instanceof TFile));
       else if (text.trim()) await this.pinText(text);
     } catch (err) {
-      console.error('Neon Deck: pin drop', err);
+      console.error(`${appName()} – Dashboard: pin drop`, err);
       new Notice('Could not pin that — see console');
     }
     if (this.island.byDrag) this.foldSoon(1200);

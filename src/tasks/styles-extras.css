@@ -1,5 +1,5 @@
-/* NEON TASKS (continued): fallback tokens, motion, the Tasks tab, settings table, timeline */
-/* Fallback when the Neon Deck core plugin is off: map the --nd-* tokens to
+/* TASKS (continued): fallback tokens, motion, the Tasks tab, settings table, timeline */
+/* Fallback when the Dashboard module is off: map the --nd-* tokens to
    Obsidian's own colours and give the shared controls a plain look. Inert
    while the core is on (it puts .nd-themed on body). */
 body:not(.nd-themed) {

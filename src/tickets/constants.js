@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------ */
-/* Neon Projects (fork; upstream's Neon Tickets module, rewritten)     */
+/* Projects (fork; upstream Neon Deck's Tickets module, rewritten)    */
 /* ------------------------------------------------------------------ */
 // The module keeps upstream's id (neon-tickets) and view type, so its data folder and saved layouts carry on.
 

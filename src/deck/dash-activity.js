@@ -7,7 +7,7 @@ Object.assign(DashboardView.prototype, {
       try {
         for (const x of fn() || []) if (x && x.t >= cut) items.push(x);
       } catch (e) {
-        console.error(`Neon Deck activity ${id}`, e);
+        console.error(`${appName()} – Dashboard: activity ${id}`, e);
       }
     }
     items.sort((a, b2) => b2.t - a.t);

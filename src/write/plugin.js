@@ -258,7 +258,7 @@ class NeonWrite extends Plugin {
     try {
       if (p.layer) p.layer.destroy();
     } catch (e) {
-      console.error('Neon Write pattern', e);
+      console.error(`${appName()} – Write: pattern`, e);
     }
     p.host.removeClass('nw-pattern-host', 'nd-has-pattern');
   }

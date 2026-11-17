@@ -114,7 +114,7 @@ Object.assign(NeonTasks.prototype, {
       await this.writeQuickTask(text);
     } catch (e) {
       if (!(e && e.neonReadOnly)) {
-        console.error('Neon Tasks: could not add task', e);
+        console.error(`${appName()} – Tasks: could not add task`, e);
         new Notice('Could not add the task');
       }
       this.pendingQuick = this.pendingQuick.filter((x) => x !== pend);

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Neon Deck check runner for Claude Code. No dependencies (Node 18+).
+// Neon Work check runner (from Neon Deck's) for Claude Code. No dependencies (Node 18+).
 //
 //   node neon-check.mjs <vault-or-plugins-dir> [--module time,tasks] [--json] [--no-log]
 //   node neon-check.mjs --add-check "<module>|<what to do>|<what must happen>"   (adds a manual check after a bug)
@@ -148,7 +148,7 @@ let plugins = path.join(target, '.obsidian', 'plugins');
 if (!fs.existsSync(plugins)) plugins = fs.existsSync(path.join(target, DECK_DIR)) ? target : plugins;
 if (!fs.existsSync(plugins)) { console.error('no plugins folder found under', target); process.exit(2); }
 
-// Neon Deck 2: one plugin folder whose main.js holds every module (sections "/* ==== module <id> ==== */")
+// one plugin folder whose main.js holds every module (sections "/* ==== module <id> ==== */")
 const deckMain = path.join(plugins, DECK_DIR, 'main.js');
 const BUNDLE = fs.existsSync(deckMain) && /^const NEON_MODULES = \[/m.test(fs.readFileSync(deckMain, 'utf8'));
 /** A module's code and CSS: its own plugin folder (1.x) or its section of the bundle (2.x). */

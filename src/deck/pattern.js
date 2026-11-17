@@ -85,7 +85,7 @@ class PatternLayer {
       gl.shaderSource(s, src);
       gl.compileShader(s);
       if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-        console.warn('Neon Deck pattern shader', gl.getShaderInfoLog(s));
+        console.warn(`${appName()} – Dashboard: pattern shader`, gl.getShaderInfoLog(s));
         return null;
       }
       return s;

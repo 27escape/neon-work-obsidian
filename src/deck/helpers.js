@@ -21,7 +21,7 @@ function actDays(p, d, month, week) {
     try {
       items = fn() || [];
     } catch (e) {
-      console.error(`Neon Deck activity ${id}`, e);
+      console.error(`${appName()} – Dashboard: activity ${id}`, e);
     }
     for (const x of items) if (x && inRange(x.t)) day(x.t)[x.kind === 'ticket' ? 'tickets' : 'tasks'].push({ ...x, kind: x.kind === 'ticket' ? 'ticket' : 'task', extra: x.status || x.src });
   }

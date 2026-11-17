@@ -43,7 +43,7 @@ class NeonModulesTab extends PluginSettingTab {
     try {
       tab.display();
     } catch (e) {
-      console.error(`Neon Deck: ${cur} settings`, e);
+      console.error(`${appName()}: ${cur} settings`, e);
       box.createEl('p', { text: 'These settings could not be shown. Details in the console.' });
     }
   }
@@ -103,7 +103,7 @@ class NeonModulesTab extends PluginSettingTab {
   }
 }
 
-/** First start: where may Neon Deck keep what it makes for itself? */
+/** First start: where may the plugin keep what it makes for itself? */
 class BaseFolderModal extends Modal {
   constructor(plugin) {
     super(plugin.app);

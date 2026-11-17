@@ -5,7 +5,7 @@ Object.assign(NeonTasks.prototype, {
   async addGlobal(text) {
     await this.addQuickTask(text);
   },
-  /** Global tasks saved by upstream Neon Tasks (plugin data): offer once to move them into the Todo note. */
+  /** Global tasks saved by upstream Neon Deck's Tasks module (plugin data): offer once to move them into the Todo note. */
   offerGlobalMove() {
     const items = this.settings.globalTasks || [];
     if (!items.length || this.settings.globalMoveAsked) return;
@@ -19,7 +19,7 @@ Object.assign(NeonTasks.prototype, {
           for (const t of items.slice().reverse()) await this.writeQuickTask(t.text);
           this.settings.globalTasks = [];
         } catch (e) {
-          if (!(e && e.neonReadOnly)) console.error('Neon Tasks: could not move Global tasks', e);
+          if (!(e && e.neonReadOnly)) console.error(`${appName()} – Tasks: could not move Global tasks`, e);
           return;
         }
         this.settings.globalMoveAsked = true;

@@ -18,7 +18,7 @@ class NeonTime extends Plugin {
     for (const d of Object.values(this.days || {})) for (const e of d.entries || []) e.cat = normCat(e.cat);
 
     this.registerView(VIEW_TIME, (leaf) => new TimeView(leaf, this));
-    this.addRibbonIcon('clock', 'Neon Time', () => this.openTab());
+    this.addRibbonIcon('clock', `${appName()} – Time`, () => this.openTab());
     this.addCommand({ id: 'open-time', name: 'Open Time tab', callback: () => this.openTab() });
     this.addCommand({ id: 'add-time', name: 'Add time by hand', callback: () => this.newEntry({}) });
     this.addCommand({ id: 'wrap-up', name: 'Wrap up the day', callback: () => new WrapUpModal(this).open() });

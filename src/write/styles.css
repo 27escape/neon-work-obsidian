@@ -1,4 +1,4 @@
-/* NEON WRITE — uses the --nd-* tokens from Neon Deck, with Obsidian fallbacks when it's off */
+/* WRITE — uses the Dashboard's --nd-* tokens, with Obsidian fallbacks when it's off */
 .nw-table-picker {
   --nw-bg: var(--nd-surface, var(--background-secondary));
   --nw-line: var(--nd-line, var(--background-modifier-border));

@@ -5,7 +5,7 @@ try {
   cmState = require('@codemirror/state'); // provided by Obsidian at runtime
   cmView = require('@codemirror/view');
 } catch (e) {
-  console.error('Neon Write: callout lock needs @codemirror/state', e);
+  console.error(`${appName()} – Write: callout lock needs @codemirror/state`, e);
 }
 const lockAnno = cmState ? cmState.Annotation.define() : null; // marks our own lock/unlock edits
 const CALLOUT_HEAD_RE = /^(\s*>\s*\[!)([^\]|]+)(\|[^\]]*)?(\][+-]?)(.*)$/;

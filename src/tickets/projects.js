@@ -192,7 +192,7 @@ class NewProjectModal extends Modal {
         await p.createProject(t, sel.value);
       } catch (e) {
         if (!(e && e.neonReadOnly)) {
-          console.error('Neon Projects: could not create the project', e);
+          console.error(`${appName()} – Projects: could not create the project`, e);
           new Notice('Could not create the project');
         }
       }

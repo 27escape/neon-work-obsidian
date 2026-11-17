@@ -1,8 +1,8 @@
 /* ---- read-only guard ----------------------------------------------------
- * Fork addition (27escape). While read-only is on (the default), nothing in Neon Deck can
+ * Fork addition (27escape). While read-only is on (the default), nothing in the plugin can
  * create, change, move, rename or delete anything in the vault. Every module gets a guarded
  * `app` (see guardApp) instead of Obsidian's own: its vault, fileManager and vault.adapter
- * refuse writes. The only writes still allowed are Neon Deck's own settings files inside its
+ * refuse writes. The only writes still allowed are the plugin's own settings files inside its
  * plugin folder (.obsidian/plugins/<plugin id>/...). writeNote checks the guard as well, because
  * it can edit an open note through the editor rather than the vault.
  * Obsidian's real `app` is never changed, so other plugins and Obsidian itself are unaffected. */
@@ -15,7 +15,7 @@ const NEON_GUARD = {
    * clicked or typed. Background writes (startup jobs, timers) are refused quietly. */
   block(op, path) {
     const what = `${op}${path ? ` “${path}”` : ''}`;
-    console.info(`Neon Deck (read-only): blocked ${what}`);
+    console.info(`${appName()} (read-only): blocked ${what}`);
     if (Date.now() - this.lastGesture < 2000 && Date.now() - this.lastNotice > 5000) {
       this.lastNotice = Date.now();
       new Notice(`${appName()} is read-only, so it did not ${what}. Turn off “Read-only” in the plugin’s settings (Protect my notes) to allow changes to your notes.`, 6000);
@@ -24,7 +24,7 @@ const NEON_GUARD = {
     e.neonReadOnly = true;
     return e;
   },
-  /** True when a path is inside Neon Deck's own plugin folder. */
+  /** True when a path is inside the plugin's own folder. */
   ownPath(path) {
     const p = normalizePath(String(path || ''));
     return !!this.allowDir && (p === this.allowDir || p.startsWith(this.allowDir + '/'));

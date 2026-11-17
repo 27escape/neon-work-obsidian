@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------ */
-/* Neon Deck core: constants                                           */
+/* Dashboard: constants                                                */
 /* ------------------------------------------------------------------ */
 const VIEW_DASH = 'neon-deck-dashboard';
 const VIEW_CARDS = 'neon-deck-cards';
@@ -90,7 +90,7 @@ const DEFAULT_SETTINGS = {
   graphWindow: 4,
   extraStopwords: '',
 };
-/** 1.2 keys that moved to Neon Tickets / were removed; dropped after migration. */
+/** Upstream 1.2 keys that moved to the Tickets module (now Projects) or were removed; dropped after migration. */
 const OLD_KEYS = ['glass', 'intensity', 'styleVersion', 'stampDone'];
 
 const pal = (i) => `var(--nd-c${i + 1}, ${PALETTE[i]})`;

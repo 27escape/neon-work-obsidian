@@ -59,7 +59,7 @@ class NeonDeck extends Plugin {
     ];
     const desktopOnly = new Set(['open-cards', 'open-cards-sidebar', 'open-graph', 'graph-active-note']); // fork: not on mobile
     for (const [id, name, callback] of cmds) if (!(NEON_MOBILE.on && desktopOnly.has(id))) this.addCommand({ id, name, callback });
-    // hidden while Neon Tasks is on: it brings its own New note command
+    // hidden while the Tasks module is on: it brings its own New note command
     this.addCommand({
       id: 'new-note',
       name: 'New note',
@@ -178,7 +178,7 @@ class NeonDeck extends Plugin {
     this._saveSoon();
   }
 
-  /* API for Neon Tasks / Tickets / Time ------------------------------------ */
+  /* API for the Tasks, Projects and Time modules --------------------------- */
   buildApi() {
     const p = this;
     const changed = (ev) => p.app.workspace.trigger(ev);
@@ -234,7 +234,7 @@ class NeonDeck extends Plugin {
       unregisterExcluded(id) {
         p.excludes.delete(id);
       },
-      /** named services, e.g. 'newNote' from Neon Tasks, 'newTicket' from Neon Tickets */
+      /** named services, e.g. 'newNote' from Tasks, 'newTicket' from Projects */
       provide(name, fn) {
         p.services.set(name, fn);
       },

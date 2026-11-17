@@ -7,7 +7,7 @@ Object.assign(DashboardView.prototype, {
       try {
         items.push(...(fn() || []));
       } catch (e) {
-        console.error('Neon Deck facts', e);
+        console.error(`${appName()} – Dashboard: facts`, e);
       }
     }
     items.push({ v: d.md.length, l: 'notes' }, { v: d.editedToday.length, l: 'edited today' });
@@ -59,7 +59,7 @@ Object.assign(DashboardView.prototype, {
     });
   },
 
-  /** Totals card: live counts from Neon Time, Tickets, Tasks and the vault. The first tile spans the card. */
+  /** Totals card: live counts from Time, Projects, Tasks and the vault. The first tile spans the card. */
   renderTotals(d) {
     if (!this.totals) return;
     d = d || this.lastData || this.plugin.collectVaultData();
@@ -87,7 +87,7 @@ Object.assign(DashboardView.prototype, {
     const thisMonth = (ms) => ms >= monthStart.valueOf();
     const month = now.format('MMM');
 
-    // time worked (Neon Time)
+    // time worked (Time)
     const tm = neonPlugin(this.app, 'neon-time');
     if (tm && tm.days) {
       const todayKey = now.format('YYYY-MM-DD');
@@ -112,7 +112,7 @@ Object.assign(DashboardView.prototype, {
       try {
         if (tm.balance) bal = tm.balance(moment(0), now).balance;
       } catch (e) {
-        console.error('Neon Deck totals', e);
+        console.error(`${appName()} – Dashboard: totals`, e);
       }
       tile([Math.round(total), (x) => fmtMin(Math.round(x))], 'time worked', 'var(--nd-accent)', `${fmtMin(Math.round(monthMin))} in ${month}${bal ? ` · ${bal > 0 ? '+' : ''}${fmtMin(bal)} balance` : ''}`, 'All time tracked, automatic and manual');
       tile(worked, worked === 1 ? 'day worked' : 'days worked', 'var(--nd-info)', null, 'Days with tracked time');
@@ -123,7 +123,7 @@ Object.assign(DashboardView.prototype, {
       if (done) tile(done.length, 'tasks done', 'var(--nd-go)', `${done.filter((x) => thisMonth(moment(x.date, 'YYYY-MM-DD').valueOf())).length} in ${month}`, 'Tasks ticked in the last 6 weeks, by their ✅ date');
     }
 
-    // projects (Neon Projects)
+    // projects (Projects)
     const tk = neonPlugin(this.app, 'neon-tickets');
     if (tk && tk.collectProjects) {
       const all = tk.collectProjects();

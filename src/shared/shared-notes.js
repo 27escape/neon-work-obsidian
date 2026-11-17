@@ -69,7 +69,7 @@ async function activateView(app, type, where = 'tab') {
 
 /* ---- daily notes ------------------------------------------------------ */
 // fork: the folder, file name format and template come from Obsidian's core Daily notes plugin
-// (<configDir>/daily-notes.json) while that plugin is on. When it is off (core-plugins.json), Neon Deck's
+// (<configDir>/daily-notes.json) while that plugin is on. When it is off (core-plugins.json), the plugin's
 // own Daily notes settings are used instead (NEON_DAILY_FALLBACK, set by the Deck module).
 // Each call refreshes the copies in the background.
 let dailyCache = {};
@@ -171,18 +171,18 @@ function writeNote(app, file, fn) {
 }
 
 /* ---- cross-plugin glue ------------------------------------------------ */
-/** The Neon Deck core API, or null when the core plugin is off. */
+/** The Dashboard module's API, or null when it is off. */
 let neonMother = null; // set by the kernel while it runs (one bundle, so no plugin registry lookup)
 function deckApi(app) {
   return (neonMother && neonMother.api) || null;
 }
-/** Another Neon module (a child of the neon-deck plugin), or null. */
+/** Another module (a child plugin of the kernel; its id keeps the upstream neon-* name), or null. */
 function neonPlugin(app, id) {
   return (neonMother && neonMother.modules.get(id)) || null;
 }
 /** A small "made with Claude" line for settings tabs. */
 /** fork: the plugin's display name (from its manifest, set by the kernel), used wherever the UI names it. */
-const NEON_APP = { name: 'Neon Deck', app: null }; // fork: app is set by the kernel (link lookups in shared helpers)
+const NEON_APP = { name: 'Neon Work', app: null }; // fork: app is set by the kernel (link lookups in shared helpers)
 const appName = () => NEON_APP.name;
 function madeWith(el, name) {
   const d = el.createDiv('nd-madewith');
@@ -204,7 +204,7 @@ function numSetting(setting, obj, key, min, max, save) {
   });
 }
 /* ---- base folder (fork) ------------------------------------------------
- * Where Neon Deck keeps what it makes for itself (reviews, time log, pin board, projects without a
+ * Where the plugin keeps what it makes for itself (reviews, time log, pin board, projects without a
  * customer…). Asked once on first start; '' = the vault root. Each location can still be set on its own;
  * an empty location setting means "<base folder>/<default name>". */
 const NEON_BASE = { folder: '' };

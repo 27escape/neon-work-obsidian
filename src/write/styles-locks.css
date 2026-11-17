@@ -1,4 +1,4 @@
-/* NEON WRITE (continued): lockable callouts, merged table cells, lockable math blocks */
+/* WRITE (continued): lockable callouts, merged table cells, lockable math blocks */
 /* ---- lockable callouts (item 31): a small lock at the right of the title ---- */
 .callout-title .nw-lock {
   margin-left: auto;

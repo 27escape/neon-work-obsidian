@@ -90,7 +90,7 @@ Object.assign(NeonDeck.prototype, {
         new Notice(`✦ Added ${f.basename} to the inbox`);
       } catch (err) {
         if (!(err && err.neonReadOnly)) {
-          console.error('Neon Deck: inbox', err);
+          console.error(`${appName()} – Dashboard: inbox`, err);
           new Notice('Could not add to the inbox');
         }
         input.value = v;
@@ -143,7 +143,7 @@ Object.assign(NeonDeck.prototype, {
       new Notice(`✦ Saved to ${f.path}`);
     } catch (e) {
       if (!(e && e.neonReadOnly)) {
-        console.error('Neon Deck: inbox capture', e);
+        console.error(`${appName()} – Dashboard: inbox capture`, e);
         new Notice('Could not save the inbox note');
       }
     }

@@ -251,7 +251,7 @@ function fmTags(fm) {
 }
 /**
  * fork: projects (upstream had "tickets"). A project is a note with the project tag in its tags property
- * (default `project`, a Neon Projects setting). Status values and their groups come from the same settings.
+ * (default `project`, a Projects setting). Status values and their groups come from the same settings.
  */
 const NEON_PROJECTS = {
   tag: 'project',

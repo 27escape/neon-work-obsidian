@@ -165,7 +165,7 @@ class DashboardView extends ItemView {
     try {
       if (inst.handle && inst.handle.destroy) inst.handle.destroy();
     } catch (e) {
-      console.error('Neon Deck widget', e);
+      console.error(`${appName()} – Dashboard: widget`, e);
     }
     inst.card.w.remove();
   }
@@ -191,7 +191,7 @@ class DashboardView extends ItemView {
       try {
         handle = def.mount(card, this) || null;
       } catch (e) {
-        console.error(`Neon Deck widget ${def.id}`, e);
+        console.error(`${appName()} – Dashboard: widget ${def.id}`, e);
         emptyState(card.body, 'This widget failed to load — see console');
       }
       this.slotCards.set(def.id, { def, card, handle });
@@ -273,7 +273,7 @@ class DashboardView extends ItemView {
     this.capInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        // Ctrl+Enter sends to the first target (Task when Neon Tasks is on)
+        // Ctrl+Enter sends to the first target (Task when the Tasks module is on)
         this.sendCapture(this.plugin.captureTargets()[0]);
       }
     });
@@ -300,7 +300,7 @@ class DashboardView extends ItemView {
     try {
       await t.run(v);
     } catch (e) {
-      console.error('Neon Deck capture', e);
+      console.error(`${appName()} – Dashboard: capture`, e);
       new Notice('Capture failed — see console');
       return;
     }
