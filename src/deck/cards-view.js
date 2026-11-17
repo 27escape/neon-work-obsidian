@@ -67,6 +67,7 @@ class CardsView extends ItemView {
     else this.buildTab(root);
   }
   async onOpen() {
+    addHelpAction(this, 'dashboard'); // fork: the ? button in the header (src/shared/help.js)
     if (NEON_MOBILE.on) return void mobileOnlyNote(this.contentEl, 'The card explorer'); // fork: desktop-only
     this.build();
     const re = debounce(() => this.refresh(0, true), 250, true);

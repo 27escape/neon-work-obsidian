@@ -1,0 +1,31 @@
+/* ---- in-app help (fork) ---- */
+.nd-help-modal {
+  width: min(760px, 92vw);
+}
+.nd-help-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.nd-help-nav .nd-pill-btn {
+  font-size: 12px;
+}
+.nd-help-body {
+  max-height: min(60vh, 640px);
+  overflow-y: auto;
+  padding-right: 6px;
+  user-select: text;
+}
+.nd-help-body h2 {
+  margin-top: 0;
+}
+.nd-help-foot {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--background-modifier-border);
+  font-size: 13px;
+}
+body.is-phone .nd-help-body {
+  max-height: 65vh;
+}

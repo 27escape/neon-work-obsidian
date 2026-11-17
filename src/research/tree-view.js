@@ -15,6 +15,7 @@ class ResearchView extends ItemView {
     return 'library';
   }
   async onOpen() {
+    addHelpAction(this, 'research'); // fork: the ? button in the header (src/shared/help.js)
     this.contentEl.empty();
     this.contentEl.addClass('nd-root', 'nd-pattern-host', 'nr-view');
     this.scroller = this.contentEl.createDiv('nr-scroll');

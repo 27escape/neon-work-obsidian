@@ -4,6 +4,7 @@
 // module's); a "/* @src <path> */" line before every file leads from a main.js line back to its file.
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process'; // build tool only, never in the plugin
+import { helpSections, HELP_REPO } from './help.mjs';
 
 const o = JSON.parse(fs.readFileSync('tools/files.json', 'utf8'));
 const read = (f) => fs.readFileSync(f, 'utf8').replace(/\n$/, '');
@@ -11,6 +12,8 @@ const part = (f) => `/* @src ${f} */\n${read(f)}`;
 const manifest = JSON.parse(fs.readFileSync(o.manifest, 'utf8'));
 
 const js = [read(o.header), ...o.shared.map((f) => part(f).replace(/const ND_VERSION = '[^']*';/, `const ND_VERSION = '${manifest.version}';`))];
+// fork: the in-app help, cut from the README (links to GitHub at this version's tag)
+js.push(`/* @src README.md (tools/help.mjs) */\nconst NEON_HELP = ${JSON.stringify(helpSections(read('README.md'), `${HELP_REPO}/blob/${manifest.version}`), null, 1)};`);
 for (const m of o.modules) js.push(`/* ==== module ${m.id} ==== */`, `const ${m.cls}Module = (() => {`, ...m.files.map(part), `return ${m.cls};`, '})();');
 js.push(`const NEON_MODULES = [\n${o.modules.map((m) => `  { id: '${m.id}', name: '${m.name}', old: '${m.old || m.name}', desc: '${m.desc}', cls: ${m.cls}Module },`).join('\n')}\n];`);
 js.push(...o.kernel.map(part), 'module.exports = NeonMother;');

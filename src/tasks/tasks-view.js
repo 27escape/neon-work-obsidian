@@ -20,6 +20,7 @@ class TasksView extends ItemView {
     return 'list-checks';
   }
   async onOpen() {
+    addHelpAction(this, 'tasks'); // fork: the ? button in the header (src/shared/help.js)
     const p = this.plugin;
     this.contentEl.empty();
     this.contentEl.addClass('nd-root', 'nd-pattern-host', 'nt-view');

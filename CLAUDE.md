@@ -10,7 +10,7 @@ Obsidian plugin: a kernel and six modules (Dashboard, Tasks, Projects, Research,
 
 ## Where things are
 - `src/kernel/`: `mother.js` (runs the modules as child plugins; switches, safe mode, read-only, base folder, data adoption) and `settings-page.js` (the one settings page with a section per module; the base folder prompt).
-- `src/shared/`: helpers for every module: `shared.js` (format, DOM, categories / customers, mobile), `shared-notes.js` (files, daily notes, `writeNote`, templates, base folder paths, ignored tags), `shared-ui.js` (modals, path suggestions, long press), `plan*.js` (planning), `note-index.js`, and `guard.js` (the read-only guard).
+- `src/shared/`: helpers for every module: `shared.js` (format, DOM, categories / customers, mobile), `shared-notes.js` (files, daily notes, `writeNote`, templates, base folder paths, ignored tags), `shared-ui.js` (modals, path suggestions, long press), `plan*.js` (planning), `help.js` (the ? help, cut from README.md by `tools/help.mjs` at build time: keep the README's section headings), `note-index.js`, and `guard.js` (the read-only guard).
 - `src/<module>/`: `deck` (Dashboard), `tasks`, `tickets` (Projects — the folder and module id keep upstream's names), `research`, `time`, `write`. `plugin.js` is the module's Plugin class; other files add methods with `Object.assign(Class.prototype, { ... })`, one job per file.
 - Styles: `src/<module>/styles*.css` (listed per module in `tools/files.json`); the build concatenates them and embeds the fonts from `src/deck/fonts/`.
 

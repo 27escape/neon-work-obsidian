@@ -53,6 +53,7 @@ class DashboardView extends ItemView {
   }
 
   async onOpen() {
+    addHelpAction(this, 'dashboard'); // fork: the ? button in the header (src/shared/help.js)
     if (neonMother) neonMother.step('opening the dashboard'); // fork: start-up trace
     const root = this.contentEl;
     root.empty();

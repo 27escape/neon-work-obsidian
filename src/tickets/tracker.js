@@ -17,6 +17,7 @@ class ProjectsView extends ItemView {
     return 'briefcase';
   }
   async onOpen() {
+    addHelpAction(this, 'projects'); // fork: the ? button in the header (src/shared/help.js)
     const root = this.contentEl;
     root.empty();
     root.addClass('nd-root', 'tk-tracker', 'tk-host');

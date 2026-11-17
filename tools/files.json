@@ -5,6 +5,7 @@
     "src/shared/shared.js",
     "src/shared/shared-notes.js",
     "src/shared/shared-ui.js",
+    "src/shared/help.js",
     "src/shared/guard.js",
     "src/shared/note-index.js",
     "src/shared/gantt.js",
@@ -198,6 +199,7 @@
     }
   ],
   "css": [
+    "src/shared/help.css",
     "src/shared/mobile.css"
   ]
 }

@@ -16,6 +16,7 @@ class InboxView extends ItemView {
     return 'inbox';
   }
   async onOpen() {
+    addHelpAction(this, 'dashboard'); // fork: the ? button in the header (src/shared/help.js)
     const p = this.plugin;
     const root = this.contentEl;
     root.empty();

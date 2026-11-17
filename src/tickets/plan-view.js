@@ -77,6 +77,7 @@ class PlanView extends ItemView {
     }
   }
   async onOpen() {
+    addHelpAction(this, 'planning'); // fork: the ? button in the header (src/shared/help.js)
     this.contentEl.addClass('nd-root', 'np-plan');
     const soon = debounce(() => this.refresh(), 600, true);
     this.registerEvent(this.app.metadataCache.on('changed', (f) => this.touches(f.path) && soon()));

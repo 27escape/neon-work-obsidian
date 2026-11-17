@@ -16,6 +16,7 @@ class TimeView extends ItemView {
     return 'clock';
   }
   async onOpen() {
+    addHelpAction(this, 'time'); // fork: the ? button in the header (src/shared/help.js)
     this.contentEl.empty();
     this.contentEl.addClass('nd-root', 'nd-pattern-host', 'tm-view');
     this.scroller = this.contentEl.createDiv('tm-scroll');
