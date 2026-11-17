@@ -1,13 +1,21 @@
 /* ---- Project plans (fork): editing on the Gantt chart -------------------------------------------------------
  * Drag a bar's right end to change its length ([duration:: Nd], or the 📅 date of a task fixed by 🛫 and 📅), the
  * bar itself to start it later (🛫 start, "not before": what waits for it moves too; it can't go before what it
- * waits for), and Alt-drag from one bar onto another to make the second wait for the first (⛔; the first gets an
- * id if it has none; no loops). Click an arrow to remove that link. Each change edits only the task lines involved,
+ * waits for), and Alt-drag from one bar onto another to link them, by the ends you use: from the right end to the
+ * other's left, the second waits for the first (⛔); left end to left end, it starts with it ([starts-with:: ]);
+ * right end to right end, it ends with it ([ends-with:: ]). The first gets an id if it has none; no loops. Click an
+ * arrow to remove that link. Each change edits only the task lines involved,
  * through the usual queue (editTask); Undo puts the last change back. Off on phones (dragging would fight the
  * scrolling). Kevin, 17 Nov: Alt for links, 🛫 for moving. */
 
 /** The working day a dragged date lands on: a Saturday or Sunday moves to the Monday (pure). */
 const planDropDay = (ymd) => planWorkdays(ymd, 0);
+/** The working day before a date (pure). */
+function planWorkdaysBack(ymd) {
+  let d = ymdAdd(ymd, -1);
+  while ([0, 6].includes(new Date(`${d}T00:00:00Z`).getUTCDay())) d = ymdAdd(d, -1);
+  return d;
+}
 /** Length in working days of a bar from start to last (inclusive), at least 1 (pure). */
 const planBarDays = (start, last) => Math.max(1, planWorkdaysBetween(start, planDropDay(last)) + 1);
 /**
@@ -16,15 +24,40 @@ const planBarDays = (start, last) => Math.max(1, planWorkdaysBetween(start, plan
  */
 function planEarliest(t, bars, today) {
   let at = null;
+  const later = (d) => (at = !at || d > at ? d : at);
+  const barOf = (id) => bars.find((x) => x.task && x.task.id === id);
   for (const id of t.deps || []) {
-    const b = bars.find((x) => x.task && x.task.id === id);
-    if (b) {
-      const next = planWorkdays(b.end, 1);
-      if (!at || next > at) at = next;
+    const b = barOf(id);
+    if (b) later(planWorkdays(b.end, 1));
+  }
+  // starts with: its start plus the lag; ends with: early enough to finish with it (the length stays)
+  for (const l of t.links || []) {
+    const b = barOf(l.id);
+    if (!b) continue;
+    if (l.type === 'ss') later(planWorkdays(b.start, l.lag));
+    else {
+      const own = bars.find((x) => x.task === t);
+      const len = own ? planWorkdaysBetween(own.start, own.end) : 0;
+      const fin = planWorkdays(b.end, l.lag);
+      // the latest start that still finishes with it: count back the task's length in working days
+      let s = fin;
+      for (let k = 0; k < len; k++) s = planWorkdaysBack(s);
+      later(s);
     }
   }
   if (t.status === 'todo' && today && (!at || today > at)) at = planDropDay(today);
   return at;
+}
+
+/**
+ * The link an Alt-drag makes (pure): from an end to the other's left half: waits for (fs); from a start to the
+ * other's left half: starts with (ss); from an end to the other's right half: ends with (ff); a start to an end:
+ * null (not offered). A milestone counts as its left half.
+ */
+function planDropType(fromStart, x, ends, milestone) {
+  const left = milestone || x < (ends.x0 + ends.x1) / 2;
+  if (fromStart) return left ? 'ss' : null;
+  return left ? 'fs' : 'ff';
 }
 
 Object.assign(PlanView.prototype, {
@@ -64,7 +97,9 @@ Object.assign(PlanView.prototype, {
       svg.setPointerCapture(e.pointerId);
       const row = svg.querySelector(`.np-g-row[data-key="${CSS.escape(planKey(z.it.row.bar.task))}"]`);
       const shape = row && row.querySelector('.np-g-bar, polygon');
-      this.drag = { mode, it: z.it, ends: z.ends, x0: p.x, moved: false, row, shape, w0: shape && shape.getAttr('width') };
+      // Alt-drag: from the left half of the bar, a start; from the right half, an end
+      const fromStart = mode === 'link' && !z.it.row.milestone && p.x < (z.ends.x0 + z.ends.x1) / 2;
+      this.drag = { mode, it: z.it, ends: z.ends, fromStart, x0: p.x, moved: false, row, shape, w0: shape && shape.getAttr('width') };
     });
     svg.addEventListener('pointermove', (e) => {
       const d = this.drag;
@@ -87,10 +122,12 @@ Object.assign(PlanView.prototype, {
         this.dragTip(svg, p, `Starts ${planShortDate(planDropDay(ymdAdd(b.start, days)))}`);
       } else if (d.mode === 'link') {
         if (!d.line) d.line = svg.createSvg('line', { cls: 'np-g-drag-link' });
-        d.line.setAttrs({ x1: d.ends.x1, y1: d.ends.y, x2: p.x, y2: p.y });
+        d.line.setAttrs({ x1: d.fromStart ? d.ends.x0 : d.ends.x1, y1: d.ends.y, x2: p.x, y2: p.y });
         const target = rowAt(p.y);
         const ok = target && items.includes(target) && target !== d.it;
-        this.dragTip(svg, p, ok ? `${planClip(planText(target.row.bar.task.raw), 30)} waits for this` : 'Drop on the task that waits for this one');
+        const type = ok ? planDropType(d.fromStart, p.x, planBarEnds(lay, target), target.row.milestone) : null;
+        const name = ok ? planClip(planText(target.row.bar.task.raw), 30) : '';
+        this.dragTip(svg, p, !ok ? 'Drop on the task to link: its left end to start with, right end to end with' : type === 'fs' ? `${name} waits for this` : type === 'ss' ? `${name} starts with this` : type === 'ff' ? `${name} ends with this` : 'From a start, drop on the other’s left end');
       }
     });
     const end = (e, cancel) => {
@@ -107,7 +144,11 @@ Object.assign(PlanView.prototype, {
       const days = Math.round((p.x - d.x0) / lay.dayW);
       if (d.mode === 'link') {
         const target = rowAt(p.y);
-        if (target && items.includes(target) && target !== d.it) return void this.dropLink(d.it.row.bar.task, target.row.bar.task);
+        if (target && items.includes(target) && target !== d.it) {
+          const type = planDropType(d.fromStart, p.x, planBarEnds(lay, target), target.row.milestone);
+          if (type) return void this.dropLink(d.it.row.bar.task, target.row.bar.task, type);
+          new Notice('From the start of a bar, drop on the left end of the other: it then starts with it');
+        }
         return this.render();
       }
       if (!days) return this.render();
@@ -153,10 +194,10 @@ Object.assign(PlanView.prototype, {
     // back to the earliest it can start anyway: no 🛫 needed
     this.changeTasks(name, [[t, (rest) => planSetSign(rest, '🛫', earliest && start === earliest ? null : start)]]);
   },
-  /** Alt-drag from one bar onto another: `to` waits for `from` (it gets an id first if it has none). */
-  dropLink(from, to) {
-    if (from.id && to.deps.includes(from.id)) {
-      new Notice(`${to.id || planClip(planText(to.raw), 30)} already waits for ${from.id}`);
+  /** Alt-drag from one bar onto another: `to` waits for (fs), starts with (ss) or ends with (ff) `from`; `from` gets an id first if it has none. */
+  dropLink(from, to, type = 'fs') {
+    if (from.id && planLinkIds(to).includes(from.id)) {
+      new Notice(`${to.id || planClip(planText(to.raw), 30)} is already linked to ${from.id}: click its arrow to remove that link first`);
       return this.render();
     }
     if (planDownstream(this.tasks, to).has(from)) {
@@ -170,13 +211,14 @@ Object.assign(PlanView.prototype, {
       id = planNextId(this.tasks.map((x) => x.id).filter(Boolean), planPrefix(fm, planScopeTitle(this.plan)));
       edits.push([from, (rest) => planSetSign(rest, '🆔', id)]);
     }
-    edits.push([to, (rest) => planDepsRest(rest, [id], [])]);
+    edits.push([to, (rest) => (type === 'fs' ? planDepsRest(rest, [id], []) : planLinkRest(rest, type, [{ id, lag: 0 }], []))]);
     this.changeTasks(`link ${id} → ${to.id || planClip(planText(to.raw), 20)}`, edits);
   },
   /** An arrow clicked: remove that link (or open either task). */
   linkMenu(e, l) {
     const m = new Menu();
-    m.addItem((i) => i.setTitle(`Remove the link: ${l.to.id || planClip(planText(l.to.raw), 30)} no longer waits for ${l.from.id}`).setIcon('unlink').onClick(() => this.changeTasks(`link ${l.from.id} → ${l.to.id || ''}`, [[l.to, (rest) => planDepsRest(rest, [], [l.from.id])]])));
+    const drop = (rest) => (l.type === 'ss' || l.type === 'ff' ? planLinkRest(rest, l.type, [], [l.from.id]) : planDepsRest(rest, [], [l.from.id]));
+    m.addItem((i) => i.setTitle(`Remove the link: ${planLinkSentence(l)}`).setIcon('unlink').onClick(() => this.changeTasks(`link ${l.from.id} → ${l.to.id || ''}`, [[l.to, drop]])));
     m.addItem((i) => i.setTitle(`Open ${l.from.id}`).setIcon('file-text').onClick(() => openFile(this.app, l.from.file, null, l.from.line)));
     m.showAtMouseEvent(e);
   },

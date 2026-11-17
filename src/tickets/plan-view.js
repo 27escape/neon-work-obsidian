@@ -384,7 +384,7 @@ class PlanView extends ItemView {
         stepsTd.addEventListener('click', () => this.moveTask(t, 'x'));
       }
       tr.createEl('td', { cls: 'np-id', text: t.id || '' });
-      tr.createEl('td', { cls: 'np-id', text: t.deps.join(', ') });
+      tr.createEl('td', { cls: 'np-id', text: [...t.deps, ...(t.links || []).map((l) => `${planLinkText(l)} (${l.type === 'ss' ? 'starts with' : 'ends with'})`)].join(', ') });
       this.daysCell(tr.createEl('td', { cls: 'np-num np-days' }), t);
       tr.createEl('td', { text: planDayLabel(r.es, this.base, weeks) });
       tr.createEl('td', { text: planDayLabel(Math.max(r.es, r.ef - 1), this.base, weeks) });

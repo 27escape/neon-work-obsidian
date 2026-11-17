@@ -22,10 +22,16 @@ function planLineMarks(line, problems) {
   const dep = line.match(PLAN_DEP_RE);
   const depAt = dep ? dep.index + dep[0].length - dep[1].length : -1;
   for (const p of problems) {
-    if (p.kind === 'missing' && dep) {
-      const re = /[\w-]+/g;
-      let m;
-      while ((m = re.exec(dep[1]))) if (p.ids.includes(m[0])) out.push({ from: depAt + m.index, to: depAt + m.index + m[0].length, text: p.text });
+    if (p.kind === 'missing') {
+      // in the ⛔ list, and in the [starts-with:: ] / [ends-with:: ] fields
+      const spans = [];
+      if (dep) spans.push([depAt, dep[1]]);
+      for (const f of line.matchAll(/\[(?:starts-with|ends-with)::([^\]]*)\]/giu)) spans.push([f.index + f[0].indexOf('::') + 2, f[1]]);
+      for (const [at, text] of spans) {
+        const re = /[\w-]+/g;
+        let m;
+        while ((m = re.exec(text))) if (p.ids.includes(m[0])) out.push({ from: at + m.index, to: at + m.index + m[0].length, text: p.text });
+      }
     } else if (p.kind === 'dup') {
       const id = line.match(PLAN_ID_RE);
       if (id) out.push({ from: id.index + id[0].length - id[1].length, to: id.index + id[0].length, text: p.text });

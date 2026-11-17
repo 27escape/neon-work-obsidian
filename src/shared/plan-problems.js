@@ -46,7 +46,7 @@ function planProblems(tasks, sched) {
 /** The dependency loops: each a list of tasks in waiting order (strongly connected parts of the graph, Tarjan). */
 function planLoops(tasks) {
   const { byId } = planIndex(tasks);
-  const next = (t) => t.deps.map((d) => byId.get(d)).filter(Boolean); // what t waits for
+  const next = (t) => planLinkIds(t).map((d) => byId.get(d)).filter(Boolean); // what t waits for (any link)
   const index = new Map();
   const low = new Map();
   const stack = [];

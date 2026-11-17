@@ -47,6 +47,12 @@ function planGraphText(tasks, sched, { kinds = new Map(), colours = {}, edge = '
       const from = byId.get(d);
       if (from) lines.push(`  ${ids.get(from)} ${onPath(from, t) ? '==>' : '-->'} ${ids.get(t)}`);
     }
+  // run-alongside links: dotted, labelled
+  for (const t of tasks)
+    for (const l of t.links || []) {
+      const from = byId.get(l.id);
+      if (from) lines.push(`  ${ids.get(from)} -.->|${l.type === 'ss' ? 'starts with' : 'ends with'}${l.lag ? ` +${l.lag}d` : ''}| ${ids.get(t)}`);
+    }
   const byKind = new Map();
   for (const t of tasks) {
     const k = kinds.get(t) || 'ready';

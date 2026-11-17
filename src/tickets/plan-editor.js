@@ -36,7 +36,12 @@ class PlanTaskModal extends Modal {
     };
     // the note's other tasks: what the pickers offer
     this.mine = ctx.tasks.filter((x) => !x.external && x.file.path === ctx.file.path && x !== t);
-    this.deps = t ? t.deps.map((id) => ({ id, task: byId.get(id) || null })) : ctx.after ? [{ id: ctx.after.id || null, task: ctx.after }] : [];
+    // what it depends on: after (⛔), starts with or ends with ([starts-with:: ], [ends-with:: ]), with a lag
+    this.deps = t
+      ? [...t.deps.map((id) => ({ id, task: byId.get(id) || null, type: 'fs', lag: 0 })), ...(t.links || []).map((l) => ({ id: l.id, task: byId.get(l.id) || null, type: l.type, lag: l.lag }))]
+      : ctx.after
+        ? [{ id: ctx.after.id || null, task: ctx.after, type: 'fs', lag: 0 }]
+        : [];
     this.owners = t ? (t.owners || []).map((o) => o.text) : []; // as written: [[@Sam Taylor]] or a plain name
     this.peopleNotes = app.vault.getMarkdownFiles().filter((f) => f.basename.startsWith('@')).map((f) => f.basename).sort();
     this.blocks = new Set(t && t.id ? this.mine.filter((x) => x.deps.includes(t.id)) : []);
@@ -196,11 +201,12 @@ class PlanTaskModal extends Modal {
   }
 
   /** A picker: chips of what's chosen, a search box, matching tasks of the note (loops greyed out). */
-  picker(el, { chosen, add, remove, bad, hint }) {
+  picker(el, { chosen, add, remove, bad, hint, extra = null }) {
     el.empty();
     const chips = el.createDiv('np-ed-chips');
     for (const c of chosen) {
       const chip = chips.createSpan({ cls: 'np-ed-tag', text: c.label });
+      if (extra) extra(chip, c);
       const x = chip.createSpan({ cls: 'np-ed-x', text: '×' });
       x.addEventListener('click', () => (remove(c), this.update()));
     }
@@ -226,6 +232,27 @@ class PlanTaskModal extends Modal {
       }
     };
     q.addEventListener('input', draw);
+  }
+
+  /** On a dependency chip: how it is linked (after / starts with / ends with) and, for the last two, a lag. */
+  linkControls(chip, d) {
+    const sel = chip.createEl('select', { cls: 'dropdown np-ed-linktype' });
+    for (const [k, label] of [['fs', 'after'], ['ss', 'starts with'], ['ff', 'ends with']]) sel.createEl('option', { text: label, attr: { value: k } });
+    sel.value = d.type || 'fs';
+    tip(sel, 'After: starts when that one finishes (⛔). Starts with: starts no earlier than it starts. Ends with: finishes no earlier than it finishes.');
+    sel.addEventListener('change', () => {
+      d.type = sel.value;
+      if (d.type === 'fs') d.lag = 0;
+      this.update();
+    });
+    if (d.type === 'fs') return;
+    const lag = chip.createEl('input', { cls: 'np-ed-lag', attr: { type: 'number', min: '0', step: '1', value: String(d.lag || 0), 'aria-label': 'Lag in working days' } });
+    tip(lag, 'Lag: working days after (0: at the same time)');
+    lag.addEventListener('change', () => {
+      d.lag = Math.max(0, Math.round(Number(lag.value) || 0));
+      this.update();
+    });
+    chip.createSpan({ cls: 'np-ed-lag-unit', text: 'd' });
   }
 
   /** Owners: chips, and a search over the people notes (@Name); Enter adds a plain name if none matches. */
@@ -278,7 +305,7 @@ class PlanTaskModal extends Modal {
     }
     const ops = new Map(); // task → { add, remove, id }
     const op = (x) => ops.get(x) || ops.set(x, { add: [], remove: [], id: null }).get(x);
-    f.deps = this.deps.map((d) => {
+    const idOf = (d) => {
       if (d.id) return d.id;
       const o = op(d.task);
       if (!o.id) {
@@ -287,7 +314,9 @@ class PlanTaskModal extends Modal {
         notes.push(`gives “${planClip(planText(d.task.raw), 40)}” the id ${o.id}`);
       }
       return o.id;
-    });
+    };
+    f.deps = this.deps.filter((d) => d.type === 'fs').map(idOf);
+    f.links = Object.fromEntries(['ss', 'ff'].map((k) => [k, this.deps.filter((d) => d.type === k).map((d) => ({ id: idOf(d), lag: d.lag || 0 }))]));
     for (const b of this.blocks)
       if (!this.blocks0.has(b)) {
         op(b).add.push(f.id);
@@ -315,10 +344,11 @@ class PlanTaskModal extends Modal {
     const bad = this.forbidden();
     this.picker(this.depsEl, {
       chosen: this.deps.map((d) => ({ task: d.task, label: d.task ? `${d.task.id || 'new id'} · ${planClip(planText(d.task.raw), 30)}${d.task.external ? ' ↗' : ''}` : `${d.id} (not found)`, d })),
-      add: (x) => this.deps.push({ id: x.id || null, task: x }),
+      add: (x) => this.deps.push({ id: x.id || null, task: x, type: 'fs', lag: 0 }),
+      extra: (chip, c) => this.linkControls(chip, c.d),
       remove: (c) => (this.deps = this.deps.filter((d) => d !== c.d)),
       bad: bad.deps,
-      hint: 'Search this note’s tasks that must be done first…',
+      hint: 'Search this note’s tasks it follows, starts with or ends with…',
     });
     this.picker(this.blocksEl, {
       chosen: [...this.blocks].map((x) => ({ task: x, label: `${x.id || 'no id'} · ${planClip(planText(x.raw), 30)}` })),

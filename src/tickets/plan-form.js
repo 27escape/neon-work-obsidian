@@ -41,7 +41,7 @@ function planSplit(rest) {
   const body = rest.slice(lead.length);
   const at = planFieldAt(body);
   const head = body.slice(0, at);
-  const inline = (head.match(PLAN_FIELD_RE) || []).filter((f) => !/^\[(duration|owner)::/i.test(f)); // the editor sets those two
+  const inline = (head.match(PLAN_FIELD_RE) || []).filter((f) => !/^\[(duration|owner|starts-with|ends-with)::/i.test(f)); // the editor sets these
   return { lead, desc: head.replace(PLAN_FIELD_RE, '').replace(/\s+/g, ' ').trim(), inline, tail: body.slice(at) };
 }
 
@@ -94,11 +94,29 @@ function planDepsRest(rest, add = [], remove = []) {
   return planSetSign(rest, '⛔', next.length ? next.join(',') : null);
 }
 
+/** The field for a run-alongside link type: starts-with (ss) or ends-with (ff). */
+const planLinkName = (type) => (type === 'ss' ? 'starts-with' : 'ends-with');
+/** The text with a link field set to these links ([{ id, lag }]); none removes the field. Its place is kept (pure). */
+function planSetLinks(rest, type, links) {
+  const re = new RegExp(`\\s*\\[${planLinkName(type)}::[^\\]]*\\]`, 'iu');
+  const field = links.length ? `[${planLinkName(type)}:: ${links.map(planLinkText).join(', ')}]` : '';
+  if (re.test(rest)) return rest.replace(re, field ? ` ${field}` : '').replace(/^\s+/, '');
+  if (!field) return rest;
+  const at = planFieldAt(rest);
+  return `${rest.slice(0, at)} ${field}${rest.slice(at)}`;
+}
+/** Add ([{ id, lag }]) and remove (ids) run-alongside links of one type (pure). */
+function planLinkRest(rest, type, add = [], remove = []) {
+  const now = planLinkField(rest, planLinkName(type), type);
+  const next = [...now.filter((l) => !remove.includes(l.id) && !add.some((a) => a.id === l.id)), ...add];
+  return planSetLinks(rest, type, next);
+}
+
 const planTidy = (r) => r.replace(/[ \t]{2,}/g, ' ').trim();
 
 /**
  * A task's text after the editor (pure): { rest, box }. f: { desc, box, days (null: no estimate), milestone, flagged,
- * start, scheduled, due, id, deps: [ids], tag (new tasks: the task tag) }. Done adds ✅ today, cancelled ❌ today.
+ * start, scheduled, due, id, deps: [ids], links: { ss, ff: [{ id, lag }] } (run alongside), tag (new tasks: the task tag) }. Done adds ✅ today, cancelled ❌ today.
  */
 function planApplyForm(rest, box, f, today) {
   const p = planSplit(rest);
@@ -108,6 +126,7 @@ function planApplyForm(rest, box, f, today) {
   for (const [k, sign] of PLAN_DATE_SIGNS) r = planSetSign(r, sign, f[k] || null);
   r = planSetSign(r, '🆔', f.id || null);
   r = planSetSign(r, '⛔', f.deps && f.deps.length ? f.deps.join(',') : null);
+  if (f.links) for (const k of ['ss', 'ff']) r = planSetLinks(r, k, f.links[k] || []); // run alongside
   r = planSetTag(r, 'milestone', !!f.milestone);
   r = planSetTag(r, 'blocked', !!f.flagged);
   if (f.marks) for (const k of ['risk', 'issue', 'decision']) r = planSetTag(r, k, f.marks.includes(k));
@@ -237,7 +256,7 @@ function planAnchorLine(lines, a) {
 /** Tasks that depend on `t`, directly or further on (so `t` can't depend on them: a loop). */
 function planDownstream(tasks, t) {
   const kids = new Map();
-  for (const x of tasks) for (const d of x.deps) (kids.get(d) || kids.set(d, []).get(d)).push(x);
+  for (const x of tasks) for (const d of planLinkIds(x)) (kids.get(d) || kids.set(d, []).get(d)).push(x);
   const out = new Set();
   const walk = (id) => {
     for (const k of kids.get(id) || []) {
@@ -253,7 +272,7 @@ function planDownstream(tasks, t) {
 function planUpstream(byId, t) {
   const out = new Set();
   const walk = (x) => {
-    for (const d of x.deps) {
+    for (const d of planLinkIds(x)) {
       const y = byId.get(d);
       if (!y || out.has(y)) continue;
       out.add(y);

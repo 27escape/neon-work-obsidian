@@ -156,6 +156,12 @@ function planGanttLayout(rows, { today = null, relative = false, width = 900, la
   return { width: labelW + n * dayW + 8, height: y + 6, labelW, dayW, rowH, headH, days, ticks, today: t, items };
 }
 
+/** "b waits for a", "b starts with a (+2d)", "b ends with a". */
+function planLinkSentence(l) {
+  const to = l.to.id || planClip(planText(l.to.raw), 30);
+  const lag = l.lag ? ` (+${l.lag}d)` : '';
+  return l.type === 'ss' ? `${to} starts with ${l.from.id}${lag}` : l.type === 'ff' ? `${to} ends with ${l.from.id}${lag}` : `${to} waits for ${l.from.id}`;
+}
 /** Where a bar starts and ends on the drawn chart (x from the left of the SVG): a milestone is a diamond. */
 function planBarEnds(lay, it) {
   const mid = it.y + lay.rowH / 2;
@@ -204,7 +210,27 @@ function planGanttLinks(lay) {
         d = `M${a.x1},${a.y} H${a.x1 + gap} V${between} H${b.x0 - gap * 1.5} V${b.y} H${b.x0}`;
         end = { x: b.x0, y: b.y, dir: 'right' };
       }
-      out.push({ from: p.row.bar.task, to: t, d, end, crit: !!(p.row.bar.crit && it.row.bar.crit), late: p.row.bar.kind === 'overdue' });
+      out.push({ from: p.row.bar.task, to: t, type: 'fs', d, end, crit: !!(p.row.bar.crit && it.row.bar.crit), late: p.row.bar.kind === 'overdue' });
+    }
+    // run alongside: start to start (round the left of both bars), end to end (round the right)
+    for (const l of t.links || []) {
+      const p = byId.get(l.id);
+      if (!p || p === it) continue;
+      const a = planBarEnds(lay, p);
+      const b = planBarEnds(lay, it);
+      const gap = 6;
+      let d;
+      let end;
+      if (l.type === 'ss') {
+        const x = Math.min(a.x0, b.x0) - gap;
+        d = `M${a.x0},${a.y} H${x} V${b.y} H${b.x0}`;
+        end = { x: b.x0, y: b.y, dir: 'right' };
+      } else {
+        const x = Math.max(a.x1, b.x1) + gap;
+        d = `M${a.x1},${a.y} H${x} V${b.y} H${b.x1}`;
+        end = { x: b.x1, y: b.y, dir: 'left' };
+      }
+      out.push({ from: p.row.bar.task, to: t, type: l.type, lag: l.lag, d, end, crit: !!(p.row.bar.crit && it.row.bar.crit), late: false });
     }
   }
   return out;
@@ -244,9 +270,11 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = 
     const strong = l.crit || l.late;
     // classes as a list: Obsidian adds an SVG element's classes one by one, and a name with a space throws
     const g = svg.createSvg('g', { cls: strong ? ['np-g-link', 'is-strong'] : 'np-g-link', attr: { 'data-from': planKey(l.from), 'data-to': planKey(l.to), opacity: strong ? '0.9' : '0.4' } });
-    g.createSvg('path', { attr: { d: l.d, fill: 'none' } }).setAttr('style', `stroke: ${c}; stroke-width: ${l.crit || l.late ? 1.6 : 1}`);
+    // run-alongside links (starts with, ends with) dashed, so they read differently from "after"
+    g.createSvg('path', { attr: { d: l.d, fill: 'none' } }).setAttr('style', `stroke: ${c}; stroke-width: ${l.crit || l.late ? 1.6 : 1}${l.type !== 'fs' ? '; stroke-dasharray: 4 3' : ''}`);
     const { x, y, dir } = l.end;
-    const head = dir === 'down' ? `${x},${y} ${x - 3.5},${y - 5} ${x + 3.5},${y - 5}` : dir === 'up' ? `${x},${y} ${x - 3.5},${y + 5} ${x + 3.5},${y + 5}` : `${x},${y} ${x - 5},${y - 3.5} ${x - 5},${y + 3.5}`;
+    const head =
+      dir === 'down' ? `${x},${y} ${x - 3.5},${y - 5} ${x + 3.5},${y - 5}` : dir === 'up' ? `${x},${y} ${x - 3.5},${y + 5} ${x + 3.5},${y + 5}` : dir === 'left' ? `${x},${y} ${x + 5},${y - 3.5} ${x + 5},${y + 3.5}` : `${x},${y} ${x - 5},${y - 3.5} ${x - 5},${y + 3.5}`;
     g.createSvg('polygon', { attr: { points: head } }).setAttr('style', `fill: ${c}`);
   }
   const maxChars = Math.floor((labelW - 18) / 6.4);
@@ -309,7 +337,7 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = 
     for (const l of arrows) {
       const hit = svg.createSvg('path', { cls: 'np-g-link-hit', attr: { d: l.d, fill: 'none' } });
       hit.setAttr('style', 'stroke: transparent; stroke-width: 9; cursor: pointer');
-      hit.createSvg('title').textContent = `${l.to.id || planText(l.to.raw)} waits for ${l.from.id}: click to remove the link`;
+      hit.createSvg('title').textContent = `${planLinkSentence(l)}: click to remove the link`;
       hit.addEventListener('click', (e) => {
         e.stopPropagation();
         onLink(e, l);

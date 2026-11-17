@@ -5422,6 +5422,25 @@ body:not(.nd-themed) .nd-empty {
   gap: 8px;
   margin-top: 10px;
 }
+/* how a dependency is linked: after / starts with / ends with, and a lag */
+.np-ed-tag .np-ed-linktype {
+  height: auto;
+  padding: 0 18px 0 4px;
+  margin-left: 6px;
+  font-size: 11px;
+}
+.np-ed-tag .np-ed-lag {
+  width: 3.2em;
+  height: auto;
+  padding: 0 2px;
+  margin-left: 4px;
+  font-size: 11px;
+}
+.np-ed-tag .np-ed-lag-unit {
+  margin-left: 1px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
 /* @css src/tickets/styles-plan-extra.css */
 /* forecast, baseline, markers */
 .np-plan .np-sum.is-late {

@@ -53,13 +53,34 @@ function planTask(line, at = {}) {
   const id = (raw.match(/🆔\s*([\w-]+)/u) || [])[1] || null;
   const dm = raw.match(/⛔️?\s*([\w-]+(?:\s*,\s*[\w-]+)*)/u);
   const deps = dm ? [...new Set(dm[1].split(',').map((x) => x.trim()).filter(Boolean))] : [];
+  const links = [...planLinkField(raw, 'starts-with', 'ss'), ...planLinkField(raw, 'ends-with', 'ff')]; // fork: run alongside
   const du = raw.match(/\[duration::\s*(\d+(?:\.\d+)?)\s*(d|days?|w|weeks?)?\s*\]/iu);
   const days = du ? Math.max(0, Math.round(parseFloat(du[1]) * (/^w/i.test(du[2] || '') ? 5 : 1))) : null;
   const milestone = /(^|\s)#milestone(?=\s|$)/iu.test(raw); // fork: a milestone is tagged, not just 0 days
   const flagged = /(^|\s)#blocked(?=\s|$)/iu.test(raw); // blocked by something outside the plan (a supplier, an approval)
   const marks = ['risk', 'issue', 'decision'].filter((k) => new RegExp(`(^|\\s)#${k}(?=\\s|$)`, 'iu').test(raw)); // markers
-  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, days, milestone, flagged, marks, owners: planOwners(raw), priority: planPriority(raw), due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
+  return { status: PLAN_STATES[m[1]], box: m[1], raw, id, deps, links, days, milestone, flagged, marks, owners: planOwners(raw), priority: planPriority(raw), due: date('📅'), scheduled: date('⏳'), start: date('🛫'), done: date('✅'), ...at };
 }
+
+/**
+ * Links that let tasks run alongside (fork, 17 Nov): [starts-with:: a, b+2d] starts no earlier than a starts (plus
+ * a lag in working days, d or w); [ends-with:: a] finishes no earlier than a finishes. ⛔ stays "starts when that
+ * finishes", as the Tasks plugin reads it. [{ id, type: 'ss' | 'ff', lag }].
+ */
+function planLinkField(raw, name, type) {
+  const m = String(raw || '').match(new RegExp(`\\[${name}::\\s*([^\\]]*)\\]`, 'iu'));
+  if (!m) return [];
+  const out = [];
+  for (const part of m[1].split(',')) {
+    const x = part.trim().match(/^([\w-]+)\s*(?:\+\s*(\d+)\s*(d|w)?)?$/i);
+    if (x) out.push({ id: x[1], type, lag: x[2] ? Number(x[2]) * (/w/i.test(x[3] || '') ? 5 : 1) : 0 });
+  }
+  return out;
+}
+/** Every id a task is linked to (⛔ and the run-alongside links). */
+const planLinkIds = (t) => [...(t.deps || []), ...(t.links || []).map((l) => l.id)];
+/** A link as written in its field: "a" or "a+2d". */
+const planLinkText = (l) => `${l.id}${l.lag ? `+${l.lag}d` : ''}`;
 
 /** Does the text carry one of the task tags ("#task, #todo"); whole tags, any case. */
 function planHasTag(raw, tags) {
@@ -111,7 +132,10 @@ function planState(t, byId, today = null) {
   if (planClosed(t)) return 'done';
   if (t.status === 'doing') return 'doing';
   if (t.flagged || planBlockers(t, byId, today).length) return 'blocked';
-  return t.deps.some((d) => byId.has(d) && !planClosed(byId.get(d))) ? 'waiting' : 'ready';
+  // waiting: something it follows (⛔) is still open, or something it starts with hasn't started
+  const open = (d) => byId.has(d) && !planClosed(byId.get(d));
+  const unstarted = (l) => l.type === 'ss' && byId.has(l.id) && byId.get(l.id).status === 'todo';
+  return t.deps.some(open) || (t.links || []).some(unstarted) ? 'waiting' : 'ready';
 }
 
 /** Working days a task takes: its duration, else 1 (as Project Planner draws undated tasks); milestones and cancelled: 0. */
@@ -130,11 +154,15 @@ function planSchedule(tasks, { notBefore = 0, from = null } = {}) {
   const { byId, dups } = planIndex(tasks);
   const n = tasks.length;
   const pos = new Map(tasks.map((t, i) => [t, i]));
-  const preds = tasks.map((t) => t.deps.filter((d) => byId.has(d)).map((d) => pos.get(byId.get(d))));
+  // what each task is held by: ⛔ (fs: after it finishes), starts-with (ss) and ends-with (ff), with a lag
+  const preds = tasks.map((t) => [
+    ...t.deps.filter((d) => byId.has(d)).map((d) => ({ p: pos.get(byId.get(d)), type: 'fs', lag: 0 })),
+    ...(t.links || []).filter((l) => byId.has(l.id)).map((l) => ({ p: pos.get(byId.get(l.id)), type: l.type, lag: l.lag })),
+  ]);
   const succs = tasks.map(() => []);
-  preds.forEach((ps, i) => ps.forEach((p) => succs[p].push(i)));
+  preds.forEach((ps, i) => ps.forEach((x) => succs[x.p].push({ s: i, type: x.type, lag: x.lag })));
   const missing = [];
-  for (const t of tasks) for (const d of t.deps) if (!byId.has(d)) missing.push({ task: t, id: d });
+  for (const t of tasks) for (const d of planLinkIds(t)) if (!byId.has(d)) missing.push({ task: t, id: d });
   const cycles = new Set();
   const es = new Array(n).fill(0);
   const seen = new Array(n).fill(0); // 0 new, 1 on the path, 2 done
@@ -146,7 +174,13 @@ function planSchedule(tasks, { notBefore = 0, from = null } = {}) {
     }
     seen[i] = 1;
     let s = 0;
-    for (const p of preds[i]) s = Math.max(s, finish(p));
+    const d = planDays(tasks[i]);
+    for (const x of preds[i]) {
+      const ef = finish(x.p);
+      if (x.type === 'fs') s = Math.max(s, ef);
+      else if (x.type === 'ss') s = Math.max(s, (seen[x.p] === 2 ? es[x.p] : 0) + x.lag);
+      else s = Math.max(s, ef + x.lag - d); // ff: finish no earlier than it finishes
+    }
     if (tasks[i].status === 'todo') s = Math.max(s, notBefore);
     const t0 = tasks[i];
     if (from && t0.start && !planClosed(t0)) s = Math.max(s, planWorkdaysBetween(from, t0.start));
@@ -162,7 +196,13 @@ function planSchedule(tasks, { notBefore = 0, from = null } = {}) {
     if (path.has(i)) return length;
     path.add(i);
     let f = length;
-    for (const s of succs[i]) f = Math.min(f, late(s, path));
+    const d = planDays(tasks[i]);
+    for (const x of succs[i]) {
+      const ls = late(x.s, path); // the latest the next task can start
+      if (x.type === 'fs') f = Math.min(f, ls);
+      else if (x.type === 'ss') f = Math.min(f, ls - x.lag + d);
+      else f = Math.min(f, ls + planDays(tasks[x.s]) - x.lag); // ff: its latest finish, less the lag
+    }
     path.delete(i);
     lf[i] = f;
     return f - planDays(tasks[i]);

@@ -56,7 +56,7 @@ async function planCollect(app, scope, { neighbours = true } = {}) {
   for (const f of files) tasks.push(...(await planReadFile(app, f)));
   if (!neighbours) return tasks;
   const ids = new Set(tasks.filter((t) => t.id).map((t) => t.id));
-  const wanted = new Set(tasks.flatMap((t) => t.deps).filter((d) => !ids.has(d)));
+  const wanted = new Set(tasks.flatMap(planLinkIds).filter((d) => !ids.has(d)));
   if (!ids.size && !wanted.size) return tasks;
   const inside = new Set(files.map((f) => f.path));
   const deck = neonPlugin(app, 'neon-deck');
@@ -67,7 +67,7 @@ async function planCollect(app, scope, { neighbours = true } = {}) {
     const text = await app.vault.cachedRead(f);
     if (!text.includes('🆔') && !text.includes('⛔')) continue;
     for (const t of await planReadFile(app, f))
-      if ((t.id && wanted.has(t.id)) || t.deps.some((d) => ids.has(d))) tasks.push(Object.assign(t, { external: true }));
+      if ((t.id && wanted.has(t.id)) || planLinkIds(t).some((d) => ids.has(d))) tasks.push(Object.assign(t, { external: true }));
   }
   return tasks;
 }
