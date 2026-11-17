@@ -117,7 +117,8 @@ function planGanttLayout(rows, { today = null, relative = false, width = 900, la
   for (let i = 0; i < n; i++) {
     const date = ymdAdd(from, i);
     const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
-    days.push({ x: i * dayW, date, weekend: dayW >= 6 && (wd === 0 || wd === 6) }); // too narrow: no shading
+    // days off shaded: weekends, and with real dates the settings' holidays and closure days; too narrow: no shading
+    days.push({ x: i * dayW, date, weekend: dayW >= 6 && (relative ? wd === 0 || wd === 6 : !planCal().isWorkday(date)) });
     // a line each Monday, or on the 1st of each month when weeks would crowd
     const weekly = dayW * 7 >= 46;
     if (weekly ? wd === 1 : date.endsWith('-01')) {

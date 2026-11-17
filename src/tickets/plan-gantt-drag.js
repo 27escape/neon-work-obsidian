@@ -8,12 +8,12 @@
  * through the usual queue (editTask); Undo puts the last change back. Off on phones (dragging would fight the
  * scrolling). Kevin, 17 Nov: Alt for links, 🛫 for moving. */
 
-/** The working day a dragged date lands on: a Saturday or Sunday moves to the Monday (pure). */
+/** The working day a dragged date lands on: a day off moves to the next working day. */
 const planDropDay = (ymd) => planWorkdays(ymd, 0);
-/** The working day before a date (pure). */
+/** The working day before a date (the settings' calendar). */
 function planWorkdaysBack(ymd) {
   let d = ymdAdd(ymd, -1);
-  while ([0, 6].includes(new Date(`${d}T00:00:00Z`).getUTCDay())) d = ymdAdd(d, -1);
+  for (let n = 0; !planCal().isWorkday(d) && n < 400; n++) d = ymdAdd(d, -1);
   return d;
 }
 /** Length in working days of a bar from start to last (inclusive), at least 1 (pure). */

@@ -326,7 +326,7 @@ class PlanTaskModal extends Modal {
     this.drawOwners();
     const f0 = this.form;
     const weekend = PLAN_DATE_SIGNS.map(([k, sign]) => (planWeekend(f0[k]) ? `${sign} ${planWeekend(f0[k])}` : '')).filter(Boolean);
-    if (this.weekendEl) this.weekendEl.setText(weekend.length ? `⚠ On a weekend: ${weekend.join(', ')}. Working days skip weekends; move it to a weekday?` : '');
+    if (this.weekendEl) this.weekendEl.setText(weekend.length ? `⚠ Not a working day: ${weekend.join(', ')}. Working days skip weekends and holidays; move it to a working day?` : '');
     const bad = this.forbidden();
     this.picker(this.depsEl, {
       chosen: this.deps.map((d) => ({ task: d.task, label: d.task ? `${d.task.id || 'new id'} · ${planClip(planText(d.task.raw), 30)}${d.task.external ? ' ↗' : ''}` : `${d.id} (not found)`, d })),

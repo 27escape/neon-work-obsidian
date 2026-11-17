@@ -23,6 +23,7 @@ function planReportText(r) {
   if (r.forecast) L.push(`- **Forecast:** ${r.forecast}${r.baseline ? ` ${r.baseline}` : ''}`);
   if (r.summary) L.push(`- **Tasks:** ${r.summary}`);
   if (r.crit.length) L.push(`- **Critical path:** ${r.crit.length} tasks, ${d(r.crit[0].start)} to ${d(r.crit[r.crit.length - 1].end)}`);
+  if (r.holidays) L.push(`- **Holidays:** ${r.holidays}`);
   L.push('');
   if (r.svg) L.push('## Timeline', '', `![[${r.svg}]]`, '', '*Arrows: what waits for what (dashed: starts with / ends with). 2/4: steps done. Outlined bars: the critical path.*', '');
   if (r.phases.length) {
@@ -31,8 +32,9 @@ function planReportText(r) {
     L.push('');
   }
   if ((r.people || []).length) {
-    L.push('## People', '', '| Person | Open tasks | Done | Days of open work | Phases |', '|---|---|---|---|---|');
-    for (const p of r.people) L.push(`| ${planCell(p.name)} | ${p.open} | ${p.done} | ${p.days} | ${planCell(p.phases.join(', '))} |`);
+    const off = r.people.some((p) => p.off); // a Time off column only when someone has time off in the plan
+    L.push('## People', '', `| Person | Open tasks | Done | Days of open work | Phases |${off ? ' Time off |' : ''}`, `|---|---|---|---|---|${off ? '---|' : ''}`);
+    for (const p of r.people) L.push(`| ${planCell(p.name)} | ${p.open} | ${p.done} | ${p.days} | ${planCell(p.phases.join(', '))} |${off ? ` ${planCell(p.off)} |` : ''}`);
     L.push('', '*People named as a task owner ([owner:: …]).*', '');
   }
   L.push('## Needs attention', '');
@@ -102,8 +104,10 @@ Object.assign(PlanView.prototype, {
       attention,
       marks,
       crit,
-      load: this.loadLines(plan.sched),
-      people: planReportPeople(own),
+      load: this.loadLines(plan.sched, !!this.dated),
+      // people and the plan's days off, from its first day to its forecast finish (real dates only)
+      people: planReportPeople(own).map((p) => ({ ...p, off: this.dated ? planLeaveText(planLeaveFor(this.tasks.leave, p), planWorkdays(this.base, 0), this.dated.end || this.today) : '' })),
+      holidays: this.dated ? planDaysOff(planWorkdays(this.base, 0), this.dated.end || this.today).map((h) => `${planShortDate(h.date)} ${h.name}`).join(', ') : '',
       details: noteText ? planReportDetails(noteText, { note: (this.scopeFile() || {}).basename || '', lastLine: own.filter((t) => t.file === this.scopeFile()).reduce((m, t) => (t.line > m ? t.line : m), -1), taskTags: NEON_PLAN.taskTag }) : '',
     };
   },

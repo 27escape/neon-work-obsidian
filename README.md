@@ -77,6 +77,15 @@ A lightweight planner over the tasks already in a project note (or a project fol
 ![A Planning report, ready to print](docs/screenshots/planning-report.png)
 
 - **Steps:** the checkboxes directly under a task (`- [ ]` / `- [x]`, or `- ( )` / `- (x)`) are its steps, shown as 2/4 on its bar (with a progress line), in the List and on its card; cancelled ones (`[-]`, `(-)`) and notes such as `[?]` don't count. When every step is done but the task isn't, Planning offers to tick it (it never does so by itself). A task tagged `#task` (or with a 🆔) inside another task is flagged: make it a plain checkbox or its own task.
+- **Holidays and time off:** in *Settings → Projects*, choose **Public holidays** (England and Wales, Scotland or Northern Ireland, worked out by the plugin each year, substitute days included), the **Working days** of the week, and **Closure days** when the whole team is off (dates or ranges like `2026-12-29 to 2026-12-31`; also for one-off bank holidays). Planning skips them in every date it works out and shades them on the Gantt. People's own time off goes in a **Team holidays note** (a setting, for every plan) or a project note's `## Holidays` section:
+
+  ```
+  - [[@Kevin Mulholland]]
+      - 2026-12-24 to 2027-01-02
+      - every Tuesday
+  ```
+
+  Write the person as in `[owner:: …]` (or just their first name). A task then takes longer when its owner is off (with several owners, a day counts when all of them work), the workload warning counts each person's own days available that week, and the report lists the plan's holidays and each person's time off. Dates are always YYYY-MM-DD. Weeks view has no dates, so it keeps plain Monday to Friday.
 - **Plan problems:** a ⛔ id no task has (say, after folding tasks into a holding task), an id used twice or a dependency loop is listed at the top of the Planning view, naming the task (click to open the note at that line), in the report's *Needs attention*, as a pill on the project's card and row, and underlined in the note itself while you edit it (hover for the reason; nothing is written).
 - **Plan template:** `project_plan.md` (in the sample vault's templates) gives four phases of example tasks with ids filled in by New project.
 

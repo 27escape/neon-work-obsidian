@@ -288,7 +288,7 @@ function planPlannedDates(tasks, base, today) {
   const out = new Map();
   if (!base) return out;
   const from = planWorkdays(base, 0);
-  const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today) : 0, from });
+  const sched = planSchedule(tasks, { notBefore: today ? planWorkdaysBetween(from, today) : 0, from, span: planLeaveSpan(tasks.leave, from) });
   for (const r of sched.rows) out.set(r.task, { start: planWorkdays(from, r.es), due: planWorkdays(from, Math.max(r.es, r.ef - 1)) });
   return out;
 }
@@ -298,13 +298,12 @@ function planFillPrefix(text, prefix) {
   return text.replace(/\{\{\s*prefix\s*\}\}/g, prefix);
 }
 const PLAN_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-/** "Saturday" / "Sunday" for a weekend date, else '' (pure). */
+/** Why a date isn't a working day: "Saturday", "Christmas Day", "a closure day"…; '' for a working day (the settings' calendar). */
 function planWeekend(ymd) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd || '')) return '';
-  const d = new Date(`${ymd}T00:00:00Z`).getUTCDay();
-  return d === 0 || d === 6 ? PLAN_DAY_NAMES[d] : '';
+  return planCal().off(ymd);
 }
-/** Open tasks with a 🛫 ⏳ 📅 date on a weekend: [{ task, sign, date, day }]. */
+/** Open tasks with a 🛫 ⏳ 📅 date on a day off (weekend, holiday, closure): [{ task, sign, date, day }]. */
 function planWeekendDates(tasks) {
   const out = [];
   for (const t of tasks)

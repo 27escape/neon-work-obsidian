@@ -1,7 +1,7 @@
 /* ---- Project plans (fork): owners in the Planning view -------------------------------------------------------------
  * Owners come from [owner:: [[@Sam Taylor]], Alex] (people notes or plain names). The view can show one person's
  * tasks (the Gantt, board and list leave the others out; the graph greys them), group the board by person, and
- * warns when someone has more than five days of work in a week. */
+ * warns when someone has more than their working days in a week (five, fewer with holidays or time off). */
 
 const PLAN_NOBODY = '\u0000nobody'; // the filter value for tasks without an owner
 
@@ -48,12 +48,24 @@ Object.assign(PlanView.prototype, {
     return this.who === PLAN_NOBODY ? !owners.length : owners.some((o) => o.key === this.who);
   },
   /** "Marcus Hale has 7 days of work in the week of Mon 23 Nov (5 available)". */
-  loadLines(sched) {
-    const weeks = this.weeks || !this.base;
-    return planOverloads(sched.rows).map(({ name, week, days, lowest }) => {
-      const when = weeks ? `Wk ${week + 1}` : `the week of ${planDayLabel(week * 5, this.base, false)}`;
+  loadLines(sched, dated = !(this.weeks || !this.base)) {
+    let cap = 5;
+    let opts = {};
+    if (dated && this.base) {
+      // calendar weeks, each person's own working days in them (holidays and their time off left out)
+      const from = planWorkdays(this.base, 0);
+      const leave = this.tasks.leave;
+      const days = new Map();
+      const dayOf = (d) => days.get(d) || days.set(d, planWorkdays(from, d)).get(d);
+      const monday = (ymd) => ymdAdd(ymd, -((planDow(ymd) + 6) % 7));
+      const free = (o, ymd) => !planLeaveOff(planLeaveFor(leave, o), ymd);
+      opts = { weekOf: (d) => monday(dayOf(d)), works: (o, d) => free(o, dayOf(d)) };
+      cap = (o, week) => [0, 1, 2, 3, 4, 5, 6].map((i) => ymdAdd(week, i)).filter((d) => planCal().isWorkday(d) && free(o, d)).length;
+    }
+    return planOverloads(sched.rows, cap, opts).map(({ name, week, days, cap: avail, lowest }) => {
+      const when = typeof week === 'string' ? `the week of ${moment(week, 'YYYY-MM-DD').format('ddd D MMM')}` : `Wk ${week + 1}`;
       const move = lowest ? `; the easiest to move: ${lowest.id || planClip(planText(lowest.raw), 30)}${lowest.priority !== 2 ? ` (${PLAN_PRIORITIES.find((p) => p[0] === lowest.priority)[2].toLowerCase()} priority)` : ''}` : '';
-      return `${name} has ${days} days of work in ${when} (5 available)${move}`;
+      return `${name} has ${days} days of work in ${when} (${avail} available)${move}`;
     });
   },
   /** "👤 Marcus, Sofia" for a card or row, or ''. */

@@ -30,12 +30,16 @@ const PLAN_WORST = ['overdue', 'blocked', 'soon', 'doing', 'waiting', 'ready', '
  * project's start date or null. phases: one bar per phase (its first start to its last finish, coloured by its worst
  * task). due: the project's due date; with real dates the plan's forecast finish and the due date are drawn as two
  * milestones, and late says how many working days the forecast is past the due date (0: on time).
+ * With real dates, working days follow the settings' calendar and a task stretches over its owners' time off (leave:
+ * the time off planCollect gathered); counted in weeks, plain Monday to Friday.
  */
-function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null } = {}) {
+function planGanttText(tasks, { base = null, weeks = false, today = null, maxName = 45, show = null, phases = false, due = null, leave = tasks.leave } = {}) {
   const relative = weeks || !base;
-  const from = relative ? PLAN_WEEK_BASE : planWorkdays(base, 0);
+  const cal = relative ? PLAN_PLAIN_CAL : planCal();
+  const W = (d, n) => planWorkdays(d, n, cal);
+  const from = relative ? PLAN_WEEK_BASE : W(base, 0);
   // with real dates, work not started yet is forecast from today, not from the project's start
-  const sched = planSchedule(tasks, { notBefore: !relative && today ? planWorkdaysBetween(from, today) : 0, from: relative ? null : from });
+  const sched = planSchedule(tasks, { notBefore: !relative && today ? planWorkdaysBetween(from, today, cal) : 0, from: relative ? null : from, span: relative ? null : planLeaveSpan(leave, from, cal) });
   const { byId } = planIndex(tasks);
   const lines = ['gantt', '  dateFormat YYYY-MM-DD', `  axisFormat ${relative ? 'Wk %W' : '%d %b'}`, '  tickInterval 1week', '  weekday monday', '  excludes weekends', `  todayMarker ${!relative && today ? 'on' : 'off'}`];
   const groups = new Map();
@@ -63,12 +67,14 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
       const days = planDays(t);
       let start;
       let last; // the bar's last day (inclusive)
-      if (t.milestone) start = last = !relative && (t.due || t.start) ? t.due || t.start : planWorkdays(from, r.es);
+      if (t.milestone) start = last = !relative && (t.due || t.start) ? t.due || t.start : W(from, r.es);
       else if (!relative && t.start && t.due && t.due >= t.start) [start, last] = [t.start, t.due];
       else {
         // done: where it really started; open: the schedule, which keeps a 🛫 date as "not before"
-        start = !relative && t.start && planClosed(t) ? t.start : planWorkdays(from, r.es);
-        last = planWorkdays(start, Math.max(0, days - 1));
+        // the bar's end: from the schedule, so it takes in the owners' time off
+        const done = !relative && t.start && planClosed(t);
+        start = done ? t.start : W(from, r.es);
+        last = done ? W(start, Math.max(0, days - 1)) : W(from, Math.max(r.es, r.ef - 1));
       }
       const mark = planMark(t);
       const bar = { id: `np${bars.length + 1}`, task: t, kind: planBarKind(t, state, today, relative ? null : last), crit, mark: mark ? mark[0] : null, start, end: last };
@@ -104,7 +110,7 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
   let late = 0;
   if (!relative && end) {
     // the project: its forecast finish, and its due date if it has one
-    late = due && end > due ? planWorkdaysBetween(due, end) : 0;
+    late = due && end > due ? planWorkdaysBetween(due, end, cal) : 0;
     lines.push('  section Project');
     drawn.push({ section: 'Project' });
     const fin = { id: `np${bars.length + 1}`, task: null, kind: late ? 'overdue' : 'ready', crit: false, mark: null, start: end, end };

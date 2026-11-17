@@ -63,6 +63,7 @@ Copy the three files from `dist/neon-work/` into `<vault>/.obsidian/plugins/neon
 | Tasks | Folder for notes without a customer | `2.Resources` |
 | Tasks | Note / Meeting / Person / Research template | `2.Resources/templates/note_template.md` / `meeting_template.md` / `person_template.md` / `research_template.md` |
 | Projects | Project template | `2.Resources/templates/project_template.md` |
+| Projects | Public holidays | England and Wales |
 | Research | Sections | `2.Resources/Research` and `1.Customers/*/Research` |
 | Research | Template note | `2.Resources/templates/research_template.md` |
 

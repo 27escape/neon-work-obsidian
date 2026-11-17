@@ -54,6 +54,27 @@ class NeonProjectsSettingTab extends PluginSettingTab {
       .setName('Planning reports folder')
       .setDesc(`Where Report (in the Planning view) saves a plan's report note and its chart. Empty: ${basePath('Reports')} (in the base folder).`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Reports')).setValue(s.planReportsFolder || '').onChange((v) => ((s.planReportsFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'));
+    // Planning's working days (plan-calendar.js): open plans are redrawn when one changes
+    const plans = () => (proj(), p.app.workspace.getLeavesOfType(VIEW_PLAN).forEach((l) => l.view && l.view.refresh && l.view.refresh()));
+    new Setting(containerEl)
+      .setName('Public holidays')
+      .setDesc('Planning skips these as well as weekends: worked out by the plugin for each year, with substitute days when one falls on a weekend.')
+      .addDropdown((d) => {
+        for (const [k, label] of PLAN_REGIONS) d.addOption(k, label);
+        d.setValue(s.planHolidayRegion || '').onChange((v) => ((s.planHolidayRegion = v), plans()));
+      });
+    new Setting(containerEl)
+      .setName('Working days')
+      .setDesc('The days of the week Planning counts, e.g. Mon, Tue, Wed, Thu, Fri or Mon-Fri.')
+      .addText((t) => t.setPlaceholder('Mon, Tue, Wed, Thu, Fri').setValue(s.planWorkdays || '').onChange((v) => ((s.planWorkdays = v), plans())));
+    new Setting(containerEl)
+      .setName('Closure days')
+      .setDesc('Days the whole team is off, one per line: a date (2026-12-29) or a range (2026-12-29 to 2026-12-31). Also for one-off bank holidays.')
+      .addTextArea((t) => t.setPlaceholder('2026-12-29 to 2026-12-31').setValue(s.planClosures || '').onChange((v) => ((s.planClosures = v), plans())));
+    new Setting(containerEl)
+      .setName('Team holidays note')
+      .setDesc('People’s time off, for every plan: a list with a person on each line ([[@Name]] as in [owner:: …]) and their dates under it: 2026-12-24 to 2027-01-02, or every Tuesday. A project note can add its own in a Holidays section.')
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder('Team holidays').setValue(s.planLeaveNote || '').onChange((v) => ((s.planLeaveNote = v.trim()), plans())), 'file'));
     new Setting(containerEl)
       .setName('Underline plan problems in project notes')
       .setDesc('While you edit a project note: a ⛔ id no task has, a 🆔 used twice, and the links of a dependency loop get a wavy underline, with the reason on hover. Only the display changes, nothing is written.')

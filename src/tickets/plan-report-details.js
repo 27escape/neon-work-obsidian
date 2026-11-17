@@ -7,13 +7,13 @@
  * [duration:: …], 🛫 …) and the task tags, and their boxes become ☐ / ☑ so the copy never counts as tasks twice in
  * Tasks or Dataview queries. Both pure (tested). */
 
-/** [{ name, open, done, days, phases }] for each task owner, in the order they first appear. */
+/** [{ key, name, open, done, days, phases }] for each task owner, in the order they first appear. */
 function planReportPeople(tasks) {
   const by = new Map();
   for (const t of tasks) {
     if (t.external) continue;
     for (const o of t.owners || []) {
-      if (!by.has(o.key)) by.set(o.key, { name: o.name, open: 0, done: 0, days: 0, phases: [] });
+      if (!by.has(o.key)) by.set(o.key, { key: o.key, name: o.name, open: 0, done: 0, days: 0, phases: [] });
       const p = by.get(o.key);
       if (planClosed(t)) p.done++;
       else (p.open++, (p.days += planDays(t)));

@@ -149,8 +149,9 @@ const planDays = (t) => (t.status === 'cancelled' || t.milestone ? 0 : t.days ==
  * dups: [id] }. Tasks in a dependency loop are reported and scheduled as if the loop's last link were absent.
  * from: the plan's first working day (date mode): an open task's 🛫 start date is then "not before" that date, so
  * moving it moves everything that waits for it (fork, 17 Nov: dragging a bar on the Gantt writes 🛫).
+ * span: (task, es, days) → the working days it spans from es, longer when its owners are off (planLeaveSpan).
  */
-function planSchedule(tasks, { notBefore = 0, from = null } = {}) {
+function planSchedule(tasks, { notBefore = 0, from = null, span = null } = {}) {
   const { byId, dups } = planIndex(tasks);
   const n = tasks.length;
   const pos = new Map(tasks.map((t, i) => [t, i]));
@@ -165,9 +166,10 @@ function planSchedule(tasks, { notBefore = 0, from = null } = {}) {
   for (const t of tasks) for (const d of planLinkIds(t)) if (!byId.has(d)) missing.push({ task: t, id: d });
   const cycles = new Set();
   const es = new Array(n).fill(0);
+  const len = new Array(n).fill(0); // working days each task spans (its duration, plus its owners' days off)
   const seen = new Array(n).fill(0); // 0 new, 1 on the path, 2 done
   const finish = (i) => {
-    if (seen[i] === 2) return es[i] + planDays(tasks[i]);
+    if (seen[i] === 2) return es[i] + len[i];
     if (seen[i] === 1) {
       cycles.add(i);
       return 0;
@@ -185,53 +187,57 @@ function planSchedule(tasks, { notBefore = 0, from = null } = {}) {
     const t0 = tasks[i];
     if (from && t0.start && !planClosed(t0)) s = Math.max(s, planWorkdaysBetween(from, t0.start));
     es[i] = s;
+    len[i] = span ? Math.max(d, span(t0, s, d)) : d;
     seen[i] = 2;
-    return s + planDays(tasks[i]);
+    return s + len[i];
   };
   let length = 0;
   for (let i = 0; i < n; i++) length = Math.max(length, finish(i));
   const lf = new Array(n).fill(null);
   const late = (i, path = new Set()) => {
-    if (lf[i] != null) return lf[i] - planDays(tasks[i]);
+    if (lf[i] != null) return lf[i] - len[i];
     if (path.has(i)) return length;
     path.add(i);
     let f = length;
-    const d = planDays(tasks[i]);
+    const d = len[i];
     for (const x of succs[i]) {
       const ls = late(x.s, path); // the latest the next task can start
       if (x.type === 'fs') f = Math.min(f, ls);
       else if (x.type === 'ss') f = Math.min(f, ls - x.lag + d);
-      else f = Math.min(f, ls + planDays(tasks[x.s]) - x.lag); // ff: its latest finish, less the lag
+      else f = Math.min(f, ls + len[x.s] - x.lag); // ff: its latest finish, less the lag
     }
     path.delete(i);
     lf[i] = f;
-    return f - planDays(tasks[i]);
+    return f - len[i];
   };
   for (let i = 0; i < n; i++) late(i);
   const rows = tasks.map((task, i) => {
-    const ef = es[i] + planDays(task);
+    const ef = es[i] + len[i];
     const slack = Math.max(0, lf[i] - ef);
     return { task, es: es[i], ef, slack, crit: slack === 0 && n > 0 };
   });
   return { rows, length, cycles: [...cycles].map((i) => tasks[i]), missing, dups: [...dups] };
 }
 
-/** The date `n` working days after a date (a weekend date first moves to the Monday). */
-function planWorkdays(ymd, n = 0) {
-  const t = new Date(`${ymd}T00:00:00Z`);
-  const weekday = () => t.getUTCDay() !== 0 && t.getUTCDay() !== 6;
-  while (!weekday()) t.setUTCDate(t.getUTCDate() + 1);
-  for (let k = n; k > 0; ) {
-    t.setUTCDate(t.getUTCDate() + 1);
-    if (weekday()) k--;
+/**
+ * The date `n` working days after a date (a day off first moves to the next working day). Working days follow the
+ * calendar in the settings (plan-calendar.js: working week, public holidays, closure days); cal overrides it.
+ */
+function planWorkdays(ymd, n = 0, cal = planCal()) {
+  let d = ymd;
+  let guard = 0;
+  while (!cal.isWorkday(d) && guard++ < 400) d = planNextDay(d);
+  for (let k = n; k > 0 && guard++ < 100000; ) {
+    d = planNextDay(d);
+    if (cal.isWorkday(d)) k--;
   }
-  return t.toISOString().slice(0, 10);
+  return d;
 }
 
 /** Working days from one date to a later one (0 when b is not after a). */
-function planWorkdaysBetween(a, b) {
+function planWorkdaysBetween(a, b, cal = planCal()) {
   let n = 0;
-  for (let d = planWorkdays(a, 0); d < b && n < 5000; d = planWorkdays(d, 1)) n++;
+  for (let d = planWorkdays(a, 0, cal); d < b && n < 5000; d = planWorkdays(d, 1, cal)) n++;
   return n;
 }
 
@@ -291,18 +297,20 @@ function planOwnerShort(t) {
 }
 
 /**
- * Days of work per owner per week (pure): Map key → { name, weeks: Map week → days }, from the schedule (open tasks;
- * a task with two owners counts in full for both). Weeks count from the plan's day 0 in fives.
+ * Days of work per owner per week (pure): Map key → { name, owner, weeks: Map week → days }, from the schedule (open
+ * tasks; a task with two owners counts in full for both). Weeks count from the plan's day 0 in fives, or weekOf(day)
+ * names them (the Monday's date); works(owner, day) false: a day off, not counted.
  */
-function planLoad(rows) {
+function planLoad(rows, { weekOf = (d) => Math.floor(d / 5), works = null } = {}) {
   const out = new Map();
   for (const r of rows) {
     const t = r.task;
     if (t.external || planClosed(t) || !(t.owners || []).length) continue;
     for (const o of t.owners) {
-      const me = out.get(o.key) || out.set(o.key, { name: o.name, weeks: new Map(), rows: new Map() }).get(o.key);
+      const me = out.get(o.key) || out.set(o.key, { name: o.name, owner: o, weeks: new Map(), rows: new Map() }).get(o.key);
       for (let d = r.es; d < r.ef; d++) {
-        const w = Math.floor(d / 5);
+        if (works && !works(o, d)) continue;
+        const w = weekOf(d);
         me.weeks.set(w, (me.weeks.get(w) || 0) + 1);
         const list = me.rows.get(w) || me.rows.set(w, []).get(w);
         if (!list.includes(r)) list.push(r);
@@ -312,16 +320,18 @@ function planLoad(rows) {
   return out;
 }
 /**
- * [{ name, week, days, lowest }] where someone has more than `cap` days of work in a week. lowest: their task that
- * week that could move most easily: the lowest priority, then the most slack, then the latest start.
+ * [{ name, week, days, cap, lowest }] where someone has more than `cap` days of work in a week (cap: a number, or
+ * (owner, week) → their working days that week). lowest: their task that week that could move most easily: the
+ * lowest priority, then the most slack, then the latest start. opts: as planLoad.
  */
-function planOverloads(rows, cap = 5) {
+function planOverloads(rows, cap = 5, opts = {}) {
   const out = [];
-  for (const { name, weeks, rows: byWeek } of planLoad(rows).values())
+  for (const { name, owner, weeks, rows: byWeek } of planLoad(rows, opts).values())
     for (const [week, days] of weeks) {
-      if (days <= cap) continue;
+      const avail = typeof cap === 'function' ? cap(owner, week) : cap;
+      if (days <= avail) continue;
       const pick = [...byWeek.get(week)].sort((a, b) => (a.task.priority ?? 2) - (b.task.priority ?? 2) || b.slack - a.slack || b.es - a.es)[0];
-      out.push({ name, week, days, lowest: pick ? pick.task : null });
+      out.push({ name, week, days, cap: avail, lowest: pick ? pick.task : null });
     }
-  return out.sort((a, b) => a.week - b.week || a.name.localeCompare(b.name));
+  return out.sort((a, b) => (a.week < b.week ? -1 : a.week > b.week ? 1 : 0) || a.name.localeCompare(b.name));
 }

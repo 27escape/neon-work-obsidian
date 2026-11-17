@@ -50,7 +50,7 @@ test('report people: owners with open and done tasks, days of open work and phas
   ];
   const people = JSON.parse(JSON.stringify(R.planReportPeople(tasks))); // from the sandbox: compare as plain data
   assert.deepEqual(people, [
-    { name: 'Sam', open: 1, done: 1, days: 3, phases: ['1. Scope', '2. Build'] },
-    { name: 'Alex', open: 1, done: 1, days: 1, phases: ['2. Build'] },
+    { key: 'sam taylor', name: 'Sam', open: 1, done: 1, days: 3, phases: ['1. Scope', '2. Build'] },
+    { key: 'alex', name: 'Alex', open: 1, done: 1, days: 1, phases: ['2. Build'] },
   ]);
 });

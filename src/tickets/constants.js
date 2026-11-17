@@ -18,6 +18,12 @@ const PROJECT_BUCKETS = [
 ];
 const PROJECTS_DEFAULTS = {
   planReportsFolder: '', // fork: where Planning reports go ('' = <base folder>/Reports)
+  // fork: Planning's working days (plan-calendar.js): public holidays ('' none, or a PLAN_REGIONS key), the working
+  // week, company closure days (dates and ranges) and the Team holidays note (people's time off)
+  planHolidayRegion: '',
+  planWorkdays: 'Mon, Tue, Wed, Thu, Fri',
+  planClosures: '',
+  planLeaveNote: '',
   planMarks: true, // fork: underline plan problems (unknown ids, ids used twice, loops) in project notes
   planBaselines: {}, // fork: Planning baselines per project: { path: { saved, end, tasks: { id: finish } } }
   // which notes are projects, and their status values (comma lists, in the order offered)
