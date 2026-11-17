@@ -89,7 +89,7 @@ class PlanView extends ItemView {
   /** Is this note part of the plan (or one of its outside neighbours)? */
   touches(path) {
     if (!this.plan) return false;
-    if (this.paths.has(path) || (NEON_PLAN.leavePath && path === NEON_PLAN.leavePath)) return true; // the Team holidays note too
+    if (this.paths.has(path) || (path && (path === NEON_PLAN.leavePath || path === NEON_PLAN.holidayPath))) return true; // the holiday notes too
     return this.plan.kind === 'note' ? path === this.plan.path : path.startsWith(this.plan.path + '/');
   }
   build() {
@@ -285,6 +285,8 @@ class PlanView extends ItemView {
     for (const t of this.tasks.filter((x) => !x.external && planStepsDone(x)))
       lines.push({ text: `${planProblemName(t)}: all ${t.steps.total} step${t.steps.total === 1 ? ' is' : 's are'} done. Mark it done?`, act: () => this.moveTask(t, 'x'), title: 'Tick the task (with today’s ✅ date)' });
     lines.push(...this.loadLines(sched).map((text) => ({ text })));
+    const gap = this.dated ? planHolidayGap(this.dated.end) : ''; // the Public holidays note doesn't reach the plan's end
+    if (gap) lines.push({ text: gap });
     for (const w of planWeekendDates(this.tasks)) lines.push({ text: `${w.task.id || planClip(planText(w.task.raw), 30)}: ${w.sign} ${planShortDate(w.date)} is not a working day (${w.day})`, task: w.task });
     // schedule warnings: a handful here, the rest counted (the List shows them on each task)
     const warn = planWarnings(this.tasks, this.ends, this.today);

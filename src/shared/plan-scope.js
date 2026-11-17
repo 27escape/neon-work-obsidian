@@ -5,7 +5,7 @@
 
 // filled by the modules that own the settings: Tasks (task tags) and Projects (project folders, the working calendar
 // and the Team holidays note: plan-calendar.js)
-const NEON_PLAN = { taskTag: '#task', folders: '', calendar: null, leaveNote: '', leavePath: '' };
+const NEON_PLAN = { taskTag: '#task', folders: '', calendar: null, leaveNote: '', leavePath: '', holidayNote: '', holidayPath: '' };
 
 /** The project folder a path sits in (<project folders>/<folder>), or null. */
 function planFolderOf(path) {
@@ -47,14 +47,24 @@ async function planReadFile(app, f) {
   }
   return planAddSteps(lines, out); // fork: each task's steps (the checkboxes under it), and tasks inside tasks
 }
+/** A note named in the settings (a name or a path), or null. */
+function planSettingNote(app, name) {
+  name = String(name || '').trim();
+  if (!name) return null;
+  const f = app.metadataCache.getFirstLinkpathDest(name.replace(/\.md$/i, ''), '') || app.vault.getAbstractFileByPath(normalizePath(name));
+  return f instanceof TFile ? f : null;
+}
+/** The Public holidays note's days into the working calendar (NEON_PLAN.calendar.extra). */
+async function planLoadHolidays(app) {
+  const f = planSettingNote(app, NEON_PLAN.holidayNote);
+  NEON_PLAN.holidayPath = f ? f.path : '';
+  if (NEON_PLAN.calendar) NEON_PLAN.calendar.extra = f ? planHolidayList(await app.vault.cachedRead(f)) : new Map();
+}
 /** People's time off from the Team holidays note (a Projects setting; its Holidays section if it has one, else all of it). */
 async function planTeamLeave(app) {
-  const name = String(NEON_PLAN.leaveNote || '').trim();
-  NEON_PLAN.leavePath = '';
-  if (!name) return new Map();
-  const f = app.metadataCache.getFirstLinkpathDest(name.replace(/\.md$/i, ''), '') || app.vault.getAbstractFileByPath(normalizePath(name));
-  if (!(f instanceof TFile)) return new Map();
-  NEON_PLAN.leavePath = f.path;
+  const f = planSettingNote(app, NEON_PLAN.leaveNote);
+  NEON_PLAN.leavePath = f ? f.path : '';
+  if (!f) return new Map();
   const text = await app.vault.cachedRead(f);
   return planLeaveParse(planHolidaySection(text) || text);
 }
@@ -71,6 +81,7 @@ async function planCollect(app, scope, { neighbours = true } = {}) {
     own.push(planLeaveParse(planHolidaySection(await app.vault.cachedRead(f))));
   }
   tasks.leave = planLeaveMerge(await planTeamLeave(app), ...own); // people's time off (plan-calendar.js)
+  await planLoadHolidays(app); // the Public holidays note, into the calendar
   if (!neighbours) return tasks;
   const ids = new Set(tasks.filter((t) => t.id).map((t) => t.id));
   const wanted = new Set(tasks.flatMap(planLinkIds).filter((d) => !ids.has(d)));

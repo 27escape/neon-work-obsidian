@@ -85,6 +85,7 @@ Object.assign(PlanView.prototype, {
       else if (st === 'blocked') attention.push(`**Blocked:** ${name}, ${planBlockedText(t, byId, today)}`);
     }
     for (const w of planWarnings(this.tasks, this.ends, today)) attention.push(`**Schedule:** ${w.text}`);
+    if (this.dated && planHolidayGap(this.dated.end)) attention.push(`**Holidays:** ${planHolidayGap(this.dated.end)}`);
     for (const t of own.filter(planStepsDone)) attention.push(`**Steps done:** ${planText(t.raw)}: all ${t.steps.total} steps are ticked, the task isn't`);
     for (const p of planProblems(this.tasks, plan.sched)) attention.unshift(`**Plan:** ${p.text}`); // broken links first: they make the dates unreliable
     if (this.dated && this.dated.late) attention.unshift(`**Late:** ${planForecastText(this.dated.end, this.due, this.dated.late)}`);

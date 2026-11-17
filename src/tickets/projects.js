@@ -97,6 +97,7 @@ Object.assign(NeonProjects.prototype, {
     // fork: Planning's working days and people's time off (plan-calendar.js)
     NEON_PLAN.calendar = planCalendar({ region: this.settings.planHolidayRegion, weekdays: this.settings.planWorkdays, closures: this.settings.planClosures });
     NEON_PLAN.leaveNote = this.settings.planLeaveNote || '';
+    NEON_PLAN.holidayNote = this.settings.planHolidayNote || '';
     NEON_CATS.label = this.settings.groupLabel || 'Customer'; // fork
     NEON_CATS.prop = (this.settings.groupProperty || 'customer').trim() || 'customer';
     NEON_CATS.skip = String(this.settings.groupSkip || '').split(',').map((x) => x.trim()).filter(Boolean); // fork

@@ -3,7 +3,10 @@
  * working week (Monday to Friday by default), a region's public holidays, worked out here without any network
  * (England and Wales, Scotland, Northern Ireland: fixed dates, Easter, first and last Mondays, and a substitute
  * weekday for one that falls on a weekend), and company closure days (dates and ranges; they also cover one-off bank
- * holidays no rule can know). People's time off comes from a shared Team holidays note (a setting) and from a
+ * holidays no rule can know), and a Public holidays note the user keeps up to date each year (any country:
+ *   - 2027-01-01 New Year's Day
+ *   - 2027-04-02 to 2027-04-05 Easter
+ * planCollect reads it, as it reads the Team holidays note, into the calendar's `extra`). People's time off comes from a shared Team holidays note (a setting) and from a
  * project note's own "Holidays" section, as a list:
  *   - [[@Kevin Mulholland]]
  *       - 2026-12-24 to 2027-01-02
@@ -122,14 +125,48 @@ function planCalendar({ region = '', weekdays = '', closures = '' } = {}) {
   const work = planWeekdays(weekdays);
   const closed = planParseDays(closures).dates;
   const years = new Map();
-  const off = (ymd) => {
+  const cal = { region, work, extra: new Map() }; // extra: the Public holidays note's days (planHolidayList), set later
+  cal.off = (ymd) => {
     const dow = planDow(ymd);
     if (!work.has(dow)) return PLAN_DOW_FULL[dow];
     const y = +ymd.slice(0, 4);
     if (!years.has(y)) years.set(y, planPublicHolidays(region, y));
-    return years.get(y).get(ymd) || (closed.has(ymd) ? 'a closure day' : '');
+    return years.get(y).get(ymd) || cal.extra.get(ymd) || (closed.has(ymd) ? 'a closure day' : '');
   };
-  return { region, work, off, isWorkday: (ymd) => !off(ymd) };
+  cal.isWorkday = (ymd) => !cal.off(ymd);
+  return cal;
+}
+/**
+ * The days of a Public holidays note (pure): Map date → name. Each line with a date (or a range: as planParseDays) is
+ * a holiday; the rest of the line, if any, is its name ("public holiday" otherwise).
+ */
+function planHolidayList(text) {
+  const out = new Map();
+  let fence = false;
+  for (const line of String(text || '').split('\n')) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fence = !fence;
+      continue;
+    }
+    if (fence || !/\d{4}-\d{2}-\d{2}/.test(line)) continue;
+    const name =
+      line
+        .replace(/\d{4}-\d{2}-\d{2}(?:\s*(?:to|until|till|–|—|-|\.\.|>)\s*\d{4}-\d{2}-\d{2})?/giu, ' ')
+        .replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[.\]\s+)?/, '')
+        .replace(/^[\s:,–—-]+|[\s:,–—-]+$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim() || 'public holiday';
+    for (const d of planParseDays(line).dates) out.set(d, name);
+  }
+  return out;
+}
+/** The last year a Public holidays note lists a day in, or 0 when it lists none. */
+const planHolidayLastYear = (cal = planCal()) => [...((cal && cal.extra) || new Map()).keys()].reduce((m, d) => Math.max(m, +d.slice(0, 4)), 0);
+/** "The Public holidays note has no dates after 2027…" when a plan runs past it (end: the plan's finish), else ''. */
+function planHolidayGap(end, cal = planCal()) {
+  const last = planHolidayLastYear(cal);
+  if (!last || !end || +end.slice(0, 4) <= last) return '';
+  return `The Public holidays note has no dates after ${last}, but the plan runs into ${end.slice(0, 4)}: add that year’s holidays to it`;
 }
 const PLAN_PLAIN_CAL = planCalendar();
 /** The calendar from the settings, else plain Monday to Friday. */

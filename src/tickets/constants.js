@@ -23,6 +23,7 @@ const PROJECTS_DEFAULTS = {
   planHolidayRegion: '',
   planWorkdays: 'Mon, Tue, Wed, Thu, Fri',
   planClosures: '',
+  planHolidayNote: '', // fork: a note of public holiday dates the user keeps up to date (any country)
   planLeaveNote: '',
   planMarks: true, // fork: underline plan problems (unknown ids, ids used twice, loops) in project notes
   planBaselines: {}, // fork: Planning baselines per project: { path: { saved, end, tasks: { id: finish } } }

@@ -58,11 +58,15 @@ class NeonProjectsSettingTab extends PluginSettingTab {
     const plans = () => (proj(), p.app.workspace.getLeavesOfType(VIEW_PLAN).forEach((l) => l.view && l.view.refresh && l.view.refresh()));
     new Setting(containerEl)
       .setName('Public holidays')
-      .setDesc('Planning skips these as well as weekends: worked out by the plugin for each year, with substitute days when one falls on a weekend.')
+      .setDesc('Built in for the UK: worked out by the plugin for each year, with substitute days when one falls on a weekend. For anywhere else, use a Public holidays note.')
       .addDropdown((d) => {
         for (const [k, label] of PLAN_REGIONS) d.addOption(k, label);
         d.setValue(s.planHolidayRegion || '').onChange((v) => ((s.planHolidayRegion = v), plans()));
       });
+    new Setting(containerEl)
+      .setName('Public holidays note')
+      .setDesc('Optional, for any country: a note listing holidays, one per line: a date and its name (2027-01-01 New Year’s Day) or a range. Add each new year’s dates; Planning warns when a plan runs past the last year listed.')
+      .addText((t) => suggestPaths(p.app, t.setPlaceholder('Public holidays').setValue(s.planHolidayNote || '').onChange((v) => ((s.planHolidayNote = v.trim()), plans())), 'file'));
     new Setting(containerEl)
       .setName('Working days')
       .setDesc('The days of the week Planning counts, e.g. Mon, Tue, Wed, Thu, Fri or Mon-Fri.')

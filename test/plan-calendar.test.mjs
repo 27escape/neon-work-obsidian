@@ -131,3 +131,16 @@ test('workload: a person’s week has fewer days available when they are off', (
   assert.equal(over[0].cap, 3);
   assert.equal(over[0].week, '2026-11-23');
 });
+
+test('Public holidays note: dates and ranges with names, used by the calendar; a warning past its last year', () => {
+  const H = load('neon-tickets', ['planHolidayList', 'planCalendar', 'planHolidayGap', 'planWorkdays']);
+  const list = H.planHolidayList(['# US holidays 2027', '', '- 2027-01-01 New Year’s Day', '- 2027-11-25 to 2027-11-26: Thanksgiving', '* 2027-07-05', 'Some notes, no date here', '```', '- 2027-03-01 in a code block', '```'].join('\n'));
+  assert.deepEqual(JSON.parse(JSON.stringify([...list])), [['2027-01-01', 'New Year’s Day'], ['2027-11-25', 'Thanksgiving'], ['2027-11-26', 'Thanksgiving'], ['2027-07-05', 'public holiday']]);
+  const cal = H.planCalendar();
+  cal.extra = list;
+  assert.equal(cal.off('2027-11-25'), 'Thanksgiving');
+  assert.equal(H.planWorkdays('2027-11-24', 1, cal), '2027-11-29');
+  assert.equal(H.planHolidayGap('2027-12-20', cal), '');
+  assert.match(H.planHolidayGap('2028-02-01', cal), /no dates after 2027, but the plan runs into 2028/);
+  assert.equal(H.planHolidayGap('2028-02-01', H.planCalendar()), ''); // no note: no warning
+});
