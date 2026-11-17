@@ -151,6 +151,7 @@
         "src/tickets/plan-delete.js",
         "src/tickets/plan-scheduled.js",
         "src/tickets/plan-dates.js",
+        "src/tickets/plan-report-details.js",
         "src/tickets/plan-report.js",
         "src/tickets/plan-actions.js"
       ],

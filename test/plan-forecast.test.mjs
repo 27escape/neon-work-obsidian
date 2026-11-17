@@ -75,20 +75,18 @@ test('schedule warnings: will miss its date, due before what it waits for, in pr
 
 const R = load('neon-tickets', ['planReportText']);
 
-test('report note: front matter, summary, chart, phases, attention, markers, workload, every task with its steps done (no critical path list, ids or waits-for)', () => {
+test('report note: summary first (chart, phases, people, attention, markers, workload), then the project details', () => {
   const md = R.planReportText({
     title: 'Pilot - Local AI', note: 'Pilot - Local AI', today: '2026-11-16',
     summary: '1 overdue · 3 ready · 0/5 done', forecast: 'forecast finish 27 Nov, 2 working days after the due date', baseline: '(+2 since the baseline of 10 Nov)',
     svg: 'Pilot - Local AI – plan 2026-11-16.svg',
     phases: [{ name: '1. Scope', total: 2, done: 1, start: '2026-11-16', end: '2026-11-18', state: 'Overdue' }],
-    attention: ['**Overdue:** `a` A (📅 13 Nov)'],
+    attention: ['**Overdue:** A (📅 13 Nov)'],
     marks: [{ sign: '⚠', label: 'Risk', text: 'Vendor | late', owner: 'Sam', state: 'Ready' }],
     crit: [{ id: 'a', text: 'A', start: '2026-11-16', end: '2026-11-17' }, { id: 'b', text: 'B', start: '2026-11-18', end: '2026-11-27' }],
     load: ['Sam has 7 days of work in the week of Mon 16 Nov (5 available)'],
-    tasks: [
-      { phase: '1. Scope', text: 'A | pipe', owner: 'Sam', state: 'Ready', steps: { done: 0, total: 4 }, days: 2, start: '2026-11-16', end: '2026-11-17' },
-      { phase: '1. Scope', text: 'B', owner: '', state: 'Waiting', steps: null, days: 3, start: '2026-11-18', end: '2026-11-27' },
-    ],
+    people: [{ name: 'Sam', open: 2, done: 1, days: 5, phases: ['1. Scope', '2. Build'] }],
+    details: '### 1. Scope\n\n- ☐ A (Sam)',
   });
   const has = (s) => assert.ok(md.includes(s), s);
   has('title: "Plan report: Pilot - Local AI"');
@@ -97,14 +95,15 @@ test('report note: front matter, summary, chart, phases, attention, markers, wor
   has('- **Critical path:** 2 tasks, 16 Nov to 27 Nov');
   has('![[Pilot - Local AI – plan 2026-11-16.svg]]');
   has('| 1. Scope | 1/2 | 16 Nov | 18 Nov | Overdue |');
-  has('- **Overdue:** `a` A (📅 13 Nov)');
+  has('| Sam | 2 | 1 | 5 | 1. Scope, 2. Build |');
+  has('- **Overdue:** A (📅 13 Nov)');
   has('- ⚠ **Risk:** Vendor | late (Sam) · Ready');
   has('- Sam has 7 days of work');
-  has('| Phase | Task | Owner | State | Completed | Days | Start | Finish |');
-  has('| 1. Scope | A \\| pipe | Sam | Ready | 0/4 | 2 | 16 Nov | 17 Nov |'); // pipes in table cells escaped
-  has('| 1. Scope | B |  | Waiting |  | 3 | 18 Nov | 27 Nov |'); // no steps: Completed left empty
-  assert.ok(!md.includes('## Critical path'), 'no critical path section');
-  assert.ok(!md.includes('Waits for'), 'no waits-for column');
+  has('## Project details');
+  has('### 1. Scope\n\n- ☐ A (Sam)');
+  for (const gone of ['## Critical path', '## All tasks', 'Waits for']) assert.ok(!md.includes(gone), gone);
+  // the summary comes before the details
+  assert.ok(md.indexOf('## People') < md.indexOf('## Needs attention') && md.indexOf('## Workload') < md.indexOf('## Project details'));
 });
 
 // bug: the report's SVG would not open: a font list with double quotes was put inside style="…"

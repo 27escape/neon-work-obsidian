@@ -1,7 +1,8 @@
 /* ---- Project plans (fork): the printable Report note ------------------------------------------------------------------
  * Report (Planning view) writes a snapshot of the plan into the reports folder (setting; empty: <base folder>/Reports):
- * a note with the summary (incl. the critical path's length), forecast, phases, what needs attention, risks / issues /
- * decisions, workload and every task (with its steps done, 2/4), plus the Gantt chart as an SVG file the note embeds, in the plan's colours. Print it with
+ * a summary first (forecast, the Gantt chart as an SVG file the note embeds in the plan's colours, phases, people, what
+ * needs attention, risks / issues / decisions, workload), then the detail: the project note itself up to the end of
+ * the plan (plan-report-details.js). Print it with
  * Obsidian's Export to PDF. Written only when you press Report, and refused while read-only is on; a second report on
  * the same day replaces that day's files. planReportText is pure (tested). */
 
@@ -10,7 +11,7 @@ const planCell = (s) => String(s == null ? '' : s).replace(/\|/g, '\\|').replace
 /**
  * The report's Markdown (pure). r: { title, note (the project note's name), today, summary, forecast, baseline, svg
  * (file name), phases: [{ name, total, done, start, end, state }], attention: [text], marks: [{ sign, label, text, owner,
- * state }], crit: [{ id, text, start, end }], load: [text], tasks: [{ phase, text, owner, state, days, start, end, steps: { done, total } | null }] }
+ * state }], crit: [{ id, text, start, end }], load: [text], people: planReportPeople(…), details (Markdown from planReportDetails) }
  */
 function planReportText(r) {
   const L = [];
@@ -29,6 +30,11 @@ function planReportText(r) {
     for (const p of r.phases) L.push(`| ${planCell(p.name)} | ${p.done}/${p.total} | ${d(p.start)} | ${d(p.end)} | ${planCell(p.state)} |`);
     L.push('');
   }
+  if ((r.people || []).length) {
+    L.push('## People', '', '| Person | Open tasks | Done | Days of open work | Phases |', '|---|---|---|---|---|');
+    for (const p of r.people) L.push(`| ${planCell(p.name)} | ${p.open} | ${p.done} | ${p.days} | ${planCell(p.phases.join(', '))} |`);
+    L.push('', '*People named as a task owner ([owner:: …]).*', '');
+  }
   L.push('## Needs attention', '');
   if (r.attention.length) for (const a of r.attention) L.push(`- ${a}`);
   else L.push('Nothing overdue, blocked or late.');
@@ -43,16 +49,13 @@ function planReportText(r) {
     for (const l of r.load) L.push(`- ${l}`);
     L.push('');
   }
-  // Completed: the task's steps (the checkboxes under it) ticked, e.g. 0/4; empty for a task without steps
-  L.push('## All tasks', '', '| Phase | Task | Owner | State | Completed | Days | Start | Finish |', '|---|---|---|---|---|---|---|---|');
-  for (const t of r.tasks) L.push(`| ${planCell(t.phase)} | ${planCell(t.text)} | ${planCell(t.owner)} | ${planCell(t.state)} | ${t.steps && t.steps.total ? `${t.steps.done}/${t.steps.total}` : ''} | ${t.days} | ${d(t.start)} | ${d(t.end)} |`);
-  L.push('');
+  if (r.details) L.push('## Project details', '', `*From [[${r.note}]] as it stood on ${d(r.today)}, up to the end of the plan; notes below the plan's last task are left out.*`, '', r.details, '');
   return L.join('\n');
 }
 
 Object.assign(PlanView.prototype, {
   /** The report's contents, from the plan as the view has it (real dates when the project has a started date). */
-  reportData(svgName) {
+  reportData(svgName, noteText = '') {
     const today = this.today;
     const plan = this.dated || planGanttText(this.tasks, { weeks: true, today });
     const { byId } = planIndex(this.tasks);
@@ -75,12 +78,12 @@ Object.assign(PlanView.prototype, {
     const attention = [];
     for (const t of own) {
       const st = planState(t, byId, today);
-      const name = `${t.id ? `\`${t.id}\` ` : ''}${planText(t.raw)}`;
+      const name = planText(t.raw);
       if (planOverdue(t, today)) attention.push(`**Overdue:** ${name} (📅 ${planShortDate(t.due)})`);
       else if (st === 'blocked') attention.push(`**Blocked:** ${name}, ${planBlockedText(t, byId, today)}`);
     }
     for (const w of planWarnings(this.tasks, this.ends, today)) attention.push(`**Schedule:** ${w.text}`);
-    for (const t of own.filter(planStepsDone)) attention.push(`**Steps done:** ${t.id ? `\`${t.id}\` ` : ''}${planText(t.raw)}: all ${t.steps.total} steps are ticked, the task isn't`);
+    for (const t of own.filter(planStepsDone)) attention.push(`**Steps done:** ${planText(t.raw)}: all ${t.steps.total} steps are ticked, the task isn't`);
     for (const p of planProblems(this.tasks, plan.sched)) attention.unshift(`**Plan:** ${p.text}`); // broken links first: they make the dates unreliable
     if (this.dated && this.dated.late) attention.unshift(`**Late:** ${planForecastText(this.dated.end, this.due, this.dated.late)}`);
     const marks = [];
@@ -100,10 +103,8 @@ Object.assign(PlanView.prototype, {
       marks,
       crit,
       load: this.loadLines(plan.sched),
-      tasks: own.map((t) => {
-        const b = bars.get(t) || {};
-        return { phase: t.phase || 'Tasks', text: planText(t.raw), owner: (t.owners || []).map((o) => o.name).join(', '), state: label(planState(t, byId, today)), steps: t.steps || null, days: t.milestone ? 'milestone' : planDays(t), start: b.start, end: b.end };
-      }),
+      people: planReportPeople(own),
+      details: noteText ? planReportDetails(noteText, { note: (this.scopeFile() || {}).basename || '', lastLine: own.filter((t) => t.file === this.scopeFile()).reduce((m, t) => (t.line > m ? t.line : m), -1), taskTags: NEON_PLAN.taskTag }) : '',
     };
   },
   /** The Gantt for the report: every task (no filter), drawn off screen, as SVG text with the colours written in. */
@@ -126,7 +127,8 @@ Object.assign(PlanView.prototype, {
     const base = `${safeName(planScopeTitle(this.plan))} – plan ${this.today}`;
     const svgName = `${base}.svg`;
     const svgText = this.reportSvg();
-    const md = planReportText(this.reportData(svgText ? svgName : ''));
+    const own = this.scopeFile();
+    const md = planReportText(this.reportData(svgText ? svgName : '', own ? await this.app.vault.cachedRead(own) : ''));
     try {
       await ensureFolder(this.app, folder);
       const put = async (name, text) => {
