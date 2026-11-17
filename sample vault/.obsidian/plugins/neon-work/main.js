@@ -12076,7 +12076,9 @@ function planInsertAt(lines, phase) {
     while (n > 0 && !lines[n - 1].trim()) n--;
     return { at: n, gap: n > 0 && !item(lines[n - 1]) };
   }
-  const next = hs.find((x) => x.line > h.line && x.level <= h.level);
+  // the phase's own lines: up to the next heading of any level (a sub-heading is a phase of its own; going to the
+  // end of the whole section put a task for "1. Scope" after the last task of "8. Close-down")
+  const next = hs.find((x) => x.line > h.line);
   const end = next ? next.line : lines.length;
   let last = -1;
   for (let i = h.line + 1; i < end; i++) if (item(lines[i])) last = i;
@@ -12123,12 +12125,37 @@ function planEditFile(text, { others = [], main = null }, today) {
   const { rest, box } = planApplyForm('', ' ', main.form, today);
   const lines = cur.split('\n');
   const after = main.after ? planFindLine(lines, main.after) : -1;
+  const anchor = main.anchor && after < 0 ? planAnchorLine(lines, main.anchor) : -1;
   let line;
-  if (after >= 0) {
-    line = after + 1;
-    lines.splice(line, 0, `- [${box}] ${rest}${cr}`);
+  if (after >= 0 || anchor >= 0) {
+    // after a task (below its sub-items, at its indent), or at the cursor (below the list item it is on)
+    const from = after >= 0 ? after : anchor;
+    line = planBelow(lines, from);
+    const indent = planItem(lines[from]) ? lines[from].match(/^\s*/)[0] : '';
+    lines.splice(line, 0, `${indent}- [${box}] ${rest}${cr}`);
   } else line = planPutLine(lines, `- [${box}] ${rest}`, main.phase || '', cr);
   return { text: lines.join('\n'), line, raw: rest, box, missing };
+}
+const planItem = (l) => /^\s*(?:[-*+]|\d+[.)])\s/.test(l || '');
+/** Where a new line goes below line i: after a list item and its sub-items; at a blank line itself; else the next. */
+function planBelow(lines, i) {
+  const cur = (lines[i] || '').replace(/\r$/, '');
+  if (!cur.trim()) return i;
+  if (!planItem(cur)) return i + 1;
+  const width = (l) => l.replace(/\r$/, '').match(/^\s*/)[0].replace(/\t/g, '    ').length;
+  let j = i + 1;
+  while (j < lines.length && lines[j].trim() && width(lines[j]) > width(cur)) j++;
+  return j;
+}
+/** The line the cursor was on ({ line, text } when the editor opened), found again if the note has changed since. */
+function planAnchorLine(lines, a) {
+  const same = (i) => i >= 0 && i < lines.length && lines[i].replace(/\r$/, '') === a.text;
+  if (same(a.line)) return a.line;
+  for (let d = 1; d < lines.length; d++) {
+    if (same(a.line - d)) return a.line - d;
+    if (same(a.line + d)) return a.line + d;
+  }
+  return Math.min(Math.max(a.line, 0), lines.length);
 }
 
 /** Tasks that depend on `t`, directly or further on (so `t` can't depend on them: a loop). */
@@ -12208,7 +12235,8 @@ const PLAN_STATUS_CHOICES = [
 ];
 
 class PlanTaskModal extends Modal {
-  /** ctx: { scope, file, text (the note now), tasks (the plan), task (null: new), after (a new task follows it), phase, base, onSaved(id) } */
+  /** ctx: { scope, file, text (the note now), tasks (the plan), task (null: new), after (a new task follows it), anchor ({ line, text }: a new
+   *  task goes below the cursor's line), phase, base, onSaved(id) } */
   constructor(app, ctx) {
     super(app);
     this.ctx = ctx;
@@ -12237,6 +12265,7 @@ class PlanTaskModal extends Modal {
     this.blocks = new Set(t && t.id ? this.mine.filter((x) => x.deps.includes(t.id)) : []);
     this.blocks0 = new Set(this.blocks);
     this.phase = t ? t.phase || '' : ctx.after ? ctx.after.phase || '' : ctx.phase || '';
+    this.phase0 = this.phase; // a new task goes at the cursor or after its task unless another phase is chosen
     this.phases = planHeadings(ctx.text.split('\n')).map((h) => h.text);
     const fm = (app.metadataCache.getFileCache(ctx.file) || {}).frontmatter || {};
     this.prefix = planPrefix(fm, planScopeTitle(ctx.scope));
@@ -12497,7 +12526,8 @@ class PlanTaskModal extends Modal {
       task,
       fn: (rest, box) => ({ rest: planDepsRest(o.id ? planSetSign(rest, '🆔', o.id) : rest, o.add, o.remove), box }),
     }));
-    return { plan: { others, main: { task: t, form: f, phase: this.phase, after: t ? null : this.ctx.after || null } }, notes, f };
+    const here = !t && this.phase === this.phase0; // the phase as it opened: at the cursor / after the task
+    return { plan: { others, main: { task: t, form: f, phase: this.phase, after: here ? this.ctx.after || null : null, anchor: here ? this.ctx.anchor || null : null } }, notes, f };
   }
 
   update() {
@@ -12528,7 +12558,10 @@ class PlanTaskModal extends Modal {
     this.alsoEl.empty();
     for (const n of notes) this.alsoEl.createDiv({ text: `Also ${n}` });
     const where = this.phase ? `under “${this.phase}”` : 'at the end of the note';
-    if (!this.ctx.task) this.alsoEl.createDiv({ text: `Goes ${where}` });
+    const here = this.phase === this.phase0;
+    if (!this.ctx.task && here && this.ctx.after) this.alsoEl.createDiv({ text: `Goes after “${planClip(planText(this.ctx.after.raw), 40)}”` });
+    else if (!this.ctx.task && here && this.ctx.anchor) this.alsoEl.createDiv({ text: `Goes at the cursor (line ${res.line + 1})` });
+    else if (!this.ctx.task) this.alsoEl.createDiv({ text: `Goes ${where}` });
     else if (this.phase !== (this.ctx.task.phase || '')) this.alsoEl.createDiv({ text: `Moves ${where}` });
   }
 
@@ -13670,6 +13703,8 @@ Object.assign(NeonProjects.prototype, {
       task,
       after,
       phase: phase != null ? phase : at != null ? above(at + 1) : '',
+      // "new task here" (right-click or command in the note): below the cursor's line, not at the end of the phase
+      anchor: line == null && at != null && !after && !view ? { line: at, text: (lines[at] || '').replace(/\r$/, '') } : null,
       base: planBaseDate(this.app, scope),
       onSaved: (id) => view && view.selectSaved(id),
     }).open();

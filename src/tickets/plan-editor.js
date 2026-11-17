@@ -12,7 +12,8 @@ const PLAN_STATUS_CHOICES = [
 ];
 
 class PlanTaskModal extends Modal {
-  /** ctx: { scope, file, text (the note now), tasks (the plan), task (null: new), after (a new task follows it), phase, base, onSaved(id) } */
+  /** ctx: { scope, file, text (the note now), tasks (the plan), task (null: new), after (a new task follows it), anchor ({ line, text }: a new
+   *  task goes below the cursor's line), phase, base, onSaved(id) } */
   constructor(app, ctx) {
     super(app);
     this.ctx = ctx;
@@ -41,6 +42,7 @@ class PlanTaskModal extends Modal {
     this.blocks = new Set(t && t.id ? this.mine.filter((x) => x.deps.includes(t.id)) : []);
     this.blocks0 = new Set(this.blocks);
     this.phase = t ? t.phase || '' : ctx.after ? ctx.after.phase || '' : ctx.phase || '';
+    this.phase0 = this.phase; // a new task goes at the cursor or after its task unless another phase is chosen
     this.phases = planHeadings(ctx.text.split('\n')).map((h) => h.text);
     const fm = (app.metadataCache.getFileCache(ctx.file) || {}).frontmatter || {};
     this.prefix = planPrefix(fm, planScopeTitle(ctx.scope));
@@ -301,7 +303,8 @@ class PlanTaskModal extends Modal {
       task,
       fn: (rest, box) => ({ rest: planDepsRest(o.id ? planSetSign(rest, '🆔', o.id) : rest, o.add, o.remove), box }),
     }));
-    return { plan: { others, main: { task: t, form: f, phase: this.phase, after: t ? null : this.ctx.after || null } }, notes, f };
+    const here = !t && this.phase === this.phase0; // the phase as it opened: at the cursor / after the task
+    return { plan: { others, main: { task: t, form: f, phase: this.phase, after: here ? this.ctx.after || null : null, anchor: here ? this.ctx.anchor || null : null } }, notes, f };
   }
 
   update() {
@@ -332,7 +335,10 @@ class PlanTaskModal extends Modal {
     this.alsoEl.empty();
     for (const n of notes) this.alsoEl.createDiv({ text: `Also ${n}` });
     const where = this.phase ? `under “${this.phase}”` : 'at the end of the note';
-    if (!this.ctx.task) this.alsoEl.createDiv({ text: `Goes ${where}` });
+    const here = this.phase === this.phase0;
+    if (!this.ctx.task && here && this.ctx.after) this.alsoEl.createDiv({ text: `Goes after “${planClip(planText(this.ctx.after.raw), 40)}”` });
+    else if (!this.ctx.task && here && this.ctx.anchor) this.alsoEl.createDiv({ text: `Goes at the cursor (line ${res.line + 1})` });
+    else if (!this.ctx.task) this.alsoEl.createDiv({ text: `Goes ${where}` });
     else if (this.phase !== (this.ctx.task.phase || '')) this.alsoEl.createDiv({ text: `Moves ${where}` });
   }
 

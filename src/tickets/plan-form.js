@@ -152,7 +152,9 @@ function planInsertAt(lines, phase) {
     while (n > 0 && !lines[n - 1].trim()) n--;
     return { at: n, gap: n > 0 && !item(lines[n - 1]) };
   }
-  const next = hs.find((x) => x.line > h.line && x.level <= h.level);
+  // the phase's own lines: up to the next heading of any level (a sub-heading is a phase of its own; going to the
+  // end of the whole section put a task for "1. Scope" after the last task of "8. Close-down")
+  const next = hs.find((x) => x.line > h.line);
   const end = next ? next.line : lines.length;
   let last = -1;
   for (let i = h.line + 1; i < end; i++) if (item(lines[i])) last = i;
@@ -199,12 +201,37 @@ function planEditFile(text, { others = [], main = null }, today) {
   const { rest, box } = planApplyForm('', ' ', main.form, today);
   const lines = cur.split('\n');
   const after = main.after ? planFindLine(lines, main.after) : -1;
+  const anchor = main.anchor && after < 0 ? planAnchorLine(lines, main.anchor) : -1;
   let line;
-  if (after >= 0) {
-    line = after + 1;
-    lines.splice(line, 0, `- [${box}] ${rest}${cr}`);
+  if (after >= 0 || anchor >= 0) {
+    // after a task (below its sub-items, at its indent), or at the cursor (below the list item it is on)
+    const from = after >= 0 ? after : anchor;
+    line = planBelow(lines, from);
+    const indent = planItem(lines[from]) ? lines[from].match(/^\s*/)[0] : '';
+    lines.splice(line, 0, `${indent}- [${box}] ${rest}${cr}`);
   } else line = planPutLine(lines, `- [${box}] ${rest}`, main.phase || '', cr);
   return { text: lines.join('\n'), line, raw: rest, box, missing };
+}
+const planItem = (l) => /^\s*(?:[-*+]|\d+[.)])\s/.test(l || '');
+/** Where a new line goes below line i: after a list item and its sub-items; at a blank line itself; else the next. */
+function planBelow(lines, i) {
+  const cur = (lines[i] || '').replace(/\r$/, '');
+  if (!cur.trim()) return i;
+  if (!planItem(cur)) return i + 1;
+  const width = (l) => l.replace(/\r$/, '').match(/^\s*/)[0].replace(/\t/g, '    ').length;
+  let j = i + 1;
+  while (j < lines.length && lines[j].trim() && width(lines[j]) > width(cur)) j++;
+  return j;
+}
+/** The line the cursor was on ({ line, text } when the editor opened), found again if the note has changed since. */
+function planAnchorLine(lines, a) {
+  const same = (i) => i >= 0 && i < lines.length && lines[i].replace(/\r$/, '') === a.text;
+  if (same(a.line)) return a.line;
+  for (let d = 1; d < lines.length; d++) {
+    if (same(a.line - d)) return a.line - d;
+    if (same(a.line + d)) return a.line + d;
+  }
+  return Math.min(Math.max(a.line, 0), lines.length);
 }
 
 /** Tasks that depend on `t`, directly or further on (so `t` can't depend on them: a loop). */

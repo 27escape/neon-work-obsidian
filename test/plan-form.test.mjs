@@ -158,3 +158,50 @@ test('Planning editor commands: edit this task / new task here / new task after 
   assert.deepEqual(opened.map((o) => [o.line, o.at, o.afterLine]), [[1, 1, undefined], [undefined, undefined, 1], [null, 2, undefined]]);
   assert.ok(Object.values(cmds).every((c) => !c.hotkeys)); // no default hotkeys (community rule)
 });
+
+// bug (Kevin, 17 Nov): "new task here" went to the end of the whole "## 1. Scope" section, after the last task of
+// "### 8. Close-down"; it now goes below the cursor's line, and "after this" below the task's sub-items
+test('new tasks: at the cursor, after a task below its sub-items, and a phase stops at the next heading', () => {
+  const Q = load('neon-tickets', ['planEditFile', 'planTask', 'planInsertAt']);
+  const text = [
+    '## 1. Scope', // 0
+    '', // 1
+    '- [ ] Outline scope 🆔 p-1 #task', // 2
+    '\t- [ ] Decide the users', // 3
+    '\t\t- [?] three users', // 4
+    '- [ ] Budget 🆔 p-2 ⛔ p-1 #task', // 5
+    '', // 6
+    'Some notes about scope.', // 7
+    '### 2. Provider', // 8
+    '- [ ] Prices 🆔 p-3 #task', // 9
+    '### 8. Close', // 10
+    '- [ ] Wipe 🆔 p-9 #task', // 11
+  ].join('\n');
+  const form = { desc: 'Scope agreed', id: 'p-4', milestone: true, deps: [], owners: [] };
+  const put = (main) => {
+    const r = Q.planEditFile(text, { main: { task: null, form, ...main } }, '2026-11-17');
+    return { at: r.line, lines: r.text.split('\n') };
+  };
+  // cursor on the holding task: below it and its sub-items, at its indent
+  let r = put({ phase: '1. Scope', anchor: { line: 2, text: text.split('\n')[2] } });
+  assert.equal(r.at, 5);
+  assert.match(r.lines[5], /^- \[ \] Scope agreed/);
+  assert.match(r.lines[6], /Budget/);
+  // cursor on a sub-item: below it, at its indent
+  r = put({ phase: '1. Scope', anchor: { line: 3, text: '\t- [ ] Decide the users' } });
+  assert.equal(r.at, 5);
+  assert.match(r.lines[5], /^\t- \[ \] Scope agreed/);
+  // cursor on a blank line: there; on a paragraph: the line after it
+  assert.equal(put({ phase: '1. Scope', anchor: { line: 6, text: '' } }).at, 6);
+  assert.equal(put({ phase: '1. Scope', anchor: { line: 7, text: 'Some notes about scope.' } }).at, 8);
+  // the note changed since: the cursor's line is found again by its text
+  assert.equal(put({ phase: '1. Scope', anchor: { line: 0, text: '- [ ] Budget 🆔 p-2 ⛔ p-1 #task' } }).at, 6);
+  // after a task: below its sub-items
+  r = put({ phase: '1. Scope', after: Q.planTask('- [ ] Outline scope 🆔 p-1 #task') });
+  assert.equal(r.at, 5);
+  // no cursor: the phase's own tasks, not the end of its sub-sections
+  r = put({ phase: '1. Scope' });
+  assert.equal(r.at, 6);
+  assert.match(r.lines[6], /Scope agreed/);
+  assert.ok(r.lines.indexOf('- [ ] Wipe 🆔 p-9 #task') < r.lines.length - 1 || !/Scope agreed/.test(r.lines[r.lines.length - 1]));
+});

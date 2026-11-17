@@ -121,6 +121,8 @@ Object.assign(NeonProjects.prototype, {
       task,
       after,
       phase: phase != null ? phase : at != null ? above(at + 1) : '',
+      // "new task here" (right-click or command in the note): below the cursor's line, not at the end of the phase
+      anchor: line == null && at != null && !after && !view ? { line: at, text: (lines[at] || '').replace(/\r$/, '') } : null,
       base: planBaseDate(this.app, scope),
       onSaved: (id) => view && view.selectSaved(id),
     }).open();
