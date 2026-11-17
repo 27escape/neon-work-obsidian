@@ -7,6 +7,11 @@ class NeonTasks extends Plugin {
     if (!Array.isArray(s.doneLog)) s.doneLog = [];
     if (!Array.isArray(s.noteTypes) || !s.noteTypes.length) s.noteTypes = noteTypesFrom(s); // fork: older per-kind settings → the types list
     if (!s.installedAt) s.installedAt = Date.now();
+    // fork: the "No category yet" bar is off by default now; vaults that saved the old default (on) get it off once
+    if (!s.noCatBarOff) {
+      s.showNoCategoryBar = false;
+      s.noCatBarOff = true;
+    }
     NEON_PLAN.taskTag = s.taskTag; // fork: project plans read the same task tags
     dropOldDefaults(this.app, s, { quickTasksPath: 'Todo.md' }); // fork: the Todo note follows the base folder unless set
     this.freshData = !raw;

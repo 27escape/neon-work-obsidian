@@ -75,7 +75,7 @@ class NeonTasksSettingTab extends PluginSettingTab {
       .addToggle((t) => t.setValue(s.askOnCreate).onChange((v) => ((s.askOnCreate = v), save())));
     new Setting(containerEl)
       .setName('“No category yet” reminder')
-      .setDesc('A small bar on new notes without a category. Only notes created since the plugin was installed.')
+      .setDesc('A small bar on new notes without a category. Only notes created since the plugin was installed, and never with customer folders (the folder is the customer).')
       .addToggle((t) => t.setValue(s.showNoCategoryBar).onChange((v) => ((s.showNoCategoryBar = v), save(), p.updateBar())));
     madeWith(containerEl);
   }
