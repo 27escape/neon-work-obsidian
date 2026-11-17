@@ -151,4 +151,6 @@ The repo includes a **sample vault** (`sample vault/`) with made-up customers, p
 
 Original Neon Deck made by [Yobzs](https://github.com/Yobzs) with Claude. Fork changes by Kevin Mulholland with Claude.
 
+Planning takes ideas from the [Project Planner](https://github.com/hmil1151/project-planner) plugin (Harrison Milburn, MIT); no code taken.
+
 Bundled fonts (in `src/deck/fonts/`, embedded in `styles.css`): JetBrains Mono, Space Grotesk and Unbounded, all under the SIL Open Font License 1.1. See [`src/deck/fonts/OFL.txt`](src/deck/fonts/OFL.txt).
