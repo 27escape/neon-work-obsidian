@@ -95,7 +95,8 @@ Object.assign(PlanView.prototype, {
       if (!mode) return;
       e.preventDefault();
       svg.setPointerCapture(e.pointerId);
-      const row = svg.querySelector(`.np-g-row[data-key="${CSS.escape(planKey(z.it.row.bar.task))}"]`);
+      const key = planKey(z.it.row.bar.task);
+      const row = [...svg.querySelectorAll('.np-g-row')].find((r) => r.getAttribute('data-key') === key);
       const shape = row && row.querySelector('.np-g-bar, polygon');
       // Alt-drag: from the left half of the bar, a start; from the right half, an end
       const fromStart = mode === 'link' && !z.it.row.milestone && p.x < (z.ends.x0 + z.ends.x1) / 2;
@@ -136,7 +137,13 @@ Object.assign(PlanView.prototype, {
       this.drag = null;
       this.dragActive = false;
       svg.removeClass('is-dragging');
-      if (!d.moved) return;
+      if (!d.moved) {
+        // a click, not a drag: the pointer was held by the chart, so the bar's own click never comes; open the editor here
+        this.justDragged = true;
+        window.setTimeout(() => (this.justDragged = false), 300);
+        if (!cancel) this.openTask(e, d.it.row.bar.task);
+        return;
+      }
       this.justDragged = true; // the click that follows the drag isn't a click on the bar
       window.setTimeout(() => (this.justDragged = false), 300);
       if (cancel) return this.render();

@@ -23,7 +23,7 @@ function planReportText(r) {
   if (r.summary) L.push(`- **Tasks:** ${r.summary}`);
   if (r.crit.length) L.push(`- **Critical path:** ${r.crit.length} tasks, ${d(r.crit[0].start)} to ${d(r.crit[r.crit.length - 1].end)}`);
   L.push('');
-  if (r.svg) L.push('## Timeline', '', `![[${r.svg}]]`, '');
+  if (r.svg) L.push('## Timeline', '', `![[${r.svg}]]`, '', '*Arrows: what waits for what (dashed: starts with / ends with). 2/4: steps done. Outlined bars: the critical path.*', '');
   if (r.phases.length) {
     L.push('## Phases', '', '| Phase | Done | Start | Finish | State |', '|---|---|---|---|---|');
     for (const p of r.phases) L.push(`| ${planCell(p.name)} | ${p.done}/${p.total} | ${d(p.start)} | ${d(p.end)} | ${planCell(p.state)} |`);
@@ -117,7 +117,8 @@ Object.assign(PlanView.prototype, {
     if (!lay) return '';
     const host = document.body.createDiv({ attr: { style: 'position:absolute;left:-20000px;top:0;' } });
     try {
-      const svg = planDrawGantt(host, lay, { colours: planColourMap() });
+      // as on screen: the dependency arrows, and each task's steps (2/4, with the progress line in its bar)
+      const svg = planDrawGantt(host, lay, { colours: planColourMap(), links: true });
       return planSvgText(svg);
     } finally {
       host.remove();

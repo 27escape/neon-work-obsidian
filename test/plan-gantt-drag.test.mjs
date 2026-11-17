@@ -70,3 +70,33 @@ test('drops: what each drag writes', async () => {
   view.dropLink(b, a);
   assert.equal(changes.pop(), 'render');
 });
+
+// bug (Kevin, 17 Nov): a click on a bar did nothing: the chart holds the pointer on press (to drag), so the bar's own
+// click never came; a press and release without moving now opens the task editor
+test('a click on a bar (no drag) opens the task editor; a drag does not', () => {
+  const a = T('- [ ] Alpha [duration:: 5d] 🆔 p-1 #task');
+  const g = P.planGanttText([a], { base: '2026-11-16', today: '2026-11-16' });
+  const lay = P.planGanttLayout(g.rows, { today: '2026-11-16', width: 900, labelW: 300 });
+  const it = lay.items.find((x) => x.type === 'bar' && x.row.bar.task === a);
+  const on = {};
+  const svg = {
+    addEventListener: (k, f) => (on[k] = [...(on[k] || []), f]),
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: lay.width }),
+    setPointerCapture() {}, addClass() {}, removeClass() {}, querySelector: () => null, querySelectorAll: () => [], style: {},
+  };
+  const opened = [];
+  const view = Object.assign(Object.create(P.PlanView.prototype), { base: '2026-11-16', weeks: false, today: '2026-11-16', render() {}, openTask: (e, t) => opened.push(t), dropMove: () => opened.push('moved') });
+  view.attachGanttDrag(svg, lay, g.bars);
+  const x = lay.labelW + it.x + it.w / 2;
+  const y = it.y + lay.rowH / 2;
+  const fire = (k, e) => on[k].forEach((f) => f({ button: 0, pointerId: 1, preventDefault() {}, clientX: e.x, clientY: y, altKey: false }));
+  fire('pointerdown', { x });
+  fire('pointerup', { x });
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0], a);
+  // pressed, moved two days, released: a move, not a click
+  fire('pointerdown', { x });
+  fire('pointermove', { x: x + lay.dayW * 2 });
+  fire('pointerup', { x: x + lay.dayW * 2 });
+  assert.equal(opened[1], 'moved');
+});

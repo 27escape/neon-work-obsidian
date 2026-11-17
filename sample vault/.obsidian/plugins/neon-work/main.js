@@ -13559,7 +13559,8 @@ Object.assign(PlanView.prototype, {
       if (!mode) return;
       e.preventDefault();
       svg.setPointerCapture(e.pointerId);
-      const row = svg.querySelector(`.np-g-row[data-key="${CSS.escape(planKey(z.it.row.bar.task))}"]`);
+      const key = planKey(z.it.row.bar.task);
+      const row = [...svg.querySelectorAll('.np-g-row')].find((r) => r.getAttribute('data-key') === key);
       const shape = row && row.querySelector('.np-g-bar, polygon');
       // Alt-drag: from the left half of the bar, a start; from the right half, an end
       const fromStart = mode === 'link' && !z.it.row.milestone && p.x < (z.ends.x0 + z.ends.x1) / 2;
@@ -13600,7 +13601,13 @@ Object.assign(PlanView.prototype, {
       this.drag = null;
       this.dragActive = false;
       svg.removeClass('is-dragging');
-      if (!d.moved) return;
+      if (!d.moved) {
+        // a click, not a drag: the pointer was held by the chart, so the bar's own click never comes; open the editor here
+        this.justDragged = true;
+        window.setTimeout(() => (this.justDragged = false), 300);
+        if (!cancel) this.openTask(e, d.it.row.bar.task);
+        return;
+      }
       this.justDragged = true; // the click that follows the drag isn't a click on the bar
       window.setTimeout(() => (this.justDragged = false), 300);
       if (cancel) return this.render();
@@ -14091,7 +14098,7 @@ function planReportText(r) {
   if (r.summary) L.push(`- **Tasks:** ${r.summary}`);
   if (r.crit.length) L.push(`- **Critical path:** ${r.crit.length} tasks, ${d(r.crit[0].start)} to ${d(r.crit[r.crit.length - 1].end)}`);
   L.push('');
-  if (r.svg) L.push('## Timeline', '', `![[${r.svg}]]`, '');
+  if (r.svg) L.push('## Timeline', '', `![[${r.svg}]]`, '', '*Arrows: what waits for what (dashed: starts with / ends with). 2/4: steps done. Outlined bars: the critical path.*', '');
   if (r.phases.length) {
     L.push('## Phases', '', '| Phase | Done | Start | Finish | State |', '|---|---|---|---|---|');
     for (const p of r.phases) L.push(`| ${planCell(p.name)} | ${p.done}/${p.total} | ${d(p.start)} | ${d(p.end)} | ${planCell(p.state)} |`);
@@ -14185,7 +14192,8 @@ Object.assign(PlanView.prototype, {
     if (!lay) return '';
     const host = document.body.createDiv({ attr: { style: 'position:absolute;left:-20000px;top:0;' } });
     try {
-      const svg = planDrawGantt(host, lay, { colours: planColourMap() });
+      // as on screen: the dependency arrows, and each task's steps (2/4, with the progress line in its bar)
+      const svg = planDrawGantt(host, lay, { colours: planColourMap(), links: true });
       return planSvgText(svg);
     } finally {
       host.remove();
