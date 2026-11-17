@@ -140,6 +140,7 @@
         "src/tickets/plan-edit.js",
         "src/tickets/plan-form.js",
         "src/tickets/plan-editor.js",
+        "src/tickets/plan-editor-links.js",
         "src/tickets/plan-graph.js",
         "src/tickets/plan-board.js",
         "src/tickets/plan-people.js",
