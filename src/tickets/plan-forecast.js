@@ -68,21 +68,13 @@ Object.assign(PlanView.prototype, {
       this.render();
     });
     tip(this.phasesOnlyEl.el, 'One bar per phase, or every task');
-    // fork: the dependency arrows on the Gantt, on or off; Undo for the last change made by dragging
-    this.linksBtn = button(tools, { icon: 'git-commit-horizontal', text: 'Links', cls: 'np-links-btn', title: 'Show the dependency arrows (click one to remove that link; Alt-drag from a bar to another to add one)', onClick: () => {
-      this.links = this.links === false;
-      this.app.workspace.requestSaveLayout();
-      this.syncForecastTools();
-      this.render();
-    } });
+    // fork: Undo for the last change made by dragging on the Gantt
     this.undoBtn = button(tools, { icon: 'undo-2', text: 'Undo', cls: 'np-undo-btn is-hidden', title: 'Undo the last change made on the chart', onClick: () => this.undoChange() });
     this.reportBtn = button(tools, { icon: 'file-output', text: 'Report', cls: 'np-report-btn', title: 'Save a printable report of this plan (a note with the chart) in the reports folder', onClick: () => this.writeReport() });
     this.datesBtn = button(tools, { icon: 'calendar-check', text: 'Dates…', cls: 'np-dates-btn', title: 'Write the planned dates into the tasks (🛫 start, 📅 due), choosing which', onClick: () => new PlanDatesModal(this.app, this).open() });
   },
   syncForecastTools() {
     this.phasesOnlyEl.el.toggleClass('is-hidden', this.mode !== 'gantt');
-    this.linksBtn.toggleClass('is-hidden', this.mode !== 'gantt' || this.ganttPhases);
-    this.linksBtn.toggleClass('is-on', this.links !== false);
     this.datesBtn.toggleClass('is-hidden', !this.base);
   },
   /** The plan with real dates (whatever the Dates / Weeks switch): forecast, baseline and slip use it. */

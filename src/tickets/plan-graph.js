@@ -82,7 +82,6 @@ Object.assign(PlanView.prototype, {
     const edge = colours.edge;
     const { dir, phases, fit } = this.graph;
     const { text, nodes } = planGraphText(this.tasks, sched, { kinds: this.kinds, colours, edge, dir, phases, show: this.who ? (t) => this.shows(t) : null });
-    this.src = text;
     const chart = this.bodyEl.createDiv(`np-chart np-graph${fit ? ' is-fit' : ''}`);
     renderMermaid(this.app, chart, text, this).then(() => this.linkNodes(chart, nodes, fit));
   },

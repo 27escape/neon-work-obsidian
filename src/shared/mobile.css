@@ -83,9 +83,6 @@ body.is-phone .tk-search {
   flex: 1 1 100%;
   order: 10;
 }
-body.is-phone .nd-timeline-copy .nd-btn-label {
-  display: none;
-}
 body.is-phone .nd-dash-inner {
   padding: 10px 10px 12px;
 }

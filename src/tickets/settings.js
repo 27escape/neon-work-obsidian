@@ -73,7 +73,7 @@ class NeonProjectsSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Timeline on the Projects tab')
-      .setDesc('A Gantt chart (Mermaid) above the list, one section per group (customer): a bar from started to due, or to the closed date. “Copy as Mermaid” pastes it into a note.')
+      .setDesc('A Gantt chart (Mermaid) above the list, one section per group (customer): a bar from started to due, or to the closed date.')
       .addToggle((t) => t.setValue(s.showTimeline !== false).onChange((v) => ((s.showTimeline = v), save(), p.emitSoon())));
 
     new Setting(containerEl).setName('Dashboard and reminders').setHeading();

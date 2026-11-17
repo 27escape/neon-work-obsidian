@@ -1,7 +1,6 @@
-/* ---- Project plans (fork): save a drawn chart as SVG, colour its bars ------------------------------------------------------
- * Everything stays on this computer: the chart already drawn in the view is copied into a file that the system's
- * download handling saves (a blob: link, no network). Theme colours given as CSS variables are written in, so the
- * file looks the same outside Obsidian. (PNG was dropped: Obsidian would not load the chart as an image.) */
+/* ---- Project plans (fork): a drawn chart as SVG text, for the Planning report -------------------------------------
+ * The chart already drawn is copied with its theme colours (CSS variables) written in, so the report's chart file
+ * looks the same outside Obsidian. (The SVG and Copy as Mermaid buttons were dropped, 17 Nov: the report covers it.) */
 
 /** The SVG text of a drawn chart, with sizes, a background and the theme's CSS variables resolved. */
 function planSvgText(svg) {
@@ -27,26 +26,3 @@ function planInlineVars(text, get) {
     return v ? safe(v) : m;
   });
 }
-
-/** Hand a file to the system's download handling (Obsidian asks where to save it, or uses Downloads). */
-function planDownload(blob, name) {
-  const url = URL.createObjectURL(blob);
-  const a = document.body.createEl('a', { attr: { href: url, download: name } });
-  a.click();
-  a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
-
-/** Save the chart in `el` as an SVG file, named after the plan. */
-function planExport(el, title) {
-  const svg = el.querySelector('svg');
-  if (!svg) return new Notice('Nothing to save yet');
-  const name = `${safeName(title) || 'Plan'} ${moment().format('YYYY-MM-DD')}`;
-  try {
-    planDownload(new Blob([planSvgText(svg)], { type: 'image/svg+xml' }), `${name}.svg`);
-  } catch (e) {
-    console.error('Plan: could not save the chart', e);
-    new Notice('Could not save the chart. Details in the console.');
-  }
-}
-

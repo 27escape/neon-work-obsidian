@@ -1,30 +1,8 @@
-/* ---- Projects timeline (fork): the projects as a Mermaid Gantt chart ---------------- */
-
-/**
- * Mermaid text for projects (pure). One section per customer; a bar from started (else created) to due,
- * or to the completed / cancelled date once closed; a project without a due date is a milestone at its start.
- * Closed → done, active → active, overdue → crit. `p` items need: title, customer, status, bucket,
- * startedOn / created / due / completed as moments (or anything with .format).
- */
-function projectGanttText(items, zoom, today) {
-  const d = (m) => (m && m.format ? m.format('YYYY-MM-DD') : m || '');
-  const sections = projectGroups(items, 'customer').map(([, name, list]) => ({
-    name,
-    items: list.map((t) => {
-      const start = d(t.startedOn || t.created);
-      const end = t.status === 'done' ? d(t.completed) || d(t.due) : d(t.due);
-      const tags = t.status === 'done' ? ['done'] : t.bucket === 'overdue' ? ['crit'] : t.status === 'in-progress' ? ['active'] : [];
-      return { name: t.statusRaw ? `${t.title} (${t.statusRaw})` : t.title, start, end, tags };
-    }),
-  }));
-  return ganttText({ sections, window: ganttWindow(zoom, today), today });
-}
-
 /* ---- All projects in one view (fork): the Projects tab's timeline, drawn by the plugin --------------------------
  * One row per project, grouped by customer: a bar from its start to its plan's forecast finish (else its due date, or
  * its closing date once closed), a hollow diamond on its due date, coloured by how it stands. Drawn with the Planning
  * view's Gantt (planGanttLayout / planDrawGantt), since Obsidian's chart engine takes no colours per bar. A click
- * opens the project's Planning view (Ctrl/Cmd-click: its note). Copy as Mermaid still gives the text. */
+ * opens the project's Planning view (Ctrl/Cmd-click: its note). */
 
 // colours by how a project stands (the kinds reuse the plan colours)
 const PROJECT_KEY = [
@@ -84,7 +62,6 @@ Object.assign(ProjectsView.prototype, {
         p.saveSettings();
         this.drawTimeline();
       }, 'nd-timeline-zoom');
-      button(bar, { icon: 'copy', text: 'Copy as Mermaid', cls: 'nd-timeline-copy', title: 'Copy this timeline as a Mermaid block for a note', onClick: () => copyMermaid(projectGanttText(this.timelineItems || [], p.settings.timelineZoom || '12m', moment().format('YYYY-MM-DD'))) });
       const key = el.createDiv('np-legend tk-tl-key');
       for (const [kind, label] of PROJECT_KEY) {
         const k = key.createSpan('np-key');

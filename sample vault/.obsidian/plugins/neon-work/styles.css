@@ -373,7 +373,6 @@ body.nd-themed .workspace-tab-header.is-active {
 /* fork: Mermaid timelines (Projects and Tasks tabs) */
 .nd-timeline { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 14px; }
 .nd-timeline-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.nd-timeline-copy { margin-left: auto; }
 .nd-timeline-chart { overflow-x: auto; min-height: 60px; }
 .nd-timeline-chart .mermaid svg { max-width: none; }
 /* @css src/deck/styles-controls.css */
@@ -5618,9 +5617,6 @@ body:not(.nd-themed) .nd-empty {
   text-underline-offset: 3px;
 }
 /* editing on the Gantt (plan-gantt-drag.js) */
-.np-plan .np-links-btn.is-on {
-  color: var(--interactive-accent);
-}
 .np-plan svg.np-gantt.is-dragging {
   cursor: grabbing;
   user-select: none;
@@ -6523,9 +6519,6 @@ body.is-phone .tk-search {
   min-width: 0;
   flex: 1 1 100%;
   order: 10;
-}
-body.is-phone .nd-timeline-copy .nd-btn-label {
-  display: none;
 }
 body.is-phone .nd-dash-inner {
   padding: 10px 10px 12px;

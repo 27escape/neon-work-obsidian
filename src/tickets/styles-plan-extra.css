@@ -174,9 +174,6 @@
   text-underline-offset: 3px;
 }
 /* editing on the Gantt (plan-gantt-drag.js) */
-.np-plan .np-links-btn.is-on {
-  color: var(--interactive-accent);
-}
 .np-plan svg.np-gantt.is-dragging {
   cursor: grabbing;
   user-select: none;

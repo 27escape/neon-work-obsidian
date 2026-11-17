@@ -43,7 +43,6 @@ class PlanView extends ItemView {
     this.selKey = null; // the selected task (planKey): New task follows it
     this.tasks = [];
     this.paths = new Set();
-    this.src = '';
   }
   getViewType() {
     return VIEW_PLAN;
@@ -55,13 +54,12 @@ class PlanView extends ItemView {
     return 'calendar-range';
   }
   getState() {
-    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph, who: this.who, lanes: this.lanes, ganttPhases: this.ganttPhases, links: this.links } : {});
+    return Object.assign(super.getState(), this.plan ? { kind: this.plan.kind, path: this.plan.path, mode: this.mode, weeks: this.weeks, graph: this.graph, who: this.who, lanes: this.lanes, ganttPhases: this.ganttPhases } : {});
   }
   async setState(state, result) {
     if (state && state.path) this.plan = { kind: state.kind === 'folder' ? 'folder' : 'note', path: state.path };
     if (state && PLAN_MODES.some(([k]) => k === state.mode)) this.mode = state.mode;
     if (state && typeof state.weeks === 'boolean') this.weeks = state.weeks;
-    if (state && typeof state.links === 'boolean') this.links = state.links;
     if (state && state.graph && typeof state.graph === 'object') Object.assign(this.graph, state.graph);
     if (state && 'who' in state) this.who = state.who || null;
     if (state && (state.lanes === 'phase' || state.lanes === 'person')) this.lanes = state.lanes;
@@ -119,7 +117,6 @@ class PlanView extends ItemView {
     tip(this.markEl.el, 'Only risks, issues or decisions (click again for all)');
     this.clearSelBtn = button(tools, { icon: 'x', cls: 'nd-icon-btn is-hidden', title: 'New tasks at the end of the plan instead (clear the selection)', onClick: () => this.select(null) });
     button(tools, { icon: 'file-text', cls: 'nd-icon-btn', title: 'Open the project note', onClick: (e) => this.openScope(e) });
-    this.copyBtn = button(tools, { icon: 'copy', cls: 'nd-icon-btn', title: 'Copy the chart as a Mermaid block', onClick: () => this.src && copyMermaid(this.src) });
     this.buildPeopleTools(tools);
     this.buildForecastTools(tools);
     const g = this.graph;
@@ -128,7 +125,6 @@ class PlanView extends ItemView {
     this.phaseEl = pills(tools, [['on', 'Phases']], g.phases ? 'on' : null, (v) => ((g.phases = v === 'on'), saveGraph()), 'can-clear');
     tip(this.phaseEl.el, 'Group the boxes by phase (wider)');
     this.fitEl = pills(tools, [['fit', 'Fit'], ['full', 'Full size']], g.fit ? 'fit' : 'full', (v) => ((g.fit = v === 'fit'), saveGraph()));
-    this.svgBtn = button(tools, { icon: 'image-down', text: 'SVG', cls: 'np-save', title: 'Save the chart as an SVG file', onClick: () => planExport(this.bodyEl, this.getDisplayText()) });
     this.issuesEl = root.createDiv('np-issues');
     this.bodyEl = root.createDiv('np-body');
   }
@@ -216,10 +212,9 @@ class PlanView extends ItemView {
     const weeks = this.weeks || !this.base;
     this.today = moment().format('YYYY-MM-DD');
     const g = planGanttText(this.tasks, { base: this.base, weeks, today: this.today, show: (t) => this.shows(t), phases: this.mode === 'gantt' && this.ganttPhases, due: this.due });
-    const { text, sched, bars } = g;
+    const { sched, bars } = g;
     this.dated = this.datedPlan(); // real dates whatever the switch: forecast, baseline, slip
     this.ends = new Map(((this.dated && this.dated.bars) || []).filter((b) => b.task).map((b) => [b.task, b.end]));
-    this.src = text;
     this.sched = sched;
     this.kinds = new Map(bars.filter((b) => b.task).map((b) => [b.task, b.kind]));
     const own = this.tasks.filter((t) => !t.external);
@@ -229,7 +224,6 @@ class PlanView extends ItemView {
     this.weeksEl.set(weeks ? 'weeks' : 'dates');
     this.weeksEl.btns.get('dates').disabled = !this.base;
     if (!this.base) tip(this.weeksEl.btns.get('dates'), 'Set the project’s started date to see dates');
-    for (const b of [this.copyBtn, this.svgBtn]) b.toggleClass('is-hidden', this.mode !== 'gantt' && this.mode !== 'graph');
     for (const p of [this.dirEl, this.phaseEl, this.fitEl]) p.el.toggleClass('is-hidden', this.mode !== 'graph');
     this.syncPeopleTools();
     this.syncForecastTools();
@@ -246,7 +240,7 @@ class PlanView extends ItemView {
     if (this.mode === 'list') return this.renderList(sched, weeks);
     if (this.mode === 'board') return this.renderBoard();
     if (this.mode === 'graph') return this.renderGraph(sched);
-    // the plugin draws the Gantt itself (Obsidian's chart engine takes no per-bar colours); Copy as Mermaid gives the text
+    // the plugin draws the Gantt itself (Obsidian's chart engine takes no per-bar colours)
     const chart = this.bodyEl.createDiv('np-chart np-gantt-wrap');
     const lay = planGanttLayout(g.rows, { today: this.today, relative: g.relative, width: this.bodyEl.clientWidth || 900 });
     if (!lay) return void emptyState(chart, 'Nothing to draw for this filter');
@@ -255,7 +249,7 @@ class PlanView extends ItemView {
       colours: planColourMap(),
       onBar: (e, b) => !this.justDragged && this.taskMenu(e, b.task), // the click ending a drag isn't a click on the bar
       selKey: this.selKey,
-      links: tasksDrawn && this.links !== false,
+      links: tasksDrawn, // always: the arrows are part of the plan (Kevin, 17 Nov)
       onLink: (e, l) => this.linkMenu(e, l),
     });
     if (tasksDrawn) this.attachGanttDrag(svg, lay, g.bars); // drag to change dates and lengths, Alt-drag to link (plan-gantt-drag.js)
