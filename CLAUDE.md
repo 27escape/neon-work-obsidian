@@ -18,6 +18,7 @@ Obsidian plugin: a kernel and six modules (Dashboard, Tasks, Projects, Research,
 - `node tools/build.mjs` → `dist/neon-work/{main.js,styles.css,manifest.json}` (and copies the manifest to the repo root).
 - `node --test test/*.test.mjs` runs the unit tests (real source files, a small Obsidian stand-in in `test/load.mjs`).
 - `node tools/check.mjs dist`: local-only rules, cleanup, timers, writes, CSS, file sizes.
+- A release adds a line to the README's `[!NOTE]` block ("**X.Y.Z:** what's new. See [the release notes](docs/release-notes/X.Y.Z.md)."): newest first, so the new line goes at the top.
 - `tools/release.sh [X.Y.Z] [--dry-run]` releases a version: checks, version bump, build, sample vault, main fast-forwarded, tag, push; GitHub Actions (`.github/workflows/release.yml`) then drafts the release, which the script publishes (needs `docs/release-notes/X.Y.Z.md`; `--help` for the steps).
 - To try a build, copy the three files into `<vault>/.obsidian/plugins/neon-work/` and switch the plugin off and on. Keep read-only on in a real vault, and commit the vault before switching it off, so `git status` shows every change.
 

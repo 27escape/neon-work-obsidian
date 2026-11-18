@@ -4,13 +4,13 @@ A command centre for an Obsidian vault: a dashboard, projects, tasks, time track
 By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.
 
 > [!NOTE]
-> **New in 1.5.0:** Planning knows about **holidays and time off** (UK public holidays built in, closures, any country's dates, people's leave, per customer or Area), has its **own calendar** in the task editor, and makes a **report for other people**: a summary, then the project note itself. Also editing on the Gantt chart, steps under a task, tasks that run alongside, and cancelling or deleting tasks. See [the release notes](docs/release-notes/1.5.0.md).
->
-> **1.5.2:** a new note opens in its own tab with the cursor in it, and tabs keep their names after a restart. See [the release notes](docs/release-notes/1.5.2.md).
+> **1.5.4:** links from your notes to the plugin's tabs (`obsidian://neon-work?open=projects`), and page previews when hovering a note in its lists. See [the release notes](docs/release-notes/1.5.4.md).
 >
 > **1.5.3:** a tidy-up after Obsidian's automated review (styles without `!important` or `:has()`); needs Obsidian 1.7.2 or later. See [the release notes](docs/release-notes/1.5.3.md).
 >
-> **1.5.4:** links from your notes to the plugin's tabs (`obsidian://neon-work?open=projects`), and page previews when hovering a note in its lists. See [the release notes](docs/release-notes/1.5.4.md).
+> **1.5.2:** a new note opens in its own tab with the cursor in it, and tabs keep their names after a restart. See [the release notes](docs/release-notes/1.5.2.md).
+>
+> **1.5.0:** Planning knows about **holidays and time off** (UK public holidays built in, closures, any country's dates, people's leave, per customer or Area), has its **own calendar** in the task editor, and makes a **report for other people**: a summary, then the project note itself. Also editing on the Gantt chart, steps under a task, tasks that run alongside, and cancelling or deleting tasks. See [the release notes](docs/release-notes/1.5.0.md).
 >
 > **Planning** arrived in 1.4.0: a lightweight project planner over the tasks in your project notes ([1.4.0 release notes](docs/release-notes/1.4.0.md)).
 
