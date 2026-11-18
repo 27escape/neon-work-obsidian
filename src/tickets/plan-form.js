@@ -315,3 +315,14 @@ function planWeekendDates(tasks) {
       }
   return out;
 }
+/**
+ * A day in the task editor's calendar (date-picker.js): { off, away, mark, text }. off: not a working day in this plan
+ * (its Holidays note); away: an owner's time off; mark: the task's planned start or finish. owners: as written.
+ */
+function planDayInfo(tasks, owners, planned, ymd) {
+  tasks = tasks || [];
+  const why = (tasks.calendar || planCal()).off(ymd);
+  const away = planOwners(`[owner:: ${(owners || []).join(', ')}]`).filter((o) => planLeaveOff(planLeaveFor(tasks.leave, o), ymd)).map((o) => `${o.name} off`);
+  const mark = planned ? (ymd === planned.start ? 'planned start' : ymd === planned.due ? 'planned finish' : '') : '';
+  return { off: !!why, away: away.length > 0, mark: !!mark, text: [why, ...away, mark].filter(Boolean).join(' · ') };
+}

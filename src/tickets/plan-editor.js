@@ -149,11 +149,13 @@ class PlanTaskModal extends Modal {
     this.blocksEl = row('Blocks', 'np-ed-pick');
     // dates
     const dt = row('Dates');
+    const fields = dt.createDiv('np-ed-dates');
     for (const [key, sign, label] of [['start', '🛫', 'Start'], ['scheduled', '⏳', 'Scheduled'], ['due', '📅', 'Due']]) {
-      const w = dt.createDiv('np-ed-date');
+      const w = fields.createDiv('np-ed-date');
       w.createSpan({ text: `${sign} ${label}` });
-      // a date field with a calendar button (shared-ui.js); typing a date works too
-      this[`${key}El`] = dateField(w, { value: f[key], label: `${label.toLowerCase()} date`, onChange: (v) => ((f[key] = v), this.update()) });
+      // a date field with the plugin's calendar (date-picker.js), opening under the three fields
+      const day = (ymd) => planDayInfo(this.ctx.tasks, this.owners, this.planned, ymd);
+      this[`${key}El`] = dateField(w, { value: f[key], label: `${label.toLowerCase()} date`, dayInfo: day, panelIn: dt, onChange: (v) => ((f[key] = v), this.update()) });
     }
     this.weekendEl = dt.createDiv('np-ed-warn-line');
     if (this.planned) {

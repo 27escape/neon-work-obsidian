@@ -214,22 +214,122 @@
   padding-left: 20px;
 }
 
-/* date fields with a calendar button (dateField in shared-ui.js); the browser's own icon is hidden, as it is hard to
-   see in dark themes, and the field follows the theme so the calendar that opens does too */
-.np-editor .nd-date-field {
+/* date fields and the plugin's calendar (date-picker.js); the browser's own calendar icon is hidden (hard to see in
+   dark themes): the button opens ours */
+.np-editor .np-ed-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  width: 100%;
+}
+.nd-date-field {
   display: inline-flex;
   align-items: center;
   gap: 2px;
 }
-.theme-dark .np-editor .nd-date-field input[type='date'] {
+.theme-dark .nd-date-field input[type='date'] {
   color-scheme: dark;
 }
-.theme-light .np-editor .nd-date-field input[type='date'] {
+.theme-light .nd-date-field input[type='date'] {
   color-scheme: light;
 }
-.np-editor .nd-date-field input[type='date']::-webkit-calendar-picker-indicator {
+.nd-date-field input[type='date']::-webkit-calendar-picker-indicator {
   display: none;
 }
-.np-editor .nd-date-pick {
+.nd-date-field input[readonly] {
+  width: 9em;
+  cursor: pointer;
+}
+.nd-date-pick {
   padding: 2px 4px;
+}
+.nd-date-pick[aria-expanded='true'] {
+  color: var(--interactive-accent);
+}
+.nd-dp {
+  width: 100%;
+  max-width: 340px;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+}
+.nd-dp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.nd-dp-title {
+  font-weight: 600;
+}
+.nd-dp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.nd-dp-dow {
+  text-align: center;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  padding: 2px 0;
+}
+.nd-dp .nd-dp-day {
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  font-variant-numeric: tabular-nums;
+}
+.nd-dp .nd-dp-day:hover {
+  background: var(--background-modifier-hover);
+}
+/* days off greyed (weekends, holidays, closures); the owners' time off striped; still clickable */
+.nd-dp .nd-dp-day.is-off {
+  background: var(--background-secondary-alt, var(--background-secondary));
+  color: var(--text-faint);
+}
+.nd-dp .nd-dp-day.is-away {
+  background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--background-modifier-border) 4px 6px);
+  color: var(--text-muted);
+}
+.nd-dp .nd-dp-day.is-other {
+  opacity: 0.45;
+}
+.nd-dp .nd-dp-day.is-mark {
+  border-color: var(--interactive-accent);
+  border-style: dashed;
+}
+.nd-dp .nd-dp-day.is-today {
+  font-weight: 700;
+  border-color: var(--text-accent);
+}
+.nd-dp .nd-dp-day.is-selected {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.nd-dp-info {
+  min-height: 1.4em;
+  margin-top: 6px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.nd-dp-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+/* phones and tablets: bigger days to tap */
+.is-mobile .nd-dp {
+  max-width: none;
+}
+.is-mobile .nd-dp .nd-dp-day {
+  min-height: 40px;
+  font-size: var(--font-ui-medium);
 }

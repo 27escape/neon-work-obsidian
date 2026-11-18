@@ -162,34 +162,3 @@ function installLongPress(plugin) {
   }, true);
   plugin.register(cancel);
 }
-
-/**
- * Open a date field's calendar (fork, Planning editor). Chromium's own calendar icon is hard to see in dark themes,
- * so a button calls this: the browser's picker where it has showPicker (desktop), else the field gets the focus,
- * which on phones and tablets opens the system's date picker. Typing a date still works either way.
- */
-function showDatePicker(input) {
-  if (!input || input.disabled) return false;
-  try {
-    if (typeof input.showPicker === 'function') {
-      input.showPicker();
-      return true;
-    }
-  } catch (e) {
-    // not allowed here (some mobile webviews): fall back to the focus
-  }
-  input.focus();
-  if (typeof input.click === 'function') input.click();
-  return false;
-}
-/** A date field with a calendar button after it (fork). Returns the input. */
-function dateField(parent, { value = '', label = 'date', onChange = null } = {}) {
-  const box = parent.createDiv('nd-date-field');
-  const input = box.createEl('input', { attr: { type: 'date' } });
-  input.value = value || '';
-  if (onChange) input.addEventListener('change', () => onChange(input.value || null));
-  const btn = box.createEl('button', { cls: 'clickable-icon nd-date-pick', attr: { type: 'button', 'aria-label': `Pick the ${label} from a calendar` } });
-  setIcon(btn, 'calendar');
-  btn.addEventListener('click', () => showDatePicker(input));
-  return input;
-}
