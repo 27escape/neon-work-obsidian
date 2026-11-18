@@ -196,6 +196,7 @@ class ResearchView extends ItemView {
     acts.createSpan('nr-act-space'); // notes have one button: keep its column where folders have two
     button(acts, { icon: 'more-horizontal', cls: 'nd-icon-btn', title: 'Rename, delete', onClick: (e) => (e.stopPropagation(), this.noteMenu(file, e)) });
     row.addEventListener('click', (e) => openFile(this.app, file, e));
+    hoverPreview(this.app, row, file);
     row.addEventListener('contextmenu', (e) => (e.preventDefault(), this.noteMenu(file, e)));
   }
   addMenu(folder, e) {

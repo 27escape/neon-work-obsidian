@@ -89,6 +89,7 @@ Object.assign(ResearchView.prototype, {
         const when = row.createSpan({ cls: 'nr-col nr-c-when', text: shortAgo(f.stat.mtime) });
         tip(when, `Edited ${moment(f.stat.mtime).format('D MMM YYYY, HH:mm')}`);
         row.addEventListener('click', (e) => openFile(this.app, f, e));
+        hoverPreview(this.app, row, f);
         row.addEventListener('contextmenu', (e) => (e.preventDefault(), this.noteMenu(f, e)));
       }
     }

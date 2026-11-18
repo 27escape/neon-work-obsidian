@@ -214,6 +214,7 @@ class ProjectsView extends ItemView {
     };
     button(acts, { icon: 'more-horizontal', cls: 'nd-icon-btn', title: 'More', onClick: menu });
     row.addEventListener('click', (e) => p.openProject(t.file, e));
+    hoverPreview(this.app, row, t.file); // page preview on hover
     row.addEventListener('contextmenu', menu);
   }
 }

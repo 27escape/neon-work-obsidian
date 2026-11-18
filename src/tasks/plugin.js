@@ -21,6 +21,7 @@ class NeonTasks extends Plugin {
 
     // fork: a Tasks tab in the main pane, listed in the Neon sidebar like Projects, Time and Research
     this.registerView(VIEW_TASKS, (leaf) => new TasksView(leaf, this));
+    this.registerHoverLinkSource(VIEW_TASKS, { display: `${appName()} tasks`, defaultMod: true }); // page previews (hoverPreview)
     this.addCommand({ id: 'open-tasks', name: 'Open the Tasks tab', callback: () => this.openTab() });
     this.addCommand({ id: 'new-note', name: 'New note', callback: () => this.newNote(this.currentFolder()) });
     // fork: "Fix properties" (current note / folder) and the automatic ops → operations rename are removed:

@@ -20,6 +20,7 @@
   "kernel": [
     "src/kernel/mother.js",
     "src/kernel/views.js",
+    "src/kernel/links.js",
     "src/kernel/settings-page.js"
   ],
   "modules": [

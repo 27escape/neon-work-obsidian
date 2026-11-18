@@ -12,6 +12,8 @@ class NeonProjects extends Plugin {
     this.cache = null;
 
     this.registerView(VIEW_TICKETS, (leaf) => new ProjectsView(leaf, this));
+    this.registerHoverLinkSource(VIEW_TICKETS, { display: `${appName()} projects`, defaultMod: true }); // page previews (hoverPreview)
+    this.registerHoverLinkSource(VIEW_PLAN, { display: `${appName()} planning`, defaultMod: true });
     this.hookPlans(); // fork: Plan view and the buttons on project notes
     this.hookPlanMarks(); // fork: plan problems underlined in project notes (plan-marks.js)
     this.addRibbonIcon('briefcase', 'Projects', () => this.openTracker());

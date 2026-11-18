@@ -104,6 +104,7 @@ Object.assign(NeonTasks.prototype, {
     const open = (e) => !row._t.pending && openFile(this.app, row._t.file, e, row._t.line);
     txt.addEventListener('click', open);
     src.addEventListener('click', open);
+    if (row._t.file) hoverPreview(this.app, src, row._t.file, row._t.line); // the note's name: its page preview
     edit.addEventListener('click', () => {
       if (row._t.pending || row.querySelector('.nt-edit')) return;
       const inp = createEl('input', { cls: 'nd-input nt-edit', attr: { type: 'text' } });

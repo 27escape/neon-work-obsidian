@@ -307,7 +307,7 @@ class PlanView extends ItemView {
       if (!t || !t.file) continue;
       d.addClass('is-link');
       tip(d, `Open ${t.file.basename} at this task`);
-      d.addEventListener('click', (e) => openFile(this.app, t.file, e, t.line));
+      d.addEventListener('click', (e) => openFile(this.app, t.file, e, t.line)), hoverPreview(this.app, d, t.file, t.line);
     }
     if (this.tasks.some((t) => !t.external && /\{\{\s*prefix\s*\}\}/.test(t.raw))) {
       // made from the plan template outside New project: its ids still read {{prefix}}-1

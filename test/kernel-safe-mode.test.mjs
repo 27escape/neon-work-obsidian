@@ -21,6 +21,7 @@ class Plugin extends Component {
   }
   addSettingTab() {}
   addCommand() {}
+  registerObsidianProtocolHandler() {}
 }
 class Stub {}
 const obsidian = new Proxy(

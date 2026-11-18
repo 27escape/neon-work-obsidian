@@ -12,6 +12,7 @@ class NeonResearch extends Plugin {
     s.root = s.roots.length ? s.roots[0].path : '';
     this.listeners = new Set();
     this.registerView(VIEW_RESEARCH, (leaf) => new ResearchView(leaf, this));
+    this.registerHoverLinkSource(VIEW_RESEARCH, { display: `${appName()} research`, defaultMod: true }); // page previews (hoverPreview)
     this.addRibbonIcon('library', 'Research', () => this.openTab());
     this.addCommand({ id: 'open-research', name: 'Open the Research tab', callback: () => this.openTab() });
     this.addCommand({ id: 'new-topic', name: 'New topic', callback: () => (this.rootFolder() ? this.newTopic(this.rootFolder()) : this.pickSection()) });

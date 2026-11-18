@@ -36,7 +36,7 @@ class NeonDeck extends Plugin {
     this.registerView(VIEW_INBOX, (leaf) => new InboxView(leaf, this)); // fork
     this.registerView(VIEW_CARDS, (leaf) => new CardsView(leaf, this));
     this.registerView(VIEW_GRAPH, (leaf) => new GraphView(leaf, this));
-    for (const [v, d] of [[VIEW_DASH, 'dashboard'], [VIEW_CARDS, 'cards'], [VIEW_GRAPH, 'graph']]) this.registerHoverLinkSource(v, { display: `${appName()} ${d}`, defaultMod: true });
+    for (const [v, d] of [[VIEW_DASH, 'dashboard'], [VIEW_CARDS, 'cards'], [VIEW_GRAPH, 'graph'], [VIEW_INBOX, 'inbox']]) this.registerHoverLinkSource(v, { display: `${appName()} ${d}`, defaultMod: true });
 
     this.addRibbonIcon('layout-dashboard', `${appName()} dashboard`, () => this.activate(VIEW_DASH, 'tab'));
     if (!NEON_MOBILE.on) {

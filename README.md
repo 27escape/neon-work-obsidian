@@ -61,6 +61,10 @@ The plugin has six parts (Planning is part of Projects). Each can be switched of
 
 ![The Projects tab with its timeline](docs/screenshots/projects-tab.png)
 
+### Links to the plugin's tabs
+
+A note can open any of the plugin's tabs with a link: `[Projects](obsidian://neon-work?open=projects)`. `open` can be `dashboard`, `projects`, `tasks`, `research`, `time`, `inbox`, `cards`, `graph`, or `planning` with `&project=` and the project note's name or path (and `&mode=board`, `graph` or `list`). The command *Copy a link to this tab* copies a ready-made link for the tab in front. Hovering a note's name in the Projects, Research, Tasks and Inbox lists shows Obsidian's page preview (with Ctrl / Cmd, or without: *Settings → Page preview*).
+
 ### Planning
 
 A lightweight planner over the tasks already in a project note (or a project folder). Open it with the **Planning** button in the note's header, the project's menu, or *Project: open Planning*.

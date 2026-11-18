@@ -61,6 +61,7 @@ class NeonMother extends Plugin {
     await readDailyOpts(this.app);
     this.addSettingTab(new NeonModulesTab(this.app, this));
     this.addCommand({ id: 'safe-mode', name: 'Restart in safe mode (modules off)', callback: () => this.setSafe(true) });
+    this.registerLinks(); // obsidian://neon-work?open=projects in notes, and "Copy a link to this tab" (links.js)
     if (this.safeMode()) {
       const err = this.local('error');
       new Notice(

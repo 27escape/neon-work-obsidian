@@ -42,6 +42,22 @@ function reusableLeaf(app) {
   return cands[0] || ws.getLeaf('tab');
 }
 /**
+ * fork: Obsidian's page preview for a note shown in one of the plugin's lists (hover; with Ctrl / Cmd unless Settings →
+ * Page preview says otherwise). The tab the row sits in, found when hovered, is the preview's source and parent, so
+ * the same rows work in their own tab and in a dashboard card. line: open the preview at that line.
+ */
+function hoverPreview(app, el, file, line = null) {
+  if (!el || !file) return;
+  el.addEventListener('mouseover', (e) => {
+    let view = null;
+    app.workspace.iterateAllLeaves((l) => {
+      if (!view && l.view && l.view.containerEl && l.view.containerEl.contains(el)) view = l.view;
+    });
+    if (!view) return;
+    app.workspace.trigger('hover-link', { event: e, source: view.getViewType(), hoverParent: view, targetEl: el, linktext: file.path, state: line != null ? { scroll: line } : undefined });
+  });
+}
+/**
  * fork: open a note just made (New note, an inbox note, a new project or research note) and put the cursor in it. It
  * gets a tab of its own next to the current one, so a pinned tab (the dashboard) and the note being read stay as they
  * are; only an empty tab is used for it. The editor then takes the focus, after the New note window has handed it

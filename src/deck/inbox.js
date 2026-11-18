@@ -76,6 +76,7 @@ Object.assign(NeonDeck.prototype, {
         r.createSpan({ cls: 'nd-inbox-when', text: shortAgoDeck(file.stat.ctime) });
         tip(r, file.path);
         r.addEventListener('click', (e) => openFile(this.app, file, e));
+        hoverPreview(this.app, r, file);
       }
     };
     const add = body.createDiv('nt-add');

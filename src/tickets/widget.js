@@ -30,6 +30,7 @@ Object.assign(NeonProjects.prototype, {
         if (t.customer) meta.createSpan({ cls: 'tk-mini-cust', text: t.customer });
         p.renderPlanBadges(meta, t); // fork: late, overdue, due soon, blocked: small coloured pills
         r.addEventListener('click', (e) => p.openProject(t.file, e));
+        hoverPreview(p.app, r, t.file);
         r.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           const m = new Menu();
