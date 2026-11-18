@@ -16,8 +16,9 @@
 #   4. main fast-forwarded to this branch (main must not have commits this branch lacks)
 #   5. an annotated tag VERSION on this commit
 #   6. push main, this branch and the tag to origin
-#   7. a GitHub release with dist/neon-work/{main.js,manifest.json,styles.css}, with the GitHub CLI (gh) when it is
-#      installed and signed in; otherwise the steps for github.com are printed
+#   7. the GitHub release: pushing the tag starts GitHub Actions (.github/workflows/release.yml), which builds, tests,
+#      attests main.js, manifest.json and styles.css and drafts the release; this script then publishes that draft
+#      with the GitHub CLI (gh) when it is installed and signed in, or says where to publish it on github.com
 # Safe to run again: steps already done (version set, tag on this commit, release made) are skipped.
 set -euo pipefail
 
@@ -32,7 +33,7 @@ for a in "$@"; do
     --dry-run) DRY=1 ;;
     --yes | -y) YES=1 ;;
     --no-push) PUSH=0 ;;
-    -h | --help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "Unknown option: $a (see --help)" >&2; exit 2 ;;
     *) VERSION="$a" ;;
   esac
@@ -175,27 +176,35 @@ run git push origin "${REFS[@]}"
 run git push origin "refs/tags/$VERSION"
 
 # ---- 7. the GitHub release
+# Pushing the tag starts .github/workflows/release.yml: GitHub Actions builds, tests, attests the three files and
+# drafts the release "Neon Work VERSION" with them and the release notes. Only publishing the draft is left; never
+# make a second release by hand (that is how 1.5.1 ended up with two).
 say "GitHub release"
-ASSETS=("$DIST/main.js" "$DIST/manifest.json" "$DIST/styles.css")
+REPO=$(git remote get-url origin | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-  if gh release view "$VERSION" >/dev/null 2>&1; then
-    echo "   release $VERSION already exists: its files are replaced with this build"
-    run gh release upload "$VERSION" "${ASSETS[@]}" --clobber
-  else
-    run gh release create "$VERSION" "${ASSETS[@]}" --title "Neon Work $VERSION" --notes-file "$NOTES" --verify-tag
-  fi
+  echo "   waiting for GitHub Actions to draft the release (a few minutes)…"
+  state=''
+  for _ in $(seq 1 60); do
+    state=$(gh release view "$VERSION" --json isDraft --jq 'if .isDraft then "draft" else "published" end' 2>/dev/null || true)
+    [ -n "$state" ] && break
+    [ "$DRY" = 1 ] && break
+    sleep 10
+  done
+  case "$state" in
+    published) echo "   already published" ;;
+    draft) ask "Publish the draft release Neon Work $VERSION?"; run gh release edit "$VERSION" --draft=false --latest ;;
+    *) if [ "$DRY" = 1 ]; then echo "   would publish the draft once GitHub Actions has made it"; else echo "   no draft yet: check https://github.com/$REPO/actions, then run this again"; fi ;;
+  esac
 else
-  REPO=$(git remote get-url origin | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')
   cat <<EOF
-   The GitHub CLI (gh) isn't installed or signed in, so make the release on github.com:
-     1. open https://github.com/$REPO/releases/new?tag=$VERSION&title=Neon%20Work%20$VERSION
-        (the tag is chosen and the title filled in; the tag box should say it is an existing tag)
-     2. paste the text of $NOTES as the description
-     3. attach ${ASSETS[*]}
-     4. Publish release
-   Use one release page per version: if GitHub says "Duplicate tag name", a release for $VERSION exists already
-   (perhaps a draft): open that one from the Releases page instead, and discard any extra draft.
-   (Or install gh, run "gh auth login", and run this script again: it skips what's done.)
+   GitHub Actions is drafting the release now (see https://github.com/$REPO/actions): it builds, tests, attests
+   main.js, manifest.json and styles.css, and drafts "Neon Work $VERSION" with them and $NOTES.
+   When it has finished (a few minutes):
+     1. open https://github.com/$REPO/releases
+     2. edit the draft "Neon Work $VERSION" (by github-actions)
+     3. tick "Set as the latest release" and click Publish release
+   Don't make a release by hand as well: GitHub then has two for the same tag.
+   (With the GitHub CLI installed and signed in, "gh auth login", this script publishes the draft itself.)
 EOF
 fi
 
