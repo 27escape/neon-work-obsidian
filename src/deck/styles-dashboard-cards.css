@@ -263,28 +263,32 @@
     height: 4px;
   }
 }
-.nd-act-dot.is-task,
-.nd-act-item.is-task .nd-ico {
+.nd-act-dot.is-task {
   background: var(--nd-go);
+}
+.nd-act-dot.is-ticket {
+  background: var(--nd-warn);
+}
+.nd-act-dot.is-time {
+  background: var(--nd-info);
+}
+.nd-act-dot.is-note {
+  background: var(--nd-muted);
+}
+/* the items' icons take the same colours, without the dots' background */
+.nd-act-item.is-task .nd-ico {
   color: var(--nd-go);
 }
-.nd-act-dot.is-ticket,
 .nd-act-item.is-ticket .nd-ico {
-  background: var(--nd-warn);
   color: var(--nd-warn);
 }
-.nd-act-dot.is-time,
 .nd-act-item.is-time .nd-ico {
-  background: var(--nd-info);
   color: var(--nd-info);
 }
-.nd-act-dot.is-note,
 .nd-act-item.is-note .nd-ico {
-  background: var(--nd-muted);
   color: var(--nd-muted);
 }
 .nd-act-item .nd-ico {
-  background: none !important;
   flex: none;
 }
 .nd-act-item .nd-ico svg {

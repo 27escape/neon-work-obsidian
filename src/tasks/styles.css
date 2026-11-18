@@ -152,7 +152,7 @@
   background: var(--nd-surface, var(--background-primary));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 20%, transparent);
 }
-.nd-card-body:has(> .nt-list) {
+.nd-card-body.is-list {
   display: flex;
   flex-direction: column;
 }

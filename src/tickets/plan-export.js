@@ -21,8 +21,17 @@ function planSvgText(svg) {
  */
 function planInlineVars(text, get) {
   const safe = (v) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, "'");
-  return text.replace(/var\((--[\w-]+)(?:\s*,\s*([^()]*))?\)/g, (m, name, fb) => {
-    const v = String(get(name) || '').trim() || (fb || '').trim();
-    return v ? safe(v) : m;
-  });
+  const once = (s) =>
+    s.replace(/var\((--[\w-]+)(?:\s*,\s*([^()]*))?\)/g, (m, name, fb) => {
+      const v = String(get(name) || '').trim() || (fb || '').trim();
+      return v ? safe(v) : m;
+    });
+  // innermost first, until nothing changes: var(--np-link-c, var(--text-faint)) resolves too
+  let out = text;
+  for (let i = 0; i < 5; i++) {
+    const next = once(out);
+    if (next === out) break;
+    out = next;
+  }
+  return out;
 }

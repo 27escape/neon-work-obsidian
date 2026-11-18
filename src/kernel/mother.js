@@ -107,8 +107,7 @@ class NeonMother extends Plugin {
   local(key) {
     const k = LOCAL_KEYS[key];
     try {
-      if (this.app.loadLocalStorage) return this.app.loadLocalStorage(k);
-      return JSON.parse(window.localStorage.getItem(`${this.app.vault.getName()}:${k}`));
+      return this.app.loadLocalStorage ? this.app.loadLocalStorage(k) : null; // Obsidian's API; older ones: not remembered
     } catch (e) {
       return null;
     }
@@ -117,8 +116,6 @@ class NeonMother extends Plugin {
     const k = LOCAL_KEYS[key];
     try {
       if (this.app.saveLocalStorage) this.app.saveLocalStorage(k, value == null ? null : value);
-      else if (value == null) window.localStorage.removeItem(`${this.app.vault.getName()}:${k}`);
-      else window.localStorage.setItem(`${this.app.vault.getName()}:${k}`, JSON.stringify(value));
     } catch (e) {
       /* storage unavailable: start-up checks just don't persist */
     }

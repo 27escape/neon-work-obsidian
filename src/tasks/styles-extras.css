@@ -93,7 +93,6 @@ body:not(.nd-themed) .nd-empty {
 }
 /* rows collapse out when ticked, deleted or moved to another group (height set inline first) */
 .nt-task.is-leaving {
-  height: 0 !important;
   padding-top: 0;
   padding-bottom: 0;
   opacity: 0;

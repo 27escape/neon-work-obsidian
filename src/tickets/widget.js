@@ -4,6 +4,7 @@ Object.assign(NeonProjects.prototype, {
     const p = this;
     button(card.actions, { icon: 'plus', cls: 'nd-icon-btn', title: 'New project', onClick: () => p.newProject() });
     const counter = card.body.createDiv('tk-counter is-mini');
+    card.body.addClass('is-list'); // a column, the list filling it (styles-tracker.css)
     const list = card.body.createDiv('tk-mini-list');
     let renders = 0;
     const render = () => {

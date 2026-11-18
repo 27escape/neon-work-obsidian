@@ -3,6 +3,7 @@ Object.assign(NeonTasks.prototype, {
   mountTasks(card) {
     const body = card.body;
     // fork: tasks from across your notes; the Todo note has its own card (with the add box)
+    body.addClass('is-list'); // a column, the list filling it (styles.css)
     const list = body.createDiv('nt-list');
     button(card.actions, { icon: 'calendar-days', cls: 'nd-icon-btn', title: 'Open this period’s daily / weekly note', onClick: async () => openFile(this.app, await ensureToday(this.app)) });
     let token = 0;

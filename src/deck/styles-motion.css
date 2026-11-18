@@ -65,8 +65,7 @@
   }
 }
 /* popups fade in: Neon's own and Obsidian's (modals, menus, notices, hover previews) while a Neon theme is on */
-body.nd-themed .modal-container .modal-bg,
-.modal-container:has(.nd-modal) .modal-bg {
+body.nd-themed .modal-container .modal-bg {
   animation: nd-fade-in 0.2s ease;
 }
 body.nd-themed .modal-container .modal,
@@ -104,12 +103,13 @@ body.nd-themed .notice {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .nd-root *,
-  .nd-root *::before,
-  .nd-root *::after,
-  .nd-modal * {
-    animation: none !important;
-    transition: none !important;
+  /* :not(#nd-reduce) gives these rules an id's weight, so they win over every animation set elsewhere */
+  .nd-root *:not(#nd-reduce),
+  .nd-root *:not(#nd-reduce)::before,
+  .nd-root *:not(#nd-reduce)::after,
+  .nd-modal *:not(#nd-reduce) {
+    animation: none;
+    transition: none;
   }
   .nd-ticker {
     overflow-x: auto;

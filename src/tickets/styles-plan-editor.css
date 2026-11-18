@@ -298,8 +298,12 @@
    someone else's time off: an orange line under the day */
 .nd-dp .nd-dp-grid .nd-dp-day.is-away {
   background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--background-modifier-border-hover, var(--background-modifier-border)) 4px 7px);
-  background-image: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--text-muted) 40%, transparent) 4px 7px);
   color: var(--text-normal);
+}
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .nd-dp .nd-dp-grid .nd-dp-day.is-away {
+    background-image: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--text-muted) 40%, transparent) 4px 7px);
+  }
 }
 .nd-dp .nd-dp-grid .nd-dp-day.is-event {
   box-shadow: inset 0 -3px 0 var(--color-orange, #e8871e);

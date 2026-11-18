@@ -257,13 +257,13 @@ body:not(.nd-themed) .nd-empty {
   padding-left: 11px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .tm-donut.is-intro svg,
-  .tm-donut.is-intro .tm-donut-seg,
-  .tm-w-row,
-  .tm-entry,
-  .tm-w-row.is-live .tm-w-min::before {
-    animation: none !important;
-    transition: none !important;
+  .tm-donut.is-intro svg:not(#nd-reduce),
+  .tm-donut.is-intro .tm-donut-seg:not(#nd-reduce),
+  .tm-w-row:not(#nd-reduce),
+  .tm-entry:not(#nd-reduce),
+  .tm-w-row.is-live .tm-w-min:not(#nd-reduce)::before {
+    animation: none;
+    transition: none;
   }
 }
 

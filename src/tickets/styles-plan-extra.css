@@ -55,8 +55,8 @@
 .np-plan .np-gantt .np-g-row.is-task {
   cursor: pointer;
 }
-.np-plan .np-gantt .np-g-row.is-task:hover .np-g-hit {
-  fill: var(--background-modifier-hover) !important;
+.np-plan .np-gantt .np-g-row.is-task:hover {
+  --np-hit: var(--background-modifier-hover);
 }
 .np-plan .np-gantt .np-g-row.is-selected .np-g-hit {
   stroke: var(--interactive-accent);
@@ -88,8 +88,8 @@
 .tk-tracker .np-gantt .np-g-row.is-task {
   cursor: pointer;
 }
-.tk-tracker .np-gantt .np-g-row.is-task:hover .np-g-hit {
-  fill: var(--background-modifier-hover) !important;
+.tk-tracker .np-gantt .np-g-row.is-task:hover {
+  --np-hit: var(--background-modifier-hover);
 }
 
 /* dashboard: a card's title opens its tab */
@@ -194,13 +194,8 @@
 /* a hovered task's own dependency arrows */
 svg.np-gantt .np-g-link.is-hot {
   opacity: 1;
-}
-svg.np-gantt .np-g-link.is-hot path {
-  stroke: var(--interactive-accent) !important;
-  stroke-width: 2 !important;
-}
-svg.np-gantt .np-g-link.is-hot polygon {
-  fill: var(--interactive-accent) !important;
+  --np-link-c: var(--interactive-accent);
+  --np-link-w: 2;
 }
 /* steps: the checkboxes under a task (plan-steps.js) */
 .np-plan .np-steps.is-all {

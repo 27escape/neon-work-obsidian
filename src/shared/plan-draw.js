@@ -272,11 +272,12 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = 
     // classes as a list: Obsidian adds an SVG element's classes one by one, and a name with a space throws
     const g = svg.createSvg('g', { cls: strong ? ['np-g-link', 'is-strong'] : 'np-g-link', attr: { 'data-from': planKey(l.from), 'data-to': planKey(l.to), opacity: strong ? '0.9' : '0.4' } });
     // run-alongside links (starts with, ends with) dashed, so they read differently from "after"
-    g.createSvg('path', { attr: { d: l.d, fill: 'none' } }).setAttr('style', `stroke: ${c}; stroke-width: ${l.crit || l.late ? 1.6 : 1}${l.type !== 'fs' ? '; stroke-dasharray: 4 3' : ''}`);
+    // colour and width through --np-link-c / --np-link-w, which a hovered task's links set (styles-plan-extra.css)
+    g.createSvg('path', { attr: { d: l.d, fill: 'none' } }).setAttr('style', `stroke: var(--np-link-c, ${c}); stroke-width: var(--np-link-w, ${l.crit || l.late ? 1.6 : 1})${l.type !== 'fs' ? '; stroke-dasharray: 4 3' : ''}`);
     const { x, y, dir } = l.end;
     const head =
       dir === 'down' ? `${x},${y} ${x - 3.5},${y - 5} ${x + 3.5},${y - 5}` : dir === 'up' ? `${x},${y} ${x - 3.5},${y + 5} ${x + 3.5},${y + 5}` : dir === 'left' ? `${x},${y} ${x + 5},${y - 3.5} ${x + 5},${y + 3.5}` : `${x},${y} ${x - 5},${y - 3.5} ${x - 5},${y + 3.5}`;
-    g.createSvg('polygon', { attr: { points: head } }).setAttr('style', `fill: ${c}`);
+    g.createSvg('polygon', { attr: { points: head } }).setAttr('style', `fill: var(--np-link-c, ${c})`);
   }
   const maxChars = Math.floor((labelW - 18) / 6.4);
   for (const it of lay.items) {
@@ -291,7 +292,7 @@ function planDrawGantt(el, lay, { colours, onBar = null, selKey = null, links = 
     const key = b.task ? planKey(b.task) : b.project ? b.project.file.path : '';
     const g = svg.createSvg('g', { cls: 'np-g-row', attr: key ? { 'data-key': key } : {} });
     const hit = g.createSvg('rect', { cls: 'np-g-hit', attr: { x: 0, y: it.y, width: lay.width, height: rowH } });
-    hit.setAttr('style', `fill: transparent${key && key === selKey ? '; stroke: var(--interactive-accent); stroke-width: 2' : ''}`);
+    hit.setAttr('style', `fill: var(--np-hit, transparent)${key && key === selKey ? '; stroke: var(--interactive-accent); stroke-width: 2' : ''}`); // --np-hit: the hover colour
     // steps (the checkboxes under the task): "2/4", and ✓ when all are done but the task isn't ticked yet
     const steps = r.steps ? ` · ${r.steps.done}/${r.steps.total}${r.stepsDone ? ' ✓' : ''}` : '';
     const name = `${r.label}${r.who ? ` · ${r.who}` : ''}${steps}`;

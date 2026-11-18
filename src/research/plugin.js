@@ -16,7 +16,14 @@ class NeonResearch extends Plugin {
     this.addCommand({ id: 'open-research', name: 'Open the Research tab', callback: () => this.openTab() });
     this.addCommand({ id: 'new-topic', name: 'New topic', callback: () => (this.rootFolder() ? this.newTopic(this.rootFolder()) : this.pickSection()) });
     // old flashcard blocks (quizzes were removed in the fork) stay off the page
-    this.registerMarkdownCodeBlockProcessor(CARD_BLOCK, (src, el) => el.addClass('nr-cards-block'));
+    this.registerMarkdownCodeBlockProcessor(CARD_BLOCK, (src, el) => {
+      el.addClass('nr-cards-block');
+      // its wrapper (Live Preview, reading view) is hidden too: marked once the block is on the page
+      window.requestAnimationFrame(() => {
+        const wrap = el.closest('.cm-preview-code-block, .cm-embed-block');
+        if (wrap) wrap.addClass('nr-cards-hidden');
+      });
+    });
     this.addCommand({ id: 'link-suggestions', name: 'Suggest links in this note', callback: () => this.showLinkSuggestions(true) });
     this.addSettingTab(new NeonResearchSettingTab(this.app, this));
 

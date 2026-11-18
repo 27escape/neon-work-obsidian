@@ -200,8 +200,9 @@ class DashboardView extends ItemView {
     const present = new Set(['pulse', 'recent', 'activity', ...[...defs.values()].map((d) => d.slot)]);
     if (this.plugin.settings.showCapture) present.add('capture'); // off: Recently done / touched takes its place
     const { areas, cols } = dashAreas(present);
-    this.grid.style.gridTemplateAreas = areas;
-    this.grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    // as variables (styles-dashboard.css), so the narrow layouts can replace them
+    this.grid.style.setProperty('--nd-areas', areas);
+    this.grid.style.setProperty('--nd-cols', `repeat(${cols}, minmax(0, 1fr))`);
     this.renderHeroActions();
     this.renderTicker();
   }

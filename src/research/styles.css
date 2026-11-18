@@ -263,9 +263,10 @@
 }
 
 /* ---- cards off the page (issue 56) ---- */
-.block-language-neon-cards,
-.cm-preview-code-block:has(> .block-language-neon-cards),
-.cm-embed-block:has(.block-language-neon-cards) { display: none !important; }
+.block-language-neon-cards:not(#nr-cards),
+.nr-cards-hidden:not(#nr-cards) {
+  display: none;
+}
 
 /* ---- fork: research status (pills in the tree, the By status tab) ---- */
 .nr-status-pill {

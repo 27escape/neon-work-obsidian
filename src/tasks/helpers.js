@@ -104,6 +104,7 @@ function leaveRow(el) {
   el.style.height = `${el.offsetHeight}px`;
   void el.offsetHeight; // start the collapse from the current height
   el.addClass('is-leaving');
+  el.style.height = '0px'; // collapses with the row's transition
   window.setTimeout(() => el.remove(), 260);
 }
 /**

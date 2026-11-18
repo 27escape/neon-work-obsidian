@@ -70,11 +70,11 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tk-summary.is-intro .tk-stat,
-  .tk-list .tk-group-head,
-  .tk-list .tk-row,
-  .tk-list .tk-progress-fill {
-    animation: none !important;
+  .tk-summary.is-intro .tk-stat:not(#nd-reduce),
+  .tk-list .tk-group-head:not(#nd-reduce),
+  .tk-list .tk-row:not(#nd-reduce),
+  .tk-list .tk-progress-fill:not(#nd-reduce) {
+    animation: none;
   }
   .tk-stat {
     transition: none;

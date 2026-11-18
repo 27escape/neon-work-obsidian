@@ -114,6 +114,8 @@ test('SVG export: inlined theme values keep the attributes valid', () => {
   const out = planInlineVars(svg, (n) => vars[n] || '');
   assert.equal(out, `<svg style="font-family: '??', 'Inter', ui-sans-serif; fill: #3366cc"><rect style="fill: #fff"/><text style="x: a&lt;b &amp; c&gt;d"/></svg>`);
   assert.equal(planInlineVars('<rect style="fill: var(--missing)"/>', () => ''), '<rect style="fill: var(--missing)"/>');
+  // a variable whose fallback is another variable (the Gantt's arrows): resolved from the inside out
+  assert.equal(planInlineVars('<path style="stroke: var(--np-link-c, var(--bar))"/>', (n) => vars[n] || ''), '<path style="stroke: #3366cc"/>');
 });
 
 test('baselines: made from the dated plan, follow renames, dropped when the project is gone', () => {

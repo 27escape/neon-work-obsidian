@@ -246,7 +246,7 @@
 }
 
 /* ---- dashboard widget ----------------------------------------------- */
-.nd-card-body:has(> .tk-mini-list) {
+.nd-card-body.is-list {
   display: flex;
   flex-direction: column;
 }

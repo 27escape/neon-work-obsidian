@@ -123,6 +123,11 @@ class NeonWrite extends Plugin {
     if (!title || title.querySelector('.nw-lock')) return;
     const locked = /(^|[\s|])locked(\s|$)/.test(c.getAttribute('data-callout-metadata') || '');
     c.toggleClass('is-locked', locked);
+    // Live Preview: the callout's container (with Obsidian's edit button) is marked too, once on the page
+    window.requestAnimationFrame(() => {
+      const host = c.parentElement;
+      if (host && host.hasClass('cm-callout')) host.toggleClass('nw-locked', locked);
+    });
     const b = title.createDiv('nw-lock' + (locked ? ' is-locked' : ''));
     setIcon(b, locked ? 'lock' : 'lock-open');
     b.setAttr('aria-label', locked ? 'Locked · click to unlock' : 'Click to lock this block');

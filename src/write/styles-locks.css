@@ -46,7 +46,8 @@
 .cm-callout .callout.is-locked {
   cursor: default;
 }
-.cm-callout:has(> .callout.is-locked) .edit-block-button {
+.cm-callout.nw-locked .edit-block-button,
+.cm-callout > .callout.is-locked ~ .edit-block-button {
   display: none;
 }
 /* Live Preview puts Obsidian's own "edit block" button in the callout's top-right corner: sit left of it */

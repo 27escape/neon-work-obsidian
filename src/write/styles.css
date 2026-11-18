@@ -92,12 +92,13 @@ body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-vi
 body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-view > .markdown-preview-view {
   padding: 22px 26px;
 }
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-sizer,
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-sizer {
+/* body.nw-lifted:not(#nw): an id's weight, so these win over Obsidian's own rules for the sizer */
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-sizer,
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-sizer {
   --nw-card: var(--nd-surface, var(--background-primary));
   margin-top: 6px;
   margin-bottom: 40px;
-  padding: 26px 40px 32px !important;
+  padding: 26px 40px 32px;
   border: 1px solid var(--nd-line, var(--background-modifier-border));
   border-radius: calc(var(--nd-radius, 14px) * 1.1);
   background: linear-gradient(180deg, color-mix(in srgb, var(--nd-text, var(--text-normal)) 3%, var(--nw-card)), var(--nw-card) 160px);
@@ -106,30 +107,30 @@ body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-v
     0 18px 50px -24px rgba(0, 0, 0, 0.6),
     0 2px 8px -2px rgba(0, 0, 0, 0.25);
   /* fork: with "Readable line length" off the card fills the pane (see below) */
-  max-width: 100% !important;
+  max-width: 100%;
 }
 /* "Readable line length" on: the line width plus the card's own padding, never wider than the pane */
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6.is-readable-line-width .cm-sizer,
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-view.is-readable-line-width .markdown-preview-sizer {
-  max-width: min(calc(var(--file-line-width, 700px) + 80px), 100%) !important;
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6.is-readable-line-width .cm-sizer,
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-view.is-readable-line-width .markdown-preview-sizer {
+  max-width: min(calc(var(--file-line-width, 700px) + 80px), 100%);
 }
 /* fork: "Readable line length" off: full width, the same small gap on both sides */
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6:not(.is-readable-line-width) .cm-sizer,
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-view:not(.is-readable-line-width) .markdown-preview-sizer {
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6:not(.is-readable-line-width) .cm-sizer,
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-view:not(.is-readable-line-width) .markdown-preview-sizer {
   /* the editor's sizer is a flex item: make it take the whole row (auto width shrank it to the text) */
   flex: 1 1 auto;
-  width: 100% !important;
+  width: 100%;
   box-sizing: border-box;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
+  margin-left: 0;
+  margin-right: 0;
 }
 /* the editor's own empty space below the text shouldn't stretch the card forever */
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-sizer {
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-sizer {
   min-height: calc(100% - 46px);
 }
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-contentContainer,
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-content {
-  padding-bottom: 0 !important;
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-contentContainer,
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-content {
+  padding-bottom: 0;
 }
 
 /* ---- theme fonts in notes: body text, headings and code follow the Neon theme ---- */
