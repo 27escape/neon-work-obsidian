@@ -8,6 +8,8 @@ By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obs
 >
 > **1.5.2:** a new note opens in its own tab with the cursor in it, and tabs keep their names after a restart. See [the release notes](docs/release-notes/1.5.2.md).
 >
+> **1.5.3:** a tidy-up after Obsidian's automated review (styles without `!important` or `:has()`); needs Obsidian 1.7.2 or later. See [the release notes](docs/release-notes/1.5.3.md).
+>
 > **Planning** arrived in 1.4.0: a lightweight project planner over the tasks in your project notes ([1.4.0 release notes](docs/release-notes/1.4.0.md)).
 
 Neon Work sits on top of a vault you already have:
