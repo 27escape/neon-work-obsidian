@@ -44,7 +44,7 @@ test('page preview on hover: the row’s tab is the source', () => {
   assert.equal(fired[0][1].state.scroll, 12);
 });
 
-test('folders starting with "_" (left out by default): only folders count, not a note's own name', () => {
+test('folders starting with "_" (left out by default): only folders count, not a note’s own name', () => {
   const { inUnderscoreFolder: graphHiddenPath } = load('neon-deck', ['inUnderscoreFolder']);
   assert.equal(graphHiddenPath('2.Resources/ToolPages/_claude/scripts/notes.md', false), true);
   assert.equal(graphHiddenPath('_claude/x.md', false), true);
