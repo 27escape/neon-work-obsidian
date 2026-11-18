@@ -65,6 +65,7 @@ const DEFAULT_SETTINGS = {
   pinnedFolder: '', // files dropped onto the pin board from outside Obsidian
   bridgeFolder: '',
   excludeFolders: '',
+  excludeUnderscore: true, // fork: folders whose name starts with "_" (e.g. _claude) count as excluded
   excludeTags: '', // fork: notes with one of these tags (properties) are ignored, e.g. vault_index
   excludeTemplates: true,
   // fork: the Claude card — notes by their claude property

@@ -42,6 +42,14 @@ function reusableLeaf(app) {
   return cands[0] || ws.getLeaf('tab');
 }
 /**
+ * fork: a path inside a folder whose name starts with "_" (e.g. _claude: tools, scripts, caches). isFolder: the path is a
+ * folder itself. The Dashboard setting "Leave out folders starting with _" (on by default) treats them as excluded.
+ */
+function inUnderscoreFolder(path, isFolder = false) {
+  const parts = String(path || '').split('/');
+  return (isFolder ? parts : parts.slice(0, -1)).some((p) => p.startsWith('_'));
+}
+/**
  * fork: Obsidian's page preview for a note shown in one of the plugin's lists (hover; with Ctrl / Cmd unless Settings →
  * Page preview says otherwise). The tab the row sits in, found when hovered, is the preview's source and parent, so
  * the same rows work in their own tab and in a dashboard card. line: open the preview at that line.

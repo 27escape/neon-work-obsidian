@@ -61,6 +61,7 @@ Object.assign(NeonDeck.prototype, {
     return this._ex;
   },
   isExcluded(f) {
+    if (this.settings.excludeUnderscore !== false && inUnderscoreFolder(f.path, !(f instanceof TFile))) return true; // fork: _claude and the like
     return this.excludedPaths().some((p) => f.path === p || f.path.startsWith(p + '/')) || isIgnoredNote(this.app, f); // fork: + ignored tags
   },
   currentFolder() {

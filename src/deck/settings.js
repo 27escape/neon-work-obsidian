@@ -73,8 +73,12 @@ class NeonSettingTab extends PluginSettingTab {
       .addText((t) => suggestPaths(p.app, t.setPlaceholder('e.g. templates/inbox_template.md').setValue(s.inboxTemplate).onChange((v) => ((s.inboxTemplate = v.trim()), save())), 'file'));
     new Setting(containerEl)
       .setName('Excluded folders')
-      .setDesc('Comma-separated, e.g. an archive folder. Ignored by stats, the graph, tasks and projects.')
+      .setDesc('Comma-separated, e.g. an archive folder. Left out of stats, Recently touched, the Activity calendar, the graph, tasks and projects.')
       .addText((t) => t.setPlaceholder('4.Archive').setValue(s.excludeFolders).onChange((v) => ((s.excludeFolders = v), (p._ex = null), save())));
+    new Setting(containerEl)
+      .setName('Leave out folders starting with _')
+      .setDesc('Folders such as _claude (tools, scripts, caches) count as excluded folders too. The card explorer and search still show them.')
+      .addToggle((t) => t.setValue(s.excludeUnderscore !== false).onChange((v) => ((s.excludeUnderscore = v), (p._ex = null), save())));
     new Setting(containerEl)
       .setName('Ignored tags')
       .setDesc('Comma-separated. Notes with one of these tags in their properties are ignored by stats, tasks, projects and research, e.g. folder index notes (vault_index).')
