@@ -192,7 +192,9 @@ Object.assign(NeonDeck.prototype, {
     const body = (s.body = el.createDiv('nd-island-body'));
     const cap = body.createDiv('nd-island-cap');
     s.select = cap.createEl('select', { cls: 'dropdown nd-island-target', attr: { 'aria-label': 'Capture into' } });
-    s.input = cap.createEl('input', { cls: 'nd-input nd-island-input', attr: { type: 'text', placeholder: 'Pin a note, or pick where it goes… (Enter)' } });
+    // a text box that grows with what is typed: Enter sends, Shift+Enter starts a new line
+    s.input = cap.createEl('textarea', { cls: 'nd-input nd-island-input', attr: { rows: '1', placeholder: 'Pin a note, or pick where it goes… (Enter; Shift+Enter: new line)' } });
+    s.input.addEventListener('input', () => this.islandGrow());
     s.list = body.createDiv('nd-island-pins');
     s.input.addEventListener('keydown', (e) => this.islandKey(e));
     // the island is the drop target while open
@@ -210,6 +212,12 @@ Object.assign(NeonDeck.prototype, {
       this.islandDrop(e);
     });
   },
+  /** The text box's height follows its lines, up to about six. */
+  islandGrow() {
+    const { input } = this.island;
+    input.style.height = 'auto';
+    input.style.height = `${Math.max(32, Math.min(input.scrollHeight + 2, 150))}px`; // + its border
+  },
   fillTargets() {
     const { select } = this.island;
     select.empty();
@@ -225,16 +233,19 @@ Object.assign(NeonDeck.prototype, {
     } else if (e.altKey && /^[1-9]$/.test(e.key) && Number(e.key) <= n) {
       e.preventDefault();
       select.selectedIndex = Number(e.key) - 1;
-    } else if (e.key === 'Enter' && !e.isComposing) {
+    } else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
       const t = this.captures.get(select.value);
       const v = input.value.trim();
       if (!t || (!v && !t.allowEmpty)) return;
       this.lastCaptureTarget = t.id;
       input.value = '';
+      this.islandGrow();
       if (t.id !== 'pin') this.closeIsland(); // the other targets may open their own dialogs
       try {
-        await t.run(v);
+        // the pin board: one pin per line (a pin is one line); the others get the text as typed
+        if (t.id === 'pin' && v.includes('\n')) await this.addPins(v.split('\n').map((x) => x.trim()).filter(Boolean).map(textPinLine));
+        else await t.run(v);
       } catch (err) {
         console.error(`${appName()} – Dashboard: capture`, err);
         new Notice('Capture failed — see console');

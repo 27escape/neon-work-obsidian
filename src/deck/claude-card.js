@@ -35,8 +35,6 @@ Object.assign(NeonDeck.prototype, {
     return out;
   },
   registerClaudeCard() {
-    // the Quick capture card uses the same place on the dashboard: when it is on, it wins
-    if (this.settings.showCapture) return (this.api.unregisterWidget('claude'), this.api.unregisterWidget('areas'));
     // fork: the Areas card can take this place instead (a vault without Claude notes, e.g. PARA)
     if (this.settings.areasCard) {
       this.api.unregisterWidget('claude');

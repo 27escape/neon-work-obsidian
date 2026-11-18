@@ -8,11 +8,11 @@ const DASH_LAYOUT = [
   ['inbox', 'tasks', 'global', 'tickets'],
   ['inbox', 'tasks', 'global', 'tickets'],
   ['recent', 'activity', 'activity', 'time'],
-  ['claude', 'pulse', 'pulse', 'time'], // fork: one Stats card (Vault pulse and Totals merged); Time today full height // fork: the Claude (or Areas) card; Quick capture (if on) takes its place otherwise
+  ['claude', 'pulse', 'pulse', 'time'], // fork: one Stats card (Vault pulse and Totals merged); Time today full height // fork: the Claude (or Areas) card
 ];
 /** Smallest grid height: the row minimums in styles-dashboard.css (150 + 150 + 290 + 140) plus 3 gaps of 14. */
 const DASH_GRID_MIN = 772; // Activity needs 290 for six full weeks
-const SLOT_FALLBACK = { inbox: 'tasks', tasks: 'global', global: 'tasks', tickets: 'time', time: 'tickets', claude: 'capture', capture: 'recent' }; // claude / capture fall back to Recently done above them // fork: + inbox
+const SLOT_FALLBACK = { inbox: 'tasks', tasks: 'global', global: 'tasks', tickets: 'time', time: 'tickets', claude: 'recent' }; // claude falls back to Recently done above it // fork: + inbox; the Quick capture card is gone (the quick capture panel does it)
 
 function dashAreas(present) {
   const resolve = (name) => {
@@ -72,7 +72,6 @@ class DashboardView extends ItemView {
     const statsGrid = this.stats.body.createDiv('nd-stats');
     this.totals = { body: statsGrid.createDiv('nd-tiles nd-stats-part') };
     this.pulseEl = statsGrid.createDiv('nd-tiles nd-stats-part');
-    if (this.plugin.settings.showCapture) this.buildCapture(this.grid);
     this.recent = this.place(widget(this.grid, 'nd-w-recent', 'Recently done', 'history'), 'recent');
     button(this.recent.actions, { icon: 'files', cls: 'nd-icon-btn', title: 'Recently touched files', onClick: () => new FileListModal(this.plugin, (this.lastData?.md || []).slice().sort((a, b) => b.stat.mtime - a.stat.mtime), 'Recently touched files').open() });
     this.heat = this.place(widget(this.grid, 'nd-w-heat', 'Activity', 'flame'), 'activity');
@@ -106,7 +105,6 @@ class DashboardView extends ItemView {
     this.registerEvent(this.app.metadataCache.on('changed', refresh));
     this.registerEvent(this.app.workspace.on('neon-deck:slots-changed', () => this.mountSlots()));
     // Task, Ticket, Time… buttons arrive as the other Neon plugins load
-    this.registerEvent(this.app.workspace.on('neon-deck:captures-changed', () => this.capRow && this.renderCaptureTargets()));
     // a module offered new activity (ticks, ticket changes) or started late: the log and the Activity calendar both follow
     this.registerEvent(this.app.workspace.on('neon-deck:activity-changed', debounce(() => this.lastData && (this.renderRecent(this.lastData), this.renderHeat(this.lastData)), 200, true)));
     this.registerEvent(
@@ -198,7 +196,6 @@ class DashboardView extends ItemView {
       this.slotCards.set(def.id, { def, card, handle });
     }
     const present = new Set(['pulse', 'recent', 'activity', ...[...defs.values()].map((d) => d.slot)]);
-    if (this.plugin.settings.showCapture) present.add('capture'); // off: Recently done / touched takes its place
     const { areas, cols } = dashAreas(present);
     // as variables (styles-dashboard.css), so the narrow layouts can replace them
     this.grid.style.setProperty('--nd-areas', areas);
@@ -267,50 +264,6 @@ class DashboardView extends ItemView {
     this.clockEl.setText(m.format('HH:mm:ss') + ` · week ${m.isoWeek()}`);
   }
 
-  /* capture ------------------------------------------------------------ */
-  buildCapture(grid) {
-    const { body } = this.place(widget(grid, 'nd-w-capture', 'Quick capture', 'zap'), 'capture');
-    this.capInput = body.createEl('textarea', { cls: 'nd-input nd-capture', attr: { placeholder: 'Dump a thought…', rows: '3' } });
-    this.capRow = body.createDiv('nd-pills nd-capture-row');
-    this.capInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        // Ctrl+Enter sends to the first target (Task when the Tasks module is on)
-        this.sendCapture(this.plugin.captureTargets()[0]);
-      }
-    });
-    this.renderCaptureTargets();
-  }
-  renderCaptureTargets() {
-    const row = this.capRow;
-    row.empty();
-    const targets = this.plugin.captureTargets();
-    this.capInput.setAttr('placeholder', targets.length ? `Dump a thought… (Ctrl+Enter → ${targets[0].label})` : 'Dump a thought… (turn on Tasks, Projects or Time in the settings to send it somewhere)');
-    targets.forEach((t, i) => {
-      const b = row.createEl('button', { cls: 'nd-pill-btn' + (i === 0 ? ' is-on' : ''), text: t.short || t.label });
-      tip(b, t.label);
-      b.addEventListener('click', () => this.sendCapture(t));
-    });
-  }
-  async sendCapture(t) {
-    const ta = this.capInput;
-    const v = ta.value.trim();
-    if (!t || (!v && !t.allowEmpty)) {
-      ta.focus();
-      return;
-    }
-    try {
-      await t.run(v);
-    } catch (e) {
-      console.error(`${appName()} – Dashboard: capture`, e);
-      new Notice('Capture failed — see console');
-      return;
-    }
-    ta.value = '';
-    ta.addClass('nd-flash');
-    window.setTimeout(() => ta.removeClass('nd-flash'), 600);
-  }
-
   /* data widgets -------------------------------------------------------- */
   async renderData() {
     const token = ++this.dataToken;
@@ -319,7 +272,6 @@ class DashboardView extends ItemView {
     this.renderStats(d);
     this.renderRecent(d);
     this.renderHeat(d);
-    if (this.capRow) this.renderCaptureTargets();
     this.renderTicker(d);
     this.renderTotals(d);
     const words = await this.plugin.totalWords(d.md);

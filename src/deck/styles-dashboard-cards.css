@@ -97,25 +97,6 @@
 .nd-spark polyline {
   stroke: var(--tile-accent);
 }
-/* capture */
-.nd-capture {
-  flex: 1;
-  min-height: 56px;
-  resize: none;
-}
-.nd-w-capture .nd-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.nd-capture-row .nd-pill-btn {
-  flex: 1;
-  justify-content: center;
-}
-.nd-capture.nd-flash {
-  border-color: var(--nd-go);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nd-go) 25%, transparent);
-}
 /* recent */
 .nd-mini-list {
   display: flex;

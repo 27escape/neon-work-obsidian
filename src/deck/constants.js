@@ -82,7 +82,7 @@ const DEFAULT_SETTINGS = {
   dailySeeded: false, // fork: the three above were filled in once from the core Daily notes plugin
   cardsInSidebar: true,
   replaceFileExplorer: true,
-  showCapture: false, // the Quick capture card (the capture command works either way)
+  // showCapture (the Quick capture card) was removed in 1.5.5: the quick capture panel does it; an old value is ignored
   cardSort: 'created-prop',
   cardMode: 'cards',
   revisitDays: 14, // unused: Revisit was removed in the fork

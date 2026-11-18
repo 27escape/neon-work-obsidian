@@ -159,7 +159,15 @@ body.nd-island-theme .nd-ticker {
 .nd-island .nd-island-input {
   flex: 1;
   min-width: 0;
-  padding: 0 14px;
+  /* a text box that grows with its lines (island.js): one line at rest, like the dropdown beside it */
+  height: 32px;
+  max-height: 150px;
+  padding: 6px 14px;
+  line-height: 18px;
+  border-radius: 16px;
+  resize: none;
+  overflow-y: auto;
+  font: inherit;
 }
 .nd-island .nd-island-input::placeholder {
   color: var(--nd-fluid-muted);

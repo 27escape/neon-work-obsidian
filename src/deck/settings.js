@@ -127,17 +127,6 @@ class NeonSettingTab extends PluginSettingTab {
     daily('Template', 'dailyTemplate', 'e.g. templates/daily.md', 'file');
 
     new Setting(containerEl).setName('Card explorer').setHeading();
-    new Setting(containerEl)
-      .setName('Quick capture card')
-      .setDesc('Show the Quick capture card on the dashboard (in place of the Claude card). The capture command works either way.')
-      .addToggle((t) =>
-        t.setValue(s.showCapture).onChange(async (v) => {
-          s.showCapture = v;
-          p.registerClaudeCard(); // fork: shares the Claude card's place
-          await save();
-          p.app.workspace.getLeavesOfType(VIEW_DASH).forEach((l) => l.rebuildView());
-        }),
-      );
     new Setting(containerEl).setName('Show cards in the left sidebar').addToggle((t) => t.setValue(s.cardsInSidebar).onChange((v) => ((s.cardsInSidebar = v), save())));
     new Setting(containerEl)
       .setName('Replace the file explorer')
