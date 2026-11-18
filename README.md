@@ -4,6 +4,8 @@ A command centre for an Obsidian vault: a dashboard, projects, tasks, time track
 By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.
 
 > [!NOTE]
+> **1.5.5:** the quick capture panel in your theme's colours, with Obsidian's menu and several lines of text; folders starting with `_` (such as `_claude`) are left out like excluded folders. See [the release notes](docs/release-notes/1.5.5.md).
+>
 > **1.5.4:** links from your notes to the plugin's tabs (`obsidian://neon-work?open=projects`), and page previews when hovering a note in its lists. See [the release notes](docs/release-notes/1.5.4.md).
 >
 > **1.5.3:** a tidy-up after Obsidian's automated review (styles without `!important` or `:has()`); needs Obsidian 1.7.2 or later. See [the release notes](docs/release-notes/1.5.3.md).
