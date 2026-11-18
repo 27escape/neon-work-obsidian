@@ -188,11 +188,13 @@ else
   REPO=$(git remote get-url origin | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')
   cat <<EOF
    The GitHub CLI (gh) isn't installed or signed in, so make the release on github.com:
-     1. open https://github.com/$REPO/releases/new
-     2. choose the tag $VERSION, title it $VERSION
-     3. paste the text of $NOTES as the description
-     4. attach ${ASSETS[*]}
-     5. Publish release
+     1. open https://github.com/$REPO/releases/new?tag=$VERSION&title=$VERSION
+        (the tag is chosen and the title filled in; the tag box should say it is an existing tag)
+     2. paste the text of $NOTES as the description
+     3. attach ${ASSETS[*]}
+     4. Publish release
+   Use one release page per version: if GitHub says "Duplicate tag name", a release for $VERSION exists already
+   (perhaps a draft): open that one from the Releases page instead, and discard any extra draft.
    (Or install gh, run "gh auth login", and run this script again: it skips what's done.)
 EOF
 fi

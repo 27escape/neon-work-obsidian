@@ -6,7 +6,7 @@ By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obs
 > [!NOTE]
 > **New in 1.5.0:** Planning knows about **holidays and time off** (UK public holidays built in, closures, any country's dates, people's leave, per customer or Area), has its **own calendar** in the task editor, and makes a **report for other people**: a summary, then the project note itself. Also editing on the Gantt chart, steps under a task, tasks that run alongside, and cancelling or deleting tasks. See [the release notes](docs/release-notes/1.5.0.md).
 >
-> **1.5.1:** a new note opens in its own tab with the cursor in it, and tabs keep their names after a restart. See [the release notes](docs/release-notes/1.5.1.md).
+> **1.5.2:** a new note opens in its own tab with the cursor in it, and tabs keep their names after a restart. See [the release notes](docs/release-notes/1.5.2.md).
 >
 > **Planning** arrived in 1.4.0: a lightweight project planner over the tasks in your project notes ([1.4.0 release notes](docs/release-notes/1.4.0.md)).
 
