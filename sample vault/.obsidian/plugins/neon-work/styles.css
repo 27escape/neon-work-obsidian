@@ -5528,13 +5528,15 @@ body:not(.nd-themed) .nd-empty {
   background: var(--background-secondary-alt, var(--background-secondary));
   color: var(--text-faint);
 }
-/* stripes in the text colour, so they show in any theme and on bright phone screens; an orange line under the day
-   too, so time off reads even where the stripes are faint */
+/* your own time off on your task: stripes in the text colour (they show in any theme and on bright phone screens);
+   someone else's time off: an orange line under the day */
 .nd-dp .nd-dp-grid .nd-dp-day.is-away {
   background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--background-modifier-border-hover, var(--background-modifier-border)) 4px 7px);
   background-image: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--text-muted) 40%, transparent) 4px 7px);
-  box-shadow: inset 0 -3px 0 var(--color-orange, #e8871e);
   color: var(--text-normal);
+}
+.nd-dp .nd-dp-grid .nd-dp-day.is-event {
+  box-shadow: inset 0 -3px 0 var(--color-orange, #e8871e);
 }
 .nd-dp .nd-dp-day.is-other {
   opacity: 0.45;
