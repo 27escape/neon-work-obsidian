@@ -41,6 +41,25 @@ function reusableLeaf(app) {
   cands.sort((a, b) => (b.activeTime || 0) - (a.activeTime || 0));
   return cands[0] || ws.getLeaf('tab');
 }
+/**
+ * fork: open a note just made (New note, an inbox note, a new project or research note) and put the cursor in it. It
+ * gets a tab of its own next to the current one, so a pinned tab (the dashboard) and the note being read stay as they
+ * are; only an empty tab is used for it. The editor then takes the focus, after the New note window has handed it
+ * back to the button that opened it.
+ */
+async function openNewNote(app, file) {
+  const ws = app.workspace;
+  const cur = ws.getMostRecentLeaf(ws.rootSplit);
+  const empty = !!cur && !cur.pinned && !!cur.view && cur.view.getViewType() === 'empty';
+  const leaf = empty ? cur : ws.getLeaf('tab');
+  await leaf.openFile(file, { active: true, state: { mode: 'source' } });
+  ws.setActiveLeaf(leaf, { focus: true });
+  window.setTimeout(() => {
+    const ed = leaf.view && leaf.view.editor;
+    if (ed && ws.activeLeaf === leaf) ed.focus();
+  }, 50);
+  return leaf;
+}
 function openFile(app, file, evt, line) {
   const ws = app.workspace;
   let leaf;

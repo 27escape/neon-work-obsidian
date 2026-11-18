@@ -153,7 +153,7 @@ Object.assign(NeonProjects.prototype, {
       body = ['---', `title: ${JSON.stringify(title)}`, 'tags:', `  - ${NEON_PROJECTS.tag || 'project'}`, `started: ${day.format('YYYY-MM-DD')}`, 'due:', 'completed:', `status: ${first}`, '---', '', `# ${title}`, ''].join('\n');
     }
     const f = await createUnique(this.app, folder, title, body);
-    await openFile(this.app, f);
+    await openNewNote(this.app, f);
     return f;
   },
 });

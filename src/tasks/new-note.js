@@ -56,7 +56,7 @@ function inboxWhere(p) {
 async function openNewInbox(p, file, title) {
   const f = await p.inboxService()(title, '');
   if (file && file !== f && !(await p.app.vault.read(file)).trim()) await p.app.fileManager.trashFile(file);
-  await reusableLeaf(p.app).openFile(f, { active: true, state: { mode: 'source' } });
+  await openNewNote(p.app, f);
 }
 
 class CustomerNoteModal extends Modal {
@@ -149,7 +149,7 @@ class CustomerNoteModal extends Modal {
         p.selfCreated.delete('pending');
       }
       if (file && file !== target && !(await this.app.vault.read(file)).trim()) await this.app.fileManager.trashFile(file);
-      await reusableLeaf(this.app).openFile(target, { active: true, state: { mode: 'source' } });
+      await openNewNote(this.app, target);
     } catch (e) {
       if (!(e && e.neonReadOnly)) {
         console.error(`${appName()} – Tasks: could not create the note`, e);

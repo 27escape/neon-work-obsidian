@@ -233,7 +233,7 @@ class NewNoteModal extends Modal {
       props(fm);
       reorderProps(fm);
     });
-    if (!file) await reusableLeaf(this.app).openFile(target, { active: true, state: { mode: 'source' } });
+    if (!file) await openNewNote(this.app, target);
   }
   onClose() {
     this.contentEl.empty();

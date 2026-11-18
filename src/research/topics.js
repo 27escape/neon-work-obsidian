@@ -29,7 +29,7 @@ Object.assign(NeonResearch.prototype, {
         if (!v.trim()) return;
         const f = await createUnique(this.app, folder.path, v, await this.newNoteBody(v.trim()));
         this.toggleOpen(folder.path, true);
-        openFile(this.app, f);
+        openNewNote(this.app, f);
       },
     }).open();
   },

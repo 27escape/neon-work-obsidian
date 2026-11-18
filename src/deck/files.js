@@ -247,7 +247,7 @@ Object.assign(NeonDeck.prototype, {
       cta: 'Create',
       onSubmit: async (v) => {
         const f = await createUnique(this.app, folder, v || 'Untitled', '');
-        await reusableLeaf(this.app).openFile(f, { active: true, state: { mode: 'source' } });
+        await openNewNote(this.app, f);
       },
     }).open();
   },
