@@ -20,6 +20,13 @@ body.theme-light .nd-ticker {
   --nd-fluid: color-mix(in srgb, var(--nd-text, #1b1e23) 86%, var(--nd-accent, #888));
   --nd-fluid-text: var(--nd-bg, #f1f2f4);
 }
+/* fork: "Quick capture panel: Theme colours" (Dashboard settings): the theme's card surface and text instead, in
+   light and dark; the rim and glow keep the accent */
+body.nd-island-theme .nd-island,
+body.nd-island-theme .nd-ticker {
+  --nd-fluid: var(--nd-surface, var(--background-primary));
+  --nd-fluid-text: var(--nd-text, var(--text-normal));
+}
 .nd-island {
   position: fixed;
   top: var(--nd-island-top, 48px);
@@ -173,6 +180,9 @@ body.theme-light .nd-ticker {
 /* the dropdown's list: dark like the island (the system drew it white, with the island's white text) */
 .nd-island .nd-island-target {
   color-scheme: dark;
+}
+body.nd-island-theme.theme-light .nd-island .nd-island-target {
+  color-scheme: light;
 }
 .nd-island .nd-island-target option,
 .nd-island .nd-island-target optgroup {

@@ -268,6 +268,7 @@ class NeonDeck extends Plugin {
     const b = document.body;
     b.addClass('nd-themed');
     for (const t of THEMES) b.toggleClass(`nd-theme-${t}`, this.settings.theme === t);
+    b.toggleClass('nd-island-theme', this.settings.islandLook !== 'dark'); // fork: quick capture in the theme's colours (styles-island.css)
   }
   async setLook(patch, notify) {
     Object.assign(this.settings, patch);
