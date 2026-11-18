@@ -43,3 +43,13 @@ test('page preview on hover: the row’s tab is the source', () => {
   assert.equal(fired[0][1].linktext, 'P.md');
   assert.equal(fired[0][1].state.scroll, 12);
 });
+
+test('note graph: folders starting with "_" are left out', () => {
+  const { graphHiddenPath } = load('neon-deck', ['graphHiddenPath']);
+  assert.equal(graphHiddenPath('2.Resources/ToolPages/_claude/scripts/notes.md', false), true);
+  assert.equal(graphHiddenPath('_claude/x.md', false), true);
+  assert.equal(graphHiddenPath('1.Customers/E2I/Pilot.md', false), false);
+  assert.equal(graphHiddenPath('Notes/_draft.md', false), false); // a note's own name doesn't count, only folders
+  assert.equal(graphHiddenPath('2.Resources/_claude', true), true);
+  assert.equal(graphHiddenPath('2.Resources', true), false);
+});

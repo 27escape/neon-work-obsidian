@@ -230,7 +230,7 @@ class DashboardView extends ItemView {
             { icon: 'layout-grid', label: 'Cards', run: () => p.activate(VIEW_CARDS, 'tab') },
             { icon: 'waypoints', label: 'Graph', run: () => p.activate(VIEW_GRAPH, 'tab') },
           ]),
-      { icon: 'search', label: 'Search', run: () => p.openSearch('') },
+      // fork: no Search button: it only opened Obsidian's own search, which is a key press away
     ];
     for (const a of acts) button(el, { icon: a.icon, text: a.label, cls: 'nd-action', onClick: () => a.run() });
   }

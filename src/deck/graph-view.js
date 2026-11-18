@@ -2,6 +2,12 @@
 /* Concept graph (InfraNodus-style)                                    */
 /* ------------------------------------------------------------------ */
 
+/** fork: a path inside a folder whose name starts with "_" (isFolder: the path is a folder itself). */
+function graphHiddenPath(path, isFolder) {
+  const parts = String(path || '').split('/');
+  return (isFolder ? parts : parts.slice(0, -1)).some((p) => p.startsWith('_'));
+}
+
 class GraphView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -147,7 +153,7 @@ class GraphView extends ItemView {
     sel.createEl('option', { value: 'note', text: '✎ Active note' + (this.mode === 'notes' ? ' (2 hops)' : '') });
     const folders = this.app.vault
       .getAllLoadedFiles()
-      .filter((f) => f instanceof TFolder && f.path !== '/')
+      .filter((f) => f instanceof TFolder && f.path !== '/' && !graphHiddenPath(f.path, true))
       .sort((a, b) => a.path.localeCompare(b.path));
     for (const f of folders) sel.createEl('option', { value: `folder:${f.path}`, text: `▸ ${f.path}` });
     if (![...sel.options].some((o) => o.value === this.scope)) this.scope = 'vault';
@@ -156,7 +162,8 @@ class GraphView extends ItemView {
 
   scopeFiles() {
     const excl = (f) => this.plugin.isExcluded(f);
-    let files = this.plugin.includedNotes();
+    // fork: notes in folders whose name starts with "_" (e.g. _claude: tools, caches) are not part of the graph
+    let files = this.plugin.includedNotes().filter((f) => !graphHiddenPath(f.path, false));
     this.builtFor = null;
     if (this.scope === 'note') {
       const f = this.plugin.lastFile;
