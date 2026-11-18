@@ -46,7 +46,7 @@ class ActivityDayModal extends Modal {
     };
     if (x.worked) fact(fmtMin(x.worked), x.over ? `worked · +${fmtMin(x.over)}` : 'worked');
     fact(x.tasks.length, 'tasks');
-    fact(x.tickets.length, 'tickets');
+    fact(x.tickets.length, x.tickets.length === 1 ? 'project' : 'projects');
     fact(x.notes.length, 'notes');
     let i = 0;
     for (const [kind, label, list] of [['task', 'Tasks done', x.tasks], ['ticket', 'Projects', x.tickets], ['time', 'Time', x.time], ['note', 'Notes', x.notes]]) {
