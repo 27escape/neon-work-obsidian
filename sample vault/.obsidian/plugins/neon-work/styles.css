@@ -828,6 +828,9 @@ button.nd-swatch.is-on {
      inside their card. Below the minimums the page scrolls instead of squeezing the cards. */
   height: var(--nd-grid-h, 977px);
   grid-template-rows: minmax(150px, 250fr) minmax(150px, 250fr) minmax(290px, 230fr) minmax(140px, 205fr); /* fork: Tasks/Todo, Activity, then Vault pulse */
+  /* the areas and columns of the cards shown, set from dashboard.js */
+  grid-template-areas: var(--nd-areas, none);
+  grid-template-columns: var(--nd-cols, minmax(0, 1fr));
   gap: 14px;
 }
 .nd-area-totals { grid-area: totals; }
@@ -841,8 +844,8 @@ button.nd-swatch.is-on {
 .nd-area-time { grid-area: time; }
 .nd-area-inbox { grid-area: inbox; } /* fork */
 .nd-dash-grid.is-narrow {
-  grid-template-areas: none !important;
-  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-areas: none;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: none;
   grid-auto-rows: minmax(220px, auto);
   height: auto;
@@ -1208,28 +1211,32 @@ button.nd-swatch.is-on {
     height: 4px;
   }
 }
-.nd-act-dot.is-task,
-.nd-act-item.is-task .nd-ico {
+.nd-act-dot.is-task {
   background: var(--nd-go);
+}
+.nd-act-dot.is-ticket {
+  background: var(--nd-warn);
+}
+.nd-act-dot.is-time {
+  background: var(--nd-info);
+}
+.nd-act-dot.is-note {
+  background: var(--nd-muted);
+}
+/* the items' icons take the same colours, without the dots' background */
+.nd-act-item.is-task .nd-ico {
   color: var(--nd-go);
 }
-.nd-act-dot.is-ticket,
 .nd-act-item.is-ticket .nd-ico {
-  background: var(--nd-warn);
   color: var(--nd-warn);
 }
-.nd-act-dot.is-time,
 .nd-act-item.is-time .nd-ico {
-  background: var(--nd-info);
   color: var(--nd-info);
 }
-.nd-act-dot.is-note,
 .nd-act-item.is-note .nd-ico {
-  background: var(--nd-muted);
   color: var(--nd-muted);
 }
 .nd-act-item .nd-ico {
-  background: none !important;
   flex: none;
 }
 .nd-act-item .nd-ico svg {
@@ -2648,8 +2655,7 @@ body.is-phone .nd-inbox-view-inner {
   }
 }
 /* popups fade in: Neon's own and Obsidian's (modals, menus, notices, hover previews) while a Neon theme is on */
-body.nd-themed .modal-container .modal-bg,
-.modal-container:has(.nd-modal) .modal-bg {
+body.nd-themed .modal-container .modal-bg {
   animation: nd-fade-in 0.2s ease;
 }
 body.nd-themed .modal-container .modal,
@@ -2687,12 +2693,13 @@ body.nd-themed .notice {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .nd-root *,
-  .nd-root *::before,
-  .nd-root *::after,
-  .nd-modal * {
-    animation: none !important;
-    transition: none !important;
+  /* :not(#nd-reduce) gives these rules an id's weight, so they win over every animation set elsewhere */
+  .nd-root *:not(#nd-reduce),
+  .nd-root *:not(#nd-reduce)::before,
+  .nd-root *:not(#nd-reduce)::after,
+  .nd-modal *:not(#nd-reduce) {
+    animation: none;
+    transition: none;
   }
   .nd-ticker {
     overflow-x: auto;
@@ -3356,7 +3363,7 @@ body.theme-light .nd-ticker {
   background: var(--nd-surface, var(--background-primary));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--nd-accent, var(--interactive-accent)) 20%, transparent);
 }
-.nd-card-body:has(> .nt-list) {
+.nd-card-body.is-list {
   display: flex;
   flex-direction: column;
 }
@@ -3565,7 +3572,6 @@ body:not(.nd-themed) .nd-empty {
 }
 /* rows collapse out when ticked, deleted or moved to another group (height set inline first) */
 .nt-task.is-leaving {
-  height: 0 !important;
   padding-top: 0;
   padding-bottom: 0;
   opacity: 0;
@@ -4369,13 +4375,13 @@ body:not(.nd-themed) .nd-empty {
   padding-left: 11px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .tm-donut.is-intro svg,
-  .tm-donut.is-intro .tm-donut-seg,
-  .tm-w-row,
-  .tm-entry,
-  .tm-w-row.is-live .tm-w-min::before {
-    animation: none !important;
-    transition: none !important;
+  .tm-donut.is-intro svg:not(#nd-reduce),
+  .tm-donut.is-intro .tm-donut-seg:not(#nd-reduce),
+  .tm-w-row:not(#nd-reduce),
+  .tm-entry:not(#nd-reduce),
+  .tm-w-row.is-live .tm-w-min:not(#nd-reduce)::before {
+    animation: none;
+    transition: none;
   }
 }
 
@@ -4685,7 +4691,7 @@ body:not(.nd-themed) .nd-empty {
 }
 
 /* ---- dashboard widget ----------------------------------------------- */
-.nd-card-body:has(> .tk-mini-list) {
+.nd-card-body.is-list {
   display: flex;
   flex-direction: column;
 }
@@ -4882,11 +4888,11 @@ body:not(.nd-themed) .nd-empty {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tk-summary.is-intro .tk-stat,
-  .tk-list .tk-group-head,
-  .tk-list .tk-row,
-  .tk-list .tk-progress-fill {
-    animation: none !important;
+  .tk-summary.is-intro .tk-stat:not(#nd-reduce),
+  .tk-list .tk-group-head:not(#nd-reduce),
+  .tk-list .tk-row:not(#nd-reduce),
+  .tk-list .tk-progress-fill:not(#nd-reduce) {
+    animation: none;
   }
   .tk-stat {
     transition: none;
@@ -5532,8 +5538,12 @@ body:not(.nd-themed) .nd-empty {
    someone else's time off: an orange line under the day */
 .nd-dp .nd-dp-grid .nd-dp-day.is-away {
   background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--background-modifier-border-hover, var(--background-modifier-border)) 4px 7px);
-  background-image: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--text-muted) 40%, transparent) 4px 7px);
   color: var(--text-normal);
+}
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .nd-dp .nd-dp-grid .nd-dp-day.is-away {
+    background-image: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--text-muted) 40%, transparent) 4px 7px);
+  }
 }
 .nd-dp .nd-dp-grid .nd-dp-day.is-event {
   box-shadow: inset 0 -3px 0 var(--color-orange, #e8871e);
@@ -5631,8 +5641,8 @@ body:not(.nd-themed) .nd-empty {
 .np-plan .np-gantt .np-g-row.is-task {
   cursor: pointer;
 }
-.np-plan .np-gantt .np-g-row.is-task:hover .np-g-hit {
-  fill: var(--background-modifier-hover) !important;
+.np-plan .np-gantt .np-g-row.is-task:hover {
+  --np-hit: var(--background-modifier-hover);
 }
 .np-plan .np-gantt .np-g-row.is-selected .np-g-hit {
   stroke: var(--interactive-accent);
@@ -5664,8 +5674,8 @@ body:not(.nd-themed) .nd-empty {
 .tk-tracker .np-gantt .np-g-row.is-task {
   cursor: pointer;
 }
-.tk-tracker .np-gantt .np-g-row.is-task:hover .np-g-hit {
-  fill: var(--background-modifier-hover) !important;
+.tk-tracker .np-gantt .np-g-row.is-task:hover {
+  --np-hit: var(--background-modifier-hover);
 }
 
 /* dashboard: a card's title opens its tab */
@@ -5770,13 +5780,8 @@ body:not(.nd-themed) .nd-empty {
 /* a hovered task's own dependency arrows */
 svg.np-gantt .np-g-link.is-hot {
   opacity: 1;
-}
-svg.np-gantt .np-g-link.is-hot path {
-  stroke: var(--interactive-accent) !important;
-  stroke-width: 2 !important;
-}
-svg.np-gantt .np-g-link.is-hot polygon {
-  fill: var(--interactive-accent) !important;
+  --np-link-c: var(--interactive-accent);
+  --np-link-w: 2;
 }
 /* steps: the checkboxes under a task (plan-steps.js) */
 .np-plan .np-steps.is-all {
@@ -6054,9 +6059,10 @@ svg.np-gantt .np-g-link.is-hot polygon {
 }
 
 /* ---- cards off the page (issue 56) ---- */
-.block-language-neon-cards,
-.cm-preview-code-block:has(> .block-language-neon-cards),
-.cm-embed-block:has(.block-language-neon-cards) { display: none !important; }
+.block-language-neon-cards:not(#nr-cards),
+.nr-cards-hidden:not(#nr-cards) {
+  display: none;
+}
 
 /* ---- fork: research status (pills in the tree, the By status tab) ---- */
 .nr-status-pill {
@@ -6189,12 +6195,13 @@ body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-vi
 body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-view > .markdown-preview-view {
   padding: 22px 26px;
 }
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-sizer,
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-sizer {
+/* body.nw-lifted:not(#nw): an id's weight, so these win over Obsidian's own rules for the sizer */
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-sizer,
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-sizer {
   --nw-card: var(--nd-surface, var(--background-primary));
   margin-top: 6px;
   margin-bottom: 40px;
-  padding: 26px 40px 32px !important;
+  padding: 26px 40px 32px;
   border: 1px solid var(--nd-line, var(--background-modifier-border));
   border-radius: calc(var(--nd-radius, 14px) * 1.1);
   background: linear-gradient(180deg, color-mix(in srgb, var(--nd-text, var(--text-normal)) 3%, var(--nw-card)), var(--nw-card) 160px);
@@ -6203,30 +6210,30 @@ body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-v
     0 18px 50px -24px rgba(0, 0, 0, 0.6),
     0 2px 8px -2px rgba(0, 0, 0, 0.25);
   /* fork: with "Readable line length" off the card fills the pane (see below) */
-  max-width: 100% !important;
+  max-width: 100%;
 }
 /* "Readable line length" on: the line width plus the card's own padding, never wider than the pane */
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6.is-readable-line-width .cm-sizer,
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-view.is-readable-line-width .markdown-preview-sizer {
-  max-width: min(calc(var(--file-line-width, 700px) + 80px), 100%) !important;
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6.is-readable-line-width .cm-sizer,
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-view.is-readable-line-width .markdown-preview-sizer {
+  max-width: min(calc(var(--file-line-width, 700px) + 80px), 100%);
 }
 /* fork: "Readable line length" off: full width, the same small gap on both sides */
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6:not(.is-readable-line-width) .cm-sizer,
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-view:not(.is-readable-line-width) .markdown-preview-sizer {
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6:not(.is-readable-line-width) .cm-sizer,
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-reading-view .markdown-preview-view:not(.is-readable-line-width) .markdown-preview-sizer {
   /* the editor's sizer is a flex item: make it take the whole row (auto width shrank it to the text) */
   flex: 1 1 auto;
-  width: 100% !important;
+  width: 100%;
   box-sizing: border-box;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
+  margin-left: 0;
+  margin-right: 0;
 }
 /* the editor's own empty space below the text shouldn't stretch the card forever */
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-sizer {
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-sizer {
   min-height: calc(100% - 46px);
 }
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-contentContainer,
-body.nw-lifted .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-content {
-  padding-bottom: 0 !important;
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-contentContainer,
+body.nw-lifted:not(#nw) .workspace-leaf-content[data-type='markdown'] .markdown-source-view.mod-cm6 .cm-content {
+  padding-bottom: 0;
 }
 
 /* ---- theme fonts in notes: body text, headings and code follow the Neon theme ---- */
@@ -6465,7 +6472,8 @@ body.nw-fonts.nd-themed .print {
 .cm-callout .callout.is-locked {
   cursor: default;
 }
-.cm-callout:has(> .callout.is-locked) .edit-block-button {
+.cm-callout.nw-locked .edit-block-button,
+.cm-callout > .callout.is-locked ~ .edit-block-button {
   display: none;
 }
 /* Live Preview puts Obsidian's own "edit block" button in the callout's top-right corner: sit left of it */
@@ -6631,7 +6639,7 @@ body.is-mobile .nd-dash-grid.is-narrow > .nd-card {
   max-height: 70vh;
 }
 body.is-mobile .nd-dash-grid.is-two {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: minmax(240px, auto);
 }
 body.is-mobile .nd-dash-grid.is-two > .nd-area-activity,

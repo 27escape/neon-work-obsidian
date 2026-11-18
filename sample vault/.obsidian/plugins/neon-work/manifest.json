@@ -1,9 +1,9 @@
 {
   "id": "neon-work",
   "name": "Neon Work",
-  "version": "1.5.2",
-  "minAppVersion": "1.5.0",
-  "description": "Dashboard, projects, tasks, time tracking and research notes for a vault organised by customer; read-only by default. Based on Neon Deck by Yobzs.",
+  "version": "1.5.3-beta.1",
+  "minAppVersion": "1.7.2",
+  "description": "Dashboard, project planning (Gantt, board, holidays, reports), tasks, time tracking and research notes, by customer or PARA. Local and read-only by default. Based on Neon Deck by Yobzs.",
   "author": "Kevin Mulholland",
   "authorUrl": "https://github.com/27escape",
   "isDesktopOnly": false
