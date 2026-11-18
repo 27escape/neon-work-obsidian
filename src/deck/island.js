@@ -31,7 +31,7 @@ Object.assign(NeonDeck.prototype, {
     this.registerDomEvent(document, 'drop', end, true);
     this.registerDomEvent(document, 'dragleave', (e) => !e.relatedTarget && end()); // left the window
     this.registerDomEvent(document, 'keydown', (e) => {
-      if (e.key === 'Escape' && this.island.open) {
+      if (e.key === 'Escape' && this.island.open && !document.querySelector('body > .menu')) { // a menu open: Escape closes only it
         e.preventDefault();
         this.closeIsland();
       }
@@ -191,7 +191,11 @@ Object.assign(NeonDeck.prototype, {
     el.createDiv('nd-island-skin'); // the crisp, glossy surface over the melted shape
     const body = (s.body = el.createDiv('nd-island-body'));
     const cap = body.createDiv('nd-island-cap');
-    s.select = cap.createEl('select', { cls: 'dropdown nd-island-target', attr: { 'aria-label': 'Capture into' } });
+    // where it goes: a button with Obsidian's own menu (in the theme's colours; a <select>'s list was the system's)
+    s.target = cap.createEl('button', { cls: 'nd-island-target', attr: { type: 'button', 'aria-label': 'Capture into', 'aria-haspopup': 'menu' } });
+    s.targetLabel = s.target.createSpan('nd-island-target-label');
+    setIcon(s.target.createSpan('nd-island-target-chev'), 'chevrons-up-down');
+    s.target.addEventListener('click', () => this.islandTargetMenu());
     // a text box that grows with what is typed: Enter sends, Shift+Enter starts a new line
     s.input = cap.createEl('textarea', { cls: 'nd-input nd-island-input', attr: { rows: '1', placeholder: 'Pin a note, or pick where it goes… (Enter; Shift+Enter: new line)' } });
     s.input.addEventListener('input', () => this.islandGrow());
@@ -219,23 +223,39 @@ Object.assign(NeonDeck.prototype, {
     input.style.height = `${Math.max(32, Math.min(input.scrollHeight + 2, 150))}px`; // + its border
   },
   fillTargets() {
-    const { select } = this.island;
-    select.empty();
-    for (const t of this.captureTargets()) select.createEl('option', { text: t.label, value: t.id });
-    select.value = 'pin';
+    const s = this.island;
+    s.targets = this.captureTargets();
+    this.setIslandTarget('pin');
+  },
+  /** Choose where the text goes; shown on the button. */
+  setIslandTarget(id) {
+    const s = this.island;
+    const t = (s.targets || []).find((x) => x.id === id) || (s.targets || [])[0];
+    s.targetId = t ? t.id : null;
+    s.targetLabel.setText(t ? t.label : 'Nowhere to send it');
+  },
+  islandTargetMenu() {
+    const s = this.island;
+    const m = new Menu();
+    for (const t of s.targets || []) m.addItem((i) => i.setTitle(t.label).setIcon(t.icon || null).setChecked(t.id === s.targetId).onClick(() => (this.setIslandTarget(t.id), s.input.focus())));
+    const r = s.target.getBoundingClientRect();
+    m.showAtPosition({ x: r.left, y: r.bottom + 4 });
   },
   async islandKey(e) {
-    const { select, input } = this.island;
-    const n = select.options.length;
+    const s = this.island;
+    const { input } = s;
+    const list = s.targets || [];
+    const n = list.length;
+    const at = Math.max(0, list.findIndex((x) => x.id === s.targetId));
     if (e.key === 'Tab' && n) {
       e.preventDefault();
-      select.selectedIndex = (select.selectedIndex + (e.shiftKey ? n - 1 : 1)) % n;
+      this.setIslandTarget(list[(at + (e.shiftKey ? n - 1 : 1)) % n].id);
     } else if (e.altKey && /^[1-9]$/.test(e.key) && Number(e.key) <= n) {
       e.preventDefault();
-      select.selectedIndex = Number(e.key) - 1;
+      this.setIslandTarget(list[Number(e.key) - 1].id);
     } else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
-      const t = this.captures.get(select.value);
+      const t = this.captures.get(s.targetId);
       const v = input.value.trim();
       if (!t || (!v && !t.allowEmpty)) return;
       this.lastCaptureTarget = t.id;

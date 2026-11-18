@@ -22,10 +22,6 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc('Every theme has a light and a dark version.')
       .addDropdown((d) => d.addOptions(THEME_LABEL).setValue(s.theme).onChange((v) => p.setLook({ theme: v })));
     new Setting(containerEl)
-      .setName('Quick capture panel')
-      .setDesc('The pin board / quick capture panel, and the ticker on the dashboard it grows from: in the theme’s colours, or dark in every theme.')
-      .addDropdown((d) => d.addOptions({ theme: 'Theme colours', dark: 'Dark' }).setValue(s.islandLook === 'dark' ? 'dark' : 'theme').onChange((v) => p.setLook({ islandLook: v })));
-    new Setting(containerEl)
       .setName('Pattern')
       .setDesc('The live background behind the dashboard and the card explorer. “Theme default” follows the theme.')
       .addDropdown((d) => d.addOptions({ auto: 'Theme default', ...PATTERN_LABEL }).setValue(s.pattern).onChange((v) => p.setLook({ pattern: v })));

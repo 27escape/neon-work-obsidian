@@ -45,7 +45,6 @@ const DEFAULT_SETTINGS = {
   pattern: 'auto',
   patternStrength: 'subtle',
   patternMotion: true,
-  islandLook: 'theme', // fork: the quick capture panel (and the ticker it grows from): 'theme' colours, or 'dark' liquid
   settingsVersion: 3,
   pinnedFolders: [],
   folderColors: {}, // folder path -> icon colour chosen by hand (beats the category colour)
