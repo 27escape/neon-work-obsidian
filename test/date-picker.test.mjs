@@ -36,23 +36,33 @@ test('calendar: moving between months, and labels', () => {
   assert.equal(dpLabel('2026-12-28'), 'Mon 28 Dec 2026');
 });
 
-test('task editor calendar: holidays, owners’ time off and planned dates', () => {
-  const T = load('neon-tickets', ['planDayInfo', 'planCalendar', 'planLeaveParse']);
+test('task editor calendar: holidays, your time off striped on your tasks, anyone else’s underlined, planned dates', () => {
+  const T = load('neon-tickets', ['planDayInfo', 'planCalendar', 'planLeaveParse', 'NEON_PLAN']);
   const tasks = [];
   tasks.calendar = T.planCalendar({ region: 'england-wales' });
-  tasks.leave = T.planLeaveParse('- [[@Kevin Mulholland]]\n    - 2026-12-23');
-  const owners = ['[[@Kevin Mulholland]]'];
+  tasks.leave = T.planLeaveParse('- [[@Kevin Mulholland]]\n    - 2027-02-08 to 2027-02-12\n- [[@Kieran DeMonte|Kieran]]\n    - 2027-02-10\n- [[@Steve Cotton]]\n    - 2027-02-15');
+  const kevin = ['[[@Kevin Mulholland]]'];
   const planned = { start: '2026-12-21', due: '2026-12-29' };
-  const d = (ymd) => JSON.parse(JSON.stringify(T.planDayInfo(tasks, owners, planned, ymd)));
-  assert.deepEqual(d('2026-12-25'), { off: true, away: false, mark: false, text: 'Christmas Day' });
-  assert.deepEqual(d('2026-12-23'), { off: false, away: true, mark: false, text: 'Kevin Mulholland off' });
-  assert.deepEqual(d('2026-12-21'), { off: false, away: false, mark: true, text: 'planned start' });
-  assert.deepEqual(d('2026-12-22'), { off: false, away: false, mark: false, text: '' });
+  const d = (owners, ymd) => JSON.parse(JSON.stringify(T.planDayInfo(tasks, owners, planned, ymd)));
+  assert.deepEqual(d(kevin, '2026-12-25'), { off: true, away: false, event: false, mark: false, text: 'Christmas Day' });
+  assert.deepEqual(d(kevin, '2026-12-21'), { off: false, away: false, event: false, mark: true, text: 'planned start' });
   assert.equal(T.planDayInfo(null, [], null, '2026-12-26').text, 'Saturday'); // no plan yet: weekends still greyed
-  // no owner yet: everyone's time off, so dates can be chosen before people are given tasks
-  tasks.leave = T.planLeaveParse('- [[@Kevin Mulholland]]\n    - 2027-02-08 to 2027-02-12\n- [[@Kieran DeMonte|Kieran]]\n    - 2027-02-10');
-  assert.deepEqual(JSON.parse(JSON.stringify(T.planDayInfo(tasks, [], null, '2027-02-10'))), { off: false, away: true, mark: false, text: 'Kevin Mulholland off · Kieran off' });
-  // with an owner: only theirs
-  assert.equal(T.planDayInfo(tasks, ['[[@Kieran DeMonte|Kieran]]'], null, '2027-02-09').text, '');
-  assert.equal(T.planDayInfo(tasks, ['[[@Kieran DeMonte|Kieran]]'], null, '2027-02-10').text, 'Kieran off');
+  // without "You": everyone's time off is an orange line, owners named as such
+  T.NEON_PLAN.me = '';
+  assert.deepEqual(d(kevin, '2027-02-09'), { off: false, away: false, event: true, mark: false, text: 'Kevin Mulholland off (owner)' });
+  assert.deepEqual(d([], '2027-02-10'), { off: false, away: false, event: true, mark: false, text: 'Kevin Mulholland off · Kieran off' });
+  try {
+    T.NEON_PLAN.me = '[[@Kevin Mulholland]]';
+    // your task: your time off striped, someone else's an orange line
+    assert.deepEqual(d(kevin, '2027-02-09'), { off: false, away: true, event: false, mark: false, text: 'you are off' });
+    assert.deepEqual(d(kevin, '2027-02-10'), { off: false, away: true, event: true, mark: false, text: 'you are off · Kieran off' });
+    // someone else's task (or none): everything is an orange line, you included
+    assert.deepEqual(d(['[[@Steve Cotton]]'], '2027-02-09'), { off: false, away: false, event: true, mark: false, text: 'you off' });
+    assert.deepEqual(d(['[[@Steve Cotton]]'], '2027-02-15'), { off: false, away: false, event: true, mark: false, text: 'Steve Cotton off (owner)' });
+    assert.equal(d([], '2027-02-11').event, true);
+    T.NEON_PLAN.me = 'Kevin'; // a first name matches too
+    assert.equal(d(kevin, '2027-02-09').away, true);
+  } finally {
+    T.NEON_PLAN.me = '';
+  }
 });

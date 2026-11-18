@@ -1,9 +1,10 @@
 /* ---- Date fields with the plugin's own calendar (fork) --------------------------------------------------------------
  * A date field and a calendar button; the calendar opens as a panel inside the form (no floating pop-up, so it works
  * the same in a modal, on a phone and on a tablet) and is drawn by the plugin, so it follows the theme everywhere,
- * Android included. Days can carry a reason (dayInfo): days off are greyed, with the reason as a tooltip on the
- * desktop and in a line under the calendar when tapped or hovered. Any day can be picked, days off included: picking
- * one keeps the calendar open with its reason shown. On the desktop the field also takes a typed date; on phones and
+ * Android included. Days can carry a reason (dayInfo): days off are greyed, your own time off striped, someone else's
+ * time off underlined in orange, each with the reason as a tooltip on the desktop and in a line under the calendar
+ * when tapped or hovered. Any day can be picked, days off included: picking one that has a reason keeps the calendar
+ * open with it shown. On the desktop the field also takes a typed date; on phones and
  * tablets it is read-only and opens the calendar, rather than the system's date dialog. Weeks start on Monday.
  * datePickerMonth is pure (tested). */
 
@@ -28,9 +29,10 @@ function dpLabel(ymd) {
 }
 
 /**
- * One month of the calendar (pure): { ym, title, weeks: [[{ date, day, inMonth, today, selected, off, away, mark,
- * text }]] }, six weeks of seven days from Monday. dayInfo(date) → { off, away, mark, text } or null: off greys a day
- * (weekend, holiday, closure), away marks the owners' time off, mark a date of the plan; text says why.
+ * One month of the calendar (pure): { ym, title, weeks: [[{ date, day, inMonth, today, selected, off, away, event,
+ * mark, text }]] }, six weeks of seven days from Monday. dayInfo(date) → { off, away, event, mark, text } or null: off
+ * greys a day (weekend, holiday, closure), away stripes it (your time off), event underlines it (someone else's), mark
+ * outlines a date of the plan; text says why.
  */
 function datePickerMonth(ym, { dayInfo = null, today = '', value = '' } = {}) {
   const first = `${ym}-01`;
@@ -42,7 +44,7 @@ function datePickerMonth(ym, { dayInfo = null, today = '', value = '' } = {}) {
     for (let d = 0; d < 7; d++) {
       const date = dpAdd(start, w * 7 + d);
       const info = (dayInfo && dayInfo(date)) || {};
-      row.push({ date, day: +date.slice(8), inMonth: date.slice(0, 7) === ym, today: date === today, selected: date === value, off: !!info.off, away: !!info.away, mark: !!info.mark, text: info.text || '' });
+      row.push({ date, day: +date.slice(8), inMonth: date.slice(0, 7) === ym, today: date === today, selected: date === value, off: !!info.off, away: !!info.away, event: !!info.event, mark: !!info.mark, text: info.text || '' });
     }
     weeks.push(row);
   }
@@ -86,7 +88,7 @@ function dpOpen(input, host, { label, dayInfo, onPick, btn }) {
     grid.empty();
     for (const d of DP_DAYS) grid.createDiv({ cls: 'nd-dp-dow', text: d });
     for (const c of m.weeks.flat()) {
-      const cls = ['nd-dp-day', !c.inMonth && 'is-other', c.today && 'is-today', c.selected && 'is-selected', c.off && 'is-off', c.away && 'is-away', c.mark && 'is-mark'].filter(Boolean).join(' ');
+      const cls = ['nd-dp-day', !c.inMonth && 'is-other', c.today && 'is-today', c.selected && 'is-selected', c.off && 'is-off', c.away && 'is-away', c.event && 'is-event', c.mark && 'is-mark'].filter(Boolean).join(' ');
       const b = grid.createEl('button', { cls, text: String(c.day), attr: { type: 'button', 'aria-label': `${dpLabel(c.date)}${c.text ? `, ${c.text}` : ''}`, 'aria-pressed': c.selected ? 'true' : 'false' } });
       if (c.text) b.setAttr('title', c.text);
       b.addEventListener('mouseenter', () => say(c));
@@ -95,7 +97,7 @@ function dpOpen(input, host, { label, dayInfo, onPick, btn }) {
         input.value = c.date;
         onPick(c.date);
         // a day off stays open, its reason shown (on a phone there is no hover to see it first)
-        if (c.off || c.away) {
+        if (c.off || c.away || c.event) {
           ym = c.date.slice(0, 7);
           draw();
           info.setText(`Picked ${dpLabel(c.date)}: ${c.text || 'not a working day'}`);

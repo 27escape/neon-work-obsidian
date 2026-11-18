@@ -316,17 +316,32 @@ function planWeekendDates(tasks) {
   return out;
 }
 /**
- * A day in the task editor's calendar (date-picker.js): { off, away, mark, text }. off: not a working day in this plan
- * (its Holidays note); away: time off of the task's owners, or of everyone in the Holidays notes while the task has no
- * owner yet (tasks are often planned before anyone is given them); mark: the task's planned start or finish.
- * owners: as written.
+ * A day in the task editor's calendar (date-picker.js): { off, away, event, mark, text }. off: not a working day in
+ * this plan (its Holidays note); away: you are off (the "You" setting) and the task is yours: striped; event: someone
+ * else is off (anyone in the Holidays notes; the task's owners are named as such): an orange line; mark: the task's
+ * planned start or finish. owners: as written. Without the "You" setting everyone's time off is an orange line.
  */
 function planDayInfo(tasks, owners, planned, ymd) {
   tasks = tasks || [];
   const why = (tasks.calendar || planCal()).off(ymd);
-  const mine = planOwners(`[owner:: ${(owners || []).join(', ')}]`);
-  const people = mine.length ? mine.map((o) => [o.name, planLeaveFor(tasks.leave, o)]) : [...(tasks.leave || new Map()).values()].map((e) => [e.name, e]);
-  const away = people.filter(([, e]) => planLeaveOff(e, ymd)).map(([name]) => `${name} off`);
+  const own = planOwners(`[owner:: ${(owners || []).join(', ')}]`);
+  const me = planOwners(`[owner:: ${NEON_PLAN.me || ''}]`)[0] || null;
+  const same = (a, b) => !!planLeaveFor(new Map([[a.key, a]]), b); // the same person: same name, or same first name
+  const myEntry = me ? planLeaveFor(tasks.leave, me) : null;
+  const mineTask = !!me && own.some((o) => same(o, me));
+  let away = false;
+  const names = [];
+  for (const e of (tasks.leave || new Map()).values()) {
+    if (!planLeaveOff(e, ymd)) continue;
+    if (mineTask && e === myEntry) {
+      away = true;
+      names.unshift('you are off');
+      continue;
+    }
+    const owner = own.some((o) => planLeaveFor(tasks.leave, o) === e); // this person's time off is one of the owners'
+    names.push(`${e === myEntry ? 'you' : e.name} off${owner ? ' (owner)' : ''}`);
+  }
+  const event = names.length > (away ? 1 : 0);
   const mark = planned ? (ymd === planned.start ? 'planned start' : ymd === planned.due ? 'planned finish' : '') : '';
-  return { off: !!why, away: away.length > 0, mark: !!mark, text: [why, ...away, mark].filter(Boolean).join(' · ') };
+  return { off: !!why, away, event, mark: !!mark, text: [why, ...names, mark].filter(Boolean).join(' · ') };
 }

@@ -5,7 +5,7 @@
 
 // filled by the modules that own the settings: Tasks (task tags) and Projects (project folders, the Holidays notes'
 // name: plan-calendar.js). calendar: the working calendar of the plan being drawn (planUseCalendar)
-const NEON_PLAN = { taskTag: '#task', folders: '', holidayName: 'Holidays', calendar: null };
+const NEON_PLAN = { taskTag: '#task', folders: '', holidayName: 'Holidays', me: '', calendar: null };
 
 /** The project folder a path sits in (<project folders>/<folder>), or null. */
 function planFolderOf(path) {

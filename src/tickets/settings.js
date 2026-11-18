@@ -61,6 +61,10 @@ class NeonProjectsSettingTab extends PluginSettingTab {
       .setDesc('Planning reads working days, holidays and time off from a note with this name: in the project’s folder or a folder above it, its customer or Area folder (a customer or Area can have its own), else in the base folder. Its All section: “public holidays: England and Wales” (or Scotland, Northern Ireland), “working days: Mon-Fri”, and dates or ranges with a name for everyone (closures, other countries’ holidays). Under it, each person ([[@Name]]) with their dates or “every Tuesday”.')
       .addText((t) => t.setPlaceholder('Holidays').setValue(s.planHolidayName || 'Holidays').onChange((v) => ((s.planHolidayName = v.trim() || 'Holidays'), plans())));
     new Setting(containerEl)
+      .setName('You')
+      .setDesc('Optional: you, written as in a task’s owners ([[@Your Name]] or your name). In the task editor’s calendar your own time off is then striped on your tasks; everyone else’s is underlined in orange.')
+      .addText((t) => t.setPlaceholder('[[@Your Name]]').setValue(s.planMe || '').onChange((v) => ((s.planMe = v.trim()), proj())));
+    new Setting(containerEl)
       .setName('Underline plan problems in project notes')
       .setDesc('While you edit a project note: a ⛔ id no task has, a 🆔 used twice, and the links of a dependency loop get a wavy underline, with the reason on hover. Only the display changes, nothing is written.')
       .addToggle((t) => t.setValue(s.planMarks !== false).onChange((v) => ((s.planMarks = v), save(), p.planMarksRefresh && p.planMarksRefresh())));
