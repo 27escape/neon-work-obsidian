@@ -3063,6 +3063,28 @@ body.theme-light .nd-ticker {
 .nd-island .nd-island-input::placeholder {
   color: var(--nd-fluid-muted);
 }
+/* Obsidian's own rules for inputs and dropdowns (input[type='text']:focus, .dropdown:hover…) outrank the ones above
+   and, in a light theme, gave a light box with the island's light text: the dark glass stays in every state */
+.nd-island.is-open .nd-island-input,
+.nd-island.is-open .nd-island-input:hover,
+.nd-island.is-open .nd-island-input:focus,
+.nd-island.is-open .nd-island-input:active,
+.nd-island.is-open .nd-island-target,
+.nd-island.is-open .nd-island-target:hover,
+.nd-island.is-open .nd-island-target:focus {
+  background-color: var(--nd-fluid-glass);
+  color: var(--nd-fluid-text);
+  caret-color: var(--nd-fluid-text);
+}
+/* the dropdown's list: dark like the island (the system drew it white, with the island's white text) */
+.nd-island .nd-island-target {
+  color-scheme: dark;
+}
+.nd-island .nd-island-target option,
+.nd-island .nd-island-target optgroup {
+  background-color: var(--nd-fluid);
+  color: var(--nd-fluid-text);
+}
 .nd-island .nd-island-target:focus-visible,
 .nd-island .nd-island-input:focus {
   border-color: var(--nd-accent, var(--interactive-accent));
