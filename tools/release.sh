@@ -10,6 +10,7 @@
 #   --no-push   stop after tagging (to push later, run it again without --no-push)
 #
 # Needs docs/release-notes/VERSION.md (its text becomes the GitHub release notes). Steps:
+#   0. the sample vault's Obsidian settings, changed by testing in it, put back as committed (asked first)
 #   1. checks: a clean working tree, the release notes, the unit tests, the build and tools/check.mjs
 #   2. the version in the manifest and versions.json (only when VERSION differs)
 #   3. the sample vault's copy of the plugin, committed if it changed
@@ -33,7 +34,7 @@ for a in "$@"; do
     --dry-run) DRY=1 ;;
     --yes | -y) YES=1 ;;
     --no-push) PUSH=0 ;;
-    -h | --help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "Unknown option: $a (see --help)" >&2; exit 2 ;;
     *) VERSION="$a" ;;
   esac
@@ -63,11 +64,23 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 say "Neon Work $VERSION (manifest: $CURRENT, branch: $BRANCH)$([ "$DRY" = 1 ] && echo ', dry run')"
 
+# ---- 0. the sample vault, back as committed: testing in it changes its Obsidian settings (plugin data, workspace),
+# which shouldn't go out with a release. Only tracked files under its .obsidian folder; notes are left alone.
+SAMPLE_CFG="sample vault/.obsidian"
+if [ -d "$SAMPLE_CFG" ] && [ -n "$(git status --porcelain -- "$SAMPLE_CFG" | grep -v '^??')" ]; then
+  say "Sample vault settings changed by testing"
+  git status --short -- "$SAMPLE_CFG" | grep -v '^??' | sed 's/^/   /'
+  ask "Put them back as committed?"
+  run git restore --staged --worktree -- "$SAMPLE_CFG"
+fi
+
 # ---- 1. checks
 say "Checks"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "'$VERSION' isn't a release version (X.Y.Z; betas aren't released)"
 [ "$BRANCH" != HEAD ] || fail "not on a branch"
-[ -z "$(git status --porcelain)" ] || { git status --short; fail "the working tree has changes: commit or stash them first"; }
+# (a dry run hasn't put the sample vault's settings back, so they don't count here)
+DIRTY=$(git status --porcelain | { if [ "$DRY" = 1 ]; then grep -v "^ *[MDA]  *\"\{0,1\}$SAMPLE_CFG" || true; else cat; fi; })
+[ -z "$DIRTY" ] || { echo "$DIRTY" | sed 's/^/   /'; fail "the working tree has changes: commit or stash them first"; }
 [ -f "$NOTES" ] || fail "no release notes: write $NOTES first"
 if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
   # a run that stopped after tagging can carry on; a tag on another commit means this version is out already
