@@ -317,12 +317,16 @@ function planWeekendDates(tasks) {
 }
 /**
  * A day in the task editor's calendar (date-picker.js): { off, away, mark, text }. off: not a working day in this plan
- * (its Holidays note); away: an owner's time off; mark: the task's planned start or finish. owners: as written.
+ * (its Holidays note); away: time off of the task's owners, or of everyone in the Holidays notes while the task has no
+ * owner yet (tasks are often planned before anyone is given them); mark: the task's planned start or finish.
+ * owners: as written.
  */
 function planDayInfo(tasks, owners, planned, ymd) {
   tasks = tasks || [];
   const why = (tasks.calendar || planCal()).off(ymd);
-  const away = planOwners(`[owner:: ${(owners || []).join(', ')}]`).filter((o) => planLeaveOff(planLeaveFor(tasks.leave, o), ymd)).map((o) => `${o.name} off`);
+  const mine = planOwners(`[owner:: ${(owners || []).join(', ')}]`);
+  const people = mine.length ? mine.map((o) => [o.name, planLeaveFor(tasks.leave, o)]) : [...(tasks.leave || new Map()).values()].map((e) => [e.name, e]);
+  const away = people.filter(([, e]) => planLeaveOff(e, ymd)).map(([name]) => `${name} off`);
   const mark = planned ? (ymd === planned.start ? 'planned start' : ymd === planned.due ? 'planned finish' : '') : '';
   return { off: !!why, away: away.length > 0, mark: !!mark, text: [why, ...away, mark].filter(Boolean).join(' · ') };
 }

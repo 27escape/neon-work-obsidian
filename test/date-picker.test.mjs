@@ -49,4 +49,10 @@ test('task editor calendar: holidays, owners’ time off and planned dates', () 
   assert.deepEqual(d('2026-12-21'), { off: false, away: false, mark: true, text: 'planned start' });
   assert.deepEqual(d('2026-12-22'), { off: false, away: false, mark: false, text: '' });
   assert.equal(T.planDayInfo(null, [], null, '2026-12-26').text, 'Saturday'); // no plan yet: weekends still greyed
+  // no owner yet: everyone's time off, so dates can be chosen before people are given tasks
+  tasks.leave = T.planLeaveParse('- [[@Kevin Mulholland]]\n    - 2027-02-08 to 2027-02-12\n- [[@Kieran DeMonte|Kieran]]\n    - 2027-02-10');
+  assert.deepEqual(JSON.parse(JSON.stringify(T.planDayInfo(tasks, [], null, '2027-02-10'))), { off: false, away: true, mark: false, text: 'Kevin Mulholland off · Kieran off' });
+  // with an owner: only theirs
+  assert.equal(T.planDayInfo(tasks, ['[[@Kieran DeMonte|Kieran]]'], null, '2027-02-09').text, '');
+  assert.equal(T.planDayInfo(tasks, ['[[@Kieran DeMonte|Kieran]]'], null, '2027-02-10').text, 'Kieran off');
 });
