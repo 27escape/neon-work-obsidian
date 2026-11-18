@@ -158,7 +158,7 @@ if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null && [ "$(git rev-lis
   echo "   already on this commit"
 else
   ask "Tag $(git log --oneline -1 HEAD) as $VERSION?"
-  TITLE=$(head -1 "$NOTES" | sed 's/^# *//')
+  TITLE=$(head -1 "$NOTES" | sed -E 's/^# *//; s/ *[—-]+ *release notes$//I')
   run git tag -a "$VERSION" -m "${TITLE:-Neon Work $VERSION}"
 fi
 
