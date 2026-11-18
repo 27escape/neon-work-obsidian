@@ -182,13 +182,13 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
     echo "   release $VERSION already exists: its files are replaced with this build"
     run gh release upload "$VERSION" "${ASSETS[@]}" --clobber
   else
-    run gh release create "$VERSION" "${ASSETS[@]}" --title "$VERSION" --notes-file "$NOTES" --verify-tag
+    run gh release create "$VERSION" "${ASSETS[@]}" --title "Neon Work $VERSION" --notes-file "$NOTES" --verify-tag
   fi
 else
   REPO=$(git remote get-url origin | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')
   cat <<EOF
    The GitHub CLI (gh) isn't installed or signed in, so make the release on github.com:
-     1. open https://github.com/$REPO/releases/new?tag=$VERSION&title=$VERSION
+     1. open https://github.com/$REPO/releases/new?tag=$VERSION&title=Neon%20Work%20$VERSION
         (the tag is chosen and the title filled in; the tag box should say it is an existing tag)
      2. paste the text of $NOTES as the description
      3. attach ${ASSETS[*]}
