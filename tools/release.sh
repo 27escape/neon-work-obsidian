@@ -69,9 +69,19 @@ say "Checks"
 [ -z "$(git status --porcelain)" ] || { git status --short; fail "the working tree has changes: commit or stash them first"; }
 [ -f "$NOTES" ] || fail "no release notes: write $NOTES first"
 if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+  # a run that stopped after tagging can carry on; a tag on another commit means this version is out already
   TAGGED=$(git rev-list -n 1 "$VERSION")
-  [ "$TAGGED" = "$(git rev-parse HEAD)" ] || [ "$CURRENT" != "$VERSION" ] || fail "tag $VERSION already exists on another commit ($(git log --oneline -1 "$TAGGED"))"
-  [ "$CURRENT" = "$VERSION" ] || fail "tag $VERSION already exists"
+  [ "$TAGGED" = "$(git rev-parse HEAD)" ] || fail "$VERSION is already tagged, on $(git log --oneline -1 "$TAGGED"): give the next version, e.g. tools/release.sh X.Y.Z"
+fi
+# main must be able to move forward to this commit (checked now, before anything changes)
+HAS_MAIN=0
+git rev-parse -q --verify refs/heads/main >/dev/null && HAS_MAIN=1
+if [ "$PUSH" = 1 ]; then git fetch -q origin || fail "can't reach origin (git fetch)"; fi
+if git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
+  git merge-base --is-ancestor origin/main HEAD || fail "origin/main has commits this branch lacks: merge them in first"
+fi
+if [ "$HAS_MAIN" = 1 ] && [ "$BRANCH" != main ]; then
+  git merge-base --is-ancestor main HEAD || fail "main has commits this branch lacks: merge main into $BRANCH first"
 fi
 echo "   release notes: $NOTES"
 echo "   unit tests…"
@@ -128,12 +138,10 @@ fi
 
 # ---- 4. main
 say "main"
-if [ "$PUSH" = 1 ]; then git fetch -q origin || fail "can't reach origin (git fetch)"; fi
-if git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
-  git merge-base --is-ancestor origin/main HEAD || fail "origin/main has commits this branch lacks: merge them in first"
-fi
-if [ "$BRANCH" != main ]; then
-  git merge-base --is-ancestor main HEAD || fail "main has commits this branch lacks: merge main into $BRANCH first"
+if [ "$BRANCH" != main ] && [ "$HAS_MAIN" = 0 ]; then
+  echo "   no local main yet: made here"
+  run git branch main HEAD
+elif [ "$BRANCH" != main ]; then
   if [ "$(git rev-parse main)" = "$(git rev-parse HEAD)" ]; then
     echo "   main is already here"
   else
