@@ -4,9 +4,9 @@ A command centre for an Obsidian vault: a dashboard, projects, tasks, time track
 By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.
 
 > [!NOTE]
-> **New in 1.4.0: Planning**, a lightweight project planner over the tasks in your project notes: Gantt, board, dependency graph, task list, a task editor, forecasts and all projects on one timeline. See [the release notes](docs/release-notes/1.4.0.md).
+> **New in 1.5.0:** Planning knows about **holidays and time off** (UK public holidays built in, closures, any country's dates, people's leave, per customer or Area), has its **own calendar** in the task editor, and makes a **report for other people**: a summary, then the project note itself. Also editing on the Gantt chart, steps under a task, tasks that run alongside, and cancelling or deleting tasks. See [the release notes](docs/release-notes/1.5.0.md).
 >
-> **1.4.1:** the planning task editor's *edit this task*, *new task here* and *new task after this* can now have hotkeys. See [the release notes](docs/release-notes/1.4.1.md).
+> **Planning** arrived in 1.4.0: a lightweight project planner over the tasks in your project notes ([1.4.0 release notes](docs/release-notes/1.4.0.md)).
 
 Neon Work sits on top of a vault you already have:
 
