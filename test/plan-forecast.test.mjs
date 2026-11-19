@@ -105,6 +105,8 @@ test('report note: summary first (chart, phases, people, attention, markers, wor
   // the summary comes before the details
   assert.ok(md.indexOf('## People') < md.indexOf('## Needs attention') && md.indexOf('## Workload') < md.indexOf('## Project details'));
   has('up to the end of the plan');
+  has('# Plan report: Pilot - Local AI\n\nSnapshot report generated on 16 Nov\n');
+  assert.ok(!md.includes('Made on'));
 });
 
 test('report note, full: the details say the whole note is there', () => {

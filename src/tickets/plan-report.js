@@ -18,7 +18,7 @@ function planReportText(r) {
   const d = (x) => (x ? planShortDate(x) : '');
   L.push('---', `title: "Plan report: ${r.title.replace(/"/g, "'")}"`, `created: ${r.today}`, 'tags:', '  - plan-report', `project: "[[${r.note}]]"`, '---', '');
   L.push(`# Plan report: ${r.title}`, '');
-  L.push(`Made on ${d(r.today)} from [[${r.note}]]. A snapshot: it doesn't change with the plan; make a new report for the latest.`, '');
+  L.push(`Snapshot report generated on ${d(r.today)}`, '');
   L.push('## Summary', '');
   if (r.forecast) L.push(`- **Forecast:** ${r.forecast}${r.baseline ? ` ${r.baseline}` : ''}`);
   if (r.summary) L.push(`- **Tasks:** ${r.summary}`);
