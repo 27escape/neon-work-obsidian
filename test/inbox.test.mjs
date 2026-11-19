@@ -3,13 +3,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 
-const I = load('neon-deck', ['inboxName', 'inboxBody', 'inboxProps', 'applyTemplate']);
-const now = { format: (f) => (f === 'YYYY-MM-DD HHmm' ? '2026-11-13 1015' : '2026-11-13') };
+const I = load('neon-deck', ['inboxName', 'inboxHeadline', 'inboxLabel', 'inboxBody', 'inboxProps', 'applyTemplate']);
+const now = { format: (f) => (f === 'YYYYMMDD_HHmmss' ? '20261113_101503' : '2026-11-13') };
 
-test('inbox note name: first line, cleaned and shortened', () => {
-  assert.equal(I.inboxName('\n  # Look at [[Local AI]] costs\nmore detail', now), 'Look at Local AI costs');
-  assert.equal(I.inboxName('   ', now), 'Inbox 2026-11-13 1015');
-  assert.equal(I.inboxName('x'.repeat(100), now).length, 60);
+test('inbox note name: the time it was captured; the text goes in the note', () => {
+  assert.equal(I.inboxName(now), '20261113_101503');
+  assert.equal(I.inboxHeadline('\n  # Look at [[Local AI|local AI]] costs\nmore detail'), 'Look at local AI costs');
+  assert.equal(I.inboxHeadline('- [ ] ring [Steve](https://x.y)\n'), 'ring Steve');
+  assert.equal(I.inboxHeadline('   '), '');
+});
+
+test('Inbox card label: title property, else the first line after the properties, else the file name', () => {
+  const note = '---\ntags:\n  - inbox\nstatus: waiting\n---\n\n# Ideas for the pilot\nmore\n';
+  assert.equal(I.inboxLabel(note, 'Given title', '20261113_101503'), 'Given title');
+  assert.equal(I.inboxLabel(note, null, '20261113_101503'), 'Ideas for the pilot');
+  assert.equal(I.inboxLabel('---\nstatus: waiting\n---\n', '', '20261113_101503'), '20261113_101503');
+  assert.equal(I.inboxLabel('Just a line', undefined, 'x'), 'Just a line');
 });
 
 test('inbox body and Templater basics', () => {

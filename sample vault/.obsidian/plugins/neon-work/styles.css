@@ -1425,6 +1425,20 @@ button.nd-swatch.is-on {
 .nd-inbox-body .nt-add {
   margin-top: 8px;
 }
+/* the Add box is a text box that grows (Shift+Enter for a new line); the + stays by the first line */
+.nd-inbox-body .nt-add::before {
+  top: 19px;
+}
+.nd-inbox-body .nt-add textarea.nd-input {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  padding-top: 9px;
+  padding-bottom: 8px;
+  line-height: 1.4;
+  resize: none;
+  overflow-y: auto;
+}
 
 /* a narrow dashboard (one or two columns, desktop or mobile): what you act on first, the status cards last */
 .nd-dash-grid.is-narrow > .nd-area-inbox { order: 1; }
