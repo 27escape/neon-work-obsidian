@@ -104,17 +104,12 @@ test('report note: summary first (chart, phases, people, attention, markers, wor
   for (const gone of ['## Critical path', '## All tasks', 'Waits for']) assert.ok(!md.includes(gone), gone);
   // the summary comes before the details
   assert.ok(md.indexOf('## People') < md.indexOf('## Needs attention') && md.indexOf('## Workload') < md.indexOf('## Project details'));
-  has('up to the end of the plan');
+  assert.ok(md.includes('## Project details\n\n### 1. Scope'), 'details straight after the heading');
+  assert.ok(!md.includes('as it stood on'));
   has('# Plan report: Pilot - Local AI\n\nSnapshot report generated on 16 Nov\n');
   assert.ok(!md.includes('Made on'));
 });
 
-test('report note, full: the details say the whole note is there', () => {
-  const md = R.planReportText({ title: 'P', note: 'P', today: '2026-11-19', phases: [], attention: [], marks: [], crit: [], load: [], people: [], details: '### Research\n\nNotes', full: true });
-  assert.ok(md.includes('as it stood on 19 Nov: the whole note.'));
-  assert.ok(md.includes('### Research\n\nNotes'));
-  assert.ok(!md.includes('left out'));
-});
 
 // bug: the report's SVG would not open: a font list with double quotes was put inside style="…"
 test('SVG export: inlined theme values keep the attributes valid', () => {

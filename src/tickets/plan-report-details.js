@@ -1,8 +1,8 @@
 /* ---- Project plans (fork): the report's People table and Project details -------------------------------------------
  * People: everyone named as a task owner ([owner:: …]) with their open and done tasks, days of open work and phases.
  * Project details: the project note itself, as a snapshot, from the top to the end of the section holding the plan's
- * last task, so research and notes kept below the plan are left out. Its headings move down one level, under the
- * report's "Project details"; the front matter, refine callouts and %% comments %% go; links to the note's own headings
+ * last task, so research and notes kept below the plan are left out. Its title heading goes and its other headings
+ * move down so the highest is ###, under the report's "## Project details"; the front matter, refine callouts and %% comments %% go; links to the note's own headings
  * point at the note; checkbox lines keep their text, owners and 📅 / ✅ dates but lose the plan's working fields (🆔, ⛔,
  * [duration:: …], 🛫 …) and the task tags, and their boxes become ☐ / ☑ so the copy never counts as tasks twice in
  * Tasks or Dataview queries. Both pure (tested). */
@@ -79,6 +79,14 @@ function planReportDetails(text, { note, lastLine = null, taskTags = '' } = {}) 
         break;
       }
   }
+  // fork: the note's own title heading ("# Pilot - Local AI") goes: the report already names the project. The
+  // rest move down so the highest is ### (under the report's "## Project details"), no further than ######.
+  const same = (a, b) => a.trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  let titleAt = -1;
+  for (let k = from; k < to && note; k++) if (level[k] && same(lines[k].replace(/^#+\s+/, '').replace(/\s+#+\s*$/, ''), note)) ((titleAt = k), (k = to));
+  let top = 7;
+  for (let k = from; k < to; k++) if (level[k] && k !== titleAt) top = Math.min(top, level[k]);
+  const shift = top < 7 ? Math.max(0, 3 - top) : 0;
   const out = [];
   let callout = false;
   let comment = false;
@@ -108,7 +116,8 @@ function planReportDetails(text, { note, lastLine = null, taskTags = '' } = {}) 
     }
     if (callout && /^>/.test(l)) continue;
     callout = false;
-    if (level[k]) l = l.replace(/^(#{1,6})/, (h) => (h.length < 6 ? `${h}#` : h));
+    if (k === titleAt) continue;
+    if (level[k]) l = l.replace(/^(#{1,6})/, (h) => '#'.repeat(Math.min(6, h.length + shift)));
     l = l.replace(/(!?)\[\[#([^\]]*)\]\]/g, (all, bang, rest) => `${bang}[[${note}#${rest}]]`);
     out.push(planReportLine(l, taskTags));
   }

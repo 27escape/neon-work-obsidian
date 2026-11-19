@@ -22,7 +22,8 @@ test('report details: the note up to the end of the last task section, cleaned f
   const out = R.planReportDetails(NOTE, { note: 'Pilot', lastLine: NOTE.split('\n').findIndex((l) => l.includes('p-2 ⛔')), taskTags: '#task' });
   const has = (s) => assert.ok(out.includes(s), `missing: ${s}\n---\n${out}`);
   const not = (s) => assert.ok(!out.includes(s), `should be gone: ${s}\n---\n${out}`);
-  has('### Pilot');
+  not('Pilot\n'); // the note's own title heading: the report already names the project
+  assert.ok(out.startsWith('Intro, see'), out);
   has('Intro, see [[Pilot#Research]] and [[Other note#Part]].');
   has('### 1. Scope');
   has('- ☐ Outline scope 📅 5 Dec #decision (Sam, Alex)');
@@ -38,6 +39,16 @@ test('report details: the note up to the end of the last task section, cleaned f
 test('report details: without a task line the whole note is kept', () => {
   const out = R.planReportDetails('---\na: 1\n---\n## One\ntext\n## Two\nmore', { note: 'N', lastLine: -1 });
   assert.equal(out, '### One\ntext\n### Two\nmore');
+});
+
+test('report details: headings start at ### (under "## Project details"), whatever level the note starts at', () => {
+  // bug: a note with "# Title" and "## Sections" came out as "## Title" and "### …", the title beside "Project details"
+  const note = '# Pilot - Local AI\nIntro\n## 1. Scope\n- [ ] A #task\n### Detail\n#### Deep\n##### Deeper\n###### Deepest';
+  assert.equal(R.planReportDetails(note, { note: 'Pilot - Local AI', taskTags: '#task' }), 'Intro\n### 1. Scope\n- ☐ A\n#### Detail\n##### Deep\n###### Deeper\n###### Deepest');
+  // a top heading that isn't the title stays, at ###
+  assert.equal(R.planReportDetails('# Overview\ntext\n## Part\nmore', { note: 'Other' }), '### Overview\ntext\n#### Part\nmore');
+  // already deep enough: unchanged
+  assert.equal(R.planReportDetails('#### A\n##### B', { note: 'N' }), '#### A\n##### B');
 });
 
 test('report people: owners with open and done tasks, days of open work and phases', () => {

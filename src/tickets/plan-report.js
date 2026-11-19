@@ -51,7 +51,7 @@ function planReportText(r) {
     for (const l of r.load) L.push(`- ${l}`);
     L.push('');
   }
-  if (r.details) L.push('## Project details', '', r.full ? `*From [[${r.note}]] as it stood on ${d(r.today)}: the whole note.*` : `*From [[${r.note}]] as it stood on ${d(r.today)}, up to the end of the plan; notes below the plan's last task are left out.*`, '', r.details, '');
+  if (r.details) L.push('## Project details', '', r.details, ''); // the snapshot line at the top says when
   return L.join('\n');
 }
 
