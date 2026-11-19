@@ -2,7 +2,7 @@
  * Report (Planning view) writes a snapshot of the plan into the reports folder (setting; empty: <base folder>/Reports):
  * a summary first (forecast, the Gantt chart as an SVG file the note embeds in the plan's colours, phases, people, what
  * needs attention, risks / issues / decisions, workload), then the detail: the project note itself up to the end of
- * the plan (plan-report-details.js). Print it with
+ * the plan (plan-report-details.js), or the whole note with Report: full (named "… (full)"). Print it with
  * Obsidian's Export to PDF. Written only when you press Report, and refused while read-only is on; a second report on
  * the same day replaces that day's files. planReportText is pure (tested). */
 
@@ -51,13 +51,13 @@ function planReportText(r) {
     for (const l of r.load) L.push(`- ${l}`);
     L.push('');
   }
-  if (r.details) L.push('## Project details', '', `*From [[${r.note}]] as it stood on ${d(r.today)}, up to the end of the plan; notes below the plan's last task are left out.*`, '', r.details, '');
+  if (r.details) L.push('## Project details', '', r.full ? `*From [[${r.note}]] as it stood on ${d(r.today)}: the whole note.*` : `*From [[${r.note}]] as it stood on ${d(r.today)}, up to the end of the plan; notes below the plan's last task are left out.*`, '', r.details, '');
   return L.join('\n');
 }
 
 Object.assign(PlanView.prototype, {
   /** The report's contents, from the plan as the view has it (real dates when the project has a started date). */
-  reportData(svgName, noteText = '') {
+  reportData(svgName, noteText = '', full = false) {
     const today = this.today;
     const plan = this.dated || planGanttText(this.tasks, { weeks: true, today });
     const { byId } = planIndex(this.tasks);
@@ -109,7 +109,9 @@ Object.assign(PlanView.prototype, {
       // people and the plan's days off, from its first day to its forecast finish (real dates only)
       people: planReportPeople(own).map((p) => ({ ...p, off: this.dated ? planLeaveText(planLeaveFor(this.tasks.leave, p), planWorkdays(this.base, 0), this.dated.end || this.today) : '' })),
       holidays: this.dated ? planDaysOffText(planDaysOff(planWorkdays(this.base, 0), this.dated.end || this.today)) : '',
-      details: noteText ? planReportDetails(noteText, { note: (this.scopeFile() || {}).basename || '', lastLine: own.filter((t) => t.file === this.scopeFile()).reduce((m, t) => (t.line > m ? t.line : m), -1), taskTags: NEON_PLAN.taskTag }) : '',
+      full,
+      // concise: up to the end of the plan; full: the whole note
+      details: noteText ? planReportDetails(noteText, { note: (this.scopeFile() || {}).basename || '', lastLine: full ? null : own.filter((t) => t.file === this.scopeFile()).reduce((m, t) => (t.line > m ? t.line : m), -1), taskTags: NEON_PLAN.taskTag }) : '',
     };
   },
   /** The Gantt for the report: every task (no filter), drawn off screen, as SVG text with the colours written in. */
@@ -126,15 +128,24 @@ Object.assign(PlanView.prototype, {
       host.remove();
     }
   },
-  /** Write the report note and its chart into the reports folder, then open it. */
-  async writeReport() {
+  /** Report: concise (the project note up to the end of the plan) or full (the whole note). */
+  reportMenu(e) {
+    const m = new Menu();
+    m.addItem((i) => i.setTitle('Report: concise').setIcon('file-output').onClick(() => this.writeReport(false)));
+    m.addItem((i) => i.setTitle('Report: full (the whole project note)').setIcon('file-text').onClick(() => this.writeReport(true)));
+    const r = this.reportBtn.getBoundingClientRect(); // under the button (also from the keyboard)
+    m.showAtPosition({ x: r.left, y: r.bottom });
+  },
+  /** Write the report note and its chart into the reports folder, then open it. full: the whole project note. */
+  async writeReport(full = false) {
     planUseCalendar(this.tasks);
     const folder = locPath(this.plugin.settings.planReportsFolder, 'Reports');
     const base = `${safeName(planScopeTitle(this.plan))} – plan ${this.today}`;
-    const svgName = `${base}.svg`;
+    const svgName = `${base}.svg`; // the same chart for both
+    const mdName = `${base}${full ? ' (full)' : ''}.md`;
     const svgText = this.reportSvg();
     const own = this.scopeFile();
-    const md = planReportText(this.reportData(svgText ? svgName : '', own ? await this.app.vault.cachedRead(own) : ''));
+    const md = planReportText(this.reportData(svgText ? svgName : '', own ? await this.app.vault.cachedRead(own) : '', full));
     try {
       await ensureFolder(this.app, folder);
       const put = async (name, text) => {
@@ -145,7 +156,7 @@ Object.assign(PlanView.prototype, {
         return this.app.vault.getAbstractFileByPath(path);
       };
       if (svgText) await put(svgName, svgText);
-      const note = await put(`${base}.md`, md);
+      const note = await put(mdName, md);
       if (note instanceof TFile) await openInTab(this.app, note); // its own tab, in front
       new Notice('Report saved. To print it: ⋯ menu (or the command palette) → Export to PDF.', 6000);
     } catch (e) {
