@@ -3435,6 +3435,16 @@ body.nd-themed .notice {
   text-transform: none;
   color: var(--nd-faint, var(--text-faint));
 }
+.nt-here {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.nt-here input {
+  margin: 0;
+}
 .nt-note {
   font-size: 12.5px;
   color: var(--nd-faint, var(--text-faint));

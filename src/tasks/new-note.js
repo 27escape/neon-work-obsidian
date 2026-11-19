@@ -21,11 +21,13 @@ function noteTypesFrom(s) {
 const typeUsesGroup = (type) => /\{group\}/i.test(type.folder || '');
 /**
  * Where a new note of a type goes (pure). {group} needs a group; without one the note goes in the fallback
- * folder ('' = vault root). People notes get an @ in front of the name.
+ * folder ('' = vault root). People notes get an @ in front of the name. With `here` (a folder path, '/' = vault
+ * root) the note goes there instead, whatever the type's folder says.
  */
-function newNotePath(type, groupsFolder, group, name, fallback) {
+function newNotePath(type, groupsFolder, group, name, fallback, here = null) {
   let folder;
-  if (typeUsesGroup(type)) folder = group ? (type.folder || '').replace(/\{group\}/gi, `${groupsFolder}/${group}`) : fallback || '/';
+  if (here != null) folder = here || '/';
+  else if (typeUsesGroup(type)) folder = group ? (type.folder || '').replace(/\{group\}/gi, `${groupsFolder}/${group}`) : fallback || '/';
   else folder = type.folder || fallback || '/';
   folder = normalizePath(folder.replace(/^\/+|\/+$/g, '') || '/');
   const file = type.person && !name.startsWith('@') ? `@${name}` : name;
@@ -90,7 +92,15 @@ class CustomerNoteModal extends Modal {
     const customers = CATS.map((k) => [k, CAT_LABEL[k] || k]);
     const here = this.opts.folder || (file && file.parent ? file.parent.path : '');
     const guess = pathCustomer(`${here}/x.md`) || '';
-    const sel = field(groupWord()).createEl('select', { cls: 'dropdown' });
+    // fork: "Put it in this folder": the folder New note was opened from, instead of the group and type folders
+    const hereField = field('Folder');
+    const hereLabel = hereField.createEl('label', { cls: 'nt-here' });
+    const hereBox = hereLabel.createEl('input', { attr: { type: 'checkbox' } });
+    hereLabel.createSpan({ text: `Put it in ${here && here !== '/' ? here : 'the vault root'}` });
+    hereBox.checked = !!s.newNoteHere;
+    this.here = () => (hereBox.checked && !['project', 'inbox'].includes(this.kind.get()) ? here || '/' : null);
+    const groupField = field(groupWord());
+    const sel = groupField.createEl('select', { cls: 'dropdown' });
     for (const [k, l] of customers) sel.createEl('option', { value: k, text: l });
     sel.createEl('option', { value: '', text: `No ${groupWord(false, true)} (${s.noCustomerFolder || 'vault root'})` });
     sel.value = guess;
@@ -106,11 +116,18 @@ class CustomerNoteModal extends Modal {
       else if (kind === 'inbox') where.setText(`Creates an inbox note in ${inboxWhere(p)}, tagged and marked to deal with later.`);
       else {
         const type = this.types[Number(kind)] || this.types[0];
-        const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, sel.value ? label(sel.value) : '', safeName(name.value) || 'Untitled', s.noCustomerFolder);
+        const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, sel.value ? label(sel.value) : '', safeName(name.value) || 'Untitled', s.noCustomerFolder, this.here());
         where.setText(`Creates ${folder === '/' ? '' : folder + '/'}${fname}.md${(type.template || '').trim() ? ` from ${type.template.trim()}` : ''}`);
       }
       go.querySelector('.nd-btn-label').setText(kind === 'project' ? 'Continue' : 'Create');
+      hereField.toggle(kind !== 'project' && kind !== 'inbox');
+      groupField.toggle(this.here() == null);
     };
+    hereBox.addEventListener('change', () => {
+      s.newNoteHere = hereBox.checked;
+      p.saveSettings();
+      sync();
+    });
     sel.addEventListener('change', sync);
     name.addEventListener('input', sync);
     c.addEventListener('keydown', (e) => {
@@ -127,7 +144,10 @@ class CustomerNoteModal extends Modal {
     const p = this.plugin;
     const kind = this.kind.get();
     const title = safeName(nameRaw) || 'Untitled';
-    const customer = customerKey ? CAT_LABEL[customerKey] || customerKey : '';
+    const here = this.here();
+    // fork: in this folder, the group comes from the folder (if it is inside one), not the hidden dropdown
+    const key = here != null ? pathCustomer(`${here}/x.md`) || '' : customerKey;
+    const customer = key ? CAT_LABEL[key] || key : '';
     this.close();
     try {
       const { file } = this.opts;
@@ -137,7 +157,7 @@ class CustomerNoteModal extends Modal {
       }
       if (kind === 'inbox') return void (await openNewInbox(p, file, title));
       const type = this.types[Number(kind)] || this.types[0];
-      const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, customer, title, p.settings.noCustomerFolder);
+      const { folder, file: fname } = newNotePath(type, NEON_CATS.customersFolder, customer, title, p.settings.noCustomerFolder, here);
       const day = moment();
       const tpl = await p.templateText(type.template, fname, day);
       const body = tpl != null ? tpl : newNoteFrontmatter(type, fname, day.format('YYYY-MM-DD'), customer);

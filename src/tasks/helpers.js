@@ -19,6 +19,7 @@ const TASKS_DEFAULTS = {
   peopleFolder: 'People',
   researchFolder: 'Research',
   noCustomerFolder: '', // where notes without a customer go ('' = vault root)
+  newNoteHere: false, // fork: New note puts the note in the folder it was opened from (remembered)
   noteTemplate: '',
   meetingTemplate: '',
   personTemplate: '',

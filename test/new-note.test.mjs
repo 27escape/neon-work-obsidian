@@ -37,3 +37,12 @@ test('standard properties: person aliases, group, type tag', () => {
   );
   assert.equal(N.newNoteFrontmatter(T.note, 'Idea', '2026-11-13', ''), '---\ntitle: "Idea"\ncreated: 2026-11-13\nmodified: 2026-11-13\n---\n');
 });
+
+test('New note: "Put it in this folder" uses that folder, whatever the type says', () => {
+  const s = N.TASKS_DEFAULTS;
+  const T = Object.fromEntries(N.noteTypesFrom(s).map((t) => [t.name.toLowerCase(), t]));
+  assert.deepEqual(plain(N.newNotePath(T.meeting, '1.Customers', 'SYMCA', 'Kick-off', '', 'Work/Drafts')), { folder: 'Work/Drafts', file: 'Kick-off' });
+  assert.deepEqual(plain(N.newNotePath(T.person, '1.Customers', '', 'Andrew Rogers', '2.Resources', '/')), { folder: '/', file: '@Andrew Rogers' });
+  assert.deepEqual(plain(N.newNotePath(T.note, '1.Customers', '', 'Idea', '2.Resources', null)), { folder: '2.Resources', file: 'Idea' });
+  assert.equal(s.newNoteHere, false);
+});
