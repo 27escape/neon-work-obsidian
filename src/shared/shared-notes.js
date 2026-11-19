@@ -84,6 +84,24 @@ async function openNewNote(app, file) {
   }, 50);
   return leaf;
 }
+/**
+ * fork: show a note in a tab of its own, in front, with the focus: the tab already showing it if there is one
+ * (a report written again is not opened twice), else a new tab. Used for notes the plugin writes for you (reports).
+ */
+async function openInTab(app, file) {
+  const ws = app.workspace;
+  let leaf = null;
+  ws.iterateRootLeaves((l) => {
+    if (!leaf && l.view && l.view.file === file) leaf = l;
+  });
+  if (!leaf) {
+    leaf = ws.getLeaf('tab');
+    await leaf.openFile(file, { active: true });
+  }
+  ws.setActiveLeaf(leaf, { focus: true });
+  if (ws.revealLeaf) await ws.revealLeaf(leaf);
+  return leaf;
+}
 function openFile(app, file, evt, line) {
   const ws = app.workspace;
   let leaf;

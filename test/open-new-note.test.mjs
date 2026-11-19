@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 
-const { openNewNote } = load('neon-tasks', ['openNewNote']);
+const { openNewNote, openInTab } = load('neon-tasks', ['openNewNote', 'openInTab']);
 
 /** A workspace with one current tab; records what happens. */
 function workspace(cur) {
@@ -38,4 +38,31 @@ test('an empty tab is used for the new note', async () => {
   const w = workspace(cur);
   assert.equal(await openNewNote(w.app, 'C.md'), cur);
   assert.equal(w.log[0], 'current tab: C.md');
+});
+
+/** A workspace for openInTab: the root tabs, and what happens. */
+function tabs(open) {
+  const log = [];
+  const fresh = { view: {}, openFile: async (f, o) => log.push(`new tab: ${f}${o && o.active ? ' (active)' : ''}`) };
+  const ws = {
+    iterateRootLeaves: (cb) => open.forEach(cb),
+    getLeaf: (how) => (log.push(`getLeaf ${how}`), fresh),
+    setActiveLeaf: (leaf, o) => log.push(`active${o && o.focus ? ' + focus' : ''}`),
+    revealLeaf: async () => log.push('reveal'),
+  };
+  return { app: { workspace: ws }, log, fresh };
+}
+
+// bug: the Planning report opened in a tab behind the Planning view
+test('a report opens in a new tab, in front', async () => {
+  const w = tabs([{ view: { file: 'Other.md' } }]);
+  assert.equal(await openInTab(w.app, 'Report.md'), w.fresh);
+  assert.deepEqual(w.log, ['getLeaf tab', 'new tab: Report.md (active)', 'active + focus', 'reveal']);
+});
+
+test('a report already open in a tab is brought to the front, not opened twice', async () => {
+  const mine = { view: { file: 'Report.md' } };
+  const w = tabs([{ view: { file: 'Other.md' } }, mine]);
+  assert.equal(await openInTab(w.app, 'Report.md'), mine);
+  assert.deepEqual(w.log, ['active + focus', 'reveal']);
 });

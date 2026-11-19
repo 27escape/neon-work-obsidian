@@ -146,7 +146,7 @@ Object.assign(PlanView.prototype, {
       };
       if (svgText) await put(svgName, svgText);
       const note = await put(`${base}.md`, md);
-      if (note instanceof TFile) await this.app.workspace.getLeaf('tab').openFile(note);
+      if (note instanceof TFile) await openInTab(this.app, note); // its own tab, in front
       new Notice('Report saved. To print it: ⋯ menu (or the command palette) → Export to PDF.', 6000);
     } catch (e) {
       if (!(e && e.neonReadOnly)) {
