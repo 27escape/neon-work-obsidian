@@ -234,6 +234,8 @@ function planWorkdays(ymd, n = 0, cal = planCal()) {
   return d;
 }
 
+/** "1 working day" / "3 working days". */
+const planWorkingDays = (n) => `${n} working day${n === 1 ? '' : 's'}`;
 /** Working days from one date to a later one (0 when b is not after a). */
 function planWorkdaysBetween(a, b, cal = planCal()) {
   let n = 0;

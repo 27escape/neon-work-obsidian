@@ -49,7 +49,7 @@ function planWarnings(tasks, ends, today) {
   for (const t of tasks) {
     if (t.external || planClosed(t)) continue;
     const end = ends && ends.get(t);
-    if (end && t.due && end > t.due && !t.milestone) out.push({ task: t, text: `${name(t)}: planned to finish ${planShortDate(end)}, ${planWorkdaysBetween(t.due, end)} working days after its 📅 ${planShortDate(t.due)}` });
+    if (end && t.due && end > t.due && !t.milestone) out.push({ task: t, text: `${name(t)}: planned to finish ${planShortDate(end)}, ${planWorkingDays(planWorkdaysBetween(t.due, end))} after its 📅 ${planShortDate(t.due)}` });
     for (const d of t.deps) {
       const x = byId.get(d);
       if (x && t.due && x.due && t.due < x.due) out.push({ task: t, text: `${name(t)}: 📅 ${planShortDate(t.due)} is before ${name(x)}'s 📅 ${planShortDate(x.due)}, which it waits for` });

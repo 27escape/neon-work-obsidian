@@ -120,8 +120,8 @@ function planGanttText(tasks, { base = null, weeks = false, today = null, maxNam
     if (due) {
       const d = { id: `np${bars.length + 1}`, task: null, kind: late ? 'overdue' : 'done', crit: false, mark: null, start: due, end: due };
       bars.push(d);
-      lines.push(`  Due ${planShortDate(due)}${late ? ` (${late} working days late)` : ''} :milestone, ${d.id}, ${due}, 0d`);
-      drawn.push({ bar: d, label: `Due ${planShortDate(due)}${late ? ` (${late} working days late)` : ''}`, who: '', milestone: true, thin: false });
+      lines.push(`  Due ${planShortDate(due)}${late ? ` (${planWorkingDays(late)} late)` : ''} :milestone, ${d.id}, ${due}, 0d`);
+      drawn.push({ bar: d, label: `Due ${planShortDate(due)}${late ? ` (${planWorkingDays(late)} late)` : ''}`, who: '', milestone: true, thin: false });
     }
   }
   const kept = lines.filter((l, i) => !(l.startsWith('  section ') && (lines[i + 1] === undefined || lines[i + 1].startsWith('  section '))));

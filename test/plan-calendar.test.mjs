@@ -186,3 +186,12 @@ test('Holidays notes: the project folder, each folder above it, then the base fo
     '1.Customers/Acme/Projects/Holidays.md', '1.Customers/Acme/Holidays.md', '1.Customers/Holidays.md', 'Holidays.md', '2.Resources/Holidays.md',
   ]);
 });
+
+test('"1 working day", not "1 working days"', () => {
+  const W = load('neon-tickets', ['planWorkingDays', 'planTask', 'planWarnings']);
+  assert.equal(W.planWorkingDays(1), '1 working day');
+  assert.equal(W.planWorkingDays(3), '3 working days');
+  const t = W.planTask('- [ ] A 📅 2026-11-19 🆔 a #task');
+  const w = JSON.parse(JSON.stringify(W.planWarnings([t], new Map([[t, '2026-11-20']]), '2026-11-17')));
+  assert.ok(w.some((x) => x.text.includes('1 working day after its')), JSON.stringify(w));
+});
