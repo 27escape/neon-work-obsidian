@@ -135,6 +135,7 @@ Object.assign(NeonProjects.prototype, {
     let leaf = ws.getLeavesOfType(VIEW_PLAN).find((l) => l.view && l.view.plan && l.view.plan.path === scope.path);
     if (!leaf) leaf = ws.getLeaf('tab');
     await leaf.setViewState({ type: VIEW_PLAN, active: true, state: { kind: scope.kind, path: scope.path, mode } });
+    keepTab(this.app, leaf); // not a preview tab that the next note opened would take over
     ws.revealLeaf(leaf);
   },
 });

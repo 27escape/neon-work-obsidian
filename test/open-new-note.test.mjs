@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 
-const { openNewNote, openInTab, reusableLeaf } = load('neon-tasks', ['openNewNote', 'openInTab', 'reusableLeaf']);
+const { openNewNote, openInTab, reusableLeaf, keepTab } = load('neon-tasks', ['openNewNote', 'openInTab', 'reusableLeaf', 'keepTab']);
 
 /** A workspace with one current tab; records what happens. */
 function workspace(cur) {
@@ -57,7 +57,7 @@ function tabs(open) {
 test('a report opens in a new tab, in front', async () => {
   const w = tabs([{ view: { file: 'Other.md' } }]);
   assert.equal(await openInTab(w.app, 'Report.md'), w.fresh);
-  assert.deepEqual(w.log, ['getLeaf tab', 'new tab: Report.md (active)', 'active + focus', 'reveal']);
+  assert.deepEqual(w.log, ['getLeaf tab', 'new tab: Report.md (active)', 'active + focus', 'reveal']); // no Open Tab Settings: nothing else
 });
 
 test('a report already open in a tab is brought to the front, not opened twice', async () => {
@@ -79,4 +79,16 @@ test('a note opened from the sidebar never replaces the Planning tab', () => {
   assert.equal(reusableLeaf(ws(note, [plan, note]).app), note);
   const empty = leaf('empty', false, 5);
   assert.equal(reusableLeaf(ws(empty, [plan, empty]).app), empty);
+});
+
+// bug: with Open Tab Settings' Preview tabs on, the Planning tab started as a preview and the next note took it over
+test('tabs the plugin opens are kept, not left as Open Tab Settings preview tabs', () => {
+  const leaf = {};
+  const calls = [];
+  const app = { plugins: { getPlugin: (id) => (id === 'open-tab-settings' ? { setLeafIsPreview: (l, on) => calls.push([l, on]) } : null) } };
+  assert.equal(keepTab(app, leaf), true);
+  assert.deepEqual(calls, [[leaf, false]]);
+  assert.equal(keepTab({ plugins: { getPlugin: () => null } }, leaf), false); // without that plugin: nothing
+  assert.equal(keepTab({}, leaf), false);
+  assert.equal(keepTab(app, null), false);
 });

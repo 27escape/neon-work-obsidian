@@ -87,6 +87,22 @@ async function openNewNote(app, file) {
   return leaf;
 }
 /**
+ * fork: keep a tab the plugin opened for you. With "Preview tabs" on in the Open Tab Settings plugin, every new tab
+ * starts as a preview (italic title) that the next note opened takes over, VS Code style, until you type in it or
+ * double-click its tab. Planning and reports are tabs you work in, so they are made permanent at once. Nothing
+ * happens without that plugin.
+ */
+function keepTab(app, leaf) {
+  const ots = app && app.plugins && app.plugins.getPlugin && app.plugins.getPlugin('open-tab-settings');
+  if (!leaf || !ots || typeof ots.setLeafIsPreview !== 'function') return false;
+  try {
+    ots.setLeafIsPreview(leaf, false);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+/**
  * fork: show a note in a tab of its own, in front, with the focus: the tab already showing it if there is one
  * (a report written again is not opened twice), else a new tab. Used for notes the plugin writes for you (reports).
  */
@@ -100,6 +116,7 @@ async function openInTab(app, file) {
     leaf = ws.getLeaf('tab');
     await leaf.openFile(file, { active: true });
   }
+  keepTab(app, leaf);
   ws.setActiveLeaf(leaf, { focus: true });
   if (ws.revealLeaf) await ws.revealLeaf(leaf);
   return leaf;
