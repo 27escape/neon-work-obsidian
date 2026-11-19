@@ -250,6 +250,24 @@ function planDaysOff(from, to, cal = planCal()) {
   return out;
 }
 
+/**
+ * The days off as one line for a report (pure): days in a row with the same name become one range, "29 Dec – 31 Dec
+ * office closed"; days outside the working week between them don't break the run (a closure from Friday to Monday).
+ */
+function planDaysOffText(days, cal = planCal()) {
+  const runs = [];
+  const nextWorking = (d) => {
+    for (let n = 0; n < 14; n++) if (cal.work.has(planDow((d = planNextDay(d))))) return d;
+    return d;
+  };
+  for (const { date, name } of days) {
+    const last = runs[runs.length - 1];
+    if (last && last.name === name && nextWorking(last.to) === date) last.to = date;
+    else runs.push({ from: date, to: date, name });
+  }
+  return runs.map((r) => `${planShortDate(r.from)}${r.to !== r.from ? ` – ${planShortDate(r.to)}` : ''} ${r.name}`).join(', ');
+}
+
 /* ---- people's time off ---- */
 
 /** A person at the start of a list line: { key, name, rest } (rest: dates on the same line), or null. */

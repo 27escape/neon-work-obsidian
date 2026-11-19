@@ -195,3 +195,14 @@ test('"1 working day", not "1 working days"', () => {
   const w = JSON.parse(JSON.stringify(W.planWarnings([t], new Map([[t, '2026-11-20']]), '2026-11-17')));
   assert.ok(w.some((x) => x.text.includes('1 working day after its')), JSON.stringify(w));
 });
+
+test('report Holidays line: days in a row with the same name are one range', () => {
+  const T = load('neon-tickets', ['planCalendar', 'planDaysOff', 'planDaysOffText']);
+  const cal = T.planCalendar({ region: 'england-wales' });
+  cal.extra.set('2026-12-29', 'E2I closed').set('2026-12-30', 'E2I closed').set('2026-12-31', 'E2I closed');
+  const off = T.planDaysOff('2026-12-01', '2027-01-08', cal);
+  assert.equal(T.planDaysOffText(off, cal), '25 Dec Christmas Day, 28 Dec Boxing Day (substitute day), 29 Dec – 31 Dec E2I closed, 1 Jan New Year’s Day');
+  // a run over a weekend stays one range
+  const fri = [{ date: '2027-02-05', name: 'Office move' }, { date: '2027-02-08', name: 'Office move' }];
+  assert.equal(T.planDaysOffText(fri, cal), '5 Feb – 8 Feb Office move');
+});

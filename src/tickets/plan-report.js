@@ -108,7 +108,7 @@ Object.assign(PlanView.prototype, {
       load: this.loadLines(plan.sched, !!this.dated),
       // people and the plan's days off, from its first day to its forecast finish (real dates only)
       people: planReportPeople(own).map((p) => ({ ...p, off: this.dated ? planLeaveText(planLeaveFor(this.tasks.leave, p), planWorkdays(this.base, 0), this.dated.end || this.today) : '' })),
-      holidays: this.dated ? planDaysOff(planWorkdays(this.base, 0), this.dated.end || this.today).map((h) => `${planShortDate(h.date)} ${h.name}`).join(', ') : '',
+      holidays: this.dated ? planDaysOffText(planDaysOff(planWorkdays(this.base, 0), this.dated.end || this.today)) : '',
       details: noteText ? planReportDetails(noteText, { note: (this.scopeFile() || {}).basename || '', lastLine: own.filter((t) => t.file === this.scopeFile()).reduce((m, t) => (t.line > m ? t.line : m), -1), taskTags: NEON_PLAN.taskTag }) : '',
     };
   },
