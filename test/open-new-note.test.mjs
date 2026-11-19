@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 
-const { openNewNote, openInTab } = load('neon-tasks', ['openNewNote', 'openInTab']);
+const { openNewNote, openInTab, reusableLeaf } = load('neon-tasks', ['openNewNote', 'openInTab', 'reusableLeaf']);
 
 /** A workspace with one current tab; records what happens. */
 function workspace(cur) {
@@ -65,4 +65,18 @@ test('a report already open in a tab is brought to the front, not opened twice',
   const w = tabs([{ view: { file: 'Other.md' } }, mine]);
   assert.equal(await openInTab(w.app, 'Report.md'), mine);
   assert.deepEqual(w.log, ['active + focus', 'reveal']);
+});
+
+// bug: with the Planning tab in front, a note opened from the sidebar replaced it (with a Back button)
+test('a note opened from the sidebar never replaces the Planning tab', () => {
+  const leaf = (type, nav, activeTime, pinned = false) => ({ pinned, activeTime, view: { navigation: nav, getViewType: () => type } });
+  const plan = leaf('neon-plan', false, 30);
+  const note = leaf('markdown', true, 20);
+  const dash = leaf('neon-deck-dashboard', true, 10, true);
+  const ws = (recent, all) => ({ app: { workspace: { getMostRecentLeaf: () => recent, iterateRootLeaves: (cb) => all.forEach(cb), getLeaf: () => 'new tab' } } });
+  assert.equal(reusableLeaf(ws(plan, [plan, note, dash]).app), note); // the note's tab takes its turn
+  assert.equal(reusableLeaf(ws(plan, [plan, dash]).app), 'new tab'); // nothing else to use: a new tab
+  assert.equal(reusableLeaf(ws(note, [plan, note]).app), note);
+  const empty = leaf('empty', false, 5);
+  assert.equal(reusableLeaf(ws(empty, [plan, empty]).app), empty);
 });

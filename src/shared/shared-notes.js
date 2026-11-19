@@ -28,15 +28,17 @@ async function createUnique(app, folder, name, content = '') {
 /**
  * The main pane: the most recently used tab in the main area, Neon views included, so the
  * dashboard, the other Neon views and notes all take turns in one pane (Back / Forward work).
- * Never a pinned tab.
+ * Never a pinned tab, and never a tab whose view isn't for navigating (View.navigation false, Obsidian's default:
+ * Planning, which opens in a tab of its own): a note opened from the sidebar then gets the next tab, or a new one.
  */
+const leafReusable = (l) => !!l && !l.pinned && (!l.view || l.view.navigation !== false || l.view.getViewType() === 'empty');
 function reusableLeaf(app) {
   const ws = app.workspace;
   const recent = ws.getMostRecentLeaf(ws.rootSplit);
-  if (recent && !recent.pinned) return recent;
+  if (leafReusable(recent)) return recent;
   const cands = [];
   ws.iterateRootLeaves((l) => {
-    if (!l.pinned) cands.push(l);
+    if (leafReusable(l)) cands.push(l);
   });
   cands.sort((a, b) => (b.activeTime || 0) - (a.activeTime || 0));
   return cands[0] || ws.getLeaf('tab');
