@@ -4,7 +4,7 @@ A command centre for an Obsidian vault: a dashboard, projects, tasks, time track
 By Kevin Mulholland, built on [Neon Deck](https://github.com/Yobzs/neon-deck-obsidian) by Yobzs.
 
 > [!NOTE]
-> **1.5.5:** the quick capture panel in your theme's colours, with Obsidian's menu and several lines of text; folders starting with `_` (such as `_claude`) are left out like excluded folders. See [the release notes](docs/release-notes/1.5.5.md).
+> **1.5.5:** the quick capture panel in your theme's colours, with Obsidian's menu and several lines of text; inbox notes named by the time with what you typed inside, listed by their first line; New note can put a note in the folder you are in; Planning's report comes **concise or full**; folders starting with `_` (such as `_claude`) are left out like excluded folders. See [the release notes](docs/release-notes/1.5.5.md).
 >
 > **1.5.4:** links from your notes to the plugin's tabs (`obsidian://neon-work?open=projects`), and page previews when hovering a note in its lists. See [the release notes](docs/release-notes/1.5.4.md).
 >
@@ -32,7 +32,7 @@ The plugin has six parts (Planning is part of Projects). Each can be switched of
 
 ### Dashboard
 
-- **Cards** on one page: Totals, Vault pulse, Recently done, Activity (a month calendar, and this week with two weeks either side), Tasks, Todo, Projects, Time today and the **Claude card** (notes whose `claude` property asks for Claude's work, and notes Claude changed for you to review).
+- **Cards** on one page: Totals, Vault pulse, Recently done, Activity (a month calendar, and this week with two weeks either side), **Inbox** (open inbox notes, by first line, with an Add box), Tasks, Todo, Projects, Time today and the **Claude card** (notes whose `claude` property asks for Claude's work, and notes Claude changed for you to review).
 - **Recently done:** the last 14 days of finished work, read from your notes: tasks ticked with a ✅ date (in the editor, the Tasks plugin or these cards) and projects with a `completed` or `cancelled` date. Works in read-only mode.
 - **Ticker and pin board:** a live line of facts at the top that opens into a pin board. Drop a note, a file or some text on it to pin it; pins live in one note, one line each.
 - **Quick capture:** type a thought and send it to an **Inbox note** (a new note in your inbox folder named by the time, `20261119_093015`, holding what you typed, below your inbox template if you have one), the **Todo** note, a new **Project**, a **Time entry** or the pin board. Enter sends; Shift+Enter starts a new line (on the pin board, each line becomes a pin). The **Inbox card**'s Add box works the same way, and the card lists each inbox note by its first line (or its `title`), as much as fits.
