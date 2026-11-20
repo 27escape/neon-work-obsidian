@@ -17,10 +17,19 @@ function inboxPlain(line) {
 }
 /** The first line of some text with something in it, plain (pure). */
 const inboxHeadline = (text) => inboxPlain(String(text || '').split('\n').find((l) => inboxPlain(l)) || '');
+/** A new inbox note's title: the first line, at most 40 characters, cut at a word where it can be, with … (pure). */
+function inboxTitle(text, max = 40) {
+  const line = inboxHeadline(text);
+  if (line.length <= max) return line;
+  const cut = line.slice(0, max - 1);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > max / 2 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}
 /** What the Inbox card shows for a note: its title property, else the first line of its text (after the
  *  properties), else its file name (pure). */
 function inboxLabel(content, title, basename) {
-  if (title != null && typeof title !== 'object' && String(title).trim()) return String(title).trim();
+  // a title that is just the file name (the Linter's YAML title rule writes one) says nothing: use the text
+  if (title != null && typeof title !== 'object' && String(title).trim() && String(title).trim() !== basename) return String(title).trim();
   const body = String(content || '').replace(/^---\r?\n[\s\S]*?\r?\n---[^\n]*(\n|$)/, '');
   return inboxHeadline(body) || basename;
 }
@@ -90,8 +99,8 @@ Object.assign(NeonDeck.prototype, {
         if (status) r.createSpan({ cls: 'nd-inbox-status', text: status });
         r.createSpan({ cls: 'nd-inbox-when', text: shortAgoDeck(file.stat.ctime) });
         tip(r, file.path);
-        // no title: the note's first line, as much as fits (the whole line on hover)
-        if (title == null || typeof title === 'object' || !String(title).trim())
+        // no title (or only the file name): the note's first line, as much as fits (the whole line on hover)
+        if (inboxLabel('', title, file.basename) === file.basename)
           this.app.vault.cachedRead(file).then((text) => {
             const label = inboxLabel(text, null, file.basename);
             name.setText(label);
@@ -118,7 +127,7 @@ Object.assign(NeonDeck.prototype, {
       grow();
       try {
         const f = await this.createInboxNote('', v);
-        new Notice(`✦ Added ${inboxHeadline(v) || f.basename} to the inbox`);
+        new Notice(`✦ Added ${inboxTitle(v) || f.basename} to the inbox`);
       } catch (err) {
         if (!(err && err.neonReadOnly)) {
           console.error(`${appName()} – Dashboard: inbox`, err);
@@ -159,7 +168,7 @@ Object.assign(NeonDeck.prototype, {
     const now = moment();
     text = String(text || '').trim();
     name = safeName(name);
-    const title = name || inboxHeadline(text) || inboxName(now);
+    const title = name || inboxTitle(text) || inboxName(now);
     name = name || inboxName(now);
     let body = null;
     if (s.inboxTemplate) {

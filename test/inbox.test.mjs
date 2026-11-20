@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from './load.mjs';
 
-const I = load('neon-deck', ['inboxName', 'inboxHeadline', 'inboxLabel', 'inboxBody', 'inboxProps', 'applyTemplate']);
+const I = load('neon-deck', ['inboxName', 'inboxHeadline', 'inboxTitle', 'inboxLabel', 'inboxBody', 'inboxProps', 'applyTemplate']);
 const now = { format: (f) => (f === 'YYYYMMDD_HHmmss' ? '20261113_101503' : '2026-11-13') };
 
 test('inbox note name: the time it was captured; the text goes in the note', () => {
@@ -19,6 +19,17 @@ test('Inbox card label: title property, else the first line after the properties
   assert.equal(I.inboxLabel(note, null, '20261113_101503'), 'Ideas for the pilot');
   assert.equal(I.inboxLabel('---\nstatus: waiting\n---\n', '', '20261113_101503'), '20261113_101503');
   assert.equal(I.inboxLabel('Just a line', undefined, 'x'), 'Just a line');
+  // bug: the Linter's YAML title rule set title to the file name, and the card then showed 20261119_123434
+  assert.equal(I.inboxLabel(note, '20261113_101503', '20261113_101503'), 'Ideas for the pilot');
+});
+
+test('inbox note title: the first line, at most 40 characters', () => {
+  assert.equal(I.inboxTitle('Short idea\nmore'), 'Short idea');
+  const t = I.inboxTitle('in the customer portal example, if the threat has been mitigated surely status should be closed?');
+  assert.equal(t, 'in the customer portal example, if the…');
+  assert.ok(t.length <= 40);
+  assert.equal(I.inboxTitle('x'.repeat(60)), 'x'.repeat(39) + '…'); // no space: cut at 39 + …
+  assert.equal(I.inboxTitle('   '), '');
 });
 
 test('inbox body and Templater basics', () => {
