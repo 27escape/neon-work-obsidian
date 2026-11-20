@@ -1,5 +1,7 @@
 /* ---- Project plans (fork): the printable Report note ------------------------------------------------------------------
- * Report (Planning view) writes a snapshot of the plan into the reports folder (setting; empty: <base folder>/Reports):
+ * Report (Planning view) writes a snapshot of the plan into the reports folder (setting; empty: <base folder>/Reports),
+ * or next to the project when that is chosen (plan-report-folder.js), keeping its customer and chosen properties
+ * (plan-report-props.js):
  * a summary first (forecast, the Gantt chart as an SVG file the note embeds in the plan's colours, phases, people, what
  * needs attention, risks / issues / decisions, workload), then the detail: the project note itself up to the end of
  * the plan (plan-report-details.js), or the whole note with Report: full (named "… (full)"). Print it with
@@ -16,7 +18,7 @@ const planCell = (s) => String(s == null ? '' : s).replace(/\|/g, '\\|').replace
 function planReportText(r) {
   const L = [];
   const d = (x) => (x ? planShortDate(x) : '');
-  L.push('---', `title: "Plan report: ${r.title.replace(/"/g, "'")}"`, `created: ${r.today}`, 'tags:', '  - plan-report', `project: "[[${r.note}]]"`, '---', '');
+  L.push('---', `title: "Plan report: ${r.title.replace(/"/g, "'")}"`, `created: ${r.today}`, 'tags:', '  - plan-report', `project: "[[${r.note}]]"`, ...(r.props || []), '---', ''); // fork: props: the customer and copied properties (plan-report-props.js)
   L.push(`# Plan report: ${r.title}`, '');
   L.push(`Snapshot report generated on ${d(r.today)}`, '');
   L.push('## Summary', '');
@@ -95,6 +97,7 @@ Object.assign(PlanView.prototype, {
     const crit = plan.sched.rows.filter((r) => r.crit && !r.task.external && !planClosed(r.task)).map((r) => ({ id: r.task.id, text: planText(r.task.raw), start: (bars.get(r.task) || {}).start, end: (bars.get(r.task) || {}).end }));
     return {
       title: planScopeTitle(this.plan),
+      props: this.reportProps(),
       note: (this.scopeFile() || { basename: planScopeTitle(this.plan) }).basename,
       today,
       summary: planSummaryText(planCounts(this.tasks, today)) + (planMarkText(this.tasks) ? ` · ${planMarkText(this.tasks)}` : ''),
@@ -139,7 +142,7 @@ Object.assign(PlanView.prototype, {
   /** Write the report note and its chart into the reports folder, then open it. full: the whole project note. */
   async writeReport(full = false) {
     planUseCalendar(this.tasks);
-    const folder = locPath(this.plugin.settings.planReportsFolder, 'Reports');
+    const folder = this.reportFolder(); // the reports folder, or next to the project (plan-report-folder.js)
     const base = `${safeName(planScopeTitle(this.plan))} – plan ${this.today}`;
     const svgName = `${base}.svg`; // the same chart for both
     const mdName = `${base}${full ? ' (full)' : ''}.md`;

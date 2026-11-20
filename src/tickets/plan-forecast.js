@@ -70,7 +70,7 @@ Object.assign(PlanView.prototype, {
     tip(this.phasesOnlyEl.el, 'One bar per phase, or every task');
     // fork: Undo for the last change made by dragging on the Gantt
     this.undoBtn = button(tools, { icon: 'undo-2', text: 'Undo', cls: 'np-undo-btn is-hidden', title: 'Undo the last change made on the chart', onClick: () => this.undoChange() });
-    this.reportBtn = button(tools, { icon: 'file-output', text: 'Report ▾', cls: 'np-report-btn', title: 'Save a printable report of this plan (a note with the chart) in the reports folder: concise, or full with the whole project note', onClick: (e) => this.reportMenu(e) });
+    this.reportBtn = button(tools, { icon: 'file-output', text: 'Report ▾', cls: 'np-report-btn', title: 'Save a printable report of this plan (a note with the chart) in the reports folder or next to the project (a setting): concise, or full with the whole project note', onClick: (e) => this.reportMenu(e) });
     this.datesBtn = button(tools, { icon: 'calendar-check', text: 'Write dates…', cls: 'np-dates-btn', title: 'Record today’s planned dates in the tasks as 🛫 start and 📅 due, choosing which (a snapshot: they don’t follow the plan afterwards)', onClick: () => new PlanDatesModal(this.app, this).open() });
   },
   syncForecastTools() {

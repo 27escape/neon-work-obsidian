@@ -51,9 +51,21 @@ class NeonProjectsSettingTab extends PluginSettingTab {
       .addText((t) => suggestPaths(p.app, t.setPlaceholder('templates/project_template.md').setValue(s.projectTemplate).onChange((v) => ((s.projectTemplate = v.trim()), save())), 'file'));
 
     new Setting(containerEl)
+      .setName('Save Planning reports')
+      .setDesc('Where Report (in the Planning view) saves a plan’s report note and its chart: all in one reports folder, or next to each project, so a customer’s reports stay in its folder (beside a project note, or inside a project folder).')
+      .addDropdown((d) => d.addOption('folder', 'In the reports folder').addOption('project', 'Next to the project').setValue(s.planReportsWhere === 'project' ? 'project' : 'folder').onChange((v) => ((s.planReportsWhere = v), save())));
+    new Setting(containerEl)
       .setName('Planning reports folder')
-      .setDesc(`Where Report (in the Planning view) saves a plan's report note and its chart. Empty: ${basePath('Reports')} (in the base folder).`)
+      .setDesc(`The reports folder, also used when a project has no suitable folder of its own (a note at the vault root, or directly in the Project folders). Empty: ${basePath('Reports')} (in the base folder).`)
       .addText((t) => suggestPaths(p.app, t.setPlaceholder(basePath('Reports')).setValue(s.planReportsFolder || '').onChange((v) => ((s.planReportsFolder = v.trim() ? normalizePath(v.trim()) : ''), save())), 'folder'));
+    new Setting(containerEl)
+      .setName('Reports folder next to a project')
+      .setDesc('With reports saved next to the project: the name of the folder made beside the project note (or inside the project folder).')
+      .addText((t) => t.setPlaceholder('Reports').setValue(s.planReportsSubfolder || 'Reports').onChange((v) => ((s.planReportsSubfolder = planReportSubName(v)), save())));
+    new Setting(containerEl)
+      .setName('Copy into reports')
+      .setDesc('Comma-separated properties of the project note that its reports keep, as they are, e.g. cssclasses. Reports always keep the project’s group (its customer or Area property, else the one from its folder). Never copied: tags, aliases, status, started, due, completed and cancelled, so a report never counts as a project or shows out-of-date dates.')
+      .addText((t) => t.setPlaceholder('cssclasses').setValue(s.planReportProps == null ? 'cssclasses' : s.planReportProps).onChange((v) => ((s.planReportProps = v.trim()), save())));
     // Planning's working days (plan-calendar.js): open plans are redrawn when one changes
     const plans = () => (proj(), p.app.workspace.getLeavesOfType(VIEW_PLAN).forEach((l) => l.view && l.view.refresh && l.view.refresh()));
     new Setting(containerEl)

@@ -18,6 +18,9 @@ const PROJECT_BUCKETS = [
 ];
 const PROJECTS_DEFAULTS = {
   planReportsFolder: '', // fork: where Planning reports go ('' = <base folder>/Reports)
+  planReportsWhere: 'folder', // fork: 'folder' = all in the reports folder; 'project' = next to each project (plan-report-folder.js)
+  planReportsSubfolder: 'Reports', // fork: the folder name used next to a project
+  planReportProps: 'cssclasses', // fork: project properties copied into its reports (plan-report-props.js), besides the group
   planHolidayName: 'Holidays',
   planMe: '', // fork: you, as in a task's owners ([[@Kevin Mulholland]]): your own time off is striped in the calendar // fork: the name of the Holidays notes Planning looks for (plan-calendar.js)
   planMarks: true, // fork: underline plan problems (unknown ids, ids used twice, loops) in project notes
